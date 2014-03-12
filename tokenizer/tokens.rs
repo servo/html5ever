@@ -33,6 +33,7 @@ impl Attributes {
     }
 }
 
+#[deriving(Eq)]
 pub enum TagKind {
     StartTag,
     EndTag,
