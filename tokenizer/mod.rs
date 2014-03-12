@@ -120,63 +120,41 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 }
 
-// A little DSL for common state machine behaviors.
+// Shorthand for common state machine behaviors.
+macro_rules! shorthand (
+    ( to          $state:ident         ) => ( self.state = states::$state; );
+    ( emit        $c:expr              ) => ( self.emit_char($c);          );
+    ( create_tag  $kind:expr   $c:expr ) => ( self.create_tag($kind, $c);  );
+    ( append_tag  $c:expr              ) => ( self.append_to_tag_name($c); );
+    ( emit_tag                         ) => ( self.emit_current_tag();     );
+    ( append_temp $c:expr              ) => ( self.temp_buf.push_char($c); );
+    ( emit_temp                        ) => ( self.emit_temp_buf();        );
+
+    // FIXME: don't allocate if already empty
+    ( clear_temp                       ) => ( self.temp_buf = ~"";         );
+
+    // NB: Deliberate capture of 'c'
+    ( error                            ) => ( self.parse_error(c);         );
+)
+
+// A little DSL for sequencing shorthand actions.
 macro_rules! go (
-    ( to $state:ident $($rest:tt)* ) => ({
-        self.state = states::$state;
-        go!($($rest)*);
-    });
+    // A pattern like $($cmd:tt)* ; $($rest:tt)* causes parse ambiguity.
+    // We have to tell the parser how much lookahead we need.
+    ( $a:tt             ; $($rest:tt)* ) => ({ shorthand!($a);       go!($($rest)*); });
+    ( $a:tt $b:tt       ; $($rest:tt)* ) => ({ shorthand!($a $b);    go!($($rest)*); });
+    ( $a:tt $b:tt $c:tt ; $($rest:tt)* ) => ({ shorthand!($a $b $c); go!($($rest)*); });
 
-    ( emit $c:expr $($rest:tt)* ) => ({
-        self.emit_char($c);
-        go!($($rest)*);
-    });
+    // These can only come at the end.
+    // FIXME: Come up with a better name for 'finish'.
+    ( reconsume ) => ( return Reconsume; );
+    ( finish    ) => ( return Finished;  );
 
-    ( error $($rest:tt)* ) => ({
-        self.parse_error(c); // CAPTURE
-        go!($($rest)*);
-    });
+    // If nothing else matched, it's a single command
+    ( $($cmd:tt)+ ) => ( shorthand!($($cmd)+); );
 
-    ( create_tag $kind:expr $c:expr $($rest:tt)* ) => ({
-        self.create_tag($kind, $c);
-        go!($($rest)*);
-    });
-
-    ( append_tag $c:expr $($rest:tt)* ) => ({
-        self.append_to_tag_name($c);
-        go!($($rest)*);
-    });
-
-    ( emit_tag $($rest:tt)* ) => ({
-        self.emit_current_tag();
-        go!($($rest)*);
-    });
-
-    ( clear_temp $($rest:tt)* ) => ({
-        self.temp_buf = ~""; // FIXME: don't allocate if already empty
-        go!($($rest)*);
-    });
-
-    ( append_temp $c:expr $($rest:tt)* ) => ({
-        self.temp_buf.push_char($c);
-        go!($($rest)*);
-    });
-
-    ( emit_temp $($rest:tt)* ) => ({
-        self.emit_temp_buf();
-        go!($($rest)*);
-    });
-
-    ( reconsume ) => ({
-        return Reconsume;
-    });
-
-    // FIXME: better name
-    ( finish ) => ({
-        return Finished;
-    });
-
-    () => ({});
+    // or nothing.
+    () => (());
 )
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
@@ -188,49 +166,49 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::Data => match c {
                 '&'  => go!(to CharacterReferenceInData),
                 '<'  => go!(to TagOpen),
-                '\0' => go!(error emit '\0'),
+                '\0' => go!(error; emit '\0'),
                 _    => go!(emit c),
             },
 
             states::Rcdata => match c {
                 '&'  => go!(to CharacterReferenceInRcdata),
                 '<'  => go!(to RcdataLessThanSign),
-                '\0' => go!(error emit '\ufffd'),
+                '\0' => go!(error; emit '\ufffd'),
                 _    => go!(emit c),
             },
 
             states::Rawtext => match c {
                 '<'  => go!(to RawtextLessThanSign),
-                '\0' => go!(error emit '\ufffd'),
+                '\0' => go!(error; emit '\ufffd'),
                 _    => go!(emit c),
             },
 
             states::ScriptData => match c {
                 '<'  => go!(to ScriptDataLessThanSign),
-                '\0' => go!(error emit '\ufffd'),
+                '\0' => go!(error; emit '\ufffd'),
                 _    => go!(emit c),
             },
 
             states::Plaintext => match c {
-                '\0' => go!(error emit '\ufffd'),
+                '\0' => go!(error; emit '\ufffd'),
                 _    => go!(emit c),
             },
 
             states::TagOpen => match c {
                 '!' => go!(to MarkupDeclarationOpen),
                 '/' => go!(to EndTagOpen),
-                '?' => go!(error to BogusComment),
+                '?' => go!(error; to BogusComment),
                 _ => match ascii_letter(c) {
-                    Some(cl) => go!(create_tag StartTag cl to TagName),
-                    None     => go!(error emit '<' to Data reconsume)
+                    Some(cl) => go!(create_tag StartTag cl; to TagName),
+                    None     => go!(error; emit '<'; to Data; reconsume),
                 }
             },
 
             states::EndTagOpen => match c {
-                '>' => go!(error to Data),
+                '>' => go!(error; to Data),
                 _ => match ascii_letter(c) {
-                    Some(cl) => go!(create_tag EndTag cl to TagName),
-                    None     => go!(error to BogusComment),
+                    Some(cl) => go!(create_tag EndTag cl; to TagName),
+                    None     => go!(error; to BogusComment),
                 }
             },
 
@@ -238,46 +216,46 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(emit_tag to Data),
-                '\0' => go!(error append_tag '\ufffd'),
+                '>'  => go!(emit_tag; to Data),
+                '\0' => go!(error; append_tag '\ufffd'),
                 _    => go!(append_tag (ascii_letter(c).unwrap_or(c))),
             },
 
             states::RcdataLessThanSign => match c {
-                '/' => go!(clear_temp to RcdataEndTagOpen),
-                _   => go!(to Rcdata emit '<' reconsume),
+                '/' => go!(clear_temp; to RcdataEndTagOpen),
+                _   => go!(to Rcdata; emit '<'; reconsume),
             },
 
             states::RcdataEndTagOpen => match ascii_letter(c) {
-                Some(cl) => go!(create_tag EndTag cl append_temp c to RcdataEndTagName),
-                None     => go!(to Rcdata emit '<' emit '/' reconsume)
+                Some(cl) => go!(create_tag EndTag cl; append_temp c; to RcdataEndTagName),
+                None     => go!(to Rcdata; emit '<'; emit '/'; reconsume),
             },
 
             states::RcdataEndTagName => {
                 if self.have_appropriate_end_tag() {
                     match c {
                         '\t' | '\n' | '\x0C' | ' '
-                            => go!(to BeforeAttributeName finish),
-                        '/' => go!(to SelfClosingStartTag finish),
-                        '>' => go!(emit_tag to Data finish),
+                            => go!(to BeforeAttributeName; finish),
+                        '/' => go!(to SelfClosingStartTag; finish),
+                        '>' => go!(emit_tag; to Data; finish),
                         _ => (),
                     }
                 }
 
                 match ascii_letter(c) {
-                    Some(cl) => go!(append_tag cl append_temp c),
-                    None     => go!(emit '<' emit '/' emit_temp to Rcdata reconsume),
+                    Some(cl) => go!(append_tag cl; append_temp c),
+                    None     => go!(emit '<'; emit '/'; emit_temp; to Rcdata; reconsume),
                 }
             },
 
             states::RawtextLessThanSign => match c {
-                '/' => go!(clear_temp to RawtextEndTagOpen),
-                _   => go!(to Rawtext emit '<' reconsume),
+                '/' => go!(clear_temp; to RawtextEndTagOpen),
+                _   => go!(to Rawtext; emit '<'; reconsume),
             },
 
             states::RawtextEndTagOpen => match ascii_letter(c) {
-                Some(cl) => go!(create_tag EndTag cl append_temp c to RawtextEndTagName),
-                None     => go!(to Rawtext emit '<' emit '/' reconsume),
+                Some(cl) => go!(create_tag EndTag cl; append_temp c; to RawtextEndTagName),
+                None     => go!(to Rawtext; emit '<'; emit '/'; reconsume),
             },
 
             s => fail!("FIXME: state {:?} not implemented", s),
