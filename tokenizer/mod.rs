@@ -62,18 +62,20 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     fail!("FIXME: state {:?} not implemented", self.state);
                 }
 
-                _ => {
-                    match it.next() {
-                        None => return,
-                        Some(c) => {
-                            while self.process_char(c) == Reconsume {
-                                // reconsume
-                            }
+                _ => match it.next() {
+                    None => return,
+                    Some(c) => {
+                        while self.process_char(c) == Reconsume {
+                            // reconsume
                         }
                     }
                 }
             }
         }
+    }
+
+    fn parse_error(&self, c: char) {
+        error!("Parse error: saw {:?} in state {:?}", c, self.state);
     }
 
     fn emit_char(&mut self, c: char) {
@@ -131,7 +133,7 @@ macro_rules! go (
     });
 
     ( error $($rest:tt)* ) => ({
-        error!("Parse error: saw {:?} in state {:?}", c, self.state)
+        self.parse_error(c); // CAPTURE
         go!($($rest)*);
     });
 
@@ -227,11 +229,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::EndTagOpen => match c {
                 '>' => go!(error to Data),
                 _ => match ascii_letter(c) {
-                    Some(cl) => {
-                        self.create_tag(EndTag, cl);
-                        go!(to TagName);
-                    }
-                    None => go!(error to BogusComment)
+                    Some(cl) => go!(create_tag EndTag cl to TagName),
+                    None     => go!(error to BogusComment),
                 }
             },
 
