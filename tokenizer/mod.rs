@@ -1,8 +1,6 @@
 pub use self::tokens::{Doctype, Attributes, TagKind, StartTag, EndTag, Tag, Token};
 pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
 
-use std::util::replace;
-
 mod tokens;
 mod states;
 
@@ -78,7 +76,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         error!("Parse error: saw {:?} in state {:?}", c, self.state);
     }
 
-    fn emit_char(&mut self, c: char) {
+    fn emit_char(&self, c: char) {
         self.sink.process_token(CharacterToken(c));
     }
 
@@ -92,12 +90,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_temp_buf(&mut self) {
-        let buf = replace(&mut self.temp_buf, ~""); // FIXME
-
-        // FIXME: add a multiple-character token
-        for c in buf.chars() {
+        // FIXME: Add a multi-character token and move temp_buf into it, something like
+        //     self.sink.process_token(StringToken(
+        //         replace(&mut self.temp_buf, ~"")))
+        //
+        // Need to make sure that clearing on emit is spec-compatible.
+        //
+        // Until then we reuse the same buffer allocation forever.
+        for c in self.temp_buf.chars() {
             self.emit_char(c);
         }
+    }
+
+    fn clear_temp_buf(&mut self) {
+        // Do this without a new allocation.
+        self.temp_buf.truncate(0);
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -129,9 +136,7 @@ macro_rules! shorthand (
     ( emit_tag                         ) => ( self.emit_current_tag();     );
     ( append_temp $c:expr              ) => ( self.temp_buf.push_char($c); );
     ( emit_temp                        ) => ( self.emit_temp_buf();        );
-
-    // FIXME: don't allocate if already empty
-    ( clear_temp                       ) => ( self.temp_buf = ~"";         );
+    ( clear_temp                       ) => ( self.clear_temp_buf();       );
 
     // NB: Deliberate capture of 'c'
     ( error                            ) => ( self.parse_error(c);         );
