@@ -1,3 +1,5 @@
+#[feature(macro_rules)];
+
 pub mod tokenizer;
 
 struct TokenPrinter;

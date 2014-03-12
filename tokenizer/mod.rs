@@ -8,7 +8,7 @@ pub trait TokenSink {
     fn process_token(&mut self, token: Token);
 }
 
-fn letter_to_ascii_lowercase(c: char) -> Option<char> {
+fn ascii_letter(c: char) -> Option<char> {
     c.to_ascii_opt()
         .filtered(|a| a.is_alpha())
         .map(|a| a.to_lower().to_char())
@@ -80,79 +80,84 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn append_to_tag_name(&mut self, c: char) {
         self.current_tag.get_mut_ref().name.push_char(c);
     }
+}
 
+// A little DSL for common state machine behaviors.
+macro_rules! go (
+    ( to $state:ident $($rest:tt)* ) => ({
+        self.state = states::$state;
+        go!($($rest)*);
+    });
+
+    ( emit $c:expr $($rest:tt)* ) => ({
+        self.emit(CharacterToken($c));
+        go!($($rest)*);
+    });
+
+    ( error $($rest:tt)* ) => ({
+        error!("Parse error: saw {:?} in state {:?}", c, self.state)
+        go!($($rest)*);
+    });
+
+    ( create_tag $kind:expr $c:expr $($rest:tt)* ) => ({
+        self.create_tag($kind, $c);
+        go!($($rest)*);
+    });
+
+    ( reconsume ) => ({
+        return Reconsume;
+    });
+
+    () => ({});
+)
+
+impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // FIXME: explicitly represent the EOF character?
     // For now the plan is to handle EOF in a separate match.
     fn process_char(&mut self, c: char) -> ConsumeCharResult {
-        let parse_error = || {
-            error!("Parse error: saw {:?} in state {:?}", c, self.state);
-        };
-
         debug!("Processing {:?} in state {:?}", c, self.state);
         match self.state {
             states::Data => match c {
-                '&' => { self.state = states::CharacterReferenceInData; }
-                '<' => { self.state = states::TagOpen; }
-                '\0' => {
-                    parse_error();
-                    self.emit(CharacterToken('\0'));
-                }
-                _ => { self.emit(CharacterToken(c)); }
+                '&'  => go!(to CharacterReferenceInData),
+                '<'  => go!(to TagOpen),
+                '\0' => go!(error emit '\0'),
+                _    => go!(emit c),
             },
 
             states::TagOpen => match c {
-                '!' => { self.state = states::MarkupDeclarationOpen; }
-                '/' => { self.state = states::EndTagOpen; }
-                '?' => {
-                    parse_error();
-                    self.state = states::BogusComment;
-                }
-                _ => match letter_to_ascii_lowercase(c) {
-                    Some(cl) => {
-                        self.create_tag(StartTag, cl);
-                        self.state = states::TagName;
-                    }
-                    None => {
-                        parse_error();
-                        self.emit(CharacterToken('<'));
-                        self.state = states::Data;
-                        return Reconsume;
-                    }
+                '!' => go!(to MarkupDeclarationOpen),
+                '/' => go!(to EndTagOpen),
+                '?' => go!(error to BogusComment),
+                _ => match ascii_letter(c) {
+                    Some(cl) => go!(create_tag StartTag cl to TagName),
+                    None     => go!(error emit '<' to Data reconsume)
                 }
             },
 
             states::TagName => match c {
-                '\t' | '\n' | '\x0C' | ' ' => { self.state = states::BeforeAttributeName; }
-                '/' => { self.state = states::SelfClosingStartTag; }
+                '\t' | '\n' | '\x0C' | ' ' => go!(to BeforeAttributeName),
+                '/' => go!(to SelfClosingStartTag),
                 '>' => {
                     let tok = self.current_tag.take().unwrap();
                     self.emit(TagToken(tok));
-                    self.state = states::Data;
+                    go!(to Data);
                 }
                 '\0' => {
-                    parse_error();
+                    go!(error);
                     self.append_to_tag_name('\ufffd');
                 }
-                _ => match letter_to_ascii_lowercase(c) {
-                    Some(cl) => { self.append_to_tag_name(cl); }
-                    None     => { self.append_to_tag_name(c);  }
-                }
+                _ => self.append_to_tag_name(
+                    ascii_letter(c).unwrap_or(c))
             },
 
             states::EndTagOpen => match c {
-                '>' => {
-                    parse_error();
-                    self.state = states::Data;
-                }
-                _ => match letter_to_ascii_lowercase(c) {
+                '>' => go!(error to Data),
+                _ => match ascii_letter(c) {
                     Some(cl) => {
                         self.create_tag(EndTag, cl);
-                        self.state = states::TagName;
+                        go!(to TagName);
                     }
-                    None => {
-                        parse_error();
-                        self.state = states::BogusComment;
-                    }
+                    None => go!(error to BogusComment)
                 }
             },
 
