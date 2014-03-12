@@ -67,7 +67,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     None => return,
                     Some(c) => {
                         while self.process_char(c) == Reconsume {
-                            // reconsume
+                            // FIXME: this is not correct when state changes to one
+                            // of the above!
                         }
                     }
                 }
