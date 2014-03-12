@@ -134,7 +134,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
     ( to          $state:ident             ) => ( self.state = states::$state;        );
-    ( to_raw      $state:ident $kind:ident ) => ( self.state = states::$state($kind); );
+    ( to          $state:ident $kind:expr  ) => ( self.state = states::$state($kind); );
     ( emit        $c:expr                  ) => ( self.emit_char($c);                 );
     ( create_tag  $kind:expr   $c:expr     ) => ( self.create_tag($kind, $c);         );
     ( append_tag  $c:expr                  ) => ( self.append_to_tag_name($c);        );
@@ -184,7 +184,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::RawData(kind) => match c {
                 '&' if kind == Rcdata            => go!(to CharacterReferenceInRcdata),
                 '-' if kind == ScriptDataEscaped => go!(to ScriptDataEscapedDash; emit '-'),
-                '<'  => go!(to_raw RawLessThanSign kind),
+                '<'  => go!(to RawLessThanSign kind),
                 '\0' => go!(error; emit '\ufffd'),
                 _    => go!(emit c),
             },
@@ -223,24 +223,24 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             // kind = ScriptDataEscaped
             states::RawLessThanSign(ScriptDataEscaped) => match c {
-                '/' => go!(clear_temp; to_raw RawEndTagOpen ScriptDataEscaped),
+                '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped),
                 _ => match ascii_letter(c) {
                     Some(cl) => go!(clear_temp; append_temp cl;
                                     to ScriptDataDoubleEscapeStart; emit '<'; emit c),
-                    None => go!(to_raw RawData ScriptDataEscaped; emit '<'; reconsume),
+                    None => go!(to RawData ScriptDataEscaped; emit '<'; reconsume),
                 }
             },
 
             // otherwise
             states::RawLessThanSign(kind) => match c {
-                '/' => go!(clear_temp; to_raw RawEndTagOpen kind),
+                '/' => go!(clear_temp; to RawEndTagOpen kind),
                 '!' if kind == ScriptData => go!(to ScriptDataEscapeStart; emit '<'; emit '!'),
-                _   => go!(to_raw RawData Rcdata; emit '<'; reconsume),
+                _   => go!(to RawData Rcdata; emit '<'; reconsume),
             },
 
             states::RawEndTagOpen(kind) => match ascii_letter(c) {
-                Some(cl) => go!(create_tag EndTag cl; append_temp c; to_raw RawEndTagName kind),
-                None     => go!(to_raw RawData kind; emit '<'; emit '/'; reconsume),
+                Some(cl) => go!(create_tag EndTag cl; append_temp c; to RawEndTagName kind),
+                None     => go!(to RawData kind; emit '<'; emit '/'; reconsume),
             },
 
             states::RawEndTagName(kind) => {
@@ -258,33 +258,33 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
                 match ascii_letter(c) {
                     Some(cl) => go!(append_tag cl; append_temp c),
-                    None     => go!(emit '<'; emit '/'; emit_temp; to_raw RawData kind; reconsume),
+                    None     => go!(emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
                 }
             },
 
             states::ScriptDataEscapeStart => match c {
                 '-' => go!(to ScriptDataEscapeStartDash; emit '-'),
-                _   => go!(to_raw RawData ScriptData; reconsume),
+                _   => go!(to RawData ScriptData; reconsume),
             },
 
             states::ScriptDataEscapeStartDash => match c {
                 '-' => go!(to ScriptDataEscapedDashDash; emit '-'),
-                _   => go!(to_raw RawData ScriptData; reconsume),
+                _   => go!(to RawData ScriptData; reconsume),
             },
 
             states::ScriptDataEscapedDash => match c {
                 '-'  => go!(to ScriptDataEscapedDashDash; emit '-'),
-                '<'  => go!(to_raw RawLessThanSign ScriptDataEscaped),
-                '\0' => go!(error; to_raw RawData ScriptDataEscaped; emit '\ufffd'),
-                _    => go!(to_raw RawData ScriptDataEscaped; emit c),
+                '<'  => go!(to RawLessThanSign ScriptDataEscaped),
+                '\0' => go!(error; to RawData ScriptDataEscaped; emit '\ufffd'),
+                _    => go!(to RawData ScriptDataEscaped; emit c),
             },
 
             states::ScriptDataEscapedDashDash => match c {
                 '-'  => go!(emit '-'),
-                '<'  => go!(to_raw RawLessThanSign ScriptDataEscaped),
-                '>'  => go!(to_raw RawData ScriptData; emit '>'),
-                '\0' => go!(error; to_raw RawData ScriptDataEscaped; emit '\ufffd'),
-                _    => go!(to_raw RawData ScriptDataEscaped; emit c),
+                '<'  => go!(to RawLessThanSign ScriptDataEscaped),
+                '>'  => go!(to RawData ScriptData; emit '>'),
+                '\0' => go!(error; to RawData ScriptDataEscaped; emit '\ufffd'),
+                _    => go!(to RawData ScriptDataEscaped; emit c),
             },
 
             states::ScriptDataDoubleEscapeStart |
