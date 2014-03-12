@@ -262,10 +262,31 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
             },
 
-            states::ScriptDataEscapeStart |
-            states::ScriptDataEscapeStartDash |
-            states::ScriptDataEscapedDash |
-            states::ScriptDataEscapedDashDash |
+            states::ScriptDataEscapeStart => match c {
+                '-' => go!(to ScriptDataEscapeStartDash; emit '-'),
+                _   => go!(to_raw RawData ScriptData; reconsume),
+            },
+
+            states::ScriptDataEscapeStartDash => match c {
+                '-' => go!(to ScriptDataEscapedDashDash; emit '-'),
+                _   => go!(to_raw RawData ScriptData; reconsume),
+            },
+
+            states::ScriptDataEscapedDash => match c {
+                '-'  => go!(to ScriptDataEscapedDashDash; emit '-'),
+                '<'  => go!(to_raw RawLessThanSign ScriptDataEscaped),
+                '\0' => go!(error; to_raw RawData ScriptDataEscaped; emit '\ufffd'),
+                _    => go!(to_raw RawData ScriptDataEscaped; emit c),
+            },
+
+            states::ScriptDataEscapedDashDash => match c {
+                '-'  => go!(emit '-'),
+                '<'  => go!(to_raw RawLessThanSign ScriptDataEscaped),
+                '>'  => go!(to_raw RawData ScriptData; emit '>'),
+                '\0' => go!(error; to_raw RawData ScriptDataEscaped; emit '\ufffd'),
+                _    => go!(to_raw RawData ScriptDataEscaped; emit c),
+            },
+
             states::ScriptDataDoubleEscapeStart |
             states::ScriptDataDoubleEscaped |
             states::ScriptDataDoubleEscapedDash |
