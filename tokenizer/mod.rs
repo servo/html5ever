@@ -1,6 +1,7 @@
 pub use self::tokens::{Doctype, Attributes, TagKind, StartTag, EndTag, Tag, Token};
 pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
 
+use self::states::{Escaped, DoubleEscaped};
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
 
@@ -133,27 +134,29 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( to          $state:ident             ) => ( self.state = states::$state;        );
-    ( to          $state:ident $kind:expr  ) => ( self.state = states::$state($kind); );
-    ( emit        $c:expr                  ) => ( self.emit_char($c);                 );
-    ( create_tag  $kind:expr   $c:expr     ) => ( self.create_tag($kind, $c);         );
-    ( append_tag  $c:expr                  ) => ( self.append_to_tag_name($c);        );
-    ( emit_tag                             ) => ( self.emit_current_tag();            );
-    ( append_temp $c:expr                  ) => ( self.temp_buf.push_char($c);        );
-    ( emit_temp                            ) => ( self.emit_temp_buf();               );
-    ( clear_temp                           ) => ( self.clear_temp_buf();              );
+    ( to $state:ident                      ) => ( self.state = states::$state;           );
+    ( to $state:ident $k1:expr             ) => ( self.state = states::$state($k1);      );
+    ( to $state:ident $k1:expr $k2:expr    ) => ( self.state = states::$state($k1($k2)); );
+    ( emit $c:expr                         ) => ( self.emit_char($c);                    );
+    ( create_tag $kind:expr $c:expr        ) => ( self.create_tag($kind, $c);            );
+    ( append_tag $c:expr                   ) => ( self.append_to_tag_name($c);           );
+    ( emit_tag                             ) => ( self.emit_current_tag();               );
+    ( append_temp $c:expr                  ) => ( self.temp_buf.push_char($c);           );
+    ( emit_temp                            ) => ( self.emit_temp_buf();                  );
+    ( clear_temp                           ) => ( self.clear_temp_buf();                 );
 
     // NB: Deliberate capture of 'c'
-    ( error                                ) => ( self.parse_error(c);                );
+    ( error                                ) => ( self.parse_error(c);                   );
 )
 
 // A little DSL for sequencing shorthand actions.
 macro_rules! go (
     // A pattern like $($cmd:tt)* ; $($rest:tt)* causes parse ambiguity.
     // We have to tell the parser how much lookahead we need.
-    ( $a:tt             ; $($rest:tt)* ) => ({ shorthand!($a);       go!($($rest)*); });
-    ( $a:tt $b:tt       ; $($rest:tt)* ) => ({ shorthand!($a $b);    go!($($rest)*); });
-    ( $a:tt $b:tt $c:tt ; $($rest:tt)* ) => ({ shorthand!($a $b $c); go!($($rest)*); });
+    ( $a:tt                   ; $($rest:tt)* ) => ({ shorthand!($a);          go!($($rest)*); });
+    ( $a:tt $b:tt             ; $($rest:tt)* ) => ({ shorthand!($a $b);       go!($($rest)*); });
+    ( $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ shorthand!($a $b $c);    go!($($rest)*); });
+    ( $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ shorthand!($a $b $c $d); go!($($rest)*); });
 
     // These can only come at the end.
     // FIXME: Come up with a better name for 'finish'.
@@ -181,12 +184,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             },
 
             // RCDATA, RAWTEXT, script, or script escaped
-            states::RawData(kind) => match c {
-                '&' if kind == Rcdata            => go!(to CharacterReferenceInRcdata),
-                '-' if kind == ScriptDataEscaped => go!(to ScriptDataEscapedDash; emit '-'),
-                '<'  => go!(to RawLessThanSign kind),
-                '\0' => go!(error; emit '\ufffd'),
-                _    => go!(emit c),
+            states::RawData(kind) => match (c, kind) {
+                ('&', Rcdata) => go!(to CharacterReferenceInRcdata),
+                ('-', ScriptDataEscaped(esc_kind)) => go!(to ScriptDataEscapedDash esc_kind; emit '-'),
+                ('<', ScriptDataEscaped(DoubleEscaped)) => go!(to RawLessThanSign kind; emit '<'),
+                ('<',  _) => go!(to RawLessThanSign kind),
+                ('\0', _) => go!(error; emit '\ufffd'),
+                _         => go!(emit c),
             },
 
             states::Plaintext => match c {
@@ -221,20 +225,24 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _    => go!(append_tag (ascii_letter(c).unwrap_or(c))),
             },
 
-            // kind = ScriptDataEscaped
-            states::RawLessThanSign(ScriptDataEscaped) => match c {
-                '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped),
+            states::RawLessThanSign(ScriptDataEscaped(Escaped)) => match c {
+                '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
                 _ => match ascii_letter(c) {
                     Some(cl) => go!(clear_temp; append_temp cl;
-                                    to ScriptDataDoubleEscapeStart; emit '<'; emit c),
-                    None => go!(to RawData ScriptDataEscaped; emit '<'; reconsume),
+                                    to ScriptDataEscapeStart DoubleEscaped; emit '<'; emit c),
+                    None => go!(to RawData ScriptDataEscaped Escaped; emit '<'; reconsume),
                 }
+            },
+
+            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => match c {
+                '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped DoubleEscaped),
+                _   => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
             },
 
             // otherwise
             states::RawLessThanSign(kind) => match c {
                 '/' => go!(clear_temp; to RawEndTagOpen kind),
-                '!' if kind == ScriptData => go!(to ScriptDataEscapeStart; emit '<'; emit '!'),
+                '!' if kind == ScriptData => go!(to ScriptDataEscapeStart Escaped; emit '<'; emit '!'),
                 _   => go!(to RawData Rcdata; emit '<'; reconsume),
             },
 
@@ -262,37 +270,61 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
             },
 
-            states::ScriptDataEscapeStart => match c {
+            states::ScriptDataEscapeStart(DoubleEscaped) => match c {
+                '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
+                    let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
+                    go!(to RawData ScriptDataEscaped esc; emit c);
+                }
+
+                _ => match ascii_letter(c) {
+                    Some(cl) => go!(append_temp cl; emit c),
+                    None     => go!(to RawData ScriptDataEscaped Escaped; reconsume),
+                }
+            },
+
+            states::ScriptDataEscapeStart(Escaped) => match c {
                 '-' => go!(to ScriptDataEscapeStartDash; emit '-'),
                 _   => go!(to RawData ScriptData; reconsume),
             },
 
             states::ScriptDataEscapeStartDash => match c {
-                '-' => go!(to ScriptDataEscapedDashDash; emit '-'),
+                '-' => go!(to ScriptDataEscapedDashDash Escaped; emit '-'),
                 _   => go!(to RawData ScriptData; reconsume),
             },
 
-            states::ScriptDataEscapedDash => match c {
-                '-'  => go!(to ScriptDataEscapedDashDash; emit '-'),
-                '<'  => go!(to RawLessThanSign ScriptDataEscaped),
-                '\0' => go!(error; to RawData ScriptDataEscaped; emit '\ufffd'),
-                _    => go!(to RawData ScriptDataEscaped; emit c),
+            states::ScriptDataEscapedDash(kind) => match c {
+                '-'  => go!(to ScriptDataEscapedDashDash kind; emit '-'),
+                '<'  => {
+                    go!(to RawLessThanSign ScriptDataEscaped kind);
+                    if kind == DoubleEscaped { go!(emit '<'); }
+                }
+                '\0' => go!(error; to RawData ScriptDataEscaped kind; emit '\ufffd'),
+                _    => go!(to RawData ScriptDataEscaped kind; emit c),
             },
 
-            states::ScriptDataEscapedDashDash => match c {
+            states::ScriptDataEscapedDashDash(kind) => match c {
                 '-'  => go!(emit '-'),
-                '<'  => go!(to RawLessThanSign ScriptDataEscaped),
+                '<'  => {
+                    go!(to RawLessThanSign ScriptDataEscaped kind);
+                    if kind == DoubleEscaped { go!(emit '<'); }
+                }
                 '>'  => go!(to RawData ScriptData; emit '>'),
-                '\0' => go!(error; to RawData ScriptDataEscaped; emit '\ufffd'),
-                _    => go!(to RawData ScriptDataEscaped; emit c),
+                '\0' => go!(error; to RawData ScriptDataEscaped kind; emit '\ufffd'),
+                _    => go!(to RawData ScriptDataEscaped kind; emit c),
             },
 
-            states::ScriptDataDoubleEscapeStart |
-            states::ScriptDataDoubleEscaped |
-            states::ScriptDataDoubleEscapedDash |
-            states::ScriptDataDoubleEscapedDashDash |
-            states::ScriptDataDoubleEscapedLessThanSign |
-            states::ScriptDataDoubleEscapeEnd |
+            states::ScriptDataDoubleEscapeEnd => match c {
+                '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
+                    let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
+                    go!(to RawData ScriptDataEscaped esc; emit c);
+                }
+
+                _ => match ascii_letter(c) {
+                    Some(cl) => go!(append_temp cl; emit c),
+                    None     => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
+                }
+            },
+
             states::BeforeAttributeName |
             states::AttributeName |
             states::AfterAttributeName |

@@ -1,9 +1,15 @@
 #[deriving(Eq)]
+pub enum ScriptEscapeKind {
+    Escaped,
+    DoubleEscaped,
+}
+
+#[deriving(Eq)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
     ScriptData,
-    ScriptDataEscaped,
+    ScriptDataEscaped(ScriptEscapeKind),
 }
 
 #[deriving(Eq)]
@@ -19,15 +25,10 @@ pub enum State {
     RawLessThanSign(RawKind),
     RawEndTagOpen(RawKind),
     RawEndTagName(RawKind),
-    ScriptDataEscapeStart,
+    ScriptDataEscapeStart(ScriptEscapeKind),
     ScriptDataEscapeStartDash,
-    ScriptDataEscapedDash,
-    ScriptDataEscapedDashDash,
-    ScriptDataDoubleEscapeStart,
-    ScriptDataDoubleEscaped,
-    ScriptDataDoubleEscapedDash,
-    ScriptDataDoubleEscapedDashDash,
-    ScriptDataDoubleEscapedLessThanSign,
+    ScriptDataEscapedDash(ScriptEscapeKind),
+    ScriptDataEscapedDashDash(ScriptEscapeKind),
     ScriptDataDoubleEscapeEnd,
     BeforeAttributeName,
     AttributeName,
