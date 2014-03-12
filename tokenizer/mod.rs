@@ -262,7 +262,54 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
             },
 
-            s => fail!("FIXME: state {:?} not implemented", s),
+            states::ScriptDataEscapeStart |
+            states::ScriptDataEscapeStartDash |
+            states::ScriptDataEscapedDash |
+            states::ScriptDataEscapedDashDash |
+            states::ScriptDataDoubleEscapeStart |
+            states::ScriptDataDoubleEscaped |
+            states::ScriptDataDoubleEscapedDash |
+            states::ScriptDataDoubleEscapedDashDash |
+            states::ScriptDataDoubleEscapedLessThanSign |
+            states::ScriptDataDoubleEscapeEnd |
+            states::BeforeAttributeName |
+            states::AttributeName |
+            states::AfterAttributeName |
+            states::BeforeAttributeValue |
+            states::AttributeValueDoubleQuoted |
+            states::AttributeValueSingleQuoted |
+            states::AttributeValueUnquoted |
+            states::AfterAttributeValueQuoted |
+            states::SelfClosingStartTag |
+            states::CommentStart |
+            states::CommentStartDash |
+            states::Comment |
+            states::CommentEndDash |
+            states::CommentEnd |
+            states::CommentEndBang |
+            states::Doctype |
+            states::BeforeDoctypeName |
+            states::DoctypeName |
+            states::AfterDoctypeName |
+            states::AfterDoctypePublicKeyword |
+            states::BeforeDoctypePublicIdentifier |
+            states::DoctypePublicIdentifierDoubleQuoted |
+            states::DoctypePublicIdentifierSingleQuoted |
+            states::AfterDoctypePublicIdentifier |
+            states::BetweenDoctypePublicAndSystemIdentifiers |
+            states::AfterDoctypeSystemKeyword |
+            states::BeforeDoctypeSystemIdentifier |
+            states::DoctypeSystemIdentifierDoubleQuoted |
+            states::DoctypeSystemIdentifierSingleQuoted |
+            states::AfterDoctypeSystemIdentifier |
+            states::BogusDoctype |
+            states::CharacterReferenceInData |
+            states::CharacterReferenceInRcdata |
+            states::CharacterReferenceInAttributeValue |
+            states::BogusComment |
+            states::MarkupDeclarationOpen |
+            states::CdataSection
+                => fail!("FIXME: state {:?} not implemented", self.state),
         }
 
         Finished
