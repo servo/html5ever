@@ -1,4 +1,4 @@
-pub use self::tokens::{Doctype, Attributes, TagKind, StartTag, EndTag, Tag, Token};
+pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
 pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
 
 use self::states::{Escaped, DoubleEscaped};

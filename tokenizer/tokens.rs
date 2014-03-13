@@ -1,4 +1,3 @@
-use std::hashmap::HashMap;
 use std::str;
 
 // FIXME: already exists in Servo DOM
@@ -20,15 +19,16 @@ impl Doctype {
     }
 }
 
-
-pub struct Attributes {
-    data: HashMap<~str, ~str>,
+pub struct Attribute {
+    name: ~str,
+    value: ~str,
 }
 
-impl Attributes {
-    pub fn new() -> Attributes {
-        Attributes {
-            data: HashMap::new(),
+impl Attribute {
+    pub fn new() -> Attribute {
+        Attribute {
+            name: ~"",
+            value: ~"",
         }
     }
 }
@@ -43,7 +43,7 @@ pub struct Tag {
     kind: TagKind,
     name: ~str,
     self_closing: bool,
-    attrs: Attributes,
+    attrs: ~[Attribute],
 }
 
 impl Tag {
@@ -52,7 +52,7 @@ impl Tag {
             kind: kind,
             name: str::with_capacity(8), // FIXME: justify this
             self_closing: false,
-            attrs: Attributes::new(),
+            attrs: ~[],
         }
     }
 }
