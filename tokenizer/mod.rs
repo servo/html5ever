@@ -192,25 +192,25 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( to $state:ident                      ) => ( self.state = states::$state;           );
-    ( to $state:ident $k1:expr             ) => ( self.state = states::$state($k1);      );
-    ( to $state:ident $k1:expr $k2:expr    ) => ( self.state = states::$state($k1($k2)); );
-    ( emit $c:expr                         ) => ( self.emit_char($c);                    );
-    ( create_tag $kind:expr $c:expr        ) => ( self.create_tag($kind, $c);            );
-    ( push_tag $c:expr                     ) => ( self.tag_mut().name.push_char($c);     );
-    ( emit_tag                             ) => ( self.emit_current_tag();               );
-    ( push_temp $c:expr                    ) => ( self.temp_buf.push_char($c);           );
-    ( emit_temp                            ) => ( self.emit_temp_buf();                  );
-    ( clear_temp                           ) => ( self.clear_temp_buf();                 );
-    ( create_attr $c:expr                  ) => ( self.create_attribute($c);             );
-    ( push_name $c:expr                    ) => ( self.current_attr.name.push_char($c);  );
-    ( push_value $c:expr                   ) => ( self.current_attr.value.push_char($c); );
-    ( addnl_allowed $c:expr                ) => ( self.addnl_allowed = Some($c);         );
-    ( no_addnl_allowed                     ) => ( self.addnl_allowed = None;             );
-    ( push_comment $c:expr                 ) => ( self.current_comment.push_char($c);    );
-    ( append_comment $c:expr               ) => ( self.current_comment.push_str($c);     );
-    ( emit_comment                         ) => ( self.emit_current_comment();           );
-    ( error                                ) => ( self.parse_error(c); /* capture! */    );
+    ( to $s:ident                     ) => ( self.state = states::$s;                              );
+    ( to $s:ident $k1:expr            ) => ( self.state = states::$s($k1);                         );
+    ( to $s:ident $k1:expr $k2:expr   ) => ( self.state = states::$s($k1($k2));                    );
+    ( emit $c:expr                    ) => ( self.emit_char($c);                                   );
+    ( create_tag $kind:expr $c:expr   ) => ( self.create_tag($kind, $c);                           );
+    ( push_tag $c:expr                ) => ( self.tag_mut().name.push_char($c);                    );
+    ( emit_tag                        ) => ( self.emit_current_tag();                              );
+    ( push_temp $c:expr               ) => ( self.temp_buf.push_char($c);                          );
+    ( emit_temp                       ) => ( self.emit_temp_buf();                                 );
+    ( clear_temp                      ) => ( self.clear_temp_buf();                                );
+    ( create_attr $c:expr             ) => ( self.create_attribute($c);                            );
+    ( push_name $c:expr               ) => ( self.current_attr.name.push_char($c);                 );
+    ( push_value $c:expr              ) => ( self.current_attr.value.push_char($c);                );
+    ( addnl_allowed $c:expr           ) => ( self.addnl_allowed = Some($c);                        );
+    ( no_addnl_allowed                ) => ( self.addnl_allowed = None;                            );
+    ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
+    ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
+    ( emit_comment                    ) => ( self.emit_current_comment();                          );
+    ( error                           ) => ( self.parse_error(c); /* capture! */                   );
 )
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
