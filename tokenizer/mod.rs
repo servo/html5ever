@@ -201,7 +201,6 @@ macro_rules! shorthand (
     ( create_attr $c:expr                  ) => ( self.create_attribute($c);             );
     ( append_name $c:expr                  ) => ( self.current_attr.name.push_char($c);  );
     ( append_value $c:expr                 ) => ( self.current_attr.value.push_char($c); );
-    ( finish_attr                          ) => ( self.finish_attribute();               );
     ( addnl_allowed $c:expr                ) => ( self.addnl_allowed = Some($c);         );
     ( no_addnl_allowed                     ) => ( self.addnl_allowed = None;             );
     ( error                                ) => ( self.parse_error(c); /* capture! */    );
@@ -418,10 +417,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::AttributeName => match c {
                 '\t' | '\n' | '\x0C' | ' '
-                     => go!(finish_attr; to AfterAttributeName),
-                '/'  => go!(finish_attr; to SelfClosingStartTag),
-                '='  => go!(finish_attr; to BeforeAttributeValue),
-                '>'  => go!(finish_attr; to Data; emit_tag),
+                     => go!(to AfterAttributeName),
+                '/'  => go!(to SelfClosingStartTag),
+                '='  => go!(to BeforeAttributeValue),
+                '>'  => go!(to Data; emit_tag),
                 '\0' => go!(error; append_name '\ufffd'),
                 _    => match ascii_letter(c) {
                     Some(cl) => go!(append_name cl),
