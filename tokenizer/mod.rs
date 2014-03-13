@@ -5,10 +5,12 @@
 pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
 pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
 
-use self::states::{Escaped, DoubleEscaped};
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
+use self::states::{Escaped, DoubleEscaped};
+use self::states::{DoctypeIdKind, Public, System};
 
+use std::str;
 use std::util::replace;
 
 mod tokens;
@@ -24,6 +26,16 @@ fn ascii_letter(c: char) -> Option<char> {
         .map(|a| a.to_lower().to_char())
 }
 
+fn lower_ascii(c: char) -> char {
+    ascii_letter(c).unwrap_or(c)
+}
+
+fn option_push_char(opt_str: &mut Option<~str>, c: char) {
+    match *opt_str {
+        Some(ref mut s) => s.push_char(c),
+        None => *opt_str = Some(str::from_char(c)),
+    }
+}
 
 pub struct Tokenizer<'sink, Sink> {
     priv sink: &'sink mut Sink,
@@ -39,6 +51,9 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// Current comment.
     priv current_comment: ~str,
+
+    /// Current doctype token.
+    priv current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
     priv last_start_tag_name: Option<~str>,
@@ -64,6 +79,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_tag: None,
             current_attr: Attribute::new(),
             current_comment: ~"",
+            current_doctype: Doctype::new(),
             last_start_tag_name: None,
             temp_buf: ~"",
             addnl_allowed: None,
@@ -188,6 +204,26 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self.tag_mut().attrs.push(attr);
         }
     }
+
+    fn emit_current_doctype(&mut self) {
+        self.sink.process_token(DoctypeToken(
+            replace(&mut self.current_doctype, Doctype::new())));
+    }
+
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<~str> {
+        match kind {
+            Public => &mut self.current_doctype.public_id,
+            System => &mut self.current_doctype.system_id,
+        }
+    }
+
+    fn clear_doctype_id(&mut self, kind: DoctypeIdKind) {
+        let id = self.doctype_id(kind);
+        match *id {
+            Some(ref mut s) => s.truncate(0),
+            None => *id = Some(~""),
+        }
+    }
 }
 
 // Shorthand for common state machine behaviors.
@@ -210,6 +246,12 @@ macro_rules! shorthand (
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
     ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
+    ( create_doctype                  ) => ( self.current_doctype = Doctype::new();                );
+    ( push_doctype_name $c:expr       ) => ( option_push_char(&mut self.current_doctype.name, $c); );
+    ( push_doctype_id $k:expr $c:expr ) => ( option_push_char(self.doctype_id($k), $c);            );
+    ( clear_doctype_id $k:expr        ) => ( self.clear_doctype_id($k);                            );
+    ( force_quirks                    ) => ( self.current_doctype.force_quirks = true;             );
+    ( emit_doctype                    ) => ( self.emit_current_doctype();                          );
     ( error                           ) => ( self.parse_error(c); /* capture! */                   );
 )
 
@@ -304,7 +346,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '/'  => go!(to SelfClosingStartTag),
                 '>'  => go!(emit_tag; to Data),
                 '\0' => go!(error; push_tag '\ufffd'),
-                _    => go!(push_tag (ascii_letter(c).unwrap_or(c))),
+                _    => go!(push_tag (lower_ascii(c))),
             },
 
             states::RawLessThanSign(ScriptDataEscaped(Escaped)) => match c {
@@ -551,22 +593,92 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _    => go!(append_comment "--!"; push_comment c; to Comment),
             },
 
-            states::Doctype |
-            states::BeforeDoctypeName |
-            states::DoctypeName |
-            states::AfterDoctypeName |
-            states::AfterDoctypePublicKeyword |
-            states::BeforeDoctypePublicIdentifier |
-            states::DoctypePublicIdentifierDoubleQuoted |
-            states::DoctypePublicIdentifierSingleQuoted |
-            states::AfterDoctypePublicIdentifier |
-            states::BetweenDoctypePublicAndSystemIdentifiers |
-            states::AfterDoctypeSystemKeyword |
-            states::BeforeDoctypeSystemIdentifier |
-            states::DoctypeSystemIdentifierDoubleQuoted |
-            states::DoctypeSystemIdentifierSingleQuoted |
-            states::AfterDoctypeSystemIdentifier |
-            states::BogusDoctype |
+            states::Doctype => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                    => go!(to BeforeDoctypeName),
+                _   => go!(error; to BeforeDoctypeName; reconsume),
+            },
+
+            states::BeforeDoctypeName => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '\0' => go!(error; create_doctype; push_doctype_name '\ufffd'; to DoctypeName),
+                '>'  => go!(error; create_doctype; force_quirks; to Data; emit_doctype),
+                _    => go!(create_doctype; push_doctype_name (lower_ascii(c)); to DoctypeName),
+            },
+
+            states::DoctypeName => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(to AfterDoctypeName),
+                '>'  => go!(to Data; emit_doctype),
+                '\0' => go!(error; push_doctype_name '\ufffd'),
+                _    => go!(push_doctype_name (lower_ascii(c))),
+            },
+
+            states::AfterDoctypeName => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '>' => go!(to Data; emit_doctype),
+                _   => fail!("FIXME: need lookahead"),
+            },
+
+            states::AfterDoctypeKeyword(kind) => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(to BeforeDoctypeIdentifier kind),
+                '"'  => go!(error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
+                '\'' => go!(error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
+                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                _    => go!(error; force_quirks; to BogusDoctype),
+            },
+
+            states::BeforeDoctypeIdentifier(kind) => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '"'  => go!(clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
+                '\'' => go!(clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
+                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                _    => go!(error; force_quirks; to BogusDoctype),
+            },
+
+            states::DoctypeIdentifierDoubleQuoted(kind) => match c {
+                '"'  => go!(to AfterDoctypeIdentifier kind),
+                '\0' => go!(error; push_doctype_id kind '\ufffd'),
+                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                _    => go!(push_doctype_id kind c),
+            },
+
+            states::DoctypeIdentifierSingleQuoted(kind) => match c {
+                '\'' => go!(to AfterDoctypeIdentifier kind),
+                '\0' => go!(error; push_doctype_id kind '\ufffd'),
+                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                _    => go!(push_doctype_id kind c),
+            },
+
+            states::AfterDoctypeIdentifier(Public) => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(to BetweenDoctypePublicAndSystemIdentifiers),
+                '>'  => go!(to Data; emit_doctype),
+                '"'  => go!(error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
+                '\'' => go!(error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
+                _    => go!(error; force_quirks; to BogusDoctype),
+            },
+
+            states::AfterDoctypeIdentifier(System) => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '>' => go!(to Data; emit_doctype),
+                _   => go!(error; to BogusDoctype),
+            },
+
+            states::BetweenDoctypePublicAndSystemIdentifiers => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '>'  => go!(to Data; emit_doctype),
+                '"'  => go!(clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
+                '\'' => go!(clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
+                _    => go!(error; force_quirks; to BogusDoctype),
+            },
+
+            states::BogusDoctype => match c {
+                '>'  => go!(to Data; emit_doctype),
+                _    => (),
+            },
+
             states::CharacterReferenceInData |
             states::CharacterReferenceInRcdata |
             states::CharacterReferenceInAttributeValue |

@@ -9,6 +9,12 @@ pub enum ScriptEscapeKind {
 }
 
 #[deriving(Eq)]
+pub enum DoctypeIdKind {
+    Public,
+    System,
+}
+
+#[deriving(Eq)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
@@ -56,17 +62,12 @@ pub enum State {
     BeforeDoctypeName,
     DoctypeName,
     AfterDoctypeName,
-    AfterDoctypePublicKeyword,
-    BeforeDoctypePublicIdentifier,
-    DoctypePublicIdentifierDoubleQuoted,
-    DoctypePublicIdentifierSingleQuoted,
-    AfterDoctypePublicIdentifier,
+    AfterDoctypeKeyword(DoctypeIdKind),
+    BeforeDoctypeIdentifier(DoctypeIdKind),
+    DoctypeIdentifierDoubleQuoted(DoctypeIdKind),
+    DoctypeIdentifierSingleQuoted(DoctypeIdKind),
+    AfterDoctypeIdentifier(DoctypeIdKind),
     BetweenDoctypePublicAndSystemIdentifiers,
-    AfterDoctypeSystemKeyword,
-    BeforeDoctypeSystemIdentifier,
-    DoctypeSystemIdentifierDoubleQuoted,
-    DoctypeSystemIdentifierSingleQuoted,
-    AfterDoctypeSystemIdentifier,
     BogusDoctype,
     CdataSection,
 }
