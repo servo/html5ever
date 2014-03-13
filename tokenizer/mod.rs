@@ -5,6 +5,8 @@ use self::states::{Escaped, DoubleEscaped};
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
 
+use std::util::replace;
+
 mod tokens;
 mod states;
 
@@ -28,11 +30,17 @@ pub struct Tokenizer<'sink, Sink> {
     // Leaving it as Option for now, to find bugs.
     priv current_tag: Option<Tag>,
 
+    /// Current attribute.
+    priv current_attr: Attribute,
+
     /// Last start tag name, for use in checking "appropriate end tag".
     priv last_start_tag_name: Option<~str>,
 
     /// The "temporary buffer" mentioned in the spec.
-    priv temp_buf: ~str
+    priv temp_buf: ~str,
+
+    /// The "additional allowed character" for character references.
+    priv addnl_allowed: Option<char>,
 }
 
 #[deriving(Eq)]
@@ -47,8 +55,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             sink: sink,
             state: states::Data,
             current_tag: None,
+            current_attr: Attribute::new(),
             last_start_tag_name: None,
             temp_buf: ~"",
+            addnl_allowed: None,
         }
     }
 
@@ -86,6 +96,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_current_tag(&mut self) {
+        self.finish_attribute();
+
         let tag = self.current_tag.take().unwrap();
         match tag.kind {
             StartTag => self.last_start_tag_name = Some(tag.name.clone()),
@@ -119,8 +131,17 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.current_tag = Some(t);
     }
 
+    fn tag<'t>(&'t self) -> &'t Tag {
+        // Only use this from places where the state machine guarantees we have a tag
+        self.current_tag.get_ref()
+    }
+
+    fn tag_mut<'t>(&'t mut self) -> &'t mut Tag {
+        self.current_tag.get_mut_ref()
+    }
+
     fn append_to_tag_name(&mut self, c: char) {
-        self.current_tag.get_mut_ref().name.push_char(c);
+        self.tag_mut().name.push_char(c);
     }
 
     fn have_appropriate_end_tag(&self) -> bool {
@@ -128,6 +149,35 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             (Some(last), Some(tag)) =>
                 (tag.kind == EndTag) && (tag.name.as_slice() == last.as_slice()),
             _ => false
+        }
+    }
+
+    fn create_attribute(&mut self, c: char) {
+        self.finish_attribute();
+
+        let attr = &mut self.current_attr;
+        attr.name.push_char(c);
+    }
+
+    fn finish_attribute(&mut self) {
+        if self.current_attr.name.len() == 0 {
+            return;
+        }
+
+        // Check for a duplicate attribute.
+        // FIXME: the spec says we should error as soon as the name is finished.
+        // FIXME: linear time search, do we care?
+        let dup = {
+            let name = self.current_attr.name.as_slice();
+            self.tag().attrs.iter().any(|a| a.name.as_slice() == name)
+        };
+
+        if dup {
+            error!("Parse error: duplicate attribute");
+            self.current_attr.clear();
+        } else {
+            let attr = replace(&mut self.current_attr, Attribute::new());
+            self.tag_mut().attrs.push(attr);
         }
     }
 }
@@ -144,9 +194,13 @@ macro_rules! shorthand (
     ( append_temp $c:expr                  ) => ( self.temp_buf.push_char($c);           );
     ( emit_temp                            ) => ( self.emit_temp_buf();                  );
     ( clear_temp                           ) => ( self.clear_temp_buf();                 );
-
-    // NB: Deliberate capture of 'c'
-    ( error                                ) => ( self.parse_error(c);                   );
+    ( create_attr $c:expr                  ) => ( self.create_attribute($c);             );
+    ( append_name $c:expr                  ) => ( self.current_attr.name.push_char($c);  );
+    ( append_value $c:expr                 ) => ( self.current_attr.value.push_char($c); );
+    ( finish_attr                          ) => ( self.finish_attribute();               );
+    ( addnl_allowed $c:expr                ) => ( self.addnl_allowed = Some($c);         );
+    ( no_addnl_allowed                     ) => ( self.addnl_allowed = None;             );
+    ( error                                ) => ( self.parse_error(c); /* capture! */    );
 )
 
 // A little DSL for sequencing shorthand actions.
@@ -169,6 +223,13 @@ macro_rules! go (
     // or nothing.
     () => (());
 )
+
+macro_rules! go_match ( ( $x:expr, $($pats:pat)|+ => $($cmds:tt)* ) => (
+    match $x {
+        $($pats)|+ => go!($($cmds)*),
+        _ => (),
+    }
+))
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // FIXME: explicitly represent the EOF character?
@@ -325,15 +386,109 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
             },
 
-            states::BeforeAttributeName |
-            states::AttributeName |
-            states::AfterAttributeName |
-            states::BeforeAttributeValue |
-            states::AttributeValueDoubleQuoted |
-            states::AttributeValueSingleQuoted |
-            states::AttributeValueUnquoted |
-            states::AfterAttributeValueQuoted |
-            states::SelfClosingStartTag |
+            states::BeforeAttributeName => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '/'  => go!(to SelfClosingStartTag),
+                '>'  => go!(to Data; emit_tag),
+                '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
+                _    => match ascii_letter(c) {
+                    Some(cl) => go!(create_attr cl; to AttributeName),
+                    None => {
+                        go_match!(c,
+                            '"' | '\'' | '<' | '=' => error);
+                        go!(create_attr c; to AttributeName);
+                    }
+                }
+            },
+
+            states::AttributeName => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(finish_attr; to AfterAttributeName),
+                '/'  => go!(finish_attr; to SelfClosingStartTag),
+                '='  => go!(finish_attr; to BeforeAttributeValue),
+                '>'  => go!(finish_attr; to Data; emit_tag),
+                '\0' => go!(error; append_name '\ufffd'),
+                _    => match ascii_letter(c) {
+                    Some(cl) => go!(append_name cl),
+                    None => {
+                        go_match!(c,
+                            '"' | '\'' | '<' => error);
+                        go!(append_name c);
+                    }
+                }
+            },
+
+            states::AfterAttributeName => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '/'  => go!(to SelfClosingStartTag),
+                '='  => go!(to BeforeAttributeValue),
+                '>'  => go!(to Data; emit_tag),
+                '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
+                _    => match ascii_letter(c) {
+                    Some(cl) => go!(create_attr cl; to AttributeName),
+                    None => {
+                        go_match!(c,
+                            '"' | '\'' | '<' => error);
+                        go!(create_attr c; to AttributeName);
+                    }
+                }
+            },
+
+            states::BeforeAttributeValue => match c {
+                '\t' | '\n' | '\x0C' | ' ' => (),
+                '"'  => go!(to AttributeValueDoubleQuoted),
+                '&'  => go!(to AttributeValueUnquoted; reconsume),
+                '\'' => go!(to AttributeValueSingleQuoted),
+                '\0' => go!(error; append_value '\ufffd'; to AttributeValueUnquoted),
+                '>'  => go!(error; to Data; emit_tag),
+                '<' | '=' | '`'
+                     => go!(error; append_value c; to AttributeValueUnquoted),
+                _    => go!(append_value c; to AttributeValueUnquoted),
+            },
+
+            states::AttributeValueDoubleQuoted => match c {
+                '"'  => go!(to AfterAttributeValueQuoted),
+                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '"'),
+                '\0' => go!(error; append_value '\ufffd'),
+                _    => go!(append_value c),
+            },
+
+            states::AttributeValueSingleQuoted => match c {
+                '\'' => go!(to AfterAttributeValueQuoted),
+                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '\''),
+                '\0' => go!(error; append_value '\ufffd'),
+                _    => go!(append_value c),
+            },
+
+            states::AttributeValueUnquoted => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(to BeforeAttributeName),
+                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '>'),
+                '>'  => go!(to Data; emit_tag),
+                '\0' => go!(error; append_value '\ufffd'),
+                _    => {
+                    go_match!(c,
+                        '"' | '\'' | '<' | '=' | '`' => error);
+                    go!(append_value c);
+                }
+            },
+
+            states::AfterAttributeValueQuoted => match c {
+                '\t' | '\n' | '\x0C' | ' '
+                     => go!(to BeforeAttributeName),
+                '/'  => go!(to SelfClosingStartTag),
+                '>'  => go!(to Data; emit_tag),
+                _    => go!(error; to BeforeAttributeName; reconsume),
+            },
+
+            states::SelfClosingStartTag => match c {
+                '>' => {
+                    self.tag_mut().self_closing = true;
+                    go!(to Data; emit_tag);
+                }
+                _ => go!(error; to BeforeAttributeName; reconsume),
+            },
+
             states::CommentStart |
             states::CommentStartDash |
             states::Comment |

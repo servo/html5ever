@@ -31,6 +31,11 @@ impl Attribute {
             value: ~"",
         }
     }
+
+    pub fn clear(&mut self) {
+        self.name.truncate(0);
+        self.value.truncate(0);
+    }
 }
 
 #[deriving(Eq)]

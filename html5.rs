@@ -13,5 +13,5 @@ impl tokenizer::TokenSink for TokenPrinter {
 fn main() {
     let mut sink = TokenPrinter;
     let mut tok = tokenizer::Tokenizer::new(&mut sink);
-    tok.feed("<div>Hello, world!</div>");
+    tok.feed("<div novalue unquoted=foo singlequoted='bar' doublequoted=\"baz\">Hello, world!</div>");
 }
