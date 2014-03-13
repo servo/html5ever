@@ -144,10 +144,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.current_tag.get_mut_ref()
     }
 
-    fn append_to_tag_name(&mut self, c: char) {
-        self.tag_mut().name.push_char(c);
-    }
-
     fn have_appropriate_end_tag(&self) -> bool {
         match (self.last_start_tag_name.as_ref(), self.current_tag.as_ref()) {
             (Some(last), Some(tag)) =>
@@ -193,14 +189,14 @@ macro_rules! shorthand (
     ( to $state:ident $k1:expr $k2:expr    ) => ( self.state = states::$state($k1($k2)); );
     ( emit $c:expr                         ) => ( self.emit_char($c);                    );
     ( create_tag $kind:expr $c:expr        ) => ( self.create_tag($kind, $c);            );
-    ( append_tag $c:expr                   ) => ( self.append_to_tag_name($c);           );
+    ( push_tag $c:expr                     ) => ( self.tag_mut().name.push_char($c);     );
     ( emit_tag                             ) => ( self.emit_current_tag();               );
-    ( append_temp $c:expr                  ) => ( self.temp_buf.push_char($c);           );
+    ( push_temp $c:expr                    ) => ( self.temp_buf.push_char($c);           );
     ( emit_temp                            ) => ( self.emit_temp_buf();                  );
     ( clear_temp                           ) => ( self.clear_temp_buf();                 );
     ( create_attr $c:expr                  ) => ( self.create_attribute($c);             );
-    ( append_name $c:expr                  ) => ( self.current_attr.name.push_char($c);  );
-    ( append_value $c:expr                 ) => ( self.current_attr.value.push_char($c); );
+    ( push_name $c:expr                    ) => ( self.current_attr.name.push_char($c);  );
+    ( push_value $c:expr                   ) => ( self.current_attr.value.push_char($c); );
     ( addnl_allowed $c:expr                ) => ( self.addnl_allowed = Some($c);         );
     ( no_addnl_allowed                     ) => ( self.addnl_allowed = None;             );
     ( error                                ) => ( self.parse_error(c); /* capture! */    );
@@ -296,14 +292,14 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                      => go!(to BeforeAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
                 '>'  => go!(emit_tag; to Data),
-                '\0' => go!(error; append_tag '\ufffd'),
-                _    => go!(append_tag (ascii_letter(c).unwrap_or(c))),
+                '\0' => go!(error; push_tag '\ufffd'),
+                _    => go!(push_tag (ascii_letter(c).unwrap_or(c))),
             },
 
             states::RawLessThanSign(ScriptDataEscaped(Escaped)) => match c {
                 '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
                 _ => match ascii_letter(c) {
-                    Some(cl) => go!(clear_temp; append_temp cl;
+                    Some(cl) => go!(clear_temp; push_temp cl;
                                     to ScriptDataEscapeStart DoubleEscaped; emit '<'; emit c),
                     None => go!(to RawData ScriptDataEscaped Escaped; emit '<'; reconsume),
                 }
@@ -322,7 +318,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             },
 
             states::RawEndTagOpen(kind) => match ascii_letter(c) {
-                Some(cl) => go!(create_tag EndTag cl; append_temp c; to RawEndTagName kind),
+                Some(cl) => go!(create_tag EndTag cl; push_temp c; to RawEndTagName kind),
                 None     => go!(to RawData kind; emit '<'; emit '/'; reconsume),
             },
 
@@ -340,7 +336,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
 
                 match ascii_letter(c) {
-                    Some(cl) => go!(append_tag cl; append_temp c),
+                    Some(cl) => go!(push_tag cl; push_temp c),
                     None     => go!(emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
                 }
             },
@@ -352,7 +348,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
 
                 _ => match ascii_letter(c) {
-                    Some(cl) => go!(append_temp cl; emit c),
+                    Some(cl) => go!(push_temp cl; emit c),
                     None     => go!(to RawData ScriptDataEscaped Escaped; reconsume),
                 }
             },
@@ -395,7 +391,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 }
 
                 _ => match ascii_letter(c) {
-                    Some(cl) => go!(append_temp cl; emit c),
+                    Some(cl) => go!(push_temp cl; emit c),
                     None     => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
                 }
             },
@@ -421,13 +417,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '/'  => go!(to SelfClosingStartTag),
                 '='  => go!(to BeforeAttributeValue),
                 '>'  => go!(to Data; emit_tag),
-                '\0' => go!(error; append_name '\ufffd'),
+                '\0' => go!(error; push_name '\ufffd'),
                 _    => match ascii_letter(c) {
-                    Some(cl) => go!(append_name cl),
+                    Some(cl) => go!(push_name cl),
                     None => {
                         go_match!(c,
                             '"' | '\'' | '<' => error);
-                        go!(append_name c);
+                        go!(push_name c);
                     }
                 }
             },
@@ -453,25 +449,25 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '"'  => go!(to AttributeValueDoubleQuoted),
                 '&'  => go!(to AttributeValueUnquoted; reconsume),
                 '\'' => go!(to AttributeValueSingleQuoted),
-                '\0' => go!(error; append_value '\ufffd'; to AttributeValueUnquoted),
+                '\0' => go!(error; push_value '\ufffd'; to AttributeValueUnquoted),
                 '>'  => go!(error; to Data; emit_tag),
                 '<' | '=' | '`'
-                     => go!(error; append_value c; to AttributeValueUnquoted),
-                _    => go!(append_value c; to AttributeValueUnquoted),
+                     => go!(error; push_value c; to AttributeValueUnquoted),
+                _    => go!(push_value c; to AttributeValueUnquoted),
             },
 
             states::AttributeValueDoubleQuoted => match c {
                 '"'  => go!(to AfterAttributeValueQuoted),
                 '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '"'),
-                '\0' => go!(error; append_value '\ufffd'),
-                _    => go!(append_value c),
+                '\0' => go!(error; push_value '\ufffd'),
+                _    => go!(push_value c),
             },
 
             states::AttributeValueSingleQuoted => match c {
                 '\'' => go!(to AfterAttributeValueQuoted),
                 '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '\''),
-                '\0' => go!(error; append_value '\ufffd'),
-                _    => go!(append_value c),
+                '\0' => go!(error; push_value '\ufffd'),
+                _    => go!(push_value c),
             },
 
             states::AttributeValueUnquoted => match c {
@@ -479,11 +475,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                      => go!(to BeforeAttributeName),
                 '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '>'),
                 '>'  => go!(to Data; emit_tag),
-                '\0' => go!(error; append_value '\ufffd'),
+                '\0' => go!(error; push_value '\ufffd'),
                 _    => {
                     go_match!(c,
                         '"' | '\'' | '<' | '=' | '`' => error);
-                    go!(append_value c);
+                    go!(push_value c);
                 }
             },
 
