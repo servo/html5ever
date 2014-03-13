@@ -203,14 +203,25 @@ macro_rules! shorthand (
     ( error                                ) => ( self.parse_error(c); /* capture! */    );
 )
 
+// Tracing of tokenizer actions.  This adds significant bloat and compile time,
+// so it's behind a cfg flag.
+#[cfg(trace_tokenizer)]
+macro_rules! step ( ( $($cmds:tt)* ) => ({
+    debug!("  {:s}", stringify!($($cmds)*));
+    shorthand!($($cmds)*);
+}))
+
+#[cfg(not(trace_tokenizer))]
+macro_rules! step ( ( $($cmds:tt)* ) => ( shorthand!($($cmds)*) ) )
+
 // A little DSL for sequencing shorthand actions.
 macro_rules! go (
     // A pattern like $($cmd:tt)* ; $($rest:tt)* causes parse ambiguity.
     // We have to tell the parser how much lookahead we need.
-    ( $a:tt                   ; $($rest:tt)* ) => ({ shorthand!($a);          go!($($rest)*); });
-    ( $a:tt $b:tt             ; $($rest:tt)* ) => ({ shorthand!($a $b);       go!($($rest)*); });
-    ( $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ shorthand!($a $b $c);    go!($($rest)*); });
-    ( $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ shorthand!($a $b $c $d); go!($($rest)*); });
+    ( $a:tt                   ; $($rest:tt)* ) => ({ step!($a);          go!($($rest)*); });
+    ( $a:tt $b:tt             ; $($rest:tt)* ) => ({ step!($a $b);       go!($($rest)*); });
+    ( $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ step!($a $b $c);    go!($($rest)*); });
+    ( $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ step!($a $b $c $d); go!($($rest)*); });
 
     // These can only come at the end.
     // FIXME: Come up with a better name for 'finish'.
@@ -218,7 +229,7 @@ macro_rules! go (
     ( finish    ) => ( return Finished;  );
 
     // If nothing else matched, it's a single command
-    ( $($cmd:tt)+ ) => ( shorthand!($($cmd)+); );
+    ( $($cmd:tt)+ ) => ( step!($($cmd)+); );
 
     // or nothing.
     () => (());
