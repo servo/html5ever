@@ -37,6 +37,9 @@ pub struct Tokenizer<'sink, Sink> {
     /// Current attribute.
     priv current_attr: Attribute,
 
+    /// Current comment.
+    priv current_comment: ~str,
+
     /// Last start tag name, for use in checking "appropriate end tag".
     priv last_start_tag_name: Option<~str>,
 
@@ -60,6 +63,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             state: states::Data,
             current_tag: None,
             current_attr: Attribute::new(),
+            current_comment: ~"",
             last_start_tag_name: None,
             temp_buf: ~"",
             addnl_allowed: None,
@@ -111,9 +115,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_temp_buf(&mut self) {
-        // FIXME: Add a multi-character token and move temp_buf into it, something like
-        //     self.sink.process_token(StringToken(
-        //         replace(&mut self.temp_buf, ~"")))
+        // FIXME: Add a multi-character token and move temp_buf into it, like
+        // emit_current_comment below.
         //
         // Need to make sure that clearing on emit is spec-compatible.
         //
@@ -126,6 +129,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn clear_temp_buf(&mut self) {
         // Do this without a new allocation.
         self.temp_buf.truncate(0);
+    }
+
+    fn emit_current_comment(&mut self) {
+        self.sink.process_token(CommentToken(
+            replace(&mut self.current_comment, ~"")));
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -199,6 +207,9 @@ macro_rules! shorthand (
     ( push_value $c:expr                   ) => ( self.current_attr.value.push_char($c); );
     ( addnl_allowed $c:expr                ) => ( self.addnl_allowed = Some($c);         );
     ( no_addnl_allowed                     ) => ( self.addnl_allowed = None;             );
+    ( push_comment $c:expr                 ) => ( self.current_comment.push_char($c);    );
+    ( append_comment $c:expr               ) => ( self.current_comment.push_str($c);     );
+    ( emit_comment                         ) => ( self.emit_current_comment();           );
     ( error                                ) => ( self.parse_error(c); /* capture! */    );
 )
 
@@ -499,12 +510,47 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _ => go!(error; to BeforeAttributeName; reconsume),
             },
 
-            states::CommentStart |
-            states::CommentStartDash |
-            states::Comment |
-            states::CommentEndDash |
-            states::CommentEnd |
-            states::CommentEndBang |
+            states::CommentStart => match c {
+                '-'  => go!(to CommentStartDash),
+                '\0' => go!(error; push_comment '\ufffd'; to Comment),
+                '>'  => go!(error; to Data; emit_comment),
+                _    => go!(push_comment c; to Comment),
+            },
+
+            states::CommentStartDash => match c {
+                '-'  => go!(to CommentEnd),
+                '\0' => go!(error; append_comment "-\ufffd"; to Comment),
+                '>'  => go!(error; to Data; emit_comment),
+                _    => go!(push_comment '-'; push_comment c; to Comment),
+            },
+
+            states::Comment => match c {
+                '-'  => go!(to CommentEndDash),
+                '\0' => go!(error; push_comment '\ufffd'),
+                _    => go!(push_comment c),
+            },
+
+            states::CommentEndDash => match c {
+                '-'  => go!(to CommentEnd),
+                '\0' => go!(error; append_comment "-\ufffd"; to Comment),
+                _    => go!(push_comment '-'; push_comment c; to Comment),
+            },
+
+            states::CommentEnd => match c {
+                '>'  => go!(to Data; emit_comment),
+                '\0' => go!(append_comment "--\ufffd"; to Comment),
+                '!'  => go!(error; to CommentEndBang),
+                '-'  => go!(error; push_comment '-'),
+                _    => go!(error; append_comment "--"; push_comment c; to Comment),
+            },
+
+            states::CommentEndBang => match c {
+                '-'  => go!(append_comment "--!"; to CommentEndDash),
+                '>'  => go!(to Data; emit_comment),
+                '\0' => go!(error; append_comment "--!\ufffd"; to Comment),
+                _    => go!(append_comment "--!"; push_comment c; to Comment),
+            },
+
             states::Doctype |
             states::BeforeDoctypeName |
             states::DoctypeName |
