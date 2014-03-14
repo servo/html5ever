@@ -93,7 +93,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             match self.state {
                 // These states do something other than consume a single character.
                 states::CharacterReferenceInData | states::CharacterReferenceInRcdata
-                | states::CharacterReferenceInAttributeValue | states::BogusComment
+                | states::CharacterReferenceInAttributeValue
                 | states::MarkupDeclarationOpen | states::CdataSection => {
                     fail!("FIXME: state {:?} not implemented", self.state);
                 }
@@ -246,6 +246,7 @@ macro_rules! shorthand (
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
     ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
+    ( clear_comment                   ) => ( self.current_comment.truncate(0);                     );
     ( create_doctype                  ) => ( self.current_doctype = Doctype::new();                );
     ( push_doctype_name $c:expr       ) => ( option_push_char(&mut self.current_doctype.name, $c); );
     ( push_doctype_id $k:expr $c:expr ) => ( option_push_char(self.doctype_id($k), $c);            );
@@ -325,7 +326,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::TagOpen => match c {
                 '!' => go!(to MarkupDeclarationOpen),
                 '/' => go!(to EndTagOpen),
-                '?' => go!(error; to BogusComment),
+                '?' => go!(error; clear_comment; push_comment '?'; to BogusComment),
                 _ => match ascii_letter(c) {
                     Some(cl) => go!(create_tag StartTag cl; to TagName),
                     None     => go!(error; emit '<'; to Data; reconsume),
@@ -333,10 +334,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             },
 
             states::EndTagOpen => match c {
-                '>' => go!(error; to Data),
+                '>'  => go!(error; to Data),
+                '\0' => go!(error; clear_comment; push_comment '\ufffd'; to BogusComment),
                 _ => match ascii_letter(c) {
                     Some(cl) => go!(create_tag EndTag cl; to TagName),
-                    None     => go!(error; to BogusComment),
+                    None     => go!(error; clear_comment; push_comment c; to BogusComment),
                 }
             },
 
@@ -679,10 +681,15 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _    => (),
             },
 
+            states::BogusComment => match c {
+                '>'  => go!(emit_comment; to Data),
+                '\0' => go!(push_comment '\ufffd'),
+                _    => go!(push_comment c),
+            },
+
             states::CharacterReferenceInData |
             states::CharacterReferenceInRcdata |
             states::CharacterReferenceInAttributeValue |
-            states::BogusComment |
             states::MarkupDeclarationOpen |
             states::CdataSection
                 => fail!("FIXME: state {:?} not implemented", self.state),
