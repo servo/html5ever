@@ -32,9 +32,11 @@ impl BufferQueue {
         }
         self.buffers.push_back(buf);
     }
+}
 
+impl Iterator<char> for BufferQueue {
     /// Get the next character, if one is available.
-    pub fn get_char(&mut self) -> Option<char> {
+    fn next(&mut self) -> Option<char> {
         loop {
             match self.buffers.front_mut() {
                 None => return None,

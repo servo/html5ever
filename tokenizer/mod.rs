@@ -110,7 +110,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             return Some(self.current_char);
         }
 
-        self.input_buffers.get_char().map(|c| {
+        self.input_buffers.next().map(|c| {
             self.current_char = c;
             c
         })
