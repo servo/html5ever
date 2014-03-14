@@ -10,10 +10,10 @@ use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
 use self::states::{DoctypeIdKind, Public, System};
 
+use util::buffer_queue::BufferQueue;
+
 use std::str;
 use std::util::replace;
-use extra::container::Deque;
-use extra::dlist::DList;
 
 mod tokens;
 mod states;
@@ -47,9 +47,9 @@ pub struct Tokenizer<'sink, Sink> {
     priv state: states::State,
 
     /// Input ready to be tokenized.
-    priv input_buffers: DList<~str>,
+    priv input_buffers: BufferQueue,
 
-    /// Current input character.
+    /// Current input character.  Just consumed, may reconsume.
     priv current_char: char,
 
     /// Should we reconsume the current input character?
@@ -85,7 +85,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         Tokenizer {
             sink: sink,
             state: states::Data,
-            input_buffers: DList::new(),
+            input_buffers: BufferQueue::new(),
             current_char: '\0',
             reconsume: false,
             current_tag: None,
@@ -110,19 +110,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             return Some(self.current_char);
         }
 
-        loop {
-            match self.input_buffers.front_mut() {
-                None => return None,
-                Some(ref mut buf) => {
-                    if buf.len() > 0 {
-                        self.current_char = buf.shift_char();
-                        return Some(self.current_char);
-                    }
-                }
-            }
-            // Remaining case: There is a front buffer, but it's empty.
-            self.input_buffers.pop_front();
-        }
+        self.input_buffers.get_char().map(|c| {
+            self.current_char = c;
+            c
+        })
     }
 
     // Run the state machine for as long as we can.
