@@ -4,6 +4,8 @@
 
 #[feature(macro_rules)];
 
+extern mod extra;
+
 use std::io;
 use std::char;
 
