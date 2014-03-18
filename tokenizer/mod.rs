@@ -13,6 +13,7 @@ use self::states::{DoctypeIdKind, Public, System};
 use util::buffer_queue::BufferQueue;
 
 use std::str;
+use std::ascii::StrAsciiExt;
 use std::util::replace;
 
 mod tokens;
@@ -48,6 +49,10 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// Input ready to be tokenized.
     priv input_buffers: BufferQueue,
+
+    /// If Some(n), the abstract machine needs n available
+    /// characters to continue.
+    priv wait_for: Option<uint>,
 
     /// Current input character.  Just consumed, may reconsume.
     priv current_char: char,
@@ -85,6 +90,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         Tokenizer {
             sink: sink,
             state: states::Data,
+            wait_for: None,
             input_buffers: BufferQueue::new(),
             current_char: '\0',
             reconsume: false,
@@ -114,6 +120,30 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self.current_char = c;
             c
         })
+    }
+
+    // If fewer than n characters are available, return None.
+    // Otherwise check if they satisfy a predicate, and consume iff so.
+    // FIXME: we shouldn't need to consume and then put back
+    fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
+        match self.input_buffers.pop_front(n) {
+            None => {
+                debug!("lookahead: requested {:u} characters not available", n);
+                self.wait_for = Some(n);
+                None
+            }
+            Some(s) => {
+                if p(s.as_slice()) {
+                    debug!("lookahead: condition satisfied by {:?}", s);
+                    // FIXME: set current input character?
+                    Some(true)
+                } else {
+                    debug!("lookahead: condition not satisfied by {:?}", s);
+                    self.input_buffers.push_front(s);
+                    Some(false)
+                }
+            }
+        }
     }
 
     // Run the state machine for as long as we can.
@@ -315,12 +345,28 @@ macro_rules! get_char ( () => (
     }
 ))
 
+// NB: if you use this after get_char!() then the first char is still
+// consumed no matter what!
+macro_rules! lookahead_and_consume ( ($n:expr, $pred:expr) => (
+    match self.lookahead_and_consume($n, $pred) {
+        // This counts as progress because we set the
+        // wait_for variable.
+        None => return true,
+        Some(r) => r
+    }
+))
+
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // Run one step of the state machine.  Return true if we made any progress.
     //
     // FIXME: explicitly represent the EOF character?
     // For now the plan is to handle EOF in a separate match.
     fn step(&mut self) -> bool {
+        match self.wait_for {
+            Some(n) if !self.input_buffers.has(n) => return false,
+            _ => self.wait_for = None,
+        }
+
         match self.state {
             states::Data => match get_char!() {
                 '&'  => go!(to CharacterReferenceInData),
@@ -647,10 +693,16 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 c    => go!(push_doctype_name (lower_ascii(c))),
             },
 
-            states::AfterDoctypeName => match get_char!() {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '>' => go!(to Data; emit_doctype),
-                _   => fail!("FIXME: need lookahead"),
+            states::AfterDoctypeName => match () {
+                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case("public"))
+                    => go!(to AfterDoctypeKeyword Public),
+                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case("system"))
+                    => go!(to AfterDoctypeKeyword System),
+                _ => match get_char!() {
+                    '\t' | '\n' | '\x0C' | ' ' => (),
+                    '>' => go!(to Data; emit_doctype),
+                    _   => go!(error; force_quirks; to BogusDoctype),
+                },
             },
 
             states::AfterDoctypeKeyword(kind) => match get_char!() {
@@ -718,10 +770,19 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 c    => go!(push_comment c),
             },
 
+            states::MarkupDeclarationOpen => match () {
+                _ if lookahead_and_consume!(2, |s| s == "--")
+                    => go!(clear_comment; to CommentStart),
+                _ if lookahead_and_consume!(7, |s| s.eq_ignore_ascii_case("doctype"))
+                    => go!(to Doctype),
+                // FIXME: CDATA, requires "adjusted current node" from tree builder
+                // FIXME: 'error' gives wrong message
+                _ => go!(error; to BogusComment),
+            },
+
             states::CharacterReferenceInData |
             states::CharacterReferenceInRcdata |
             states::CharacterReferenceInAttributeValue |
-            states::MarkupDeclarationOpen |
             states::CdataSection
                 => fail!("FIXME: state {:?} not implemented", self.state),
         }
