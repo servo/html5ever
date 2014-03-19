@@ -6,5 +6,8 @@
 
 extern mod extra;
 
+pub mod util {
+    pub mod buffer_queue;
+}
+
 pub mod tokenizer;
-pub mod util;
