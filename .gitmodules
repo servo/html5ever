@@ -1,0 +1,3 @@
+[submodule "rust-phf"]
+	path = rust-phf
+	url = https://github.com/kmcallister/rust-phf

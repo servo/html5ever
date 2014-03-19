@@ -38,7 +38,9 @@ pub struct CharRefTokenizer {
     priv seen_digit: bool,
     priv hex_marker: Option<char>,
 
-    priv name_buf: ~str,
+    priv name_buf: Option<~str>,
+    priv last_name_match: Option<&'static [char, ..2]>,
+    priv last_name_char: char,
 }
 
 impl CharRefTokenizer {
@@ -51,7 +53,9 @@ impl CharRefTokenizer {
             num_too_big: false,
             seen_digit: false,
             hex_marker: None,
-            name_buf: ~"",
+            name_buf: None,
+            last_name_match: None,
+            last_name_char: '\0',
         }
     }
 
@@ -108,6 +112,7 @@ impl CharRefTokenizer {
 
             _ => {
                 self.state = Named;
+                self.name_buf = Some(~"");
                 Progress
             }
         }
@@ -194,6 +199,42 @@ impl CharRefTokenizer {
     }
 
     fn do_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
-        fail!("FIXME: not implemented");
+        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
+        self.name_buf.get_mut_ref().push_char(c);
+        match data::named_entities.find(&self.name_buf.get_ref().as_slice()) {
+            Some(m) => {
+                // The buffer matches an entity, or a prefix of an entity.  In
+                // the latter case, both chars in last_name_match are \0.
+                tokenizer.discard_char();
+                self.last_name_match = Some(m);
+                self.last_name_char = c;
+                Progress
+            }
+
+            // Can't continue the match.
+            None => match self.last_name_match {
+                None | Some(&['\0', _]) => {
+                    // We matched nothing, or a prefix only.
+                    //
+                    // FIXME: "if the characters after the U+0026 AMPERSAND
+                    // character (&) consist of a sequence of one or more
+                    // alphanumeric ASCII characters followed by a U+003B
+                    // SEMICOLON character (;), then this is a parse error".
+
+                    tokenizer.discard_char();
+                    tokenizer.unconsume(self.name_buf.take_unwrap());
+                    self.finish_none(false)
+                }
+                Some(m) => {
+                    // We have a complete match.
+                    self.result = Some(CharRef {
+                        chars: *m,
+                        num_chars: if m[1] == '\0' { 1 } else { 2 },
+                        parse_error: self.last_name_char != ';',
+                    });
+                    Done
+                }
+            }
+        }
     }
 }
