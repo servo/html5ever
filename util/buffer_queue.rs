@@ -70,6 +70,18 @@ impl BufferQueue {
         Some(self.by_ref().take(n).collect())
     }
 
+    /// Look at the next available character, if any.
+    pub fn peek(&self) -> Option<char> {
+        // FIXME: Abstract out the structure of this and next().
+        // Or just make sure we never have empty buffers in the queue.
+        for &Buffer { pos, ref buf } in self.buffers.iter() {
+            if pos < buf.len() {
+                return Some(buf.char_at(pos));
+            }
+        }
+        None
+    }
+
     fn account_new(&mut self, buf: &str) {
         // FIXME: We could pass through length from the initial ~[u8] -> ~str
         // conversion, which already must re-encode or at least scan for UTF-8

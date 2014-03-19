@@ -2,13 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[feature(macro_rules)];
+#[macro_escape];
 
-extern mod extra;
-
-pub mod util {
-    pub mod buffer_queue;
-}
-
-pub mod macros;
-pub mod tokenizer;
+macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
+    match $opt {
+        None => return $retval,
+        Some(x) => x,
+    }
+))

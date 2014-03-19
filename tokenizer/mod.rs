@@ -10,6 +10,8 @@ use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
 use self::states::{DoctypeIdKind, Public, System};
 
+use self::char_ref::{CharRef, CharRefTokenizer};
+
 use util::buffer_queue::BufferQueue;
 
 use std::str;
@@ -18,6 +20,7 @@ use std::util::replace;
 
 mod tokens;
 mod states;
+mod char_ref;
 
 pub trait TokenSink {
     fn process_token(&mut self, token: Token);
@@ -53,6 +56,10 @@ pub struct Tokenizer<'sink, Sink> {
     /// If Some(n), the abstract machine needs n available
     /// characters to continue.
     priv wait_for: Option<uint>,
+
+    /// Tokenizer for character references, if we're tokenizing
+    /// one at the moment.
+    priv char_ref_tokenizer: Option<~CharRefTokenizer>,
 
     /// Current input character.  Just consumed, may reconsume.
     priv current_char: char,
@@ -91,6 +98,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             sink: sink,
             state: states::Data,
             wait_for: None,
+            char_ref_tokenizer: None,
             input_buffers: BufferQueue::new(),
             current_char: '\0',
             reconsume: false,
@@ -265,6 +273,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             None => *id = Some(~""),
         }
     }
+
+    fn consume_char_ref(&mut self) {
+        self.char_ref_tokenizer = Some(~CharRefTokenizer::new(self.addnl_allowed));
+    }
 }
 
 // Shorthand for common state machine behaviors.
@@ -294,6 +306,7 @@ macro_rules! shorthand (
     ( clear_doctype_id $k:expr        ) => ( self.clear_doctype_id($k);                            );
     ( force_quirks                    ) => ( self.current_doctype.force_quirks = true;             );
     ( emit_doctype                    ) => ( self.emit_current_doctype();                          );
+    ( consume_char_ref                ) => ( self.consume_char_ref();                              );
     ( error                           ) => ( self.parse_error();                                   );
 )
 
@@ -339,10 +352,7 @@ macro_rules! go_match ( ( $x:expr, $($pats:pat)|+ => $($cmds:tt)* ) => (
 // This is a macro because it can cause early return
 // from the function where it is used.
 macro_rules! get_char ( () => (
-    match self.get_char() {
-        None => return false,
-        Some(c) => c
-    }
+    unwrap_or_return!(self.get_char(), false)
 ))
 
 // NB: if you use this after get_char!() then the first char is still
@@ -362,6 +372,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // FIXME: explicitly represent the EOF character?
     // For now the plan is to handle EOF in a separate match.
     fn step(&mut self) -> bool {
+        if self.char_ref_tokenizer.is_some() {
+            return self.step_char_ref_tokenizer();
+        }
+
         match self.wait_for {
             Some(n) if !self.input_buffers.has(n) => return false,
             _ => self.wait_for = None,
@@ -780,8 +794,12 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _ => go!(error; to BogusComment),
             },
 
-            states::CharacterReferenceInData |
-            states::CharacterReferenceInRcdata |
+            states::CharacterReferenceInData
+                => go!(to Data; consume_char_ref),
+
+            states::CharacterReferenceInRcdata
+                => go!(to RawData Rcdata; consume_char_ref),
+
             states::CharacterReferenceInAttributeValue |
             states::CdataSection
                 => fail!("FIXME: state {:?} not implemented", self.state),
@@ -790,5 +808,76 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         // Most actions above fall through to here.
         // Any case where we didn't make progress has an early "return false".
         true
+    }
+
+    fn step_char_ref_tokenizer(&mut self) -> bool {
+        // FIXME HACK: Take and replace the tokenizer so we don't
+        // double-mut-borrow self.  This is why it's boxed.
+        let mut tok = self.char_ref_tokenizer.take_unwrap();
+        let outcome = tok.step(self);
+
+        let progress = match outcome {
+            char_ref::Done => {
+                self.process_char_ref(tok.get_result());
+                return true;
+            }
+
+            char_ref::Stuck => false,
+            char_ref::Progress => true,
+        };
+
+        self.char_ref_tokenizer = Some(tok);
+        progress
+    }
+
+    fn process_char_ref(&mut self, char_ref: CharRef) {
+        let CharRef { mut chars, mut num_chars, parse_error } = char_ref;
+
+        if parse_error {
+            // FIXME: make this more informative
+            error!("Parse error: bad character reference");
+        }
+
+        if num_chars == 0 {
+            chars = ['&', '\0'];
+            num_chars = 1;
+        }
+
+        for i in range(0, num_chars) {
+            let c = chars[i];
+            match self.state {
+                states::Data | states::RawData(states::Rcdata) => go!(emit c),
+                _ => fail!("not implemented"),
+            }
+        }
+    }
+}
+
+
+/// Methods to support the character sub-tokenizer.
+/// Putting these in a trait hides the Tokenizer type variables, which makes
+/// the sub-tokenizer cleaner.
+trait SubTok {
+    fn peek(&self) -> Option<char>;
+    fn discard_char(&mut self);
+    fn unconsume(&mut self, buf: ~str);
+}
+
+impl<'sink, Sink: TokenSink> SubTok for Tokenizer<'sink, Sink> {
+    fn peek(&self) -> Option<char> {
+        if self.reconsume {
+            Some(self.current_char)
+        } else {
+            self.input_buffers.peek()
+        }
+    }
+
+    fn discard_char(&mut self) {
+        let c = self.get_char();
+        assert!(c.is_some());
+    }
+
+    fn unconsume(&mut self, buf: ~str) {
+        self.input_buffers.push_front(buf);
     }
 }
