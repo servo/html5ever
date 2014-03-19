@@ -141,7 +141,7 @@ impl CharRefTokenizer {
                     // We still parse digits and semicolon, but don't use the result.
                     self.num_too_big = true;
                 }
-                self.num += (n as u32);
+                self.num += n as u32;
                 self.seen_digit = true;
                 Progress
             }

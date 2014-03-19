@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern mod html5;
+extern crate html5;
 
 use std::io;
 use std::char;
@@ -61,7 +61,7 @@ fn main() {
     };
     {
         let mut tok = Tokenizer::new(&mut sink);
-        tok.feed(io::stdin().read_to_str());
+        tok.feed(io::stdin().read_to_str().unwrap());
     }
     sink.is_char(false);
 }

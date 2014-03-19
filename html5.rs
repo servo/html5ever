@@ -4,7 +4,7 @@
 
 #[feature(macro_rules)];
 
-extern mod extra;
+extern crate collections;
 
 pub mod util {
     pub mod buffer_queue;

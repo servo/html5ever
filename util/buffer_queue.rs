@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::str::CharRange;
-use extra::container::Deque;
-use extra::dlist::DList;
+use collections::deque::Deque;
+use collections::dlist::DList;
 
 struct Buffer {
     /// Byte position within the buffer.

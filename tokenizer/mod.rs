@@ -16,7 +16,7 @@ use util::buffer_queue::BufferQueue;
 
 use std::str;
 use std::ascii::StrAsciiExt;
-use std::util::replace;
+use std::mem::replace;
 
 mod tokens;
 mod states;
@@ -164,7 +164,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         error!("Parse error: saw {:?} in state {:?}", self.current_char, self.state);
     }
 
-    fn emit_char(&self, c: char) {
+    fn emit_char(&mut self, c: char) {
         self.sink.process_token(CharacterToken(c));
     }
 
@@ -180,13 +180,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_temp_buf(&mut self) {
-        // FIXME: Add a multi-character token and move temp_buf into it, like
-        // emit_current_comment below.
+        // FIXME: Add a multi-character token and move temp_buf into it.
         //
         // Need to make sure that clearing on emit is spec-compatible.
-        //
-        // Until then we reuse the same buffer allocation forever.
-        for c in self.temp_buf.chars() {
+        let buf = replace(&mut self.temp_buf, ~"");
+        for c in buf.chars() {
             self.emit_char(c);
         }
     }
