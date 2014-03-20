@@ -190,10 +190,10 @@ impl CharRefTokenizer {
 
             0x80..0x9F => match data::c1_replacements[self.num - 0x80] {
                 Some(c) => self.finish_one(c, true),
-                None => self.finish_one(conv(self.num), semi_missing),
+                None => self.finish_one(conv(self.num), true),
             },
 
-            0x01..0x08 | 0x0D..0x1F | 0x7F..0x9F | 0xFDD0..0xFDEF | 0x0B
+            0x01..0x08 | 0x0B | 0x0D..0x1F | 0x7F | 0xFDD0..0xFDEF
                 => self.finish_one(conv(self.num), true),
 
             n if (n & 0xFFFE) == 0xFFFE
