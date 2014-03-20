@@ -178,14 +178,17 @@ impl CharRefTokenizer {
     }
 
     fn do_numeric_semicolon<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
-        fn conv(n: u32) -> char {
-            from_u32(n).expect("invalid char missed by error handling cases")
-        }
-
         let semi_missing = match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => { tokenizer.discard_char(); false }
             _   => true
         };
+        self.finish_numeric(semi_missing)
+    }
+
+    fn finish_numeric(&mut self, parse_error: bool) -> Status {
+        fn conv(n: u32) -> char {
+            from_u32(n).expect("invalid char missed by error handling cases")
+        }
 
         match self.num {
             n if (n > 0x10FFFF) || self.num_too_big => self.finish_one('\ufffd', true),
@@ -202,7 +205,7 @@ impl CharRefTokenizer {
             n if (n & 0xFFFE) == 0xFFFE
                 => self.finish_one(conv(n), true),
 
-            n => self.finish_one(conv(n), semi_missing),
+            n => self.finish_one(conv(n), parse_error),
         }
     }
 
@@ -274,6 +277,23 @@ impl CharRefTokenizer {
                         Done
                     }
                 }
+            }
+        }
+    }
+
+    pub fn end_of_file<T: SubTok>(&mut self, _tokenizer: &mut T) {
+        match self.state {
+            Begin => { self.finish_none(false); }
+
+            // FIXME: Handling the rest of these correctly requires unconsuming
+            // characters after EOF, which the main tokenizer can't handle yet.
+
+            Numeric(_) | NumericSemicolon => {
+                self.finish_numeric(true);
+            }
+
+            Named | Octothorpe => {
+                self.finish_none(true);
             }
         }
     }

@@ -62,6 +62,7 @@ fn main() {
     {
         let mut tok = Tokenizer::new(&mut sink);
         tok.feed(io::stdin().read_to_str().unwrap());
+        tok.end();
     }
     sink.is_char(false);
 }

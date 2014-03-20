@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
-pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
+pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken, EOFToken};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
-use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
+use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{DoctypeIdKind, Public, System};
@@ -152,6 +152,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         error!("Parse error: saw {:?} in state {:?}", self.current_char, self.state);
     }
 
+    fn parse_error_eof(&self) {
+        error!("Parse error: saw EOF in state {:?}", self.state);
+    }
+
     fn emit_char(&mut self, c: char) {
         self.sink.process_token(CharacterToken(c));
     }
@@ -265,6 +269,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         // character iff we're tokenizing in an attribute value.
         self.char_ref_tokenizer = Some(~CharRefTokenizer::new(addnl_allowed));
     }
+
+    fn emit_eof(&mut self) {
+        self.sink.process_token(EOFToken);
+    }
 }
 
 // Shorthand for common state machine behaviors.
@@ -295,6 +303,7 @@ macro_rules! shorthand (
     ( consume_char_ref                ) => ( self.consume_char_ref(None);                          );
     ( consume_char_ref $addnl:expr    ) => ( self.consume_char_ref(Some($addnl));                  );
     ( error                           ) => ( self.parse_error();                                   );
+    ( error_eof                       ) => ( self.parse_error_eof();                               );
 )
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
@@ -321,6 +330,7 @@ macro_rules! go (
     // FIXME: Come up with a better name for 'finish'.
     ( reconsume ) => ({ self.reconsume = true; return true; });
     ( finish    ) => ( return true; );
+    ( eof       ) => ({ self.emit_eof(); return; });
 
     // If nothing else matched, it's a single command
     ( $($cmd:tt)+ ) => ( sh_trace!($($cmd)+); );
@@ -833,6 +843,86 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     => go!(push_value c),
 
                 _ => fail!("state {:?} should not be reachable in process_char_ref", self.state),
+            }
+        }
+    }
+
+    pub fn end(&mut self) {
+        // Process all remaining buffered input.
+        // FIXME: What if we're doing lookahead, i.e. wait_for = Some(n)?
+        self.run();
+
+        // Handle EOF in the char ref sub-tokenizer, if there is one.
+        match self.char_ref_tokenizer.take() {
+            None => (),
+            Some(mut tok) => {
+                tok.end_of_file(self);
+                self.process_char_ref(tok.get_result());
+            }
+        }
+
+        loop {
+            debug!("processing EOF in state {:?}", self.state);
+            match self.state {
+                states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
+                | states::RawData(ScriptData) | states::Plaintext
+                    => go!(eof),
+
+                states::TagName | states::RawData(ScriptDataEscaped(_))
+                | states::BeforeAttributeName | states::AttributeName
+                | states::AfterAttributeName | states::BeforeAttributeValue
+                | states::AttributeValue(_) | states::AfterAttributeValueQuoted
+                | states::SelfClosingStartTag | states::ScriptDataEscapedDash(_)
+                | states::ScriptDataEscapedDashDash(_)
+                    => go!(error_eof; to Data),
+
+                states::TagOpen
+                    => go!(error_eof; to Data; emit '<'),
+
+                states::EndTagOpen
+                    => go!(error_eof; to Data; emit '<'; emit '/'),
+
+                states::RawLessThanSign(kind)
+                    => go!(to RawData kind; emit '<'),
+
+                states::RawEndTagOpen(kind)
+                    => go!(to RawData kind; emit '<'; emit '/'),
+
+                states::RawEndTagName(kind)
+                    => go!(to RawData kind; emit '<'; emit '/'),
+
+                states::ScriptDataEscapeStart(kind)
+                    => go!(to RawData ScriptDataEscaped kind),
+
+                states::ScriptDataEscapeStartDash
+                    => go!(to RawData ScriptData),
+
+                states::ScriptDataDoubleEscapeEnd
+                    => go!(to RawData ScriptDataEscaped DoubleEscaped),
+
+                states::CommentStart | states::CommentStartDash
+                | states::Comment | states::CommentEndDash
+                | states::CommentEnd | states::CommentEndBang
+                    => go!(error_eof; to Data; emit_comment),
+
+                states::Doctype | states::BeforeDoctypeName
+                | states::DoctypeName | states::AfterDoctypeName
+                | states::AfterDoctypeKeyword(_) | states::BeforeDoctypeIdentifier(_)
+                | states::DoctypeIdentifierDoubleQuoted(_) | states::DoctypeIdentifierSingleQuoted(_)
+                | states::AfterDoctypeIdentifier(_) | states::BetweenDoctypePublicAndSystemIdentifiers
+                    => go!(error_eof; to Data; create_doctype; force_quirks; emit_doctype),
+
+                states::BogusDoctype
+                    => go!(to Data; emit_doctype),
+
+                states::BogusComment
+                    => go!(emit_comment; to Data),
+
+                states::MarkupDeclarationOpen
+                    => go!(error; to BogusComment),
+
+                states::CdataSection
+                    => fail!("FIXME: state {:?} not implemented in EOF", self.state),
             }
         }
     }
