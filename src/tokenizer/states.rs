@@ -23,10 +23,15 @@ pub enum RawKind {
 }
 
 #[deriving(Eq)]
+pub enum AttrValueKind {
+    Unquoted,
+    SingleQuoted,
+    DoubleQuoted,
+}
+
+#[deriving(Eq)]
 pub enum State {
     Data,
-    CharacterReferenceInData,
-    CharacterReferenceInRcdata,
     Plaintext,
     TagOpen,
     EndTagOpen,
@@ -44,10 +49,7 @@ pub enum State {
     AttributeName,
     AfterAttributeName,
     BeforeAttributeValue,
-    AttributeValueDoubleQuoted,
-    AttributeValueSingleQuoted,
-    AttributeValueUnquoted,
-    CharacterReferenceInAttributeValue,
+    AttributeValue(AttrValueKind),
     AfterAttributeValueQuoted,
     SelfClosingStartTag,
     BogusComment,

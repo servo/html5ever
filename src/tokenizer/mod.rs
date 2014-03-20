@@ -8,6 +8,7 @@ pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken};
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
+use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{DoctypeIdKind, Public, System};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
@@ -78,9 +79,6 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// The "temporary buffer" mentioned in the spec.
     priv temp_buf: ~str,
-
-    /// The "additional allowed character" for character references.
-    priv addnl_allowed: Option<char>,
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
@@ -99,7 +97,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_doctype: Doctype::new(),
             last_start_tag_name: None,
             temp_buf: ~"",
-            addnl_allowed: None,
         }
     }
 
@@ -263,8 +260,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    fn consume_char_ref(&mut self) {
-        self.char_ref_tokenizer = Some(~CharRefTokenizer::new(self.addnl_allowed));
+    fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
+        // NB: The char ref tokenizer assumes we have an additional allowed
+        // character iff we're tokenizing in an attribute value.
+        self.char_ref_tokenizer = Some(~CharRefTokenizer::new(addnl_allowed));
     }
 }
 
@@ -283,8 +282,6 @@ macro_rules! shorthand (
     ( create_attr $c:expr             ) => ( self.create_attribute($c);                            );
     ( push_name $c:expr               ) => ( self.current_attr.name.push_char($c);                 );
     ( push_value $c:expr              ) => ( self.current_attr.value.push_char($c);                );
-    ( addnl_allowed $c:expr           ) => ( self.addnl_allowed = Some($c);                        );
-    ( no_addnl_allowed                ) => ( self.addnl_allowed = None;                            );
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
     ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
@@ -295,7 +292,8 @@ macro_rules! shorthand (
     ( clear_doctype_id $k:expr        ) => ( self.clear_doctype_id($k);                            );
     ( force_quirks                    ) => ( self.current_doctype.force_quirks = true;             );
     ( emit_doctype                    ) => ( self.emit_current_doctype();                          );
-    ( consume_char_ref                ) => ( self.consume_char_ref();                              );
+    ( consume_char_ref                ) => ( self.consume_char_ref(None);                          );
+    ( consume_char_ref $addnl:expr    ) => ( self.consume_char_ref(Some($addnl));                  );
     ( error                           ) => ( self.parse_error();                                   );
 )
 
@@ -372,7 +370,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         match self.state {
             states::Data => match get_char!() {
-                '&'  => go!(to CharacterReferenceInData),
+                '&'  => go!(consume_char_ref),
                 '<'  => go!(to TagOpen),
                 '\0' => go!(error; emit '\0'),
                 c    => go!(emit c),
@@ -380,7 +378,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             // RCDATA, RAWTEXT, script, or script escaped
             states::RawData(kind) => match (get_char!(), kind) {
-                ('&', Rcdata) => go!(to CharacterReferenceInRcdata),
+                ('&', Rcdata) => go!(consume_char_ref),
                 ('-', ScriptDataEscaped(esc_kind)) => go!(to ScriptDataEscapedDash esc_kind; emit '-'),
                 ('<', ScriptDataEscaped(DoubleEscaped)) => go!(to RawLessThanSign kind; emit '<'),
                 ('<',  _) => go!(to RawLessThanSign kind),
@@ -579,36 +577,36 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::BeforeAttributeValue => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
-                '"'  => go!(to AttributeValueDoubleQuoted),
-                '&'  => go!(to AttributeValueUnquoted; reconsume),
-                '\'' => go!(to AttributeValueSingleQuoted),
-                '\0' => go!(error; push_value '\ufffd'; to AttributeValueUnquoted),
+                '"'  => go!(to AttributeValue DoubleQuoted),
+                '&'  => go!(to AttributeValue Unquoted; reconsume),
+                '\'' => go!(to AttributeValue SingleQuoted),
+                '\0' => go!(error; push_value '\ufffd'; to AttributeValue Unquoted),
                 '>'  => go!(error; to Data; emit_tag),
                 c => {
                     go_match!(c,
                         '<' | '=' | '`' => error);
-                    go!(push_value c; to AttributeValueUnquoted);
+                    go!(push_value c; to AttributeValue Unquoted);
                 }
             },
 
-            states::AttributeValueDoubleQuoted => match get_char!() {
+            states::AttributeValue(DoubleQuoted) => match get_char!() {
                 '"'  => go!(to AfterAttributeValueQuoted),
-                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '"'),
+                '&'  => go!(consume_char_ref '"'),
                 '\0' => go!(error; push_value '\ufffd'),
                 c    => go!(push_value c),
             },
 
-            states::AttributeValueSingleQuoted => match get_char!() {
+            states::AttributeValue(SingleQuoted) => match get_char!() {
                 '\'' => go!(to AfterAttributeValueQuoted),
-                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '\''),
+                '&'  => go!(consume_char_ref '\''),
                 '\0' => go!(error; push_value '\ufffd'),
                 c    => go!(push_value c),
             },
 
-            states::AttributeValueUnquoted => match get_char!() {
+            states::AttributeValue(Unquoted) => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
-                '&'  => go!(to CharacterReferenceInAttributeValue; addnl_allowed '>'),
+                '&'  => go!(consume_char_ref '>'),
                 '>'  => go!(to Data; emit_tag),
                 '\0' => go!(error; push_value '\ufffd'),
                 c    => {
@@ -783,13 +781,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 _ => go!(error; to BogusComment),
             },
 
-            states::CharacterReferenceInData
-                => go!(to Data; consume_char_ref),
-
-            states::CharacterReferenceInRcdata
-                => go!(to RawData Rcdata; consume_char_ref),
-
-            states::CharacterReferenceInAttributeValue |
             states::CdataSection
                 => fail!("FIXME: state {:?} not implemented", self.state),
         }
@@ -828,15 +819,20 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         if num_chars == 0 {
-            chars = ['&', '\0'];
+            chars[0] = '&';
             num_chars = 1;
         }
 
         for i in range(0, num_chars) {
             let c = chars[i];
             match self.state {
-                states::Data | states::RawData(states::Rcdata) => go!(emit c),
-                _ => fail!("not implemented"),
+                states::Data | states::RawData(states::Rcdata)
+                    => go!(emit c),
+
+                states::AttributeValue(_)
+                    => go!(push_value c),
+
+                _ => fail!("state {:?} should not be reachable in process_char_ref", self.state),
             }
         }
     }

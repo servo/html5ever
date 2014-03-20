@@ -4,6 +4,7 @@
 
 use super::SubTok;
 
+use util::ascii::is_ascii_alnum;
 use std::char::{to_digit, from_u32};
 
 mod data;
@@ -44,6 +45,8 @@ pub struct CharRefTokenizer {
 }
 
 impl CharRefTokenizer {
+    // NB: We assume that we have an additional allowed character iff we're
+    // tokenizing in an attribute value.
     pub fn new(addnl_allowed: Option<char>) -> CharRefTokenizer {
         CharRefTokenizer {
             state: Begin,
@@ -241,15 +244,35 @@ impl CharRefTokenizer {
 
                     assert!(self.name_len > 0);
                     assert!(self.name_len < self.name_buf().len());
-                    tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
-                    let missing_semi = ';' != self.name_buf().char_at(self.name_len-1);
+                    let last_matched = self.name_buf().char_at(self.name_len-1);
+                    let next_after   = self.name_buf().char_at(self.name_len);
 
-                    self.result = Some(CharRef {
-                        chars: *m,
-                        num_chars: if m[1] == '\0' { 1 } else { 2 },
-                        parse_error: missing_semi,
-                    });
-                    Done
+                    // "If the character reference is being consumed as part of
+                    // an attribute, and the last character matched is not a
+                    // U+003B SEMICOLON character (;), and the next character
+                    // is either a U+003D EQUALS SIGN character (=) or an
+                    // alphanumeric ASCII character..."
+                    if self.addnl_allowed.is_some() && (last_matched != ';')
+                        && ((next_after == '=') || is_ascii_alnum(next_after)) {
+                        // "...all the characters that were matched after the
+                        // U+0026 AMPERSAND character (&) must be unconsumed,
+                        // and nothing is returned"
+                        tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+
+                        // "...if this next character is in fact a U+003D
+                        // EQUALS SIGN character (=), then this is a parse
+                        // error"
+                        self.finish_none(next_after == '=')
+                    } else {
+                        tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
+
+                        self.result = Some(CharRef {
+                            chars: *m,
+                            num_chars: if m[1] == '\0' { 1 } else { 2 },
+                            parse_error: ';' != last_matched,
+                        });
+                        Done
+                    }
                 }
             }
         }

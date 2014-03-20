@@ -14,3 +14,8 @@ pub fn lower_ascii_letter(c: char) -> Option<char> {
 pub fn lower_ascii(c: char) -> char {
     lower_ascii_letter(c).unwrap_or(c)
 }
+
+/// Is the character an ASCII alphanumeric character?
+pub fn is_ascii_alnum(c: char) -> bool {
+    c.to_ascii_opt().map_or(false, |a| a.is_alnum())
+}
