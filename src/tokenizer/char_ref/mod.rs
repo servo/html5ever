@@ -38,9 +38,9 @@ pub struct CharRefTokenizer {
     priv seen_digit: bool,
     priv hex_marker: Option<char>,
 
-    priv name_buf: Option<~str>,
-    priv last_name_match: Option<&'static [char, ..2]>,
-    priv last_name_char: char,
+    priv name_buf_opt: Option<~str>,
+    priv name_match: Option<&'static [char, ..2]>,
+    priv name_len: uint,
 }
 
 impl CharRefTokenizer {
@@ -53,9 +53,9 @@ impl CharRefTokenizer {
             num_too_big: false,
             seen_digit: false,
             hex_marker: None,
-            name_buf: None,
-            last_name_match: None,
-            last_name_char: '\0',
+            name_buf_opt: None,
+            name_match: None,
+            name_len: 0,
         }
     }
 
@@ -77,6 +77,11 @@ impl CharRefTokenizer {
     // so this method consumes the tokenizer.
     pub fn get_result(self) -> CharRef {
         self.result.expect("get_result called before done")
+    }
+
+    fn name_buf<'t>(&'t mut self) -> &'t mut ~str {
+        self.name_buf_opt.as_mut()
+            .expect("name_buf missing in named character reference")
     }
 
     fn finish_none(&mut self, error: bool) -> Status {
@@ -112,7 +117,7 @@ impl CharRefTokenizer {
 
             _ => {
                 self.state = Named;
-                self.name_buf = Some(~"");
+                self.name_buf_opt = Some(~"");
                 Progress
             }
         }
@@ -200,37 +205,49 @@ impl CharRefTokenizer {
 
     fn do_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        self.name_buf.get_mut_ref().push_char(c);
-        match data::named_entities.find(&self.name_buf.get_ref().as_slice()) {
+        tokenizer.discard_char();
+        self.name_buf().push_char(c);
+        match data::named_entities.find(&self.name_buf().as_slice()) {
+            // We have either a full match or a prefix of one.
             Some(m) => {
-                // The buffer matches an entity, or a prefix of an entity.  In
-                // the latter case, both chars in last_name_match are \0.
-                tokenizer.discard_char();
-                self.last_name_match = Some(m);
-                self.last_name_char = c;
+                if m[0] != '\0' {
+                    // We have a full match, but there might be a longer one to come.
+                    self.name_match = Some(m);
+                    self.name_len = self.name_buf().len();
+                }
+                // Otherwise we just have a prefix match.
                 Progress
             }
 
             // Can't continue the match.
-            None => match self.last_name_match {
-                None | Some(&['\0', _]) => {
-                    // We matched nothing, or a prefix only.
-                    //
+            None => match self.name_match {
+                None => {
                     // FIXME: "if the characters after the U+0026 AMPERSAND
                     // character (&) consist of a sequence of one or more
                     // alphanumeric ASCII characters followed by a U+003B
                     // SEMICOLON character (;), then this is a parse error".
 
-                    tokenizer.discard_char();
-                    tokenizer.unconsume(self.name_buf.take_unwrap());
+                    tokenizer.unconsume(self.name_buf_opt.take_unwrap());
                     self.finish_none(false)
                 }
                 Some(m) => {
-                    // We have a complete match.
+                    // We have a complete match, but we've consumed at least
+                    // one additional character into self.name_buf, and more
+                    // in cases like
+                    //
+                    //     &not    => match for U+00AC
+                    //     &noti   => valid prefix for &notin
+                    //     &notit  => can't continue match
+
+                    assert!(self.name_len > 0);
+                    assert!(self.name_len < self.name_buf().len());
+                    tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
+                    let missing_semi = ';' != self.name_buf().char_at(self.name_len-1);
+
                     self.result = Some(CharRef {
                         chars: *m,
                         num_chars: if m[1] == '\0' { 1 } else { 2 },
-                        parse_error: self.last_name_char != ';',
+                        parse_error: missing_semi,
                     });
                     Done
                 }
