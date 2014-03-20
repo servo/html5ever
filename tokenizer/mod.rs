@@ -13,6 +13,7 @@ use self::states::{DoctypeIdKind, Public, System};
 use self::char_ref::{CharRef, CharRefTokenizer};
 
 use util::buffer_queue::BufferQueue;
+use util::ascii::{lower_ascii, lower_ascii_letter};
 
 use std::str;
 use std::ascii::StrAsciiExt;
@@ -24,16 +25,6 @@ mod char_ref;
 
 pub trait TokenSink {
     fn process_token(&mut self, token: Token);
-}
-
-fn ascii_letter(c: char) -> Option<char> {
-    c.to_ascii_opt()
-        .filtered(|a| a.is_alpha())
-        .map(|a| a.to_lower().to_char())
-}
-
-fn lower_ascii(c: char) -> char {
-    ascii_letter(c).unwrap_or(c)
 }
 
 fn option_push_char(opt_str: &mut Option<~str>, c: char) {
@@ -406,7 +397,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '!' => go!(to MarkupDeclarationOpen),
                 '/' => go!(to EndTagOpen),
                 '?' => go!(error; clear_comment; push_comment '?'; to BogusComment),
-                c => match ascii_letter(c) {
+                c => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_tag StartTag cl; to TagName),
                     None     => go!(error; emit '<'; to Data; reconsume),
                 }
@@ -415,7 +406,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::EndTagOpen => match get_char!() {
                 '>'  => go!(error; to Data),
                 '\0' => go!(error; clear_comment; push_comment '\ufffd'; to BogusComment),
-                c => match ascii_letter(c) {
+                c => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_tag EndTag cl; to TagName),
                     None     => go!(error; clear_comment; push_comment c; to BogusComment),
                 }
@@ -432,7 +423,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::RawLessThanSign(ScriptDataEscaped(Escaped)) => match get_char!() {
                 '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
-                c => match ascii_letter(c) {
+                c => match lower_ascii_letter(c) {
                     Some(cl) => go!(clear_temp; push_temp cl;
                                     to ScriptDataEscapeStart DoubleEscaped; emit '<'; emit c),
                     None => go!(to RawData ScriptDataEscaped Escaped; emit '<'; reconsume),
@@ -453,7 +444,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::RawEndTagOpen(kind) => {
                 let c = get_char!();
-                match ascii_letter(c) {
+                match lower_ascii_letter(c) {
                     Some(cl) => go!(create_tag EndTag cl; push_temp c; to RawEndTagName kind),
                     None     => go!(to RawData kind; emit '<'; emit '/'; reconsume),
                 }
@@ -473,7 +464,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     }
                 }
 
-                match ascii_letter(c) {
+                match lower_ascii_letter(c) {
                     Some(cl) => go!(push_tag cl; push_temp c),
                     None     => go!(emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
                 }
@@ -486,7 +477,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                         let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
                         go!(to RawData ScriptDataEscaped esc; emit c);
                     }
-                    _ => match ascii_letter(c) {
+                    _ => match lower_ascii_letter(c) {
                         Some(cl) => go!(push_temp cl; emit c),
                         None     => go!(to RawData ScriptDataEscaped Escaped; reconsume),
                     }
@@ -531,7 +522,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                         let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
                         go!(to RawData ScriptDataEscaped esc; emit c);
                     }
-                    _ => match ascii_letter(c) {
+                    _ => match lower_ascii_letter(c) {
                         Some(cl) => go!(push_temp cl; emit c),
                         None     => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
                     }
@@ -543,7 +534,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '/'  => go!(to SelfClosingStartTag),
                 '>'  => go!(to Data; emit_tag),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
-                c    => match ascii_letter(c) {
+                c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
                     None => {
                         go_match!(c,
@@ -560,7 +551,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '='  => go!(to BeforeAttributeValue),
                 '>'  => go!(to Data; emit_tag),
                 '\0' => go!(error; push_name '\ufffd'),
-                c    => match ascii_letter(c) {
+                c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(push_name cl),
                     None => {
                         go_match!(c,
@@ -576,7 +567,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '='  => go!(to BeforeAttributeValue),
                 '>'  => go!(to Data; emit_tag),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
-                c    => match ascii_letter(c) {
+                c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
                     None => {
                         go_match!(c,

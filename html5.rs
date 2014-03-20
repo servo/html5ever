@@ -11,6 +11,7 @@ extern crate phf;
 extern crate collections;
 
 pub mod util {
+    pub mod ascii;
     pub mod buffer_queue;
 }
 
