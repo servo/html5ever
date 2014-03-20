@@ -10,10 +10,11 @@ extern crate phf_mac;
 extern crate phf;
 extern crate collections;
 
-pub mod util {
+mod macros;
+
+mod util {
     pub mod ascii;
     pub mod buffer_queue;
 }
 
-pub mod macros;
 pub mod tokenizer;
