@@ -28,9 +28,20 @@ tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
 html5-test: $(LIB_ALL_SRC)
 	$(RUSTC) -o $@ --test $(RUSTFLAGS) $(LIB_TOP_SRC)
 
+# Run external tests loaded from JSON
+html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
+	$(RUSTC) $(RUSTFLAGS) $(EXT_TEST_TOP_SRC)
+
 .PHONY: check
-check: html5-test
+check: check-internal check-external
+
+.PHONY: check-internal
+check-internal: html5-test
 	./html5-test
+
+.PHONY: check-external
+check-external: html5-external-test
+	./html5-external-test
 
 .PHONY: clean
 clean:

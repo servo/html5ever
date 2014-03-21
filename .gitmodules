@@ -1,3 +1,6 @@
 [submodule "rust-phf"]
 	path = rust-phf
 	url = https://github.com/kmcallister/rust-phf
+[submodule "html5lib-tests"]
+	path = html5lib-tests
+	url = https://github.com/html5lib/html5lib-tests
