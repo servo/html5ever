@@ -50,6 +50,10 @@ pub struct Tokenizer<'sink, Sink> {
     /// characters to continue.
     priv wait_for: Option<uint>,
 
+    /// Are we at the end of the file, once buffers have been processed
+    /// completely? This affects whether we will wait for lookahead or not.
+    priv at_eof: bool,
+
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
     priv char_ref_tokenizer: Option<~CharRefTokenizer>,
@@ -90,6 +94,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             wait_for: None,
             char_ref_tokenizer: None,
             input_buffers: BufferQueue::new(),
+            at_eof: false,
             current_char: '\0',
             reconsume: false,
             current_tag: None,
@@ -124,6 +129,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // FIXME: we shouldn't need to consume and then put back
     fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
         match self.input_buffers.pop_front(n) {
+            None if self.at_eof => {
+                debug!("lookahead: requested {:u} characters not available and never will be", n);
+                Some(false)
+            }
             None => {
                 debug!("lookahead: requested {:u} characters not available", n);
                 self.wait_for = Some(n);
@@ -866,7 +875,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     pub fn end(&mut self) {
         // Process all remaining buffered input.
-        // FIXME: What if we're doing lookahead, i.e. wait_for = Some(n)?
+        // If we're waiting for lookahead, we're not gonna get it.
+        self.wait_for = None;
+        self.at_eof = true;
         self.run();
 
         // Handle EOF in the char ref sub-tokenizer, if there is one.
