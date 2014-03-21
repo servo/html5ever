@@ -228,75 +228,88 @@ impl CharRefTokenizer {
             }
 
             // Can't continue the match.
-            None => match self.name_match {
-                None => {
-                    // FIXME: "if the characters after the U+0026 AMPERSAND
-                    // character (&) consist of a sequence of one or more
-                    // alphanumeric ASCII characters followed by a U+003B
-                    // SEMICOLON character (;), then this is a parse error".
+            None => self.finish_named(tokenizer),
+        }
+    }
 
+    fn finish_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+        match self.name_match {
+            None => {
+                // FIXME: "if the characters after the U+0026 AMPERSAND
+                // character (&) consist of a sequence of one or more
+                // alphanumeric ASCII characters followed by a U+003B
+                // SEMICOLON character (;), then this is a parse error".
+
+                tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+                self.finish_none(false)
+            }
+            Some(m) => {
+                // We have a complete match, but we may have consumed
+                // additional characters into self.name_buf.  Usually
+                // at least one, but several in cases like
+                //
+                //     &not    => match for U+00AC
+                //     &noti   => valid prefix for &notin
+                //     &notit  => can't continue match
+
+                assert!(self.name_len > 0);
+                let last_matched = self.name_buf().char_at(self.name_len-1);
+
+                // There might not be a next character after the match, if
+                // we had a full match and then hit EOF.
+                let next_after = if self.name_len == self.name_buf().len() {
+                    None
+                } else {
+                    Some(self.name_buf().char_at(self.name_len))
+                };
+
+                // "If the character reference is being consumed as part of an
+                // attribute, and the last character matched is not a U+003B
+                // SEMICOLON character (;), and the next character is either a
+                // U+003D EQUALS SIGN character (=) or an alphanumeric ASCII
+                // character, then, for historical reasons, all the characters
+                // that were matched after the U+0026 AMPERSAND character (&)
+                // must be unconsumed, and nothing is returned. However, if
+                // this next character is in fact a U+003D EQUALS SIGN
+                // character (=), then this is a parse error"
+
+                let (unconsume_all, parse_error) =
+                match (self.addnl_allowed, last_matched, next_after) {
+                    (_, ';', _) => (false, false),
+                    (Some(_), _, Some('=')) => (true, true),
+                    (Some(_), _, Some(c)) if is_ascii_alnum(c) => (true, false),
+                    _ => (false, true),
+                };
+
+                if unconsume_all {
                     tokenizer.unconsume(self.name_buf_opt.take_unwrap());
-                    self.finish_none(false)
-                }
-                Some(m) => {
-                    // We have a complete match, but we've consumed at least
-                    // one additional character into self.name_buf, and more
-                    // in cases like
-                    //
-                    //     &not    => match for U+00AC
-                    //     &noti   => valid prefix for &notin
-                    //     &notit  => can't continue match
-
-                    assert!(self.name_len > 0);
-                    assert!(self.name_len < self.name_buf().len());
-                    let last_matched = self.name_buf().char_at(self.name_len-1);
-                    let next_after   = self.name_buf().char_at(self.name_len);
-
-                    // "If the character reference is being consumed as part of
-                    // an attribute, and the last character matched is not a
-                    // U+003B SEMICOLON character (;), and the next character
-                    // is either a U+003D EQUALS SIGN character (=) or an
-                    // alphanumeric ASCII character..."
-                    if self.addnl_allowed.is_some() && (last_matched != ';')
-                        && ((next_after == '=') || is_ascii_alnum(next_after)) {
-                        // "...all the characters that were matched after the
-                        // U+0026 AMPERSAND character (&) must be unconsumed,
-                        // and nothing is returned"
-                        tokenizer.unconsume(self.name_buf_opt.take_unwrap());
-
-                        // "...if this next character is in fact a U+003D
-                        // EQUALS SIGN character (=), then this is a parse
-                        // error"
-                        self.finish_none(next_after == '=')
-                    } else {
-                        tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
-
-                        self.result = Some(CharRef {
-                            chars: *m,
-                            num_chars: if m[1] == '\0' { 1 } else { 2 },
-                            parse_error: ';' != last_matched,
-                        });
-                        Done
-                    }
+                    self.finish_none(parse_error)
+                } else {
+                    tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
+                    self.result = Some(CharRef {
+                        chars: *m,
+                        num_chars: if m[1] == '\0' { 1 } else { 2 },
+                        parse_error: parse_error,
+                    });
+                    Done
                 }
             }
         }
     }
 
-    pub fn end_of_file<T: SubTok>(&mut self, _tokenizer: &mut T) {
+    pub fn end_of_file<T: SubTok>(&mut self, tokenizer: &mut T) {
         match self.state {
-            Begin => { self.finish_none(false); }
+            Begin => self.finish_none(false),
 
             // FIXME: Handling the rest of these correctly requires unconsuming
             // characters after EOF, which the main tokenizer can't handle yet.
 
-            Numeric(_) | NumericSemicolon => {
-                self.finish_numeric(true);
-            }
+            Numeric(_) | NumericSemicolon
+                => self.finish_numeric(true),
 
-            Named | Octothorpe => {
-                self.finish_none(true);
-            }
-        }
+            Named => self.finish_named(tokenizer),
+
+            Octothorpe => self.finish_none(true),
+        };
     }
 }
