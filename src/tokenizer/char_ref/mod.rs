@@ -161,16 +161,7 @@ impl CharRefTokenizer {
                 Progress
             }
 
-            None if !self.seen_digit => {
-                let mut unconsume = ~"#";
-                match self.hex_marker {
-                    Some(c) => unconsume.push_char(c),
-                    None => (),
-                }
-
-                tokenizer.unconsume(unconsume);
-                self.finish_none(true)
-            }
+            None if !self.seen_digit => self.unconsume_numeric(tokenizer),
 
             None => {
                 self.state = NumericSemicolon;
@@ -185,6 +176,17 @@ impl CharRefTokenizer {
             _   => true
         };
         self.finish_numeric(semi_missing)
+    }
+
+    fn unconsume_numeric<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+        let mut unconsume = ~"#";
+        match self.hex_marker {
+            Some(c) => unconsume.push_char(c),
+            None => (),
+        }
+
+        tokenizer.unconsume(unconsume);
+        self.finish_none(true)
     }
 
     fn finish_numeric(&mut self, parse_error: bool) -> Status {
@@ -299,14 +301,22 @@ impl CharRefTokenizer {
 
     pub fn end_of_file<T: SubTok>(&mut self, tokenizer: &mut T) {
         match self.state {
-            Begin => self.finish_none(false),
+            Begin
+                => self.finish_none(false),
+
+            Numeric(_) if !self.seen_digit
+                => self.unconsume_numeric(tokenizer),
 
             Numeric(_) | NumericSemicolon
                 => self.finish_numeric(true),
 
-            Named => self.finish_named(tokenizer),
+            Named
+                => self.finish_named(tokenizer),
 
-            Octothorpe => self.finish_none(true),
+            Octothorpe => {
+                tokenizer.unconsume(~"#");
+                self.finish_none(true)
+            }
         };
     }
 }
