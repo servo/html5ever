@@ -1,0 +1,37 @@
+VPATH = %VPATH%
+
+RUSTC ?= rustc
+RUSTFLAGS += -L . -L $(VPATH)/rust-phf/build
+
+GEN_LIB_SRC = generated/char_ref_data.rs
+
+LIB_TOP_SRC = $(VPATH)/src/html5.rs
+LIB_ALL_SRC = $(GEN_LIB_SRC) $(shell find $(VPATH)/src -type f -name '*.rs')
+LIB         = $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
+
+EXT_TEST_TOP_SRC = $(VPATH)/test/mod.rs
+EXT_TEST_ALL_SRC = $(shell find $(VPATH)/test -type f -name '*.rs')
+
+.PHONY: all
+all: $(LIB) tokenize-example
+
+$(VPATH)/generated/char_ref_data.rs: $(VPATH)/codegen/gen-char-ref-data.py
+	$< $(VPATH) > $@
+
+$(LIB): $(LIB_ALL_SRC)
+	$(RUSTC) $(RUSTFLAGS) $(LIB_TOP_SRC)
+
+tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
+	$(RUSTC) $(RUSTFLAGS) $<
+
+# Run #[test] functions
+html5-test: $(LIB_ALL_SRC)
+	$(RUSTC) -o $@ --test $(RUSTFLAGS) $(LIB_TOP_SRC)
+
+.PHONY: check
+check: html5-test
+	./html5-test
+
+.PHONY: clean
+clean:
+	rm -f *.o *.a *.so *.dylib *.dll *-test *-example

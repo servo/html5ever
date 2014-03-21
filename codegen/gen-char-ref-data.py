@@ -6,6 +6,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import simplejson
+import sys
+from os import path
 
 # The spec replaces most characters in the ISO-2022 C1 control code range
 # (U+0080 through U+009F) with these characters, based on Windows 8-bit
@@ -77,7 +79,8 @@ def print_c1_replacements():
 
 def print_entities():
     # from http://www.whatwg.org/specs/web-apps/current-work/multipage/entities.json
-    with file('data/entities.json') as f:
+    src_dir = sys.argv[1]
+    with file(path.join(src_dir, 'data/entities.json')) as f:
         json = simplejson.load(f)
 
     entities = {'': [0,0]}
