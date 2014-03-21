@@ -301,9 +301,6 @@ impl CharRefTokenizer {
         match self.state {
             Begin => self.finish_none(false),
 
-            // FIXME: Handling the rest of these correctly requires unconsuming
-            // characters after EOF, which the main tokenizer can't handle yet.
-
             Numeric(_) | NumericSemicolon
                 => self.finish_numeric(true),
 

@@ -882,13 +882,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     pub fn end(&mut self) {
-        // Process all remaining buffered input.
-        // If we're waiting for lookahead, we're not gonna get it.
-        self.wait_for = None;
-        self.at_eof = true;
-        self.run();
-
         // Handle EOF in the char ref sub-tokenizer, if there is one.
+        // Do this first because it might un-consume stuff.
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
@@ -897,6 +892,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }
         }
 
+        // Process all remaining buffered input.
+        // If we're waiting for lookahead, we're not gonna get it.
+        self.wait_for = None;
+        self.at_eof = true;
+        self.run();
+
+        // Loop to reconsume the EOF character.
         loop {
             debug!("processing EOF in state {:?}", self.state);
             match self.state {
