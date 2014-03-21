@@ -73,4 +73,5 @@ pub enum Token {
     CommentToken(~str),
     CharacterToken(char),
     EOFToken,
+    ParseError(~str),
 }

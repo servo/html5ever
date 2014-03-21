@@ -7,7 +7,7 @@ extern crate html5;
 use std::io;
 use std::char;
 
-use html5::tokenizer::{TokenSink, Token, Tokenizer};
+use html5::tokenizer::{TokenSink, Token, Tokenizer, ParseError};
 use html5::tokenizer::{CharacterToken, TagToken, StartTag, EndTag};
 
 struct TokenPrinter {
@@ -46,6 +46,9 @@ impl TokenSink for TokenPrinter {
                     print!(" \x1b[31m/\x1b[0m");
                 }
                 println!(">");
+            }
+            ParseError(err) => {
+                println!("ERROR: {:s}", err);
             }
             _ => {
                 self.is_char(false);

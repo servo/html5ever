@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
-pub use self::tokens::{DoctypeToken, TagToken, CommentToken, CharacterToken, EOFToken};
+pub use self::tokens::{DoctypeToken, TagToken, CommentToken};
+pub use self::tokens::{CharacterToken, EOFToken, ParseError};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
@@ -148,12 +149,18 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    fn parse_error(&self) {
-        error!("Parse error: saw {:?} in state {:?}", self.current_char, self.state);
+    fn emit_error(&mut self, error: ~str) {
+        self.sink.process_token(ParseError(error));
     }
 
-    fn parse_error_eof(&self) {
-        error!("Parse error: saw EOF in state {:?}", self.state);
+    fn bad_char_error(&mut self) {
+        let msg = format!("Saw {:?} in state {:?}", self.current_char, self.state);
+        self.emit_error(msg);
+    }
+
+    fn bad_eof_error(&mut self) {
+        let msg = format!("Saw EOF in state {:?}", self.state);
+        self.emit_error(msg);
     }
 
     fn emit_char(&mut self, c: char) {
@@ -236,7 +243,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         };
 
         if dup {
-            error!("Parse error: duplicate attribute");
+            self.emit_error(~"Duplicate attribute");
             self.current_attr.clear();
         } else {
             let attr = replace(&mut self.current_attr, Attribute::new());
@@ -302,8 +309,8 @@ macro_rules! shorthand (
     ( emit_doctype                    ) => ( self.emit_current_doctype();                          );
     ( consume_char_ref                ) => ( self.consume_char_ref(None);                          );
     ( consume_char_ref $addnl:expr    ) => ( self.consume_char_ref(Some($addnl));                  );
-    ( error                           ) => ( self.parse_error();                                   );
-    ( error_eof                       ) => ( self.parse_error_eof();                               );
+    ( error                           ) => ( self.bad_char_error();                                );
+    ( error_eof                       ) => ( self.bad_eof_error();                                 );
 )
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
@@ -825,7 +832,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         if parse_error {
             // FIXME: make this more informative
-            error!("Parse error: bad character reference");
+            self.emit_error(~"Bad character reference");
         }
 
         if num_chars == 0 {
