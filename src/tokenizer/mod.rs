@@ -172,9 +172,19 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         let tag = self.current_tag.take().unwrap();
         match tag.kind {
-            StartTag => self.last_start_tag_name = Some(tag.name.clone()),
-            _ => ()
+            StartTag => {
+                self.last_start_tag_name = Some(tag.name.clone());
+            }
+            EndTag => {
+                if !tag.attrs.is_empty() {
+                    self.emit_error(~"Attributes on an end tag");
+                }
+                if tag.self_closing {
+                    self.emit_error(~"Self-closing end tag");
+                }
+            }
         }
+
         self.sink.process_token(TagToken(tag));
     }
 
