@@ -913,11 +913,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     => go!(error_eof; to Data; emit_comment),
 
                 states::Doctype | states::BeforeDoctypeName
-                | states::DoctypeName | states::AfterDoctypeName
-                | states::AfterDoctypeKeyword(_) | states::BeforeDoctypeIdentifier(_)
-                | states::DoctypeIdentifierDoubleQuoted(_) | states::DoctypeIdentifierSingleQuoted(_)
-                | states::AfterDoctypeIdentifier(_) | states::BetweenDoctypePublicAndSystemIdentifiers
                     => go!(error_eof; to Data; create_doctype; force_quirks; emit_doctype),
+
+                states::DoctypeName | states::AfterDoctypeName | states::AfterDoctypeKeyword(_)
+                | states::BeforeDoctypeIdentifier(_) | states::DoctypeIdentifierDoubleQuoted(_)
+                | states::DoctypeIdentifierSingleQuoted(_) | states::AfterDoctypeIdentifier(_)
+                | states::BetweenDoctypePublicAndSystemIdentifiers
+                    => go!(error_eof; to Data; force_quirks; emit_doctype),
 
                 states::BogusDoctype
                     => go!(to Data; emit_doctype),
