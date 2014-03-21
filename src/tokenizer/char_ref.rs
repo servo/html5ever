@@ -7,7 +7,7 @@ use super::SubTok;
 use util::ascii::is_ascii_alnum;
 use std::char::{to_digit, from_u32};
 
-#[path="../../../generated/char_ref_data.rs"]
+#[path="../../generated/char_ref_data.rs"]
 mod data;
 
 pub struct CharRef {
