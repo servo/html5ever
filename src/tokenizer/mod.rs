@@ -400,10 +400,18 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         match self.wait_for {
-            Some(n) if !self.input_buffers.has(n) => return false,
-            _ => self.wait_for = None,
+            Some(n) if !self.input_buffers.has(n) => {
+                debug!("lookahead: requested {:u} characters still not available", n);
+                return false;
+            }
+            Some(n) => {
+                debug!("lookahead: requested {:u} characters become available", n);
+                self.wait_for = None;
+            }
+            None => (),
         }
 
+        debug!("processing in state {:?}", self.state);
         match self.state {
             states::Data => match get_char!() {
                 '&'  => go!(consume_char_ref),
