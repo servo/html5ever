@@ -172,18 +172,13 @@ fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
 }
 
 static test_blacklist: &'static [&'static str] = &[
-    "namedEntities.test",
-    "numericEntities.test",
-    "test3.test",
-    "test4.test",
-    "unicodeChars.test",
     "xmlViolation.test",
 ];
 
 pub fn run_tests() {
     let mut tests: ~[TestDescAndFn] = ~[];
 
-    let test_dir_path = FromStr::from_str("../html5lib-tests/tokenizer").unwrap();
+    let test_dir_path = FromStr::from_str("test-json/tokenizer").unwrap();
     let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");
 
     for path in test_files.move_iter() {

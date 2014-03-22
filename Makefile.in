@@ -12,6 +12,8 @@ LIB         = $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
 EXT_TEST_TOP_SRC = $(VPATH)/test/mod.rs
 EXT_TEST_ALL_SRC = $(shell find $(VPATH)/test -type f -name '*.rs')
 
+TEST_JSON_SRC = $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
+
 .PHONY: all
 all: $(LIB) tokenize-example
 
@@ -24,12 +26,17 @@ $(LIB): $(LIB_ALL_SRC)
 tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
 	$(RUSTC) $(RUSTFLAGS) $<
 
+# Workaround for mozilla/rust#13064; see preprocess-tests.py
+test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/codegen/preprocess-tests.py
+	mkdir -p $@
+	$(VPATH)/codegen/preprocess-tests.py $(VPATH)/html5lib-tests $@
+
 # Run #[test] functions
 html5-test: $(LIB_ALL_SRC)
 	$(RUSTC) -o $@ --test $(RUSTFLAGS) $(LIB_TOP_SRC)
 
 # Run external tests loaded from JSON
-html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
+html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB) test-json/tokenizer
 	$(RUSTC) $(RUSTFLAGS) $(EXT_TEST_TOP_SRC)
 
 .PHONY: check
@@ -46,3 +53,4 @@ check-external: html5-external-test
 .PHONY: clean
 clean:
 	rm -f *.o *.a *.so *.dylib *.dll *-test *-example
+	rm -rf test-json
