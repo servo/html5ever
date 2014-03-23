@@ -18,6 +18,7 @@ TEST_JSON_SRC = $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 all: $(LIB) tokenize-example
 
 $(VPATH)/generated/char_ref_data.rs: $(VPATH)/codegen/gen-char-ref-data.py
+	mkdir -p $(dir $@)
 	$< $(VPATH) > $@
 
 $(LIB): $(LIB_ALL_SRC)
