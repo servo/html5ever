@@ -122,3 +122,53 @@ impl Iterator<char> for BufferQueue {
         }
     }
 }
+
+
+#[test]
+fn smoke_test() {
+    let mut bq = BufferQueue::new();
+    assert_eq!(bq.has(1), false);
+    assert_eq!(bq.peek(), None);
+    assert_eq!(bq.next(), None);
+
+    bq.push_back(~"abc");
+    assert_eq!(bq.has(1), true);
+    assert_eq!(bq.has(3), true);
+    assert_eq!(bq.has(4), false);
+
+    assert_eq!(bq.peek(), Some('a'));
+    assert_eq!(bq.next(), Some('a'));
+    assert_eq!(bq.peek(), Some('b'));
+    assert_eq!(bq.peek(), Some('b'));
+    assert_eq!(bq.next(), Some('b'));
+    assert_eq!(bq.peek(), Some('c'));
+    assert_eq!(bq.next(), Some('c'));
+    assert_eq!(bq.peek(), None);
+    assert_eq!(bq.next(), None);
+}
+
+#[test]
+fn can_pop_front() {
+    let mut bq = BufferQueue::new();
+    bq.push_back(~"abc");
+
+    assert_eq!(bq.pop_front(2), Some(~"ab"));
+    assert_eq!(bq.peek(), Some('c'));
+    assert_eq!(bq.pop_front(2), None);
+    assert_eq!(bq.next(), Some('c'));
+    assert_eq!(bq.next(), None);
+}
+
+#[test]
+fn can_unconsume() {
+    let mut bq = BufferQueue::new();
+    bq.push_back(~"abc");
+    assert_eq!(bq.next(), Some('a'));
+
+    bq.push_front(~"xy");
+    assert_eq!(bq.next(), Some('x'));
+    assert_eq!(bq.next(), Some('y'));
+    assert_eq!(bq.next(), Some('b'));
+    assert_eq!(bq.next(), Some('c'));
+    assert_eq!(bq.next(), None);
+}

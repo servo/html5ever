@@ -10,3 +10,10 @@ macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
         Some(x) => x,
     }
 ))
+
+macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
+    #[test]
+    fn $name() {
+        assert_eq!($left, $right);
+    }
+))

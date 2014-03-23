@@ -996,3 +996,25 @@ impl<'sink, Sink: TokenSink> SubTok for Tokenizer<'sink, Sink> {
         self.input_buffers.push_front(buf);
     }
 }
+
+
+#[test]
+fn push_to_None_gives_singleton() {
+    let mut s: Option<~str> = None;
+    option_push_char(&mut s, 'x');
+    assert_eq!(s, Some(~"x"));
+}
+
+#[test]
+fn push_to_empty_appends() {
+    let mut s: Option<~str> = Some(~"");
+    option_push_char(&mut s, 'x');
+    assert_eq!(s, Some(~"x"));
+}
+
+#[test]
+fn push_to_nonempty_appends() {
+    let mut s: Option<~str> = Some(~"y");
+    option_push_char(&mut s, 'x');
+    assert_eq!(s, Some(~"yx"));
+}
