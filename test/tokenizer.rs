@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::io;
-use std::os;
+use std::{io, os, str, num, char};
 use std::mem::replace;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn, test_main};
 use extra::json;
@@ -126,19 +125,70 @@ impl JsonExt for Json {
     }
 }
 
+// Undo the escaping in "doubleEscaped" tests.
+fn unescape(s: &str) -> Option<~str> {
+    let mut out = str::with_capacity(s.len());
+    let mut it = s.chars().peekable();
+    loop {
+        match it.next() {
+            None => return Some(out),
+            Some('\\') if it.peek() == Some(&'u') => {
+                drop(it.next());
+                let hex: ~str = it.by_ref().take(4).collect();
+                match num::from_str_radix(hex.as_slice(), 16)
+                          .and_then(char::from_u32) {
+                    // Some of the tests use lone surrogates, but we have no
+                    // way to represent them in the UTF-8 input to our parser.
+                    // Since these can only come from script, we will catch
+                    // them there.
+                    None => return None,
+                    Some(c) => out.push_char(c),
+                }
+            }
+            Some('\\') => fail!("can't understand escape"),
+            Some(c) => out.push_char(c),
+        }
+    }
+}
+
+fn unescape_json(js: &Json) -> Json {
+    match *js {
+        // unwrap is OK here because the spec'd *output* of the tokenizer never
+        // contains a lone surrogate.
+        json::String(ref s) => json::String(unescape(s.as_slice()).unwrap()),
+        json::List(ref xs) => json::List(xs.iter().map(unescape_json).collect()),
+        json::Object(ref obj) => {
+            let mut new_obj = ~TreeMap::new();
+            for (k,v) in obj.iter() {
+                new_obj.insert(k.clone(), unescape_json(v));
+            }
+            json::Object(new_obj)
+        }
+        _ => js.clone(),
+    }
+}
+
 fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
-    let input  = js.find("input").get_str();
-    let expect = js.find("output").clone();
+    let obj = js.get_obj();
+    let mut input = js.find("input").get_str();
+    let mut expect = js.find("output").clone();
     let desc = format!("{:s}: {:s}",
         path_str, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
-    let obj = js.get_obj();
-    let double_esc = obj.find(&~"doubleEscaped")
-        .map_or(false, |j| j.get_bool());
-    if double_esc {
-        // FIXME: implement this
+    if obj.find(&~"doubleEscaped").map_or(false, |j| j.get_bool()) {
+        match unescape(input.as_slice()) {
+            None => return None,
+            Some(i) => input = i,
+        }
+        expect = unescape_json(&expect);
+    }
+
+    if input.starts_with("\ufeff") {
+        // The tests assume the BOM will pass through because they model
+        // data sent from JavaScript rather than from a decoded document.
+        // https://github.com/html5lib/html5lib-tests/issues/2
         return None;
     }
 
@@ -165,10 +215,6 @@ fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
     })
 }
 
-static test_blacklist: &'static [&'static str] = &[
-    "xmlViolation.test",
-];
-
 pub fn run_tests() {
     let mut tests: ~[TestDescAndFn] = ~[];
 
@@ -177,22 +223,14 @@ pub fn run_tests() {
 
     for path in test_files.move_iter() {
         let path_str = path.filename_str().unwrap();
-
         if !path_str.ends_with(".test") { continue; }
-        if test_blacklist.iter().any(|&t| t == path_str) { continue; }
-
-        let warn_skip = || {
-            println!("WARNING: can't load {:s}", path_str);
-        };
 
         let mut file = io::File::open(&path).ok().expect("can't open file");
-        let js = match json::from_reader(&mut file as &mut Reader) {
-            Err(_) => { warn_skip(); continue; }
-            Ok(j) => j,
-        };
+        let js = json::from_reader(&mut file as &mut Reader)
+            .ok().expect("json parse error");
 
-        match *js.find("tests") {
-            json::List(ref lst) => {
+        match js.get_obj().find(&~"tests") {
+            Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
                     match mk_test(path_str.as_slice(), test) {
                         Some(t) => tests.push(t),
@@ -200,7 +238,9 @@ pub fn run_tests() {
                     }
                 }
             }
-            _ => warn_skip(),
+
+            // xmlViolation.test doesn't follow this format.
+            _ => (),
         }
     }
 
