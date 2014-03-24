@@ -148,12 +148,6 @@ fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
         return None;
     }
 
-    // FIXME: Some tests use \r.  We don't do input stream
-    // preprocessing yet.
-    if input.contains_char('\r') {
-        return None;
-    }
-
     Some(TestDescAndFn {
         desc: TestDesc {
             name: DynTestName(desc),

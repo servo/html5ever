@@ -64,6 +64,14 @@ pub struct Tokenizer<'sink, Sink> {
     /// Should we reconsume the current input character?
     priv reconsume: bool,
 
+    /// Did we just consume \r, translating it to \n?  In that case we need
+    /// to ignore the next character if it's \n.
+    priv ignore_lf: bool,
+
+    /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
+    /// beginning of the stream.
+    priv discard_bom: bool,
+
     // FIXME: The state machine guarantees the tag exists when
     // we need it, so we could eliminate the Option overhead.
     // Leaving it as Option for now, to find bugs.
@@ -97,6 +105,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             at_eof: false,
             current_char: '\0',
             reconsume: false,
+            ignore_lf: false,
+            discard_bom: true,
             current_tag: None,
             current_attr: Attribute::new(),
             current_comment: ~"",
@@ -118,15 +128,52 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             return Some(self.current_char);
         }
 
-        self.input_buffers.next().map(|c| {
-            self.current_char = c;
-            c
-        })
+        loop {
+            match self.input_buffers.next() {
+                None => return None,
+                Some('\ufeff') if self.discard_bom => {
+                    self.discard_bom = false;
+                    // try again
+                }
+                Some('\n') if self.ignore_lf => {
+                    self.ignore_lf = false;
+                    // try again
+                }
+                Some('\r') => {
+                    self.ignore_lf = true;
+                    self.current_char = '\n';
+                    break;
+                }
+                Some(c) => {
+                    self.ignore_lf = false;
+                    self.current_char = c;
+                    break;
+                }
+            }
+        }
+
+        if match self.current_char as u32 {
+            0x01..0x08 | 0x0B | 0x0E..0x1F | 0x7F..0x9F | 0xFDD0..0xFDEF => true,
+            n if (n & 0xFFFE) == 0xFFFE => true,
+            _ => false,
+        } {
+            let msg = format!("Bad character {:?}", self.current_char);
+            self.emit_error(msg);
+        }
+
+        self.discard_bom = false;
+        debug!("got character {:?}", self.current_char);
+        Some(self.current_char)
     }
 
     // If fewer than n characters are available, return None.
     // Otherwise check if they satisfy a predicate, and consume iff so.
+    //
     // FIXME: we shouldn't need to consume and then put back
+    //
+    // FIXME: do input stream preprocessing.  It's probably okay not to,
+    // because none of the strings we look ahead for contain characters
+    // affected by it, but think about this more.
     fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
         match self.input_buffers.pop_front(n) {
             None if self.at_eof => {
