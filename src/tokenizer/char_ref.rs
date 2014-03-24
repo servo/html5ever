@@ -11,9 +11,11 @@ use std::char::{to_digit, from_u32};
 mod data;
 
 pub struct CharRef {
+    /// The resulting character(s)
     chars: [char, ..2],
+
+    /// How many slots in `chars` are valid?
     num_chars: u8,
-    parse_error: bool,
 }
 
 pub enum Status {
@@ -89,20 +91,18 @@ impl CharRefTokenizer {
             .expect("name_buf missing in named character reference")
     }
 
-    fn finish_none(&mut self, error: bool) -> Status {
+    fn finish_none(&mut self) -> Status {
         self.result = Some(CharRef {
             chars: ['\0', '\0'],
             num_chars: 0,
-            parse_error: error,
         });
         Done
     }
 
-    fn finish_one(&mut self, c: char, error: bool) -> Status {
+    fn finish_one(&mut self, c: char) -> Status {
         self.result = Some(CharRef {
             chars: [c, '\0'],
             num_chars: 1,
-            parse_error: error,
         });
         Done
     }
@@ -110,9 +110,9 @@ impl CharRefTokenizer {
     fn do_begin<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
-                => self.finish_none(false),
+                => self.finish_none(),
             c if Some(c) == self.addnl_allowed
-                => self.finish_none(false),
+                => self.finish_none(),
 
             '#' => {
                 tokenizer.discard_char();
@@ -171,11 +171,11 @@ impl CharRefTokenizer {
     }
 
     fn do_numeric_semicolon<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
-        let semi_missing = match unwrap_or_return!(tokenizer.peek(), Stuck) {
-            ';' => { tokenizer.discard_char(); false }
-            _   => true
+        match unwrap_or_return!(tokenizer.peek(), Stuck) {
+            ';' => tokenizer.discard_char(),
+            _   => tokenizer.emit_error(~"Semicolon missing after numeric character reference"),
         };
-        self.finish_numeric(semi_missing)
+        self.finish_numeric(tokenizer)
     }
 
     fn unconsume_numeric<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
@@ -186,31 +186,39 @@ impl CharRefTokenizer {
         }
 
         tokenizer.unconsume(unconsume);
-        self.finish_none(true)
+        tokenizer.emit_error(~"Numeric character reference without digits");
+        self.finish_none()
     }
 
-    fn finish_numeric(&mut self, parse_error: bool) -> Status {
+    fn finish_numeric<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
         fn conv(n: u32) -> char {
             from_u32(n).expect("invalid char missed by error handling cases")
         }
 
-        match self.num {
-            n if (n > 0x10FFFF) || self.num_too_big => self.finish_one('\ufffd', true),
-            0x00 | 0xD800..0xDFFF => self.finish_one('\ufffd', true),
+        let (c, error) = match self.num {
+            n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
+            0x00 | 0xD800..0xDFFF => ('\ufffd', true),
 
             0x80..0x9F => match data::c1_replacements[self.num - 0x80] {
-                Some(c) => self.finish_one(c, true),
-                None => self.finish_one(conv(self.num), true),
+                Some(c) => (c, true),
+                None => (conv(self.num), true),
             },
 
             0x01..0x08 | 0x0B | 0x0D..0x1F | 0x7F | 0xFDD0..0xFDEF
-                => self.finish_one(conv(self.num), true),
+                => (conv(self.num), true),
 
             n if (n & 0xFFFE) == 0xFFFE
-                => self.finish_one(conv(n), true),
+                => (conv(n), true),
 
-            n => self.finish_one(conv(n), parse_error),
+            n => (conv(n), false),
+        };
+
+        if error {
+            let msg = format!("Invalid numeric character reference value 0x{:06X}", self.num);
+            tokenizer.emit_error(msg);
         }
+
+        self.finish_one(c)
     }
 
     fn do_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
@@ -243,7 +251,7 @@ impl CharRefTokenizer {
                 // SEMICOLON character (;), then this is a parse error".
 
                 tokenizer.unconsume(self.name_buf_opt.take_unwrap());
-                self.finish_none(false)
+                self.finish_none()
             }
             Some(m) => {
                 // We have a complete match, but we may have consumed
@@ -283,15 +291,19 @@ impl CharRefTokenizer {
                     _ => (false, true),
                 };
 
+                if parse_error {
+                    // FIXME: this error message is kind of crap
+                    tokenizer.emit_error(~"Bad termination of named character reference");
+                }
+
                 if unconsume_all {
                     tokenizer.unconsume(self.name_buf_opt.take_unwrap());
-                    self.finish_none(parse_error)
+                    self.finish_none()
                 } else {
                     tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
                     self.result = Some(CharRef {
                         chars: *m,
                         num_chars: if m[1] == '\0' { 1 } else { 2 },
-                        parse_error: parse_error,
                     });
                     Done
                 }
@@ -302,20 +314,23 @@ impl CharRefTokenizer {
     pub fn end_of_file<T: SubTok>(&mut self, tokenizer: &mut T) {
         match self.state {
             Begin
-                => self.finish_none(false),
+                => self.finish_none(),
 
             Numeric(_) if !self.seen_digit
                 => self.unconsume_numeric(tokenizer),
 
-            Numeric(_) | NumericSemicolon
-                => self.finish_numeric(true),
+            Numeric(_) | NumericSemicolon => {
+                tokenizer.emit_error(~"EOF in numeric character reference");
+                self.finish_numeric(tokenizer)
+            }
 
             Named
                 => self.finish_named(tokenizer),
 
             Octothorpe => {
                 tokenizer.unconsume(~"#");
-                self.finish_none(true)
+                tokenizer.emit_error(~"EOF after '#' in character reference");
+                self.finish_none()
             }
         };
     }

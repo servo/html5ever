@@ -205,10 +205,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    fn emit_error(&mut self, error: ~str) {
-        self.sink.process_token(ParseError(error));
-    }
-
     fn bad_char_error(&mut self) {
         let msg = format!("Saw {:?} in state {:?}", self.current_char, self.state);
         self.emit_error(msg);
@@ -902,12 +898,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn process_char_ref(&mut self, char_ref: CharRef) {
-        let CharRef { mut chars, mut num_chars, parse_error } = char_ref;
-
-        if parse_error {
-            // FIXME: make this more informative
-            self.emit_error(~"Bad character reference");
-        }
+        let CharRef { mut chars, mut num_chars } = char_ref;
 
         if num_chars == 0 {
             chars[0] = '&';
@@ -1023,6 +1014,7 @@ trait SubTok {
     fn peek(&self) -> Option<char>;
     fn discard_char(&mut self);
     fn unconsume(&mut self, buf: ~str);
+    fn emit_error(&mut self, error: ~str);
 }
 
 impl<'sink, Sink: TokenSink> SubTok for Tokenizer<'sink, Sink> {
@@ -1041,6 +1033,10 @@ impl<'sink, Sink: TokenSink> SubTok for Tokenizer<'sink, Sink> {
 
     fn unconsume(&mut self, buf: ~str) {
         self.input_buffers.push_front(buf);
+    }
+
+    fn emit_error(&mut self, error: ~str) {
+        self.sink.process_token(ParseError(error));
     }
 }
 
