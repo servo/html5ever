@@ -21,8 +21,8 @@ use std::str;
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
 
+pub mod states;
 mod tokens;
-mod states;
 mod char_ref;
 
 pub trait TokenSink {
@@ -114,6 +114,17 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             last_start_tag_name: None,
             temp_buf: ~"",
         }
+    }
+
+    // Used by the test runner, but the tree builder probably
+    // needs this too.
+    pub fn set_state(&mut self, state: states::State) {
+        self.state = state;
+    }
+
+    // This should only be used by the test runner.
+    pub fn set_last_start_tag_name(&mut self, name: Option<~str>) {
+        self.last_start_tag_name = name;
     }
 
     pub fn feed(&mut self, input: ~str) {

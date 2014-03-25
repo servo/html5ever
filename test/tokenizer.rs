@@ -13,6 +13,7 @@ use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
 use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
 use html5::tokenizer::{CharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer};
+use html5::tokenizer::states::{State, Plaintext, RawData, Rcdata, Rawtext};
 
 struct TokenLogger {
     tokens: ~[Json],
@@ -80,10 +81,17 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize_to_json(input: ~str) -> Json {
+fn tokenize_to_json(input: ~str, state: Option<State>, start_tag: Option<~str>) -> Json {
     let mut sink = TokenLogger::new();
     {
         let mut tok = Tokenizer::new(&mut sink);
+        match state {
+            Some(s) => tok.set_state(s),
+            None => (),
+        }
+        if start_tag.is_some() {
+            tok.set_last_start_tag_name(start_tag);
+        }
         tok.feed(input);
         tok.end();
     }
@@ -168,7 +176,26 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
+fn mk_test(desc: ~str, input: ~str, expect: Json,
+    state: Option<State>, start_tag: Option<~str>) -> TestDescAndFn {
+    TestDescAndFn {
+        desc: TestDesc {
+            name: DynTestName(desc),
+            ignore: false,
+            should_fail: false,
+        },
+        testfn: DynTestFn(proc() {
+            // Clone so we still have 'input' for the failure message.
+            let output = tokenize_to_json(input.clone(), state, start_tag);
+            if output != expect {
+                fail!("\ninput: {:?}\ngot: {:s}\nexpected: {:s}",
+                    input, output.to_pretty_str(), expect.to_pretty_str());
+            }
+        }),
+    }
+}
+
+fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
@@ -179,7 +206,7 @@ fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
     // the input and output.
     if obj.find(&~"doubleEscaped").map_or(false, |j| j.get_bool()) {
         match unescape(input.as_slice()) {
-            None => return None,
+            None => return,
             Some(i) => input = i,
         }
         expect = unescape_json(&expect);
@@ -189,30 +216,28 @@ fn mk_test(path_str: &str, js: &Json) -> Option<TestDescAndFn> {
         // The tests assume the BOM will pass through because they model
         // data sent from JavaScript rather than from a decoded document.
         // https://github.com/html5lib/html5lib-tests/issues/2
-        return None;
+        return;
     }
+
+    // Some tests have a last start tag name.
+    let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    if obj.find(&~"initialStates").is_some() {
-        // FIXME: We can't handle that either
-        return None;
-    }
-
-    Some(TestDescAndFn {
-        desc: TestDesc {
-            name: DynTestName(desc),
-            ignore: false,
-            should_fail: false,
+    match obj.find(&~"initialStates") {
+        Some(&json::List(ref xs)) => for x in xs.iter() {
+            let statestr = x.get_str();
+            let state = match statestr.as_slice() {
+                "PLAINTEXT state" => Plaintext,
+                "RAWTEXT state"   => RawData(Rawtext),
+                "RCDATA state"    => RawData(Rcdata),
+                s => fail!("don't know state {:?}", s),
+            };
+            let newdesc = format!("{:s} (in {:s})", desc, statestr);
+            tests.push(mk_test(newdesc, input.clone(), expect.clone(),
+                Some(state), start_tag.clone()));
         },
-        testfn: DynTestFn(proc() {
-            // Clone so we still have 'input' for the failure message.
-            let output = tokenize_to_json(input.clone());
-            if output != expect {
-                fail!("\ninput: {:?}\ngot: {:s}\nexpected: {:s}",
-                    input, output.to_pretty_str(), expect.to_pretty_str());
-            }
-        }),
-    })
+        _ => tests.push(mk_test(desc, input, expect, None, start_tag)),
+    }
 }
 
 pub fn run_tests() {
@@ -232,10 +257,7 @@ pub fn run_tests() {
         match js.get_obj().find(&~"tests") {
             Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
-                    match mk_test(path_str.as_slice(), test) {
-                        Some(t) => tests.push(t),
-                        None => (),
-                    }
+                    mk_tests(&mut tests, path_str.as_slice(), test);
                 }
             }
 
