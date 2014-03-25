@@ -976,7 +976,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     => go!(to RawData kind; emit '<'; emit '/'),
 
                 states::RawEndTagName(kind)
-                    => go!(to RawData kind; emit '<'; emit '/'),
+                    => go!(to RawData kind; emit '<'; emit '/'; emit_temp),
 
                 states::ScriptDataEscapeStart(kind)
                     => go!(to RawData ScriptDataEscaped kind),
