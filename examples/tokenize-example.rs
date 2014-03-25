@@ -48,6 +48,7 @@ impl TokenSink for TokenPrinter {
                 println!(">");
             }
             ParseError(err) => {
+                self.is_char(false);
                 println!("ERROR: {:s}", err);
             }
             _ => {
