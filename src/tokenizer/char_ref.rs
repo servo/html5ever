@@ -66,22 +66,6 @@ impl CharRefTokenizer {
         }
     }
 
-    pub fn step<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
-        if self.result.is_some() {
-            return Done;
-        }
-
-        debug!("char ref tokenizer stepping in state {:?}", self.state);
-        match self.state {
-            Begin => self.do_begin(tokenizer),
-            Octothorpe => self.do_octothorpe(tokenizer),
-            Numeric(base) => self.do_numeric(tokenizer, base),
-            NumericSemicolon => self.do_numeric_semicolon(tokenizer),
-            Named => self.do_named(tokenizer),
-            BogusName => self.do_bogus_name(tokenizer),
-        }
-    }
-
     // A CharRefTokenizer can only tokenize one character reference,
     // so this method consumes the tokenizer.
     pub fn get_result(self) -> CharRef {
@@ -108,8 +92,26 @@ impl CharRefTokenizer {
         });
         Done
     }
+}
 
-    fn do_begin<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+impl<Tok: SubTok> CharRefTokenizer {
+    pub fn step(&mut self, tokenizer: &mut Tok) -> Status {
+        if self.result.is_some() {
+            return Done;
+        }
+
+        debug!("char ref tokenizer stepping in state {:?}", self.state);
+        match self.state {
+            Begin => self.do_begin(tokenizer),
+            Octothorpe => self.do_octothorpe(tokenizer),
+            Numeric(base) => self.do_numeric(tokenizer, base),
+            NumericSemicolon => self.do_numeric_semicolon(tokenizer),
+            Named => self.do_named(tokenizer),
+            BogusName => self.do_bogus_name(tokenizer),
+        }
+    }
+
+    fn do_begin(&mut self, tokenizer: &mut Tok) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
                 => self.finish_none(),
@@ -130,7 +132,7 @@ impl CharRefTokenizer {
         }
     }
 
-    fn do_octothorpe<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn do_octothorpe(&mut self, tokenizer: &mut Tok) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match c {
             'x' | 'X' => {
@@ -147,7 +149,7 @@ impl CharRefTokenizer {
         Progress
     }
 
-    fn do_numeric<T: SubTok>(&mut self, tokenizer: &mut T, base: u32) -> Status {
+    fn do_numeric(&mut self, tokenizer: &mut Tok, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match to_digit(c, base as uint) {
             Some(n) => {
@@ -172,7 +174,7 @@ impl CharRefTokenizer {
         }
     }
 
-    fn do_numeric_semicolon<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tok) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => tokenizer.discard_char(),
             _   => tokenizer.emit_error(~"Semicolon missing after numeric character reference"),
@@ -180,7 +182,7 @@ impl CharRefTokenizer {
         self.finish_numeric(tokenizer)
     }
 
-    fn unconsume_numeric<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn unconsume_numeric(&mut self, tokenizer: &mut Tok) -> Status {
         let mut unconsume = ~"#";
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
@@ -192,7 +194,7 @@ impl CharRefTokenizer {
         self.finish_none()
     }
 
-    fn finish_numeric<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn finish_numeric(&mut self, tokenizer: &mut Tok) -> Status {
         fn conv(n: u32) -> char {
             from_u32(n).expect("invalid char missed by error handling cases")
         }
@@ -223,7 +225,7 @@ impl CharRefTokenizer {
         self.finish_one(c)
     }
 
-    fn do_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn do_named(&mut self, tokenizer: &mut Tok) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         tokenizer.discard_char();
         self.name_buf().push_char(c);
@@ -244,17 +246,17 @@ impl CharRefTokenizer {
         }
     }
 
-    fn emit_name_error<T: SubTok>(&mut self, tokenizer: &mut T) {
+    fn emit_name_error(&mut self, tokenizer: &mut Tok) {
         let msg = format!("Invalid character reference &{:s}",
             self.name_buf().as_slice());
         tokenizer.emit_error(msg);
     }
 
-    fn unconsume_name<T: SubTok>(&mut self, tokenizer: &mut T) {
+    fn unconsume_name(&mut self, tokenizer: &mut Tok) {
         tokenizer.unconsume(self.name_buf_opt.take_unwrap());
     }
 
-    fn finish_named<T: SubTok>(&mut self, tokenizer: &mut T, end_char: Option<char>) -> Status {
+    fn finish_named(&mut self, tokenizer: &mut Tok, end_char: Option<char>) -> Status {
         match self.name_match {
             None => {
                 match end_char {
@@ -333,7 +335,7 @@ impl CharRefTokenizer {
         }
     }
 
-    fn do_bogus_name<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn do_bogus_name(&mut self, tokenizer: &mut Tok) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         tokenizer.discard_char();
         self.name_buf().push_char(c);
@@ -346,7 +348,7 @@ impl CharRefTokenizer {
         self.finish_none()
     }
 
-    pub fn end_of_file<T: SubTok>(&mut self, tokenizer: &mut T) {
+    pub fn end_of_file(&mut self, tokenizer: &mut Tok) {
         while self.result.is_none() {
             match self.state {
                 Begin => drop(self.finish_none()),
