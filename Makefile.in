@@ -3,10 +3,8 @@ VPATH = %VPATH%
 RUSTC ?= rustc
 RUSTFLAGS += -L . -L $(VPATH)/rust-phf/build
 
-GEN_LIB_SRC = generated/char_ref_data.rs
-
 LIB_TOP_SRC = $(VPATH)/src/html5.rs
-LIB_ALL_SRC = $(GEN_LIB_SRC) $(shell find $(VPATH)/src -type f -name '*.rs')
+LIB_ALL_SRC = $(shell find $(VPATH)/src -type f -name '*.rs')
 LIB         = $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
 
 MACROS_TOP_SRC = $(VPATH)/macros/mod.rs
@@ -20,10 +18,6 @@ TEST_JSON_SRC = $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 
 .PHONY: all
 all: $(LIB) tokenize-example
-
-$(VPATH)/generated/char_ref_data.rs: $(VPATH)/codegen/gen-char-ref-data.py
-	mkdir -p $(dir $@)
-	$< $(VPATH) > $@
 
 $(MACROS): $(MACROS_ALL_SRC)
 	$(RUSTC) $(RUSTFLAGS) $(MACROS_TOP_SRC)

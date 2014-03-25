@@ -7,7 +7,6 @@ use super::SubTok;
 use util::ascii::is_ascii_alnum;
 use std::char::{to_digit, from_u32};
 
-#[path="../../generated/char_ref_data.rs"]
 mod data;
 
 pub struct CharRef {
@@ -44,7 +43,7 @@ pub struct CharRefTokenizer {
     priv hex_marker: Option<char>,
 
     priv name_buf_opt: Option<~str>,
-    priv name_match: Option<&'static [char, ..2]>,
+    priv name_match: Option<&'static [u32, ..2]>,
     priv name_len: uint,
 }
 
@@ -232,7 +231,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         match data::named_entities.find(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
-                if m[0] != '\0' {
+                if m[0] != 0 {
                     // We have a full match, but there might be a longer one to come.
                     self.name_match = Some(m);
                     self.name_len = self.name_buf().len();
@@ -277,7 +276,7 @@ impl<Tok: SubTok> CharRefTokenizer {
                 self.finish_none()
             }
 
-            Some(m) => {
+            Some(&[c1, c2]) => {
                 // We have a complete match, but we may have consumed
                 // additional characters into self.name_buf.  Usually
                 // at least one, but several in cases like
@@ -326,8 +325,8 @@ impl<Tok: SubTok> CharRefTokenizer {
                 } else {
                     tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
                     self.result = Some(CharRef {
-                        chars: *m,
-                        num_chars: if m[1] == '\0' { 1 } else { 2 },
+                        chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
+                        num_chars: if c2 == 0 { 1 } else { 2 },
                     });
                     Done
                 }
