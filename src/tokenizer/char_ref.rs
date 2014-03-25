@@ -283,18 +283,18 @@ impl CharRefTokenizer {
                 // this next character is in fact a U+003D EQUALS SIGN
                 // character (=), then this is a parse error"
 
-                let (unconsume_all, parse_error) =
-                match (self.addnl_allowed, last_matched, next_after) {
-                    (_, ';', _) => (false, false),
-                    (Some(_), _, Some('=')) => (true, true),
-                    (Some(_), _, Some(c)) if is_ascii_alnum(c) => (true, false),
-                    _ => (false, true),
+                let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
+                    (_, ';', _) => false,
+                    (Some(_), _, Some('=')) => {
+                        tokenizer.emit_error(~"Equals sign after character reference in attribute");
+                        true
+                    }
+                    (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
+                    _ => {
+                        tokenizer.emit_error(~"Character reference does not end with semicolon");
+                        false
+                    }
                 };
-
-                if parse_error {
-                    // FIXME: this error message is kind of crap
-                    tokenizer.emit_error(~"Bad termination of named character reference");
-                }
 
                 if unconsume_all {
                     tokenizer.unconsume(self.name_buf_opt.take_unwrap());
