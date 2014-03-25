@@ -30,6 +30,7 @@ enum State {
     Numeric(u32), // base
     NumericSemicolon,
     Named,
+    BogusName,
 }
 
 pub struct CharRefTokenizer {
@@ -77,6 +78,7 @@ impl CharRefTokenizer {
             Numeric(base) => self.do_numeric(tokenizer, base),
             NumericSemicolon => self.do_numeric_semicolon(tokenizer),
             Named => self.do_named(tokenizer),
+            BogusName => self.do_bogus_name(tokenizer),
         }
     }
 
@@ -238,21 +240,41 @@ impl CharRefTokenizer {
             }
 
             // Can't continue the match.
-            None => self.finish_named(tokenizer),
+            None => self.finish_named(tokenizer, Some(c)),
         }
     }
 
-    fn finish_named<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+    fn emit_name_error<T: SubTok>(&mut self, tokenizer: &mut T) {
+        let msg = format!("Invalid character reference &{:s}",
+            self.name_buf().as_slice());
+        tokenizer.emit_error(msg);
+    }
+
+    fn unconsume_name<T: SubTok>(&mut self, tokenizer: &mut T) {
+        tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+    }
+
+    fn finish_named<T: SubTok>(&mut self, tokenizer: &mut T, end_char: Option<char>) -> Status {
         match self.name_match {
             None => {
-                // FIXME: "if the characters after the U+0026 AMPERSAND
-                // character (&) consist of a sequence of one or more
-                // alphanumeric ASCII characters followed by a U+003B
-                // SEMICOLON character (;), then this is a parse error".
+                match end_char {
+                    Some(c) if is_ascii_alnum(c) => {
+                        // Keep looking for a semicolon, to determine whether
+                        // we emit a parse error.
+                        self.state = BogusName;
+                        return Progress;
+                    }
 
-                tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+                    // Check length because &; is not a parse error.
+                    Some(';') if self.name_buf().len() > 1
+                        => self.emit_name_error(tokenizer),
+
+                    _ => (),
+                }
+                self.unconsume_name(tokenizer);
                 self.finish_none()
             }
+
             Some(m) => {
                 // We have a complete match, but we may have consumed
                 // additional characters into self.name_buf.  Usually
@@ -297,7 +319,7 @@ impl CharRefTokenizer {
                 };
 
                 if unconsume_all {
-                    tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+                    self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
                     tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
@@ -311,27 +333,45 @@ impl CharRefTokenizer {
         }
     }
 
+    fn do_bogus_name<T: SubTok>(&mut self, tokenizer: &mut T) -> Status {
+        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
+        tokenizer.discard_char();
+        self.name_buf().push_char(c);
+        match c {
+            _ if is_ascii_alnum(c) => return Progress,
+            ';' => self.emit_name_error(tokenizer),
+            _ => ()
+        }
+        self.unconsume_name(tokenizer);
+        self.finish_none()
+    }
+
     pub fn end_of_file<T: SubTok>(&mut self, tokenizer: &mut T) {
-        match self.state {
-            Begin
-                => self.finish_none(),
+        while self.result.is_none() {
+            match self.state {
+                Begin => drop(self.finish_none()),
 
-            Numeric(_) if !self.seen_digit
-                => self.unconsume_numeric(tokenizer),
+                Numeric(_) if !self.seen_digit
+                    => drop(self.unconsume_numeric(tokenizer)),
 
-            Numeric(_) | NumericSemicolon => {
-                tokenizer.emit_error(~"EOF in numeric character reference");
-                self.finish_numeric(tokenizer)
+                Numeric(_) | NumericSemicolon => {
+                    tokenizer.emit_error(~"EOF in numeric character reference");
+                    self.finish_numeric(tokenizer);
+                }
+
+                Named => drop(self.finish_named(tokenizer, None)),
+
+                BogusName => {
+                    self.unconsume_name(tokenizer);
+                    self.finish_none();
+                }
+
+                Octothorpe => {
+                    tokenizer.unconsume(~"#");
+                    tokenizer.emit_error(~"EOF after '#' in character reference");
+                    self.finish_none();
+                }
             }
-
-            Named
-                => self.finish_named(tokenizer),
-
-            Octothorpe => {
-                tokenizer.unconsume(~"#");
-                tokenizer.emit_error(~"EOF after '#' in character reference");
-                self.finish_none()
-            }
-        };
+        }
     }
 }
