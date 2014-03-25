@@ -9,6 +9,10 @@ LIB_TOP_SRC = $(VPATH)/src/html5.rs
 LIB_ALL_SRC = $(GEN_LIB_SRC) $(shell find $(VPATH)/src -type f -name '*.rs')
 LIB         = $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
 
+MACROS_TOP_SRC = $(VPATH)/macros/mod.rs
+MACROS_ALL_SRC = $(shell find $(VPATH)/macros -type f -name '*.rs')
+MACROS          = $(shell $(RUSTC) --crate-file-name "$(MACROS_TOP_SRC)")
+
 EXT_TEST_TOP_SRC = $(VPATH)/test/mod.rs
 EXT_TEST_ALL_SRC = $(shell find $(VPATH)/test -type f -name '*.rs')
 
@@ -21,7 +25,10 @@ $(VPATH)/generated/char_ref_data.rs: $(VPATH)/codegen/gen-char-ref-data.py
 	mkdir -p $(dir $@)
 	$< $(VPATH) > $@
 
-$(LIB): $(LIB_ALL_SRC)
+$(MACROS): $(MACROS_ALL_SRC)
+	$(RUSTC) $(RUSTFLAGS) $(MACROS_TOP_SRC)
+
+$(LIB): $(MACROS) $(LIB_ALL_SRC)
 	$(RUSTC) $(RUSTFLAGS) $(LIB_TOP_SRC)
 
 tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)

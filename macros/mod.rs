@@ -2,8 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[macro_escape];
+#[crate_id="html5-macros"];
+#[crate_type="dylib"];
 
+#[feature(macro_rules)];
+
+#[macro_export]
 macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
     match $opt {
         None => return $retval,
@@ -11,6 +15,7 @@ macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
     }
 ))
 
+#[macro_export]
 macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
     #[test]
     fn $name() {

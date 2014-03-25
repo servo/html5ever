@@ -10,10 +10,11 @@
 #[phase(syntax)]
 extern crate phf_mac;
 
+#[phase(syntax)]
+extern crate macros = "html5-macros";
+
 extern crate phf;
 extern crate collections;
-
-mod macros;
 
 mod util {
     pub mod ascii;
