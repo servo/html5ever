@@ -364,6 +364,7 @@ macro_rules! shorthand (
     ( create_tag $kind:expr $c:expr   ) => ( self.create_tag($kind, $c);                           );
     ( push_tag $c:expr                ) => ( self.tag_mut().name.push_char($c);                    );
     ( emit_tag                        ) => ( self.emit_current_tag();                              );
+    ( discard_tag                     ) => ( self.current_tag = None;                              );
     ( push_temp $c:expr               ) => ( self.temp_buf.push_char($c);                          );
     ( emit_temp                       ) => ( self.emit_temp_buf();                                 );
     ( clear_temp                      ) => ( self.clear_temp_buf();                                );
@@ -562,7 +563,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(push_tag cl; push_temp c),
-                    None     => go!(emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
+                    None     => go!(discard_tag; emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
                 }
             },
 
