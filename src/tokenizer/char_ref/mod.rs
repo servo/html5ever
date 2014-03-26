@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::SubTok;
+use super::{Tokenizer, TokenSink};
 
 use util::ascii::is_ascii_alnum;
 use std::char::{to_digit, from_u32};
@@ -93,8 +93,8 @@ impl CharRefTokenizer {
     }
 }
 
-impl<Tok: SubTok> CharRefTokenizer {
-    pub fn step(&mut self, tokenizer: &mut Tok) -> Status {
+impl<'sink, Sink: TokenSink> CharRefTokenizer {
+    pub fn step(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         if self.result.is_some() {
             return Done;
         }
@@ -110,7 +110,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         }
     }
 
-    fn do_begin(&mut self, tokenizer: &mut Tok) -> Status {
+    fn do_begin(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
                 => self.finish_none(),
@@ -131,7 +131,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         }
     }
 
-    fn do_octothorpe(&mut self, tokenizer: &mut Tok) -> Status {
+    fn do_octothorpe(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match c {
             'x' | 'X' => {
@@ -148,7 +148,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         Progress
     }
 
-    fn do_numeric(&mut self, tokenizer: &mut Tok, base: u32) -> Status {
+    fn do_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match to_digit(c, base as uint) {
             Some(n) => {
@@ -173,7 +173,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         }
     }
 
-    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tok) -> Status {
+    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => tokenizer.discard_char(),
             _   => tokenizer.emit_error(~"Semicolon missing after numeric character reference"),
@@ -181,7 +181,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         self.finish_numeric(tokenizer)
     }
 
-    fn unconsume_numeric(&mut self, tokenizer: &mut Tok) -> Status {
+    fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let mut unconsume = ~"#";
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
@@ -193,7 +193,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         self.finish_none()
     }
 
-    fn finish_numeric(&mut self, tokenizer: &mut Tok) -> Status {
+    fn finish_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         fn conv(n: u32) -> char {
             from_u32(n).expect("invalid char missed by error handling cases")
         }
@@ -224,9 +224,8 @@ impl<Tok: SubTok> CharRefTokenizer {
         self.finish_one(c)
     }
 
-    fn do_named(&mut self, tokenizer: &mut Tok) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        tokenizer.discard_char();
+    fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+        let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf().push_char(c);
         match data::named_entities.find(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
@@ -245,17 +244,19 @@ impl<Tok: SubTok> CharRefTokenizer {
         }
     }
 
-    fn emit_name_error(&mut self, tokenizer: &mut Tok) {
+    fn emit_name_error(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
         let msg = format!("Invalid character reference &{:s}",
             self.name_buf().as_slice());
         tokenizer.emit_error(msg);
     }
 
-    fn unconsume_name(&mut self, tokenizer: &mut Tok) {
+    fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
         tokenizer.unconsume(self.name_buf_opt.take_unwrap());
     }
 
-    fn finish_named(&mut self, tokenizer: &mut Tok, end_char: Option<char>) -> Status {
+    fn finish_named(&mut self,
+            tokenizer: &mut Tokenizer<'sink, Sink>,
+            end_char: Option<char>) -> Status {
         match self.name_match {
             None => {
                 match end_char {
@@ -334,9 +335,8 @@ impl<Tok: SubTok> CharRefTokenizer {
         }
     }
 
-    fn do_bogus_name(&mut self, tokenizer: &mut Tok) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        tokenizer.discard_char();
+    fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+        let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf().push_char(c);
         match c {
             _ if is_ascii_alnum(c) => return Progress,
@@ -347,7 +347,7 @@ impl<Tok: SubTok> CharRefTokenizer {
         self.finish_none()
     }
 
-    pub fn end_of_file(&mut self, tokenizer: &mut Tok) {
+    pub fn end_of_file(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
         while self.result.is_none() {
             match self.state {
                 Begin => drop(self.finish_none()),

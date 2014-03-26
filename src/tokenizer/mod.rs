@@ -203,7 +203,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     Some(true)
                 } else {
                     debug!("lookahead: condition not satisfied by {:?}", s);
-                    self.input_buffers.push_front(s);
+                    self.unconsume(s);
                     Some(false)
                 }
             }
@@ -352,6 +352,27 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     fn emit_eof(&mut self) {
         self.sink.process_token(EOFToken);
+    }
+
+    fn peek(&self) -> Option<char> {
+        if self.reconsume {
+            Some(self.current_char)
+        } else {
+            self.input_buffers.peek()
+        }
+    }
+
+    fn discard_char(&mut self) {
+        let c = self.get_char();
+        assert!(c.is_some());
+    }
+
+    fn unconsume(&mut self, buf: ~str) {
+        self.input_buffers.push_front(buf);
+    }
+
+    fn emit_error(&mut self, error: ~str) {
+        self.sink.process_token(ParseError(error));
     }
 }
 
@@ -1015,40 +1036,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     => fail!("FIXME: state {:?} not implemented in EOF", self.state),
             }
         }
-    }
-}
-
-
-/// Methods to support the character sub-tokenizer.
-/// Putting these in a trait hides the Tokenizer type variables, which makes
-/// the sub-tokenizer cleaner.
-trait SubTok {
-    fn peek(&self) -> Option<char>;
-    fn discard_char(&mut self);
-    fn unconsume(&mut self, buf: ~str);
-    fn emit_error(&mut self, error: ~str);
-}
-
-impl<'sink, Sink: TokenSink> SubTok for Tokenizer<'sink, Sink> {
-    fn peek(&self) -> Option<char> {
-        if self.reconsume {
-            Some(self.current_char)
-        } else {
-            self.input_buffers.peek()
-        }
-    }
-
-    fn discard_char(&mut self) {
-        let c = self.get_char();
-        assert!(c.is_some());
-    }
-
-    fn unconsume(&mut self, buf: ~str) {
-        self.input_buffers.push_front(buf);
-    }
-
-    fn emit_error(&mut self, error: ~str) {
-        self.sink.process_token(ParseError(error));
     }
 }
 
