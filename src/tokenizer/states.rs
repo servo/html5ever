@@ -2,19 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum ScriptEscapeKind {
     Escaped,
     DoubleEscaped,
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum DoctypeIdKind {
     Public,
     System,
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
@@ -22,14 +22,14 @@ pub enum RawKind {
     ScriptDataEscaped(ScriptEscapeKind),
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum AttrValueKind {
     Unquoted,
     SingleQuoted,
     DoubleQuoted,
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum State {
     Data,
     Plaintext,

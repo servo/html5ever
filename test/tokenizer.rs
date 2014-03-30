@@ -15,6 +15,30 @@ use html5::tokenizer::{CharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer};
 use html5::tokenizer::states::{State, Plaintext, RawData, Rcdata, Rawtext};
 
+// Return all ways of splitting the string into at most n
+// possibly-empty pieces.
+fn splits(s: &str, n: uint) -> ~[~[~str]] {
+    if n == 1 {
+        return ~[~[s.to_owned()]];
+    }
+
+    let mut points: ~[uint] = s.char_indices().map(|(n,_)| n).collect();
+    points.push(s.len());
+
+    // do this with iterators?
+    let mut out = ~[];
+    for p in points.move_iter() {
+        let y = s.slice_from(p);
+        for mut x in splits(s.slice_to(p), n-1).move_iter() {
+            x.push(y.to_owned());
+            out.push(x);
+        }
+    }
+
+    out.push_all_move(splits(s, n-1));
+    out
+}
+
 struct TokenLogger {
     tokens: ~[Json],
     current_str: ~str,
@@ -81,7 +105,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize_to_json(input: ~str, state: Option<State>, start_tag: Option<~str>) -> Json {
+fn tokenize_to_json(input: ~[~str], state: Option<State>, start_tag: Option<~str>) -> Json {
     let mut sink = TokenLogger::new();
     {
         let mut tok = Tokenizer::new(&mut sink);
@@ -92,7 +116,9 @@ fn tokenize_to_json(input: ~str, state: Option<State>, start_tag: Option<~str>) 
         if start_tag.is_some() {
             tok.set_last_start_tag_name(start_tag);
         }
-        tok.feed(input);
+        for chunk in input.move_iter() {
+            tok.feed(chunk);
+        }
         tok.end();
     }
     sink.finish_str();
@@ -176,7 +202,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: ~str, input: ~str, expect: Json,
+fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: Json,
     state: Option<State>, start_tag: Option<~str>) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -185,11 +211,17 @@ fn mk_test(desc: ~str, input: ~str, expect: Json,
             should_fail: false,
         },
         testfn: DynTestFn(proc() {
-            // Clone so we still have 'input' for the failure message.
-            let output = tokenize_to_json(input.clone(), state, start_tag);
-            if output != expect {
-                fail!("\ninput: {:?}\ngot: {:s}\nexpected: {:s}",
-                    input, output.to_pretty_str(), expect.to_pretty_str());
+            for input in insplits.move_iter() {
+                // Clone 'input' so we have it for the failure message.
+                // Also clone start_tag.  If we don't, we get the wrong
+                // result but the compiler doesn't catch it!
+                // Possibly mozilla/rust#12223.
+                let output = tokenize_to_json(
+                    input.clone(), state.clone(), start_tag.clone());
+                if output != expect {
+                    fail!("\ninput: {:?}\ngot: {:s}\nexpected: {:s}",
+                        input, output.to_pretty_str(), expect.to_pretty_str());
+                }
             }
         }),
     }
@@ -219,6 +251,9 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
         return;
     }
 
+    // Split up the input at different points to test incremental tokenization.
+    let insplits = splits(input, 3);
+
     // Some tests have a last start tag name.
     let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_str());
 
@@ -233,10 +268,10 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
                 s => fail!("don't know state {:?}", s),
             };
             let newdesc = format!("{:s} (in {:s})", desc, statestr);
-            tests.push(mk_test(newdesc, input.clone(), expect.clone(),
+            tests.push(mk_test(newdesc, insplits.clone(), expect.clone(),
                 Some(state), start_tag.clone()));
         },
-        _ => tests.push(mk_test(desc, input, expect, None, start_tag)),
+        _ => tests.push(mk_test(desc, insplits, expect, None, start_tag)),
     }
 }
 
