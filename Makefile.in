@@ -16,6 +16,9 @@ MACROS         := $(shell $(RUSTC) --crate-file-name "$(MACROS_TOP_SRC)")
 EXT_TEST_TOP_SRC := $(VPATH)/test/mod.rs
 EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
 
+EXT_BENCH_TOP_SRC := $(VPATH)/bench/mod.rs
+EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
+
 TEST_JSON_SRC := $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 
 LIB_DEPS := $(MACROS) $(LIB_ALL_SRC)
@@ -45,6 +48,10 @@ html5-test: $(LIB_DEPS)
 html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB) test-json/tokenizer
 	$(RUSTC_CMD) $(EXT_TEST_TOP_SRC)
 
+# Run benchmarks
+html5-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
+	$(RUSTC_CMD) $(EXT_BENCH_TOP_SRC)
+
 .PHONY: check
 check: check-internal check-external
 
@@ -56,7 +63,11 @@ check-internal: html5-test
 check-external: html5-external-test
 	./html5-external-test
 
+.PHONY: bench
+bench: html5-external-bench
+	./html5-external-bench --bench
+
 .PHONY: clean
 clean:
-	rm -f *.o *.a *.so *.dylib *.dll *-test *-example
+	rm -f *.o *.a *.so *.dylib *.dll *-test *-bench *-example
 	rm -rf test-json
