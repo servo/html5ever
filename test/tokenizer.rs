@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{io, os, str, num, char};
+use std::{io, str, num, char};
 use std::mem::replace;
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn, test_main};
+use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use extra::json;
 use extra::json::{Json, ToJson};
 use collections::treemap::TreeMap;
@@ -275,7 +275,7 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
     }
 }
 
-pub fn run_tests() {
+pub fn tests() -> ~[TestDescAndFn] {
     let mut tests: ~[TestDescAndFn] = ~[];
 
     let test_dir_path = FromStr::from_str("test-json/tokenizer").unwrap();
@@ -301,6 +301,5 @@ pub fn run_tests() {
         }
     }
 
-    let args = os::args();
-    test_main(args.as_slice(), tests);
+    tests
 }

@@ -11,8 +11,17 @@ extern crate collections;
 
 extern crate html5;
 
+use std::os;
+use test::test_main;
+
 mod tokenizer;
 
 fn main() {
-    tokenizer::run_tests();
+    let mut tests = ~[];
+
+    tests.push_all_move(tokenizer::tests());
+    // more to follow
+
+    let args = os::args();
+    test_main(args.as_slice(), tests);
 }
