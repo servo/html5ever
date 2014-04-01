@@ -18,13 +18,15 @@ EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
 
 TEST_JSON_SRC := $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 
+LIB_DEPS := $(MACROS) $(LIB_ALL_SRC)
+
 .PHONY: all
 all: $(LIB) tokenize-example
 
 $(MACROS): $(MACROS_ALL_SRC)
 	$(RUSTC_CMD) $(MACROS_TOP_SRC)
 
-$(LIB): $(MACROS) $(LIB_ALL_SRC)
+$(LIB): $(LIB_DEPS)
 	$(RUSTC_CMD) $(LIB_TOP_SRC)
 
 tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
@@ -36,7 +38,7 @@ test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/codegen/preprocess-tests.py
 	$(VPATH)/codegen/preprocess-tests.py $(VPATH)/html5lib-tests $@
 
 # Run #[test] functions
-html5-test: $(LIB_ALL_SRC)
+html5-test: $(LIB_DEPS)
 	$(RUSTC_CMD) -o $@ --test $(LIB_TOP_SRC)
 
 # Run external tests loaded from JSON
