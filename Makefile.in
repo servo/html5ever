@@ -1,32 +1,34 @@
-VPATH = %VPATH%
+VPATH := %VPATH%
 
 RUSTC ?= rustc
-RUSTFLAGS += -L . -L $(VPATH)/rust-phf/build
+RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
 
-LIB_TOP_SRC = $(VPATH)/src/html5.rs
-LIB_ALL_SRC = $(shell find $(VPATH)/src -type f -name '*.rs')
-LIB         = $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
+RUSTC_CMD := $(RUSTC) $(RUST_DIRS) $(RUSTFLAGS)
 
-MACROS_TOP_SRC = $(VPATH)/macros/mod.rs
-MACROS_ALL_SRC = $(shell find $(VPATH)/macros -type f -name '*.rs')
-MACROS          = $(shell $(RUSTC) --crate-file-name "$(MACROS_TOP_SRC)")
+LIB_TOP_SRC := $(VPATH)/src/html5.rs
+LIB_ALL_SRC := $(shell find $(VPATH)/src -type f -name '*.rs')
+LIB         := $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
 
-EXT_TEST_TOP_SRC = $(VPATH)/test/mod.rs
-EXT_TEST_ALL_SRC = $(shell find $(VPATH)/test -type f -name '*.rs')
+MACROS_TOP_SRC := $(VPATH)/macros/mod.rs
+MACROS_ALL_SRC := $(shell find $(VPATH)/macros -type f -name '*.rs')
+MACROS         := $(shell $(RUSTC) --crate-file-name "$(MACROS_TOP_SRC)")
 
-TEST_JSON_SRC = $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
+EXT_TEST_TOP_SRC := $(VPATH)/test/mod.rs
+EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
+
+TEST_JSON_SRC := $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 
 .PHONY: all
 all: $(LIB) tokenize-example
 
 $(MACROS): $(MACROS_ALL_SRC)
-	$(RUSTC) $(RUSTFLAGS) $(MACROS_TOP_SRC)
+	$(RUSTC_CMD) $(MACROS_TOP_SRC)
 
 $(LIB): $(MACROS) $(LIB_ALL_SRC)
-	$(RUSTC) $(RUSTFLAGS) $(LIB_TOP_SRC)
+	$(RUSTC_CMD) $(LIB_TOP_SRC)
 
 tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
-	$(RUSTC) $(RUSTFLAGS) $<
+	$(RUSTC_CMD) $<
 
 # Workaround for mozilla/rust#13064; see preprocess-tests.py
 test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/codegen/preprocess-tests.py
@@ -35,11 +37,11 @@ test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/codegen/preprocess-tests.py
 
 # Run #[test] functions
 html5-test: $(LIB_ALL_SRC)
-	$(RUSTC) -o $@ --test $(RUSTFLAGS) $(LIB_TOP_SRC)
+	$(RUSTC_CMD) -o $@ --test $(LIB_TOP_SRC)
 
 # Run external tests loaded from JSON
 html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB) test-json/tokenizer
-	$(RUSTC) $(RUSTFLAGS) $(EXT_TEST_TOP_SRC)
+	$(RUSTC_CMD) $(EXT_TEST_TOP_SRC)
 
 .PHONY: check
 check: check-internal check-external
