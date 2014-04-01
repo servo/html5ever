@@ -378,9 +378,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( to $s:ident                     ) => ( self.state = states::$s;                              );
-    ( to $s:ident $k1:expr            ) => ( self.state = states::$s($k1);                         );
-    ( to $s:ident $k1:expr $k2:expr   ) => ( self.state = states::$s($k1($k2));                    );
     ( emit $c:expr                    ) => ( self.emit_char($c);                                   );
     ( create_tag $kind:expr $c:expr   ) => ( self.create_tag($kind, $c);                           );
     ( push_tag $c:expr                ) => ( self.tag_mut().name.push_char($c);                    );
@@ -402,8 +399,6 @@ macro_rules! shorthand (
     ( clear_doctype_id $k:expr        ) => ( self.clear_doctype_id($k);                            );
     ( force_quirks                    ) => ( self.current_doctype.force_quirks = true;             );
     ( emit_doctype                    ) => ( self.emit_current_doctype();                          );
-    ( consume_char_ref                ) => ( self.consume_char_ref(None);                          );
-    ( consume_char_ref $addnl:expr    ) => ( self.consume_char_ref(Some($addnl));                  );
     ( error                           ) => ( self.bad_char_error();                                );
     ( error_eof                       ) => ( self.bad_eof_error();                                 );
 )
@@ -423,16 +418,26 @@ macro_rules! sh_trace ( ( $($cmds:tt)* ) => ( shorthand!($($cmds)*) ) )
 macro_rules! go (
     // A pattern like $($cmd:tt)* ; $($rest:tt)* causes parse ambiguity.
     // We have to tell the parser how much lookahead we need.
+
     ( $a:tt                   ; $($rest:tt)* ) => ({ sh_trace!($a);          go!($($rest)*); });
     ( $a:tt $b:tt             ; $($rest:tt)* ) => ({ sh_trace!($a $b);       go!($($rest)*); });
     ( $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ sh_trace!($a $b $c);    go!($($rest)*); });
     ( $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ sh_trace!($a $b $c $d); go!($($rest)*); });
 
     // These can only come at the end.
-    // FIXME: Come up with a better name for 'finish'.
-    ( reconsume ) => ({ self.reconsume = true; return true; });
-    ( finish    ) => ( return true; );
-    ( eof       ) => ({ self.emit_eof(); return; });
+
+    ( to $s:ident                   ) => ({ self.state = states::$s; return true;           });
+    ( to $s:ident $k1:expr          ) => ({ self.state = states::$s($k1); return true;      });
+    ( to $s:ident $k1:expr $k2:expr ) => ({ self.state = states::$s($k1($k2)); return true; });
+
+    ( reconsume $s:ident                   ) => ({ self.reconsume = true; go!(to $s);         });
+    ( reconsume $s:ident $k1:expr          ) => ({ self.reconsume = true; go!(to $s $k1);     });
+    ( reconsume $s:ident $k1:expr $k2:expr ) => ({ self.reconsume = true; go!(to $s $k1 $k2); });
+
+    ( consume_char_ref             ) => ({ self.consume_char_ref(None); return true;         });
+    ( consume_char_ref $addnl:expr ) => ({ self.consume_char_ref(Some($addnl)); return true; });
+
+    ( eof ) => ({ self.emit_eof(); return false; });
 
     // If nothing else matched, it's a single command
     ( $($cmd:tt)+ ) => ( sh_trace!($($cmd)+); );
@@ -466,10 +471,9 @@ macro_rules! lookahead_and_consume ( ($n:expr, $pred:expr) => (
 ))
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
-    // Run one step of the state machine.  Return true if we made any progress.
-    //
-    // FIXME: explicitly represent the EOF character?
-    // For now the plan is to handle EOF in a separate match.
+    // Run the state machine for a while.
+    // Return true if we should be immediately re-invoked
+    // (this just simplifies control flow vs. break / continue).
     fn step(&mut self) -> bool {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer();
@@ -499,8 +503,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             // RCDATA, RAWTEXT, script, or script escaped
             states::RawData(kind) => match (get_char!(), kind) {
                 ('&', Rcdata) => go!(consume_char_ref),
-                ('-', ScriptDataEscaped(esc_kind)) => go!(to ScriptDataEscapedDash esc_kind; emit '-'),
-                ('<', ScriptDataEscaped(DoubleEscaped)) => go!(to RawLessThanSign kind; emit '<'),
+                ('-', ScriptDataEscaped(esc_kind)) => go!(emit '-'; to ScriptDataEscapedDash esc_kind),
+                ('<', ScriptDataEscaped(DoubleEscaped)) => go!(emit '<'; to RawLessThanSign kind),
                 ('<',  _) => go!(to RawLessThanSign kind),
                 ('\0', _) => go!(error; emit '\ufffd'),
                 (c,    _) => go!(emit c),
@@ -517,7 +521,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '?' => go!(error; clear_comment; push_comment '?'; to BogusComment),
                 c => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_tag StartTag cl; to TagName),
-                    None     => go!(error; emit '<'; to Data; reconsume),
+                    None     => go!(error; emit '<'; reconsume Data),
                 }
             },
 
@@ -542,29 +546,29 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::RawLessThanSign(ScriptDataEscaped(Escaped)) => match get_char!() {
                 '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
                 c => match lower_ascii_letter(c) {
-                    Some(cl) => go!(clear_temp; push_temp cl;
-                                    to ScriptDataEscapeStart DoubleEscaped; emit '<'; emit c),
-                    None => go!(to RawData ScriptDataEscaped Escaped; emit '<'; reconsume),
+                    Some(cl) => go!(clear_temp; push_temp cl; emit '<'; emit c;
+                                    to ScriptDataEscapeStart DoubleEscaped),
+                    None => go!(emit '<'; reconsume RawData ScriptDataEscaped Escaped),
                 }
             },
 
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => match get_char!() {
                 '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped DoubleEscaped),
-                _   => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
+                _   => go!(reconsume RawData ScriptDataEscaped DoubleEscaped),
             },
 
             // otherwise
             states::RawLessThanSign(kind) => match get_char!() {
                 '/' => go!(clear_temp; to RawEndTagOpen kind),
-                '!' if kind == ScriptData => go!(to ScriptDataEscapeStart Escaped; emit '<'; emit '!'),
-                _   => go!(to RawData Rcdata; emit '<'; reconsume),
+                '!' if kind == ScriptData => go!(emit '<'; emit '!'; to ScriptDataEscapeStart Escaped),
+                _   => go!(emit '<'; reconsume RawData Rcdata),
             },
 
             states::RawEndTagOpen(kind) => {
                 let c = get_char!();
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(create_tag EndTag cl; push_temp c; to RawEndTagName kind),
-                    None     => go!(to RawData kind; emit '<'; emit '/'; reconsume),
+                    None     => go!(emit '<'; emit '/'; reconsume RawData kind),
                 }
             },
 
@@ -573,9 +577,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 if self.have_appropriate_end_tag() {
                     match c {
                         '\t' | '\n' | '\x0C' | ' '
-                            => go!(to BeforeAttributeName; finish),
-                        '/' => go!(to SelfClosingStartTag; finish),
-                        '>' => go!(emit_tag; to Data; finish),
+                            => go!(to BeforeAttributeName),
+                        '/' => go!(to SelfClosingStartTag),
+                        '>' => go!(emit_tag; to Data),
                         // All of the above end with a return from this function.
 
                         _ => (),
@@ -584,7 +588,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(push_tag cl; push_temp c),
-                    None     => go!(discard_tag; emit '<'; emit '/'; emit_temp; to RawData kind; reconsume),
+                    None     => go!(discard_tag; emit '<'; emit '/'; emit_temp; reconsume RawData kind),
                 }
             },
 
@@ -593,44 +597,44 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
                         let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
-                        go!(to RawData ScriptDataEscaped esc; emit c);
+                        go!(emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
                         Some(cl) => go!(push_temp cl; emit c),
-                        None     => go!(to RawData ScriptDataEscaped Escaped; reconsume),
+                        None     => go!(reconsume RawData ScriptDataEscaped Escaped),
                     }
                 }
             },
 
             states::ScriptDataEscapeStart(Escaped) => match get_char!() {
-                '-' => go!(to ScriptDataEscapeStartDash; emit '-'),
-                _   => go!(to RawData ScriptData; reconsume),
+                '-' => go!(emit '-'; to ScriptDataEscapeStartDash),
+                _   => go!(reconsume RawData ScriptData),
             },
 
             states::ScriptDataEscapeStartDash => match get_char!() {
-                '-' => go!(to ScriptDataEscapedDashDash Escaped; emit '-'),
-                _   => go!(to RawData ScriptData; reconsume),
+                '-' => go!(emit '-'; to ScriptDataEscapedDashDash Escaped),
+                _   => go!(reconsume RawData ScriptData),
             },
 
             states::ScriptDataEscapedDash(kind) => match get_char!() {
-                '-'  => go!(to ScriptDataEscapedDashDash kind; emit '-'),
+                '-'  => go!(emit '-'; to ScriptDataEscapedDashDash kind),
                 '<'  => {
-                    go!(to RawLessThanSign ScriptDataEscaped kind);
                     if kind == DoubleEscaped { go!(emit '<'); }
+                    go!(to RawLessThanSign ScriptDataEscaped kind);
                 }
-                '\0' => go!(error; to RawData ScriptDataEscaped kind; emit '\ufffd'),
-                c    => go!(to RawData ScriptDataEscaped kind; emit c),
+                '\0' => go!(error; emit '\ufffd'; to RawData ScriptDataEscaped kind),
+                c    => go!(emit c; to RawData ScriptDataEscaped kind),
             },
 
             states::ScriptDataEscapedDashDash(kind) => match get_char!() {
                 '-'  => go!(emit '-'),
                 '<'  => {
-                    go!(to RawLessThanSign ScriptDataEscaped kind);
                     if kind == DoubleEscaped { go!(emit '<'); }
+                    go!(to RawLessThanSign ScriptDataEscaped kind);
                 }
-                '>'  => go!(to RawData ScriptData; emit '>'),
-                '\0' => go!(error; to RawData ScriptDataEscaped kind; emit '\ufffd'),
-                c    => go!(to RawData ScriptDataEscaped kind; emit c),
+                '>'  => go!(emit '>'; to RawData ScriptData),
+                '\0' => go!(error; emit '\ufffd'; to RawData ScriptDataEscaped kind),
+                c    => go!(emit c; to RawData ScriptDataEscaped kind),
             },
 
             states::ScriptDataDoubleEscapeEnd => {
@@ -638,11 +642,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
                         let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
-                        go!(to RawData ScriptDataEscaped esc; emit c);
+                        go!(emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
                         Some(cl) => go!(push_temp cl; emit c),
-                        None     => go!(to RawData ScriptDataEscaped DoubleEscaped; reconsume),
+                        None     => go!(reconsume RawData ScriptDataEscaped DoubleEscaped),
                     }
                 }
             },
@@ -650,7 +654,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::BeforeAttributeName => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(to Data; emit_tag),
+                '>'  => go!(emit_tag; to Data),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
@@ -667,7 +671,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                      => go!(to AfterAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
                 '='  => go!(to BeforeAttributeValue),
-                '>'  => go!(to Data; emit_tag),
+                '>'  => go!(emit_tag; to Data),
                 '\0' => go!(error; push_name '\ufffd'),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(push_name cl),
@@ -683,7 +687,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(to SelfClosingStartTag),
                 '='  => go!(to BeforeAttributeValue),
-                '>'  => go!(to Data; emit_tag),
+                '>'  => go!(emit_tag; to Data),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
@@ -698,10 +702,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::BeforeAttributeValue => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '"'  => go!(to AttributeValue DoubleQuoted),
-                '&'  => go!(to AttributeValue Unquoted; reconsume),
+                '&'  => go!(reconsume AttributeValue Unquoted),
                 '\'' => go!(to AttributeValue SingleQuoted),
                 '\0' => go!(error; push_value '\ufffd'; to AttributeValue Unquoted),
-                '>'  => go!(error; to Data; emit_tag),
+                '>'  => go!(error; emit_tag; to Data),
                 c => {
                     go_match!(c,
                         '<' | '=' | '`' => error);
@@ -727,7 +731,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '&'  => go!(consume_char_ref '>'),
-                '>'  => go!(to Data; emit_tag),
+                '>'  => go!(emit_tag; to Data),
                 '\0' => go!(error; push_value '\ufffd'),
                 c    => {
                     go_match!(c,
@@ -740,29 +744,29 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(to Data; emit_tag),
-                _    => go!(error; to BeforeAttributeName; reconsume),
+                '>'  => go!(emit_tag; to Data),
+                _    => go!(error; reconsume BeforeAttributeName),
             },
 
             states::SelfClosingStartTag => match get_char!() {
                 '>' => {
                     self.tag_mut().self_closing = true;
-                    go!(to Data; emit_tag);
+                    go!(emit_tag; to Data);
                 }
-                _ => go!(error; to BeforeAttributeName; reconsume),
+                _ => go!(error; reconsume BeforeAttributeName),
             },
 
             states::CommentStart => match get_char!() {
                 '-'  => go!(to CommentStartDash),
                 '\0' => go!(error; push_comment '\ufffd'; to Comment),
-                '>'  => go!(error; to Data; emit_comment),
+                '>'  => go!(error; emit_comment; to Data),
                 c    => go!(push_comment c; to Comment),
             },
 
             states::CommentStartDash => match get_char!() {
                 '-'  => go!(to CommentEnd),
                 '\0' => go!(error; append_comment "-\ufffd"; to Comment),
-                '>'  => go!(error; to Data; emit_comment),
+                '>'  => go!(error; emit_comment; to Data),
                 c    => go!(push_comment '-'; push_comment c; to Comment),
             },
 
@@ -779,7 +783,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             },
 
             states::CommentEnd => match get_char!() {
-                '>'  => go!(to Data; emit_comment),
+                '>'  => go!(emit_comment; to Data),
                 '\0' => go!(error; append_comment "--\ufffd"; to Comment),
                 '!'  => go!(error; to CommentEndBang),
                 '-'  => go!(error; push_comment '-'),
@@ -788,7 +792,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::CommentEndBang => match get_char!() {
                 '-'  => go!(append_comment "--!"; to CommentEndDash),
-                '>'  => go!(to Data; emit_comment),
+                '>'  => go!(emit_comment; to Data),
                 '\0' => go!(error; append_comment "--!\ufffd"; to Comment),
                 c    => go!(append_comment "--!"; push_comment c; to Comment),
             },
@@ -796,20 +800,20 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::Doctype => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' '
                     => go!(to BeforeDoctypeName),
-                _   => go!(error; to BeforeDoctypeName; reconsume),
+                _   => go!(error; reconsume BeforeDoctypeName),
             },
 
             states::BeforeDoctypeName => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '\0' => go!(error; create_doctype; push_doctype_name '\ufffd'; to DoctypeName),
-                '>'  => go!(error; create_doctype; force_quirks; to Data; emit_doctype),
+                '>'  => go!(error; create_doctype; force_quirks; emit_doctype; to Data),
                 c    => go!(create_doctype; push_doctype_name (lower_ascii(c)); to DoctypeName),
             },
 
             states::DoctypeName => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to AfterDoctypeName),
-                '>'  => go!(to Data; emit_doctype),
+                '>'  => go!(emit_doctype; to Data),
                 '\0' => go!(error; push_doctype_name '\ufffd'),
                 c    => go!(push_doctype_name (lower_ascii(c))),
             },
@@ -821,7 +825,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                     => go!(to AfterDoctypeKeyword System),
                 _ => match get_char!() {
                     '\t' | '\n' | '\x0C' | ' ' => (),
-                    '>' => go!(to Data; emit_doctype),
+                    '>' => go!(emit_doctype; to Data),
                     _   => go!(error; force_quirks; to BogusDoctype),
                 },
             },
@@ -831,7 +835,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                      => go!(to BeforeDoctypeIdentifier kind),
                 '"'  => go!(error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
                 '\'' => go!(error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
-                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                '>'  => go!(error; force_quirks; emit_doctype; to Data),
                 _    => go!(error; force_quirks; to BogusDoctype),
             },
 
@@ -839,28 +843,28 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '"'  => go!(clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
                 '\'' => go!(clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
-                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                '>'  => go!(error; force_quirks; emit_doctype; to Data),
                 _    => go!(error; force_quirks; to BogusDoctype),
             },
 
             states::DoctypeIdentifierDoubleQuoted(kind) => match get_char!() {
                 '"'  => go!(to AfterDoctypeIdentifier kind),
                 '\0' => go!(error; push_doctype_id kind '\ufffd'),
-                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                '>'  => go!(error; force_quirks; emit_doctype; to Data),
                 c    => go!(push_doctype_id kind c),
             },
 
             states::DoctypeIdentifierSingleQuoted(kind) => match get_char!() {
                 '\'' => go!(to AfterDoctypeIdentifier kind),
                 '\0' => go!(error; push_doctype_id kind '\ufffd'),
-                '>'  => go!(error; force_quirks; to Data; emit_doctype),
+                '>'  => go!(error; force_quirks; emit_doctype; to Data),
                 c    => go!(push_doctype_id kind c),
             },
 
             states::AfterDoctypeIdentifier(Public) => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BetweenDoctypePublicAndSystemIdentifiers),
-                '>'  => go!(to Data; emit_doctype),
+                '>'  => go!(emit_doctype; to Data),
                 '"'  => go!(error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
                 '\'' => go!(error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
                 _    => go!(error; force_quirks; to BogusDoctype),
@@ -868,20 +872,20 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::AfterDoctypeIdentifier(System) => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
-                '>' => go!(to Data; emit_doctype),
+                '>' => go!(emit_doctype; to Data),
                 _   => go!(error; to BogusDoctype),
             },
 
             states::BetweenDoctypePublicAndSystemIdentifiers => match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
-                '>'  => go!(to Data; emit_doctype),
+                '>'  => go!(emit_doctype; to Data),
                 '"'  => go!(clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
                 '\'' => go!(clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
                 _    => go!(error; force_quirks; to BogusDoctype),
             },
 
             states::BogusDoctype => match get_char!() {
-                '>'  => go!(to Data; emit_doctype),
+                '>'  => go!(emit_doctype; to Data),
                 _    => (),
             },
 
@@ -969,72 +973,75 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.at_eof = true;
         self.run();
 
-        // Loop to reconsume the EOF character.
-        loop {
-            debug!("processing EOF in state {:?}", self.state);
-            match self.state {
-                states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
-                | states::RawData(ScriptData) | states::Plaintext
-                    => go!(eof),
+        while self.eof_step() {
+            // loop
+        }
+    }
 
-                states::TagName | states::RawData(ScriptDataEscaped(_))
-                | states::BeforeAttributeName | states::AttributeName
-                | states::AfterAttributeName | states::BeforeAttributeValue
-                | states::AttributeValue(_) | states::AfterAttributeValueQuoted
-                | states::SelfClosingStartTag | states::ScriptDataEscapedDash(_)
-                | states::ScriptDataEscapedDashDash(_)
-                    => go!(error_eof; to Data),
+    fn eof_step(&mut self) -> bool {
+        debug!("processing EOF in state {:?}", self.state);
+        match self.state {
+            states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
+            | states::RawData(ScriptData) | states::Plaintext
+                => go!(eof),
 
-                states::TagOpen
-                    => go!(error_eof; to Data; emit '<'),
+            states::TagName | states::RawData(ScriptDataEscaped(_))
+            | states::BeforeAttributeName | states::AttributeName
+            | states::AfterAttributeName | states::BeforeAttributeValue
+            | states::AttributeValue(_) | states::AfterAttributeValueQuoted
+            | states::SelfClosingStartTag | states::ScriptDataEscapedDash(_)
+            | states::ScriptDataEscapedDashDash(_)
+                => go!(error_eof; to Data),
 
-                states::EndTagOpen
-                    => go!(error_eof; to Data; emit '<'; emit '/'),
+            states::TagOpen
+                => go!(error_eof; emit '<'; to Data),
 
-                states::RawLessThanSign(kind)
-                    => go!(to RawData kind; emit '<'),
+            states::EndTagOpen
+                => go!(error_eof; emit '<'; emit '/'; to Data),
 
-                states::RawEndTagOpen(kind)
-                    => go!(to RawData kind; emit '<'; emit '/'),
+            states::RawLessThanSign(kind)
+                => go!(emit '<'; to RawData kind),
 
-                states::RawEndTagName(kind)
-                    => go!(to RawData kind; emit '<'; emit '/'; emit_temp),
+            states::RawEndTagOpen(kind)
+                => go!(emit '<'; emit '/'; to RawData kind),
 
-                states::ScriptDataEscapeStart(kind)
-                    => go!(to RawData ScriptDataEscaped kind),
+            states::RawEndTagName(kind)
+                => go!(emit '<'; emit '/'; emit_temp; to RawData kind),
 
-                states::ScriptDataEscapeStartDash
-                    => go!(to RawData ScriptData),
+            states::ScriptDataEscapeStart(kind)
+                => go!(to RawData ScriptDataEscaped kind),
 
-                states::ScriptDataDoubleEscapeEnd
-                    => go!(to RawData ScriptDataEscaped DoubleEscaped),
+            states::ScriptDataEscapeStartDash
+                => go!(to RawData ScriptData),
 
-                states::CommentStart | states::CommentStartDash
-                | states::Comment | states::CommentEndDash
-                | states::CommentEnd | states::CommentEndBang
-                    => go!(error_eof; to Data; emit_comment),
+            states::ScriptDataDoubleEscapeEnd
+                => go!(to RawData ScriptDataEscaped DoubleEscaped),
 
-                states::Doctype | states::BeforeDoctypeName
-                    => go!(error_eof; to Data; create_doctype; force_quirks; emit_doctype),
+            states::CommentStart | states::CommentStartDash
+            | states::Comment | states::CommentEndDash
+            | states::CommentEnd | states::CommentEndBang
+                => go!(error_eof; emit_comment; to Data),
 
-                states::DoctypeName | states::AfterDoctypeName | states::AfterDoctypeKeyword(_)
-                | states::BeforeDoctypeIdentifier(_) | states::DoctypeIdentifierDoubleQuoted(_)
-                | states::DoctypeIdentifierSingleQuoted(_) | states::AfterDoctypeIdentifier(_)
-                | states::BetweenDoctypePublicAndSystemIdentifiers
-                    => go!(error_eof; to Data; force_quirks; emit_doctype),
+            states::Doctype | states::BeforeDoctypeName
+                => go!(error_eof; create_doctype; force_quirks; emit_doctype; to Data),
 
-                states::BogusDoctype
-                    => go!(to Data; emit_doctype),
+            states::DoctypeName | states::AfterDoctypeName | states::AfterDoctypeKeyword(_)
+            | states::BeforeDoctypeIdentifier(_) | states::DoctypeIdentifierDoubleQuoted(_)
+            | states::DoctypeIdentifierSingleQuoted(_) | states::AfterDoctypeIdentifier(_)
+            | states::BetweenDoctypePublicAndSystemIdentifiers
+                => go!(error_eof; force_quirks; emit_doctype; to Data),
 
-                states::BogusComment
-                    => go!(emit_comment; to Data),
+            states::BogusDoctype
+                => go!(emit_doctype; to Data),
 
-                states::MarkupDeclarationOpen
-                    => go!(error; to BogusComment),
+            states::BogusComment
+                => go!(emit_comment; to Data),
 
-                states::CdataSection
-                    => fail!("FIXME: state {:?} not implemented in EOF", self.state),
-            }
+            states::MarkupDeclarationOpen
+                => go!(error; to BogusComment),
+
+            states::CdataSection
+                => fail!("FIXME: state {:?} not implemented in EOF", self.state),
         }
     }
 }
