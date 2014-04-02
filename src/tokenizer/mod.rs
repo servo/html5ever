@@ -354,7 +354,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.sink.process_token(EOFToken);
     }
 
-    fn peek(&self) -> Option<char> {
+    fn peek(&mut self) -> Option<char> {
         if self.reconsume {
             Some(self.current_char)
         } else {

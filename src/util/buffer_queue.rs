@@ -71,15 +71,12 @@ impl BufferQueue {
     }
 
     /// Look at the next available character, if any.
-    pub fn peek(&self) -> Option<char> {
-        // FIXME: Abstract out the structure of this and next().
-        // Or just make sure we never have empty buffers in the queue.
-        for &Buffer { pos, ref buf } in self.buffers.iter() {
-            if pos < buf.len() {
-                return Some(buf.char_at(pos));
-            }
+    pub fn peek(&mut self) -> Option<char> {
+        self.drop_empty_buffers();
+        match self.buffers.front() {
+            Some(&Buffer { pos, ref buf }) => Some(buf.char_at(pos)),
+            None => None,
         }
-        None
     }
 
     fn account_new(&mut self, buf: &str) {
@@ -87,6 +84,16 @@ impl BufferQueue {
         // conversion, which already must re-encode or at least scan for UTF-8
         // validity.
         self.available += buf.char_len();
+    }
+
+    fn drop_empty_buffers(&mut self) {
+        loop {
+            match self.buffers.front_mut() {
+                Some(&Buffer { pos, ref buf }) if pos >= buf.len() => (),
+                _ => break,
+            }
+            self.buffers.pop_front();
+        }
     }
 
     fn dump_buffers(&self) -> &'static str {
@@ -105,20 +112,15 @@ impl Iterator<char> for BufferQueue {
     /// it returns None.  That is allowed by the Iterator protocol, but it's
     /// unusual!
     fn next(&mut self) -> Option<char> {
-        loop {
-            match self.buffers.front_mut() {
-                None => return None,
-                Some(&Buffer { ref mut pos, ref buf }) if *pos < buf.len() => {
-                    let CharRange { ch, next } = buf.char_range_at(*pos);
-                    *pos = next;
-                    self.available -= 1;
-                    return Some(ch);
-                }
-                _ => ()
+        self.drop_empty_buffers();
+        match self.buffers.front_mut() {
+            None => None,
+            Some(&Buffer { ref mut pos, ref buf }) => {
+                let CharRange { ch, next } = buf.char_range_at(*pos);
+                *pos = next;
+                self.available -= 1;
+                Some(ch)
             }
-            // Remaining case: There is a front buffer, but it's empty.
-            // Do this outside the above borrow.
-            self.buffers.pop_front();
         }
     }
 }
