@@ -11,7 +11,7 @@ use collections::treemap::TreeMap;
 
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
 use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
-use html5::tokenizer::{CharacterToken, EOFToken, ParseError};
+use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer};
 use html5::tokenizer::states::{State, Plaintext, RawData, Rcdata, Rawtext};
 
@@ -71,6 +71,10 @@ impl TokenSink for TokenLogger {
         match token {
             CharacterToken(c) => {
                 self.current_str.push_char(c);
+            }
+
+            MultiCharacterToken(b) => {
+                self.current_str.push_str(b);
             }
 
             TagToken(Tag { kind: StartTag, name, self_closing, attrs }) => {

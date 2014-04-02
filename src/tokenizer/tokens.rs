@@ -72,6 +72,7 @@ pub enum Token {
     TagToken(Tag),
     CommentToken(~str),
     CharacterToken(char),
+    MultiCharacterToken(~str),
     EOFToken,
     ParseError(~str),
 }

@@ -4,7 +4,7 @@
 
 pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
 pub use self::tokens::{DoctypeToken, TagToken, CommentToken};
-pub use self::tokens::{CharacterToken, EOFToken, ParseError};
+pub use self::tokens::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
