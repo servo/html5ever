@@ -89,7 +89,7 @@ fn make_bench(name: &'static str, size: Option<uint>, clone_only: bool) -> TestD
 }
 
 pub fn tests() -> ~[TestDescAndFn] {
-    ~[
+    let mut tests = ~[
         make_bench("lipsum.html", Some(1024), true),
         make_bench("lipsum.html", Some(1024), false),
         make_bench("lipsum-zh.html", Some(1024), false),
@@ -98,6 +98,12 @@ pub fn tests() -> ~[TestDescAndFn] {
         make_bench("lipsum-zh.html", Some(1024*1024), false),
         make_bench("strong.html", Some(1024*1024), false),
         make_bench("strong.html", Some(1024), false),
-        //make_bench("webapps.html", None, false),
-    ]
+    ];
+
+    if os::getenv("BENCH_UNCOMMITTED").is_some() {
+        // Not checked into the repo, so don't include by default.
+        tests.push(make_bench("webapps.html", None, false));
+    }
+
+    tests
 }
