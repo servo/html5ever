@@ -42,7 +42,6 @@ impl Bench {
                 while input.len() < size {
                     input.push_str(file_input);
                 }
-                input.truncate(size);
                 input
             }
         };
@@ -93,8 +92,10 @@ pub fn tests() -> ~[TestDescAndFn] {
     ~[
         make_bench("lipsum.html", Some(1024), true),
         make_bench("lipsum.html", Some(1024), false),
+        make_bench("lipsum-zh.html", Some(1024), false),
         make_bench("lipsum.html", Some(1024*1024), true),
         make_bench("lipsum.html", Some(1024*1024), false),
+        make_bench("lipsum-zh.html", Some(1024*1024), false),
         make_bench("strong.html", Some(1024*1024), false),
         make_bench("strong.html", Some(1024), false),
         //make_bench("webapps.html", None, false),
