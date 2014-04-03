@@ -103,6 +103,7 @@ pub fn tests() -> ~[TestDescAndFn] {
     if os::getenv("BENCH_UNCOMMITTED").is_some() {
         // Not checked into the repo, so don't include by default.
         tests.push(make_bench("webapps.html", None, false));
+        tests.push(make_bench("sina.com.cn.html", None, false));
     }
 
     tests
