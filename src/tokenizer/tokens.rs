@@ -5,6 +5,7 @@
 use std::str;
 
 // FIXME: already exists in Servo DOM
+#[deriving(Eq, Clone)]
 pub struct Doctype {
     name: Option<~str>,
     public_id: Option<~str>,
@@ -23,6 +24,7 @@ impl Doctype {
     }
 }
 
+#[deriving(Eq, Clone)]
 pub struct Attribute {
     name: ~str,
     value: ~str,
@@ -42,12 +44,13 @@ impl Attribute {
     }
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum TagKind {
     StartTag,
     EndTag,
 }
 
+#[deriving(Eq, Clone)]
 pub struct Tag {
     kind: TagKind,
     name: ~str,
@@ -66,7 +69,7 @@ impl Tag {
     }
 }
 
-
+#[deriving(Eq, Clone)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),

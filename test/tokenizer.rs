@@ -6,7 +6,7 @@ use std::{io, str, num, char};
 use std::mem::replace;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use extra::json;
-use extra::json::{Json, ToJson};
+use extra::json::Json;
 use collections::treemap::TreeMap;
 
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
@@ -40,7 +40,7 @@ fn splits(s: &str, n: uint) -> ~[~[~str]] {
 }
 
 struct TokenLogger {
-    tokens: ~[Json],
+    tokens: ~[Token],
     current_str: ~str,
 }
 
@@ -53,15 +53,15 @@ impl TokenLogger {
     }
 
     // Anything but Character
-    fn push<T: json::ToJson>(&mut self, val: T) {
+    fn push(&mut self, val: Token) {
         self.finish_str();
-        self.tokens.push(val.to_json());
+        self.tokens.push(val);
     }
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
             let s = replace(&mut self.current_str, ~"");
-            self.tokens.push((~[~"Character", s]).to_json());
+            self.tokens.push(MultiCharacterToken(s));
         }
     }
 }
@@ -77,39 +77,30 @@ impl TokenSink for TokenLogger {
                 self.current_str.push_str(b);
             }
 
-            TagToken(Tag { kind: StartTag, name, self_closing, attrs }) => {
-                let mut attrmap = TreeMap::new();
-                for Attribute { name, value } in attrs.move_iter() {
-                    attrmap.insert(name, value.to_json());
+            ParseError(_) => self.push(ParseError(~"")),
+
+            TagToken(mut t) => {
+                // The spec seems to indicate that one can emit
+                // erroneous end tags with attrs, but the test
+                // cases don't contain them.
+                match t.kind {
+                    EndTag => {
+                        t.self_closing = false;
+                        t.attrs = ~[];
+                    }
+                    _ => sort_attrs(&mut t.attrs),
                 }
-
-                let mut out = ~[(~"StartTag").to_json(), name.to_json(), attrmap.to_json()];
-                if self_closing {
-                    out.push(true.to_json());
-                }
-                self.push(out);
+                self.push(TagToken(t));
             }
-
-            TagToken(Tag { kind: EndTag, name, .. }) => {
-                self.push(~[~"EndTag", name]);
-            }
-
-            DoctypeToken(Doctype { name, public_id, system_id, force_quirks }) => {
-                self.push(~[(~"DOCTYPE").to_json(),
-                    name.to_json(), public_id.to_json(), system_id.to_json(),
-                    (!force_quirks).to_json()]);
-            }
-
-            CommentToken(s) => self.push(~[~"Comment", s]),
-
-            ParseError(_) => self.push(~"ParseError"),
 
             EOFToken => (),
+
+            _ => self.push(token),
         }
     }
 }
 
-fn tokenize_to_json(input: ~[~str], state: Option<State>, start_tag: Option<~str>) -> Json {
+fn tokenize(input: ~[~str], state: Option<State>, start_tag: Option<~str>) -> ~[Token] {
     let mut sink = TokenLogger::new();
     {
         let mut tok = Tokenizer::new(&mut sink);
@@ -126,13 +117,15 @@ fn tokenize_to_json(input: ~[~str], state: Option<State>, start_tag: Option<~str
         tok.end();
     }
     sink.finish_str();
-    sink.tokens.to_json()
+    sink.tokens
 }
 
 trait JsonExt {
     fn get_str(&self) -> ~str;
+    fn get_nullable_str(&self) -> Option<~str>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t TreeMap<~str, Self>;
+    fn get_list<'t>(&'t self) -> &'t ~[Self];
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
@@ -141,6 +134,14 @@ impl JsonExt for Json {
         match *self {
             json::String(ref s) => s.clone(),
             _ => fail!("Json::get_str: not a String"),
+        }
+    }
+
+    fn get_nullable_str(&self) -> Option<~str> {
+        match *self {
+            json::Null => None,
+            json::String(ref s) => Some(s.clone()),
+            _ => fail!("Json::get_nullable_str: not a String"),
         }
     }
 
@@ -158,9 +159,77 @@ impl JsonExt for Json {
         }
     }
 
+    fn get_list<'t>(&'t self) -> &'t ~[Json] {
+        match *self {
+            json::List(ref m) => m,
+            _ => fail!("Json::get_list: not a List"),
+        }
+    }
+
     fn find<'t>(&'t self, key: &str) -> &'t Json {
         self.get_obj().find(&key.to_owned()).unwrap()
     }
+}
+
+fn sort_attrs(attrs: &mut ~[Attribute]) {
+    attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name));
+}
+
+// Parse a JSON object (other than "ParseError") to a token.
+fn json_to_token(js: &Json) -> Token {
+    let parts = js.get_list();
+    // Collect refs here so we don't have to use "ref" in all the patterns below.
+    let args: ~[&Json] = parts.slice_from(1).iter().collect();
+    match (parts[0].get_str().as_slice(), args.as_slice()) {
+        ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
+            name: name.get_nullable_str(),
+            public_id: public_id.get_nullable_str(),
+            system_id: system_id.get_nullable_str(),
+            force_quirks: !correct.get_bool(),
+        }),
+
+        ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
+            kind: StartTag,
+            name: name.get_str(),
+            attrs: {
+                let mut attrs = attrs.get_obj().iter().map(|(k,v)| {
+                    Attribute { name: k.to_owned(), value: v.get_str() }
+                }).collect();
+                sort_attrs(&mut attrs);
+                attrs
+            },
+            self_closing: match rest {
+                [ref b, ..] => b.get_bool(),
+                _ => false,
+            }
+        }),
+
+        ("EndTag", [name]) => TagToken(Tag {
+            kind: EndTag,
+            name: name.get_str(),
+            attrs: ~[],
+            self_closing: false
+        }),
+
+        ("Comment", [txt]) => CommentToken(txt.get_str()),
+
+        ("Character", [txt]) => MultiCharacterToken(txt.get_str()),
+
+        _ => fail!("don't understand token {:?}", parts),
+    }
+}
+
+// Parse the "output" field of the test case into a vector of tokens.
+fn json_to_tokens(js: Json) -> ~[Token] {
+    let mut out = ~[];
+    for tok in js.get_list().iter() {
+        match *tok {
+            json::String(ref s)
+                if s.as_slice() == "ParseError" => out.push(ParseError(~"")),
+            _ => out.push(json_to_token(tok)),
+        }
+    }
+    out
 }
 
 // Undo the escaping in "doubleEscaped" tests.
@@ -206,7 +275,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: Json,
+fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token],
     state: Option<State>, start_tag: Option<~str>) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -220,11 +289,11 @@ fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: Json,
                 // Also clone start_tag.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize_to_json(
+                let output = tokenize(
                     input.clone(), state.clone(), start_tag.clone());
                 if output != expect {
-                    fail!("\ninput: {:?}\ngot: {:s}\nexpected: {:s}",
-                        input, output.to_pretty_str(), expect.to_pretty_str());
+                    fail!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
+                        input, output, expect);
                 }
             }
         }),
@@ -247,6 +316,8 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
         }
         expect = unescape_json(&expect);
     }
+
+    let expect_toks = json_to_tokens(expect);
 
     if input.starts_with("\ufeff") {
         // The tests assume the BOM will pass through because they model
@@ -272,10 +343,10 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
                 s => fail!("don't know state {:?}", s),
             };
             let newdesc = format!("{:s} (in {:s})", desc, statestr);
-            tests.push(mk_test(newdesc, insplits.clone(), expect.clone(),
+            tests.push(mk_test(newdesc, insplits.clone(), expect_toks.clone(),
                 Some(state), start_tag.clone()));
         },
-        _ => tests.push(mk_test(desc, insplits, expect, None, start_tag)),
+        _ => tests.push(mk_test(desc, insplits, expect_toks, None, start_tag)),
     }
 }
 
