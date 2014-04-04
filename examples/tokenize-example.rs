@@ -73,7 +73,7 @@ fn main() {
         in_char_run: false,
     };
     {
-        let mut tok = Tokenizer::new(&mut sink);
+        let mut tok = Tokenizer::new(&mut sink, Default::default());
         tok.feed(io::stdin().read_to_str().unwrap());
         tok.end();
     }

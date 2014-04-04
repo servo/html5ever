@@ -12,8 +12,8 @@ use collections::treemap::TreeMap;
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
 use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
-use html5::tokenizer::{TokenSink, Tokenizer};
-use html5::tokenizer::states::{State, Plaintext, RawData, Rcdata, Rawtext};
+use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
+use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -100,17 +100,10 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: ~[~str], state: Option<State>, start_tag: Option<~str>) -> ~[Token] {
+fn tokenize(input: ~[~str], opts: TokenizerOpts) -> ~[Token] {
     let mut sink = TokenLogger::new();
     {
-        let mut tok = Tokenizer::new(&mut sink);
-        match state {
-            Some(s) => tok.set_state(s),
-            None => (),
-        }
-        if start_tag.is_some() {
-            tok.set_last_start_tag_name(start_tag);
-        }
+        let mut tok = Tokenizer::new(&mut sink, opts);
         for chunk in input.move_iter() {
             tok.feed(chunk);
         }
@@ -275,8 +268,8 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token],
-    state: Option<State>, start_tag: Option<~str>) -> TestDescAndFn {
+fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token], opts: TokenizerOpts)
+        -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
             name: DynTestName(desc),
@@ -286,11 +279,10 @@ fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token],
         testfn: DynTestFn(proc() {
             for input in insplits.move_iter() {
                 // Clone 'input' so we have it for the failure message.
-                // Also clone start_tag.  If we don't, we get the wrong
+                // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize(
-                    input.clone(), state.clone(), start_tag.clone());
+                let output = tokenize(input.clone(), opts.clone());
                 if output != expect {
                     fail!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
@@ -333,20 +325,30 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
     let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    match obj.find(&~"initialStates") {
-        Some(&json::List(ref xs)) => for x in xs.iter() {
-            let statestr = x.get_str();
-            let state = match statestr.as_slice() {
+    let state_overrides = match obj.find(&~"initialStates") {
+        Some(&json::List(ref xs)) => xs.iter().map(|s|
+            Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
                 "RAWTEXT state"   => RawData(Rawtext),
                 "RCDATA state"    => RawData(Rcdata),
                 s => fail!("don't know state {:?}", s),
-            };
-            let newdesc = format!("{:s} (in {:s})", desc, statestr);
-            tests.push(mk_test(newdesc, insplits.clone(), expect_toks.clone(),
-                Some(state), start_tag.clone()));
-        },
-        _ => tests.push(mk_test(desc, insplits, expect_toks, None, start_tag)),
+            })).collect(),
+        None => ~[None],
+        _ => fail!("don't understand initialStates value"),
+    };
+
+    // Build the tests.
+    for state in state_overrides.move_iter() {
+        let newdesc = match state {
+            Some(s) => format!("{:s} (in state {:?})", desc, s),
+            None  => desc.clone(),
+        };
+
+        tests.push(mk_test(newdesc, insplits.clone(), expect_toks.clone(), TokenizerOpts {
+            initial_state: state,
+            last_start_tag_name: start_tag.clone(),
+            .. Default::default()
+        }));
     }
 }
 

@@ -36,7 +36,31 @@ fn option_push_char(opt_str: &mut Option<~str>, c: char) {
     }
 }
 
+/// Tokenizer options, with an impl for Default.
+#[deriving(Clone)]
+pub struct TokenizerOpts {
+    /// Initial state override.  Only the test runner should use
+    /// a non-None value!
+    initial_state: Option<states::State>,
+
+    /// Last start tag.  Only the test runner should use a
+    /// non-None value!
+    last_start_tag_name: Option<~str>,
+}
+
+impl Default for TokenizerOpts {
+    fn default() -> TokenizerOpts {
+        TokenizerOpts {
+            initial_state: None,
+            last_start_tag_name: None,
+        }
+    }
+}
+
 pub struct Tokenizer<'sink, Sink> {
+    /// Options controlling the behavior of the tokenizer.
+    priv opts: TokenizerOpts,
+
     /// Destination for tokens we emit.
     priv sink: &'sink mut Sink,
 
@@ -95,10 +119,13 @@ pub struct Tokenizer<'sink, Sink> {
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
-    pub fn new(sink: &'sink mut Sink) -> Tokenizer<'sink, Sink> {
+    pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
+        let start_tag_name = opts.last_start_tag_name.take();
+        let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         Tokenizer {
+            opts: opts,
             sink: sink,
-            state: states::Data,
+            state: state,
             wait_for: None,
             char_ref_tokenizer: None,
             input_buffers: BufferQueue::new(),
@@ -111,20 +138,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_attr: Attribute::new(),
             current_comment: ~"",
             current_doctype: Doctype::new(),
-            last_start_tag_name: None,
+            last_start_tag_name: start_tag_name,
             temp_buf: ~"",
         }
-    }
-
-    // Used by the test runner, but the tree builder probably
-    // needs this too.
-    pub fn set_state(&mut self, state: states::State) {
-        self.state = state;
-    }
-
-    // This should only be used by the test runner.
-    pub fn set_last_start_tag_name(&mut self, name: Option<~str>) {
-        self.last_start_tag_name = name;
     }
 
     pub fn feed(&mut self, input: ~str) {

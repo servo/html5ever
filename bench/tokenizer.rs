@@ -64,7 +64,7 @@ impl TDynBenchFn for Bench {
                 black_box(input);
             } else {
                 let mut sink = Sink;
-                let mut tok = Tokenizer::new(&mut sink);
+                let mut tok = Tokenizer::new(&mut sink, Default::default());
                 tok.feed(self.input.clone());
                 tok.end();
             }
