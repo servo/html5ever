@@ -40,8 +40,12 @@ fn option_push_char(opt_str: &mut Option<~str>, c: char) {
 #[deriving(Clone)]
 pub struct TokenizerOpts {
     /// Report all parse errors described in the spec, at some
-    /// performance penalty?
+    /// performance penalty?  Default: false
     exact_errors: bool,
+
+    /// Discard a U+FEFF BYTE ORDER MARK if we see one at the beginning
+    /// of the stream?  Default: true
+    discard_bom: bool,
 
     /// Initial state override.  Only the test runner should use
     /// a non-None value!
@@ -56,6 +60,7 @@ impl Default for TokenizerOpts {
     fn default() -> TokenizerOpts {
         TokenizerOpts {
             exact_errors: false,
+            discard_bom: true,
             initial_state: None,
             last_start_tag_name: None,
         }
@@ -127,6 +132,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
         let start_tag_name = opts.last_start_tag_name.take();
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
+        let discard_bom = opts.discard_bom;
         Tokenizer {
             opts: opts,
             sink: sink,
@@ -138,7 +144,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_char: '\0',
             reconsume: false,
             ignore_lf: false,
-            discard_bom: true,
+            discard_bom: discard_bom,
             current_tag: None,
             current_attr: Attribute::new(),
             current_comment: ~"",

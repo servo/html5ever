@@ -308,13 +308,6 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
         expect = unescape_json(&expect);
     }
 
-    if input.starts_with("\ufeff") {
-        // The tests assume the BOM will pass through because they model
-        // data sent from JavaScript rather than from a decoded document.
-        // https://github.com/html5lib/html5lib-tests/issues/2
-        return;
-    }
-
     // Split up the input at different points to test incremental tokenization.
     let insplits = splits(input, 3);
 
@@ -351,6 +344,14 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
+
+                // Not discarding a BOM is what the test suite expects; see
+                // https://github.com/html5lib/html5lib-tests/issues/2
+                //
+                // It also gives better coverage because discard_bom disables
+                // the !exact_errors fast path for the first data character.
+                discard_bom: false,
+
                 .. Default::default()
             }));
         }
