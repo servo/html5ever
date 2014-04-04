@@ -14,7 +14,7 @@ use self::states::{DoctypeIdKind, Public, System};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
 
-use util::buffer_queue::BufferQueue;
+use util::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 use util::ascii::{lower_ascii, lower_ascii_letter};
 
 use std::str;
@@ -159,49 +159,78 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.run();
     }
 
-    // Get the next input character, if one is available.
-    fn get_char(&mut self) -> Option<char> {
-        if self.reconsume {
-            self.reconsume = false;
-            return Some(self.current_char);
-        }
-
+    // Get the next input character, which might be the character
+    // 'c' that we already consumed from the buffers.
+    fn get_preprocessed_char(&mut self, mut c: char) -> Option<char> {
         loop {
-            match self.input_buffers.next() {
-                None => return None,
-                Some('\ufeff') if self.discard_bom => {
+            match c {
+                '\ufeff' if self.discard_bom => {
                     self.discard_bom = false;
                     // try again
                 }
-                Some('\n') if self.ignore_lf => {
+                '\n' if self.ignore_lf => {
                     self.ignore_lf = false;
                     // try again
                 }
-                Some('\r') => {
+                '\r' => {
                     self.ignore_lf = true;
-                    self.current_char = '\n';
+                    c = '\n';
                     break;
                 }
-                Some(c) => {
+                _ => {
                     self.ignore_lf = false;
-                    self.current_char = c;
                     break;
                 }
             }
+
+            match self.input_buffers.next() {
+                None => return None,
+                Some(nc) => c = nc,
+            }
         }
 
-        if match self.current_char as u32 {
+        if self.opts.exact_errors && match c as u32 {
             0x01..0x08 | 0x0B | 0x0E..0x1F | 0x7F..0x9F | 0xFDD0..0xFDEF => true,
             n if (n & 0xFFFE) == 0xFFFE => true,
             _ => false,
         } {
-            let msg = format!("Bad character {:?}", self.current_char);
+            let msg = format!("Bad character {:?}", c);
             self.emit_error(msg);
         }
 
         self.discard_bom = false;
-        debug!("got character {:?}", self.current_char);
-        Some(self.current_char)
+        debug!("got character {:?}", c);
+        self.current_char = c;
+        Some(c)
+    }
+
+    // Get the next input character, if one is available.
+    fn get_char(&mut self) -> Option<char> {
+        if self.reconsume {
+            self.reconsume = false;
+            Some(self.current_char)
+        } else {
+            self.input_buffers.next()
+                .and_then(|c| self.get_preprocessed_char(c))
+        }
+    }
+
+    // In a data state, get a run of characters to process as data, or a single
+    // character.
+    fn get_data(&mut self) -> Option<DataRunOrChar> {
+        if self.opts.exact_errors || self.reconsume || self.ignore_lf || self.discard_bom {
+            return self.get_char().map(|x| OneChar(x));
+        }
+
+        let d = self.input_buffers.pop_data();
+        debug!("got data {:?}", d);
+        match d {
+            Some(OneChar(c)) => self.get_preprocessed_char(c).map(|x| OneChar(x)),
+
+            // NB: We don't set self.current_char for a DataRun.  It shouldn't matter
+            // for the codepaths that use this.
+            _ => d
+        }
     }
 
     // If fewer than n characters are available, return None.
@@ -257,6 +286,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.sink.process_token(CharacterToken(c));
     }
 
+    fn emit_chars(&mut self, b: ~str) {
+        self.sink.process_token(MultiCharacterToken(b));
+    }
+
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
@@ -279,13 +312,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_temp_buf(&mut self) {
-        // FIXME: Add a multi-character token and move temp_buf into it.
-        //
-        // Need to make sure that clearing on emit is spec-compatible.
+        // FIXME: Make sure that clearing on emit is spec-compatible.
         let buf = replace(&mut self.temp_buf, ~"");
-        for c in buf.chars() {
-            self.emit_char(c);
-        }
+        self.emit_chars(buf);
     }
 
     fn clear_temp_buf(&mut self) {
@@ -486,6 +515,10 @@ macro_rules! get_char ( () => (
     unwrap_or_return!(self.get_char(), false)
 ))
 
+macro_rules! get_data ( () => (
+    unwrap_or_return!(self.get_data(), false)
+))
+
 // NB: if you use this after get_char!() then the first char is still
 // consumed no matter what!
 macro_rules! lookahead_and_consume ( ($n:expr, $pred:expr) => (
@@ -520,26 +553,29 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         debug!("processing in state {:?}", self.state);
         match self.state {
-            states::Data => loop { match get_char!() {
-                '&'  => go!(consume_char_ref),
-                '<'  => go!(to TagOpen),
-                '\0' => go!(error; emit '\0'),
-                c    => go!(emit c),
+            states::Data => loop { match get_data!() {
+                DataRun(b)    => self.emit_chars(b),
+                OneChar('&')  => go!(consume_char_ref),
+                OneChar('<')  => go!(to TagOpen),
+                OneChar('\0') => go!(error; emit '\0'),
+                OneChar(c)    => go!(emit c),
             }},
 
             // RCDATA, RAWTEXT, script, or script escaped
-            states::RawData(kind) => loop { match (get_char!(), kind) {
-                ('&', Rcdata) => go!(consume_char_ref),
-                ('-', ScriptDataEscaped(esc_kind)) => go!(emit '-'; to ScriptDataEscapedDash esc_kind),
-                ('<', ScriptDataEscaped(DoubleEscaped)) => go!(emit '<'; to RawLessThanSign kind),
-                ('<',  _) => go!(to RawLessThanSign kind),
-                ('\0', _) => go!(error; emit '\ufffd'),
-                (c,    _) => go!(emit c),
+            states::RawData(kind) => loop { match (get_data!(), kind) {
+                (DataRun(b), _) => self.emit_chars(b),
+                (OneChar('&'), Rcdata) => go!(consume_char_ref),
+                (OneChar('-'), ScriptDataEscaped(esc_kind)) => go!(emit '-'; to ScriptDataEscapedDash esc_kind),
+                (OneChar('<'), ScriptDataEscaped(DoubleEscaped)) => go!(emit '<'; to RawLessThanSign kind),
+                (OneChar('<'), _) => go!(to RawLessThanSign kind),
+                (OneChar('\0'), _) => go!(error; emit '\ufffd'),
+                (OneChar(c), _) => go!(emit c),
             }},
 
-            states::Plaintext => loop { match get_char!() {
-                '\0' => go!(error; emit '\ufffd'),
-                c    => go!(emit c),
+            states::Plaintext => loop { match get_data!() {
+                DataRun(b)    => self.emit_chars(b),
+                OneChar('\0') => go!(error; emit '\ufffd'),
+                OneChar(c)    => go!(emit c),
             }},
 
             states::TagOpen => loop { match get_char!() {

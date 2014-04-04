@@ -7,7 +7,7 @@ use std::{io, os, str};
 use test::{black_box, BenchHarness, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 
-use html5::tokenizer::{TokenSink, Token, Tokenizer};
+use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
 struct Sink;
 
@@ -24,10 +24,12 @@ impl TokenSink for Sink {
 struct Bench {
     input: ~str,
     clone_only: bool,
+    opts: TokenizerOpts,
 }
 
 impl Bench {
-    fn new(name: &'static str, size: Option<uint>, clone_only: bool) -> Bench {
+    fn new(name: &'static str, size: Option<uint>, clone_only: bool,
+           opts: TokenizerOpts) -> Bench {
         let mut path = os::self_exe_path().expect("can't get exe path");
         path.push("../data/bench/");
         path.push(name);
@@ -49,6 +51,7 @@ impl Bench {
         Bench {
             input: input,
             clone_only: clone_only,
+            opts: opts,
         }
     }
 }
@@ -64,7 +67,7 @@ impl TDynBenchFn for Bench {
                 black_box(input);
             } else {
                 let mut sink = Sink;
-                let mut tok = Tokenizer::new(&mut sink, Default::default());
+                let mut tok = Tokenizer::new(&mut sink, self.opts.clone());
                 tok.feed(self.input.clone());
                 tok.end();
             }
@@ -72,38 +75,46 @@ impl TDynBenchFn for Bench {
     }
 }
 
-fn make_bench(name: &'static str, size: Option<uint>, clone_only: bool) -> TestDescAndFn {
+fn make_bench(name: &'static str, size: Option<uint>, clone_only: bool,
+              opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
             name: DynTestName([
                 ~"tokenize ",
                 name.to_owned(),
                 size.map_or(~"", |s| format!(" size {:7u}", s)),
-                if clone_only { ~" (clone only)" } else { ~"" }
+                if clone_only { ~" (clone only)" } else { ~"" },
+                if opts.exact_errors { ~" (exact errors)" } else { ~"" },
             ].concat()),
             ignore: false,
             should_fail: false,
         },
-        testfn: DynBenchFn(~Bench::new(name, size, clone_only)),
+        testfn: DynBenchFn(~Bench::new(name, size, clone_only, opts)),
     }
 }
 
 pub fn tests() -> ~[TestDescAndFn] {
+    let opts_exact = TokenizerOpts {
+        exact_errors: true,
+        .. Default::default()
+    };
     let mut tests = ~[
-        make_bench("lipsum.html", Some(1024), true),
-        make_bench("lipsum.html", Some(1024), false),
-        make_bench("lipsum-zh.html", Some(1024), false),
-        make_bench("lipsum.html", Some(1024*1024), true),
-        make_bench("lipsum.html", Some(1024*1024), false),
-        make_bench("lipsum-zh.html", Some(1024*1024), false),
-        make_bench("strong.html", Some(1024*1024), false),
-        make_bench("strong.html", Some(1024), false),
+        make_bench("lipsum.html", Some(1024*1024), true, Default::default()),
     ];
 
-    if os::getenv("BENCH_UNCOMMITTED").is_some() {
-        // Not checked into the repo, so don't include by default.
-        tests.push(make_bench("webapps.html", None, false));
-        tests.push(make_bench("sina.com.cn.html", None, false));
+    for opts in [Default::default(), opts_exact].iter() {
+        for &file in ["lipsum.html", "lipsum-zh.html", "strong.html"].iter() {
+            for &sz in [1024, 1024*1024].iter() {
+                tests.push(make_bench(file, Some(sz), false, opts.clone()));
+            }
+        }
+
+        if os::getenv("BENCH_UNCOMMITTED").is_some() {
+            // Not checked into the repo, so don't include by default.
+            for &file in ["webapps.html", "sina.com.cn.html"].iter() {
+                tests.push(make_bench(file, None, false, opts.clone()));
+            }
+        }
     }
 
     tests

@@ -23,6 +23,30 @@ impl Buffer {
 }
 
 
+/// Either a single character or a run of "data" characters: those which
+/// don't trigger input stream preprocessing, or special handling in any
+/// of the Data / RawData / Plaintext tokenizer states.  We do not exclude
+/// characters which trigger a parse error but are otherwise handled
+/// normally.
+#[deriving(Eq)]
+pub enum DataRunOrChar {
+    DataRun(~str),
+    OneChar(char),
+}
+
+/// Count the number of bytes of data characters at the beginning of 's'.
+fn data_span(s: &str) -> uint {
+    let mut n = 0;
+    for b in s.bytes() {
+        match b {
+        //  \0     \r     &      -      <
+            0x00 | 0x0D | 0x26 | 0x2D | 0x3C => break,
+            _ => n += 1,
+        }
+    }
+    n
+}
+
 /// A queue of owned string buffers, which supports incrementally
 /// consuming characters.
 pub struct BufferQueue {
@@ -46,14 +70,12 @@ impl BufferQueue {
     pub fn push_front(&mut self, buf: ~str) {
         self.account_new(buf.as_slice());
         self.buffers.push_front(Buffer::new(buf));
-        debug!("{:s}", self.dump_buffers());
     }
 
     /// Add a buffer to the end of the queue.
     pub fn push_back(&mut self, buf: ~str) {
         self.account_new(buf.as_slice());
         self.buffers.push_back(Buffer::new(buf));
-        debug!("{:s}", self.dump_buffers());
     }
 
     /// Do we have at least n characters available?
@@ -79,6 +101,32 @@ impl BufferQueue {
         }
     }
 
+    /// Pop either a single character or a run of "data" characters.
+    /// See `DataRunOrChar` for what this means.
+    pub fn pop_data(&mut self) -> Option<DataRunOrChar> {
+        self.drop_empty_buffers();
+        match self.buffers.front_mut() {
+            Some(&Buffer { ref mut pos, ref buf }) => {
+                let n = data_span(buf.slice_from(*pos));
+
+                // If we only have one character then it's cheaper not to allocate.
+                if n > 1 {
+                    let new_pos = *pos + n;
+                    let out = buf.slice(*pos, new_pos).to_owned();
+                    *pos = new_pos;
+                    self.available -= n;
+                    Some(DataRun(out))
+                } else {
+                    let CharRange { ch, next } = buf.char_range_at(*pos);
+                    *pos = next;
+                    self.available -= 1;
+                    Some(OneChar(ch))
+                }
+            }
+            _ => None,
+        }
+    }
+
     fn account_new(&mut self, buf: &str) {
         // FIXME: We could pass through length from the initial ~[u8] -> ~str
         // conversion, which already must re-encode or at least scan for UTF-8
@@ -94,14 +142,6 @@ impl BufferQueue {
             }
             self.buffers.pop_front();
         }
-    }
-
-    fn dump_buffers(&self) -> &'static str {
-        debug!("BufferQueue has {:u} buffers", self.buffers.len());
-        for b in self.buffers.iter() {
-            debug!("    {:?}", b);
-        }
-        "" // for use in outer debug!()
     }
 }
 
@@ -173,4 +213,36 @@ fn can_unconsume() {
     assert_eq!(bq.next(), Some('b'));
     assert_eq!(bq.next(), Some('c'));
     assert_eq!(bq.next(), None);
+}
+
+#[test]
+fn can_pop_data() {
+    let mut bq = BufferQueue::new();
+    bq.push_back(~"abc\0def");
+    assert_eq!(bq.pop_data(), Some(DataRun(~"abc")));
+    assert_eq!(bq.pop_data(), Some(OneChar('\0')));
+    assert_eq!(bq.pop_data(), Some(DataRun(~"def")));
+    assert_eq!(bq.pop_data(), None);
+}
+
+#[test]
+fn data_span_test() {
+    fn pad(s: &mut ~str, n: uint) {
+        for _ in range(0, n) {
+            s.push_char('x');
+        }
+    }
+
+    for &c in ['&', '\0'].iter() {
+        for x in range(0, 48u) {
+            for y in range(0, 48u) {
+                let mut s = ~"";
+                pad(&mut s, x);
+                s.push_char(c);
+                pad(&mut s, y);
+
+                assert_eq!(x, data_span(s.as_slice()));
+            }
+        }
+    }
 }
