@@ -39,6 +39,10 @@ fn option_push_char(opt_str: &mut Option<~str>, c: char) {
 /// Tokenizer options, with an impl for Default.
 #[deriving(Clone)]
 pub struct TokenizerOpts {
+    /// Report all parse errors described in the spec, at some
+    /// performance penalty?
+    exact_errors: bool,
+
     /// Initial state override.  Only the test runner should use
     /// a non-None value!
     initial_state: Option<states::State>,
@@ -51,6 +55,7 @@ pub struct TokenizerOpts {
 impl Default for TokenizerOpts {
     fn default() -> TokenizerOpts {
         TokenizerOpts {
+            exact_errors: false,
             initial_state: None,
             last_start_tag_name: None,
         }

@@ -42,20 +42,22 @@ fn splits(s: &str, n: uint) -> ~[~[~str]] {
 struct TokenLogger {
     tokens: ~[Token],
     current_str: ~str,
+    exact_errors: bool,
 }
 
 impl TokenLogger {
-    fn new() -> TokenLogger {
+    fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: ~[],
             current_str: ~"",
+            exact_errors: exact_errors,
         }
     }
 
-    // Anything but Character
-    fn push(&mut self, val: Token) {
+    // Push anything other than character tokens
+    fn push(&mut self, token: Token) {
         self.finish_str();
-        self.tokens.push(val);
+        self.tokens.push(token);
     }
 
     fn finish_str(&mut self) {
@@ -77,7 +79,9 @@ impl TokenSink for TokenLogger {
                 self.current_str.push_str(b);
             }
 
-            ParseError(_) => self.push(ParseError(~"")),
+            ParseError(_) => if self.exact_errors {
+                self.push(ParseError(~""));
+            },
 
             TagToken(mut t) => {
                 // The spec seems to indicate that one can emit
@@ -88,7 +92,7 @@ impl TokenSink for TokenLogger {
                         t.self_closing = false;
                         t.attrs = ~[];
                     }
-                    _ => sort_attrs(&mut t.attrs),
+                    _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
                 self.push(TagToken(t));
             }
@@ -101,7 +105,7 @@ impl TokenSink for TokenLogger {
 }
 
 fn tokenize(input: ~[~str], opts: TokenizerOpts) -> ~[Token] {
-    let mut sink = TokenLogger::new();
+    let mut sink = TokenLogger::new(opts.exact_errors);
     {
         let mut tok = Tokenizer::new(&mut sink, opts);
         for chunk in input.move_iter() {
@@ -164,10 +168,6 @@ impl JsonExt for Json {
     }
 }
 
-fn sort_attrs(attrs: &mut ~[Attribute]) {
-    attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name));
-}
-
 // Parse a JSON object (other than "ParseError") to a token.
 fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
@@ -184,13 +184,9 @@ fn json_to_token(js: &Json) -> Token {
         ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
             kind: StartTag,
             name: name.get_str(),
-            attrs: {
-                let mut attrs = attrs.get_obj().iter().map(|(k,v)| {
-                    Attribute { name: k.to_owned(), value: v.get_str() }
-                }).collect();
-                sort_attrs(&mut attrs);
-                attrs
-            },
+            attrs: attrs.get_obj().iter().map(|(k,v)| {
+                Attribute { name: k.to_owned(), value: v.get_str() }
+            }).collect(),
             self_closing: match rest {
                 [ref b, ..] => b.get_bool(),
                 _ => false,
@@ -213,16 +209,19 @@ fn json_to_token(js: &Json) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: Json) -> ~[Token] {
-    let mut out = ~[];
+fn json_to_tokens(js: &Json, exact_errors: bool) -> ~[Token] {
+    // Use a TokenLogger so that we combine character tokens separated
+    // by an ignored error.
+    let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
         match *tok {
             json::String(ref s)
-                if s.as_slice() == "ParseError" => out.push(ParseError(~"")),
-            _ => out.push(json_to_token(tok)),
+                if s.as_slice() == "ParseError" => sink.process_token(ParseError(~"")),
+            _ => sink.process_token(json_to_token(tok)),
         }
     }
-    out
+    sink.finish_str();
+    sink.tokens
 }
 
 // Undo the escaping in "doubleEscaped" tests.
@@ -309,8 +308,6 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
         expect = unescape_json(&expect);
     }
 
-    let expect_toks = json_to_tokens(expect);
-
     if input.starts_with("\ufeff") {
         // The tests assume the BOM will pass through because they model
         // data sent from JavaScript rather than from a decoded document.
@@ -339,16 +336,24 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
 
     // Build the tests.
     for state in state_overrides.move_iter() {
-        let newdesc = match state {
-            Some(s) => format!("{:s} (in state {:?})", desc, s),
-            None  => desc.clone(),
-        };
+        for &exact_errors in [false, true].iter() {
+            let mut newdesc = desc.clone();
+            match state {
+                Some(s) => newdesc = format!("{:s} (in state {:?})", newdesc, s),
+                None  => (),
+            };
+            if exact_errors {
+                newdesc = format!("{:s} (exact errors)", newdesc);
+            }
 
-        tests.push(mk_test(newdesc, insplits.clone(), expect_toks.clone(), TokenizerOpts {
-            initial_state: state,
-            last_start_tag_name: start_tag.clone(),
-            .. Default::default()
-        }));
+            let expect_toks = json_to_tokens(&expect, exact_errors);
+            tests.push(mk_test(newdesc, insplits.clone(), expect_toks, TokenizerOpts {
+                exact_errors: exact_errors,
+                initial_state: state,
+                last_start_tag_name: start_tag.clone(),
+                .. Default::default()
+            }));
+        }
     }
 }
 
