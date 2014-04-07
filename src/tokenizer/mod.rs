@@ -14,7 +14,8 @@ use self::states::{DoctypeIdKind, Public, System};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
 
-use util::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
+use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
+
 use util::ascii::{lower_ascii, lower_ascii_letter};
 
 use std::str;
@@ -24,6 +25,7 @@ use std::mem::replace;
 pub mod states;
 mod tokens;
 mod char_ref;
+mod buffer_queue;
 
 pub trait TokenSink {
     fn process_token(&mut self, token: Token);

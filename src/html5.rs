@@ -18,7 +18,6 @@ extern crate collections;
 
 mod util {
     pub mod ascii;
-    pub mod buffer_queue;
 }
 
 pub mod tokenizer;
