@@ -15,6 +15,7 @@ extern crate macros = "html5-macros";
 
 extern crate phf;
 extern crate collections;
+extern crate time;
 
 mod util {
     pub mod str;

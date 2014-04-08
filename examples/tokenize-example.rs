@@ -7,7 +7,7 @@ extern crate html5;
 use std::io;
 use std::char;
 
-use html5::tokenizer::{TokenSink, Token, Tokenizer, ParseError};
+use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, TagToken, StartTag, EndTag};
 
 struct TokenPrinter {
@@ -73,7 +73,10 @@ fn main() {
         in_char_run: false,
     };
     {
-        let mut tok = Tokenizer::new(&mut sink, Default::default());
+        let mut tok = Tokenizer::new(&mut sink, TokenizerOpts {
+            profile: true,
+            .. Default::default()
+        });
         tok.feed(io::stdin().read_to_str().unwrap());
         tok.end();
     }

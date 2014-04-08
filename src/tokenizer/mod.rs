@@ -21,6 +21,11 @@ use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use std::str;
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
+use std::iter::AdditiveIterator;
+
+use time::precise_time_ns;
+
+use collections::hashmap::HashMap;
 
 pub mod states;
 mod tokens;
@@ -49,6 +54,10 @@ pub struct TokenizerOpts {
     /// of the stream?  Default: true
     discard_bom: bool,
 
+    /// Keep a record of how long we spent in each state?  Printed
+    /// when end() is called.  Default: false
+    profile: bool,
+
     /// Initial state override.  Only the test runner should use
     /// a non-None value!
     initial_state: Option<states::State>,
@@ -63,6 +72,7 @@ impl Default for TokenizerOpts {
         TokenizerOpts {
             exact_errors: false,
             discard_bom: true,
+            profile: false,
             initial_state: None,
             last_start_tag_name: None,
         }
@@ -128,6 +138,9 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// The "temporary buffer" mentioned in the spec.
     priv temp_buf: ~str,
+
+    /// Record of how many ns we spent in each state, if profiling is enabled.
+    priv state_profile: HashMap<states::State, u64>,
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
@@ -153,6 +166,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_doctype: Doctype::new(),
             last_start_tag_name: start_tag_name,
             temp_buf: empty_str(),
+            state_profile: HashMap::new(),
         }
     }
 
@@ -270,7 +284,18 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     // Run the state machine for as long as we can.
     fn run(&mut self) {
-        while self.step() {
+        if self.opts.profile {
+            let mut run = true;
+            while run {
+                let state = self.state;
+                let t0 = precise_time_ns();
+                run = self.step();
+                let dt = precise_time_ns() - t0;
+                self.state_profile.insert_or_update_with(state, dt, |_, x| *x += dt);
+            }
+        } else {
+            while self.step() {
+            }
         }
     }
 
@@ -1034,6 +1059,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         while self.eof_step() {
             // loop
+        }
+
+        if self.opts.profile {
+            let mut results: ~[(states::State, u64)]
+                = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
+            results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+
+            let total = results.iter().map(|&(_, t)| t).sum();
+            println!("\nTokenizer profile, in nanoseconds");
+            println!("\n{:12u}         total", total);
+
+            for (k, v) in results.move_iter() {
+                let pct = 100.0 * (v as f64) / (total as f64);
+                println!("{:12u}  {:4.1f}%  {:?}", v, pct, k);
+            }
         }
     }
 
