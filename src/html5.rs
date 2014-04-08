@@ -17,7 +17,7 @@ extern crate phf;
 extern crate collections;
 
 mod util {
-    pub mod ascii;
+    pub mod str;
 }
 
 pub mod tokenizer;

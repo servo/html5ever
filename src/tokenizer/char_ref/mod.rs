@@ -4,7 +4,7 @@
 
 use super::{Tokenizer, TokenSink};
 
-use util::ascii::is_ascii_alnum;
+use util::str::is_ascii_alnum;
 use std::char::{to_digit, from_u32};
 
 mod data;

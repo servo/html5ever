@@ -16,7 +16,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 
-use util::ascii::{lower_ascii, lower_ascii_letter};
+use util::str::{lower_ascii, lower_ascii_letter};
 
 use std::str;
 use std::ascii::StrAsciiExt;
