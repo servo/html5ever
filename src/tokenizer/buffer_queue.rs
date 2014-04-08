@@ -68,12 +68,18 @@ impl BufferQueue {
 
     /// Add a buffer to the beginning of the queue.
     pub fn push_front(&mut self, buf: ~str) {
+        if buf.len() == 0 {
+            return;
+        }
         self.account_new(buf.as_slice());
         self.buffers.push_front(Buffer::new(buf));
     }
 
     /// Add a buffer to the end of the queue.
     pub fn push_back(&mut self, buf: ~str) {
+        if buf.len() == 0 {
+            return;
+        }
         self.account_new(buf.as_slice());
         self.buffers.push_back(Buffer::new(buf));
     }
@@ -94,7 +100,6 @@ impl BufferQueue {
 
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
-        self.drop_empty_buffers();
         match self.buffers.front() {
             Some(&Buffer { pos, ref buf }) => Some(buf.char_at(pos)),
             None => None,
@@ -104,8 +109,7 @@ impl BufferQueue {
     /// Pop either a single character or a run of "data" characters.
     /// See `DataRunOrChar` for what this means.
     pub fn pop_data(&mut self) -> Option<DataRunOrChar> {
-        self.drop_empty_buffers();
-        match self.buffers.front_mut() {
+        let (result, now_empty) = match self.buffers.front_mut() {
             Some(&Buffer { ref mut pos, ref buf }) => {
                 let n = data_span(buf.slice_from(*pos));
 
@@ -115,16 +119,22 @@ impl BufferQueue {
                     let out = buf.slice(*pos, new_pos).to_owned();
                     *pos = new_pos;
                     self.available -= n;
-                    Some(DataRun(out))
+                    (Some(DataRun(out)), new_pos >= buf.len())
                 } else {
                     let CharRange { ch, next } = buf.char_range_at(*pos);
                     *pos = next;
                     self.available -= 1;
-                    Some(OneChar(ch))
+                    (Some(OneChar(ch)), next >= buf.len())
                 }
             }
-            _ => None,
+            _ => (None, false),
+        };
+
+        if now_empty {
+            self.buffers.pop_front();
         }
+
+        result
     }
 
     fn account_new(&mut self, buf: &str) {
@@ -132,16 +142,6 @@ impl BufferQueue {
         // conversion, which already must re-encode or at least scan for UTF-8
         // validity.
         self.available += buf.char_len();
-    }
-
-    fn drop_empty_buffers(&mut self) {
-        loop {
-            match self.buffers.front_mut() {
-                Some(&Buffer { pos, ref buf }) if pos >= buf.len() => (),
-                _ => break,
-            }
-            self.buffers.pop_front();
-        }
     }
 }
 
@@ -152,16 +152,21 @@ impl Iterator<char> for BufferQueue {
     /// it returns None.  That is allowed by the Iterator protocol, but it's
     /// unusual!
     fn next(&mut self) -> Option<char> {
-        self.drop_empty_buffers();
-        match self.buffers.front_mut() {
-            None => None,
+        let (result, now_empty) = match self.buffers.front_mut() {
+            None => (None, false),
             Some(&Buffer { ref mut pos, ref buf }) => {
                 let CharRange { ch, next } = buf.char_range_at(*pos);
                 *pos = next;
                 self.available -= 1;
-                Some(ch)
+                (Some(ch), next >= buf.len())
             }
+        };
+
+        if now_empty {
+            self.buffers.pop_front();
         }
+
+        result
     }
 }
 
