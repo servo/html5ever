@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::str;
+use util::str::empty_str;
 
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, Clone)]
@@ -33,8 +33,8 @@ pub struct Attribute {
 impl Attribute {
     pub fn new() -> Attribute {
         Attribute {
-            name: ~"",
-            value: ~"",
+            name: empty_str(),
+            value: empty_str(),
         }
     }
 
@@ -62,7 +62,7 @@ impl Tag {
     pub fn new(kind: TagKind) -> Tag {
         Tag {
             kind: kind,
-            name: str::with_capacity(8), // FIXME: justify this
+            name: empty_str(),
             self_closing: false,
             attrs: ~[],
         }

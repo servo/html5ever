@@ -4,7 +4,7 @@
 
 use super::{Tokenizer, TokenSink};
 
-use util::str::is_ascii_alnum;
+use util::str::{is_ascii_alnum, empty_str};
 use std::char::{to_digit, from_u32};
 
 mod data;
@@ -125,7 +125,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
             _ => {
                 self.state = Named;
-                self.name_buf_opt = Some(~"");
+                self.name_buf_opt = Some(empty_str());
                 Progress
             }
         }

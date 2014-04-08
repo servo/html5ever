@@ -16,7 +16,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 
-use util::str::{lower_ascii, lower_ascii_letter};
+use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 
 use std::str;
 use std::ascii::StrAsciiExt;
@@ -149,10 +149,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             discard_bom: discard_bom,
             current_tag: None,
             current_attr: Attribute::new(),
-            current_comment: ~"",
+            current_comment: empty_str(),
             current_doctype: Doctype::new(),
             last_start_tag_name: start_tag_name,
-            temp_buf: ~"",
+            temp_buf: empty_str(),
         }
     }
 
@@ -315,7 +315,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     fn emit_temp_buf(&mut self) {
         // FIXME: Make sure that clearing on emit is spec-compatible.
-        let buf = replace(&mut self.temp_buf, ~"");
+        let buf = replace(&mut self.temp_buf, empty_str());
         self.emit_chars(buf);
     }
 
@@ -326,7 +326,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     fn emit_current_comment(&mut self) {
         self.sink.process_token(CommentToken(
-            replace(&mut self.current_comment, ~"")));
+            replace(&mut self.current_comment, empty_str())));
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -398,7 +398,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         let id = self.doctype_id(kind);
         match *id {
             Some(ref mut s) => s.truncate(0),
-            None => *id = Some(~""),
+            None => *id = Some(empty_str()),
         }
     }
 

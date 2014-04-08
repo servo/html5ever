@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::str;
+
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
@@ -18,6 +20,11 @@ pub fn lower_ascii(c: char) -> char {
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
     c.to_ascii_opt().map_or(false, |a| a.is_alnum())
+}
+
+/// Allocate an empty string with a small non-zero capacity.
+pub fn empty_str() -> ~str {
+    str::with_capacity(4)
 }
 
 test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
