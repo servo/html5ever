@@ -24,7 +24,7 @@ TEST_JSON_SRC := $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
 LIB_DEPS := $(MACROS) $(LIB_ALL_SRC)
 
 .PHONY: all
-all: $(LIB) tokenize-example
+all: $(LIB) tokenize-example tokenize-bench-example
 
 $(MACROS): $(MACROS_ALL_SRC)
 	$(RUSTC_CMD) $(MACROS_TOP_SRC)
@@ -33,6 +33,9 @@ $(LIB): $(LIB_DEPS)
 	$(RUSTC_CMD) $(LIB_TOP_SRC)
 
 tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
+	$(RUSTC_CMD) $<
+
+tokenize-bench-example: $(VPATH)/examples/tokenize-bench-example.rs $(LIB)
 	$(RUSTC_CMD) $<
 
 # Workaround for mozilla/rust#13064; see preprocess-tests.py
