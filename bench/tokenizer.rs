@@ -28,7 +28,7 @@ struct Bench {
 }
 
 impl Bench {
-    fn new(name: &'static str, size: Option<uint>, clone_only: bool,
+    fn new(name: &str, size: Option<uint>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
         let mut path = os::self_exe_path().expect("can't get exe path");
         path.push("../data/bench/");
@@ -75,7 +75,7 @@ impl TDynBenchFn for Bench {
     }
 }
 
-fn make_bench(name: &'static str, size: Option<uint>, clone_only: bool,
+fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
               opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -111,8 +111,9 @@ pub fn tests() -> ~[TestDescAndFn] {
 
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
-            for &file in ["webapps.html", "sina.com.cn.html"].iter() {
-                tests.push(make_bench(file, None, false, opts.clone()));
+            for &file in ["webapps.html", "sina.com.cn.html", "wikipedia.html"].iter() {
+                let name: ~str = (~"uncommitted/").append(file);
+                tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
         }
     }
