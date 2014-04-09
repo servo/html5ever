@@ -13,6 +13,7 @@ use std::default::Default;
 use test::black_box;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer};
+use html5::DOMString;
 
 struct Sink;
 
@@ -34,6 +35,6 @@ fn main() {
 
     let mut sink = Sink;
     let mut tok = Tokenizer::new(&mut sink, Default::default());
-    tok.feed(file_input);
+    tok.feed(DOMString::from_string(file_input));
     tok.end();
 }

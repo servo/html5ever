@@ -3,12 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::iter::range_inclusive;
+use std::char;
 use std::str;
+use std::str::CharRange;
 use std::slice::{Splits, Items};
 
+#[deriving(Ord, TotalEq, TotalOrd, Show)]
 pub struct DOMString {
     priv repr: ~[u16]
 }
+
+#[deriving(Ord, TotalEq, TotalOrd, Show)]
 pub struct DOMSlice<'a> {
     priv repr: &'a [u16]
 }
@@ -20,6 +25,10 @@ static ASCII_WHITESPACE: &'static [u16] = &'static [
     '\r' as u16,
     '\x0C' as u16,
 ];
+
+fn is_lead_surrogate(x: u16) -> bool {
+    (x & 0xFC00) == 0xD800
+}
 
 impl DOMString {
     pub fn empty() -> DOMString {
@@ -50,6 +59,10 @@ impl DOMString {
         DOMSlice { repr: self.repr.slice(begin, end) }
     }
 
+    pub fn slice_from<'a>(&'a self, begin: uint) -> DOMSlice<'a> {
+        DOMSlice { repr: self.repr.slice_from(begin) }
+    }
+
     pub fn to_string(&self) -> ~str {
         str::from_utf16(self.repr).expect("bad UTF-16")
     }
@@ -70,6 +83,40 @@ impl DOMString {
             Some(snd) => (Some(fst), DOMString::from_buffer(snd.to_owned())),
             None => (None, fst),
         }
+    }
+
+    pub fn truncate(&mut self, n: uint) {
+        self.repr.truncate(n)
+    }
+
+    pub fn from_char(c: char) -> DOMString {
+        let mut s = DOMString::empty();
+        s.push_char(c);
+        s
+    }
+
+    pub fn push_char(&mut self, c: char) {
+        // FIXME: is this in the std lib?
+        let n = c as u32;
+        if n > 0xFFFF {
+            let n = n - 0x10000;
+            self.repr.push((0xD800 + ((n >> 10) & 0x3FF)) as u16);
+            self.repr.push((0xDC00 + (n & 0x3FF)) as u16);
+        } else {
+            self.repr.push(n as u16);
+        }
+    }
+
+    pub fn char_len(&self) -> uint {
+        self.as_slice().char_len()
+    }
+
+    pub fn char_range_at(&self, i: uint) -> CharRange {
+        self.as_slice().char_range_at(i)
+    }
+
+    pub fn char_at(&self, i: uint) -> char {
+        self.as_slice().char_at(i)
     }
 }
 
@@ -209,6 +256,45 @@ impl<'a> DOMSlice<'a> {
         }
         DOMString { repr: buffer }
     }
+
+    pub fn char_len(&self) -> uint {
+        // assume valid UTF-16
+        let mut lead_surrogates = 0;
+        for &x in self.repr.iter() {
+            if is_lead_surrogate(x) {
+                lead_surrogates += 1;
+            }
+        }
+        self.len() - lead_surrogates
+    }
+
+    pub fn char_range_at(&self, i: uint) -> CharRange {
+        let x = self.repr[i];
+        if is_lead_surrogate(x) {
+            CharRange {
+                ch: char::from_u32(0x10000
+                    + ((x as u32 - 0xD800) << 10)
+                    + (self.repr[i+1] as u32 - 0xDC00)).expect("bad UTF-16"),
+                next: i+2,
+            }
+        } else {
+            CharRange {
+                ch: char::from_u32(x as u32).expect("bad UTF-16"),
+                next: i+1,
+            }
+        }
+    }
+
+    pub fn char_at(&self, i: uint) -> char {
+        self.char_range_at(i).ch
+    }
+
+    pub fn chars(&self) -> Chars<'a> {
+        Chars {
+            string: *self,
+            ix: 0,
+        }
+    }
 }
 
 impl<'a> Eq for DOMSlice<'a> {
@@ -237,17 +323,20 @@ impl<'a> Add<DOMSlice<'a>, DOMString> for DOMString {
     }
 }
 
-pub fn null_str_as_empty(s: &Option<DOMString>) -> DOMString {
-    // We don't use map_default because it would allocate ~"" even for Some.
-    match *s {
-        Some(ref s) => s.clone(),
-        None => DOMString::empty(),
-    }
+pub struct Chars<'a> {
+    priv string: DOMSlice<'a>,
+    priv ix: uint,
 }
 
-pub fn null_str_as_empty_ref<'a>(s: &'a Option<DOMString>) -> DOMSlice<'a> {
-    match *s {
-        Some(ref s) => s.as_slice(),
-        None => DOMSlice { repr: &'a [] },
+impl<'a> Iterator<char> for Chars<'a> {
+    #[inline]
+    fn next(&mut self) -> Option<char> {
+        if self.ix < self.string.len() {
+            let CharRange {ch, next} = self.string.char_range_at(self.ix);
+            self.ix = next;
+            Some(ch)
+        } else {
+            None
+        }
     }
 }

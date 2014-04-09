@@ -20,6 +20,8 @@ extern crate phf;
 extern crate collections;
 extern crate time;
 
+pub use util::domstring::{DOMString, DOMSlice, Chars};
+
 mod util {
     pub mod str;
     pub mod domstring;

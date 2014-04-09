@@ -10,6 +10,7 @@ use std::default::Default;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, TagToken, StartTag, EndTag};
+use html5::DOMString;
 
 struct TokenPrinter {
     in_char_run: bool,
@@ -38,7 +39,7 @@ impl TokenSink for TokenPrinter {
                 self.do_char(c);
             }
             MultiCharacterToken(b) => {
-                for c in b.chars() {
+                for c in b.as_slice().chars() {
                     self.do_char(c);
                 }
             }
@@ -46,11 +47,11 @@ impl TokenSink for TokenPrinter {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
-                    StartTag => print!("TAG  : <\x1b[32m{:s}\x1b[0m", tag.name),
-                    EndTag   => print!("TAG  : <\x1b[31m/{:s}\x1b[0m", tag.name),
+                    StartTag => print!("TAG  : <\x1b[32m{:s}\x1b[0m", tag.name.to_string()),
+                    EndTag   => print!("TAG  : <\x1b[31m/{:s}\x1b[0m", tag.name.to_string()),
                 }
                 for attr in tag.attrs.iter() {
-                    print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'", attr.name, attr.value);
+                    print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'", attr.name.to_string(), attr.value.to_string());
                 }
                 if tag.self_closing {
                     print!(" \x1b[31m/\x1b[0m");
@@ -78,7 +79,7 @@ fn main() {
             profile: true,
             .. Default::default()
         });
-        tok.feed(io::stdin().read_to_str().unwrap());
+        tok.feed(DOMString::from_string(io::stdin().read_to_str().unwrap()));
         tok.end();
     }
     sink.is_char(false);

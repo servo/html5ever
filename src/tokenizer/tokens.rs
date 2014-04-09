@@ -3,13 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use util::str::empty_str;
+use util::domstring::DOMString;
 
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Doctype {
-    name: Option<~str>,
-    public_id: Option<~str>,
-    system_id: Option<~str>,
+    name: Option<DOMString>,
+    public_id: Option<DOMString>,
+    system_id: Option<DOMString>,
     force_quirks: bool,
 }
 
@@ -26,8 +27,8 @@ impl Doctype {
 
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Attribute {
-    name: ~str,
-    value: ~str,
+    name: DOMString,
+    value: DOMString,
 }
 
 impl Attribute {
@@ -53,7 +54,7 @@ pub enum TagKind {
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Tag {
     kind: TagKind,
-    name: ~str,
+    name: DOMString,
     self_closing: bool,
     attrs: Vec<Attribute>,
 }
@@ -73,9 +74,9 @@ impl Tag {
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
-    CommentToken(~str),
+    CommentToken(DOMString),
     CharacterToken(char),
-    MultiCharacterToken(~str),
+    MultiCharacterToken(DOMString),
     EOFToken,
     ParseError(~str),
 }

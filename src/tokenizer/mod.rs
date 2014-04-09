@@ -17,8 +17,8 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
+use util::domstring::{DOMString, DOMSlice};
 
-use std::str;
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
 use std::iter::AdditiveIterator;
@@ -37,10 +37,10 @@ pub trait TokenSink {
     fn process_token(&mut self, token: Token);
 }
 
-fn option_push_char(opt_str: &mut Option<~str>, c: char) {
+fn option_push_char(opt_str: &mut Option<DOMString>, c: char) {
     match *opt_str {
         Some(ref mut s) => s.push_char(c),
-        None => *opt_str = Some(str::from_char(c)),
+        None => *opt_str = Some(DOMString::from_char(c)),
     }
 }
 
@@ -65,7 +65,7 @@ pub struct TokenizerOpts {
 
     /// Last start tag.  Only the test runner should use a
     /// non-None value!
-    last_start_tag_name: Option<~str>,
+    last_start_tag_name: Option<DOMString>,
 }
 
 impl Default for TokenizerOpts {
@@ -129,16 +129,16 @@ pub struct Tokenizer<'sink, Sink> {
     priv current_attr: Attribute,
 
     /// Current comment.
-    priv current_comment: ~str,
+    priv current_comment: DOMString,
 
     /// Current doctype token.
     priv current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    priv last_start_tag_name: Option<~str>,
+    priv last_start_tag_name: Option<DOMString>,
 
     /// The "temporary buffer" mentioned in the spec.
-    priv temp_buf: ~str,
+    priv temp_buf: DOMString,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     priv state_profile: HashMap<states::State, u64>,
@@ -171,7 +171,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    pub fn feed(&mut self, input: ~str) {
+    pub fn feed(&mut self, input: DOMString) {
         if input.len() == 0 {
             return;
         }
@@ -253,7 +253,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // FIXME: do input stream preprocessing.  It's probably okay not to,
     // because none of the strings we look ahead for contain characters
     // affected by it, but think about this more.
-    fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
+    fn lookahead_and_consume(&mut self, n: uint, p: |DOMSlice| -> bool) -> Option<bool> {
         match self.input_buffers.pop_front(n) {
             None if self.at_eof => {
                 debug!("lookahead: requested {:u} characters not available and never will be", n);
@@ -309,7 +309,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.sink.process_token(CharacterToken(c));
     }
 
-    fn emit_chars(&mut self, b: ~str) {
+    fn emit_chars(&mut self, b: DOMString) {
         self.sink.process_token(MultiCharacterToken(b));
     }
 
@@ -408,7 +408,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             replace(&mut self.current_doctype, Doctype::new())));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<~str> {
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<DOMString> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,
@@ -446,7 +446,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, buf: ~str) {
+    fn unconsume(&mut self, buf: DOMString) {
         self.input_buffers.push_front(buf);
     }
 
@@ -469,7 +469,7 @@ macro_rules! shorthand (
     ( push_name $c:expr               ) => ( self.current_attr.name.push_char($c);                 );
     ( push_value $c:expr              ) => ( self.current_attr.value.push_char($c);                );
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
-    ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
+    ( append_comment $c:expr          ) => ( self.current_comment.push_str(DOMString::from_string($c).as_slice()) );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
     ( clear_comment                   ) => ( self.current_comment.truncate(0);                     );
     ( create_doctype                  ) => ( self.current_doctype = Doctype::new();                );
@@ -680,7 +680,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 let c = get_char!();
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
+                        let esc = if self.temp_buf.as_slice() == DOMString::from_string("script").as_slice() { DoubleEscaped } else { Escaped };
                         go!(emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -725,7 +725,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 let c = get_char!();
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
+                        let esc = if self.temp_buf.as_slice() == DOMString::from_string("script").as_slice() { Escaped } else { DoubleEscaped };
                         go!(emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -903,9 +903,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             states::AfterDoctypeName => loop { match () {
-                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case("public"))
+                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case(DOMString::from_string("public").as_slice()))
                     => go!(to AfterDoctypeKeyword Public),
-                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case("system"))
+                _ if lookahead_and_consume!(6, |s| s.eq_ignore_ascii_case(DOMString::from_string("system").as_slice()))
                     => go!(to AfterDoctypeKeyword System),
                 _ => match get_char!() {
                     '\t' | '\n' | '\x0C' | ' ' => (),
@@ -980,9 +980,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             states::MarkupDeclarationOpen => loop { match () {
-                _ if lookahead_and_consume!(2, |s| s == "--")
+                _ if lookahead_and_consume!(2, |s| s == DOMString::from_string("--").as_slice())
                     => go!(clear_comment; to CommentStart),
-                _ if lookahead_and_consume!(7, |s| s.eq_ignore_ascii_case("doctype"))
+                _ if lookahead_and_consume!(7, |s| s.eq_ignore_ascii_case(DOMString::from_string("doctype").as_slice()))
                     => go!(to Doctype),
                 // FIXME: CDATA, requires "adjusted current node" from tree builder
                 // FIXME: 'error' gives wrong message
@@ -1144,21 +1144,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 #[test]
 fn push_to_None_gives_singleton() {
-    let mut s: Option<~str> = None;
+    let mut s: Option<DOMString> = None;
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(~"x"));
+    assert_eq!(s, Some(DOMString::from_string("x")));
 }
 
 #[test]
 fn push_to_empty_appends() {
-    let mut s: Option<~str> = Some(~"");
+    let mut s: Option<DOMString> = Some(DOMString::empty());
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(~"x"));
+    assert_eq!(s, Some(DOMString::from_string("x")));
 }
 
 #[test]
 fn push_to_nonempty_appends() {
-    let mut s: Option<~str> = Some(~"y");
+    let mut s: Option<DOMString> = Some(DOMString::from_string("y"));
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(~"yx"));
+    assert_eq!(s, Some(DOMString::from_string("yx")));
 }
