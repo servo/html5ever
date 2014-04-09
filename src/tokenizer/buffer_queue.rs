@@ -13,16 +13,6 @@ struct Buffer {
     buf: ~str,
 }
 
-impl Buffer {
-    fn new(buf: ~str) -> Buffer {
-        Buffer {
-            pos: 0,
-            buf: buf,
-        }
-    }
-}
-
-
 /// Either a single character or a run of "data" characters: those which
 /// don't trigger input stream preprocessing, or special handling in any
 /// of the Data / RawData / Plaintext tokenizer states.  We do not exclude
@@ -72,16 +62,24 @@ impl BufferQueue {
             return;
         }
         self.account_new(buf.as_slice());
-        self.buffers.push_front(Buffer::new(buf));
+        self.buffers.push_front(Buffer {
+            pos: 0,
+            buf: buf,
+        });
     }
 
     /// Add a buffer to the end of the queue.
-    pub fn push_back(&mut self, buf: ~str) {
-        if buf.len() == 0 {
+    /// 'pos' can be non-zero to remove that many characters
+    /// from the beginning.
+    pub fn push_back(&mut self, buf: ~str, pos: uint) {
+        if pos >= buf.len() {
             return;
         }
         self.account_new(buf.as_slice());
-        self.buffers.push_back(Buffer::new(buf));
+        self.buffers.push_back(Buffer {
+            pos: pos,
+            buf: buf,
+        });
     }
 
     /// Do we have at least n characters available?
@@ -178,7 +176,7 @@ fn smoke_test() {
     assert_eq!(bq.peek(), None);
     assert_eq!(bq.next(), None);
 
-    bq.push_back(~"abc");
+    bq.push_back(~"abc", 0);
     assert_eq!(bq.has(1), true);
     assert_eq!(bq.has(3), true);
     assert_eq!(bq.has(4), false);
@@ -197,7 +195,7 @@ fn smoke_test() {
 #[test]
 fn can_pop_front() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc");
+    bq.push_back(~"abc", 0);
 
     assert_eq!(bq.pop_front(2), Some(~"ab"));
     assert_eq!(bq.peek(), Some('c'));
@@ -209,7 +207,7 @@ fn can_pop_front() {
 #[test]
 fn can_unconsume() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc");
+    bq.push_back(~"abc", 0);
     assert_eq!(bq.next(), Some('a'));
 
     bq.push_front(~"xy");
@@ -223,11 +221,20 @@ fn can_unconsume() {
 #[test]
 fn can_pop_data() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc\0def");
+    bq.push_back(~"abc\0def", 0);
     assert_eq!(bq.pop_data(), Some(DataRun(~"abc")));
     assert_eq!(bq.pop_data(), Some(OneChar('\0')));
     assert_eq!(bq.pop_data(), Some(DataRun(~"def")));
     assert_eq!(bq.pop_data(), None);
+}
+
+#[test]
+fn can_push_truncated() {
+    let mut bq = BufferQueue::new();
+    bq.push_back(~"abc", 1);
+    assert_eq!(bq.next(), Some('b'));
+    assert_eq!(bq.next(), Some('c'));
+    assert_eq!(bq.next(), None);
 }
 
 #[test]

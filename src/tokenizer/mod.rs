@@ -171,38 +171,34 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     pub fn feed(&mut self, input: ~str) {
-        self.input_buffers.push_back(input);
+        if input.len() == 0 {
+            return;
+        }
+
+        let pos = if self.discard_bom && input.char_at(0) == '\ufeff' {
+            self.discard_bom = false;
+            3  // length of BOM in UTF-8
+        } else {
+            0
+        };
+
+        self.input_buffers.push_back(input, pos);
         self.run();
     }
 
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
     fn get_preprocessed_char(&mut self, mut c: char) -> Option<char> {
-        loop {
-            match c {
-                '\ufeff' if self.discard_bom => {
-                    self.discard_bom = false;
-                    // try again
-                }
-                '\n' if self.ignore_lf => {
-                    self.ignore_lf = false;
-                    // try again
-                }
-                '\r' => {
-                    self.ignore_lf = true;
-                    c = '\n';
-                    break;
-                }
-                _ => {
-                    self.ignore_lf = false;
-                    break;
-                }
+        if self.ignore_lf {
+            self.ignore_lf = false;
+            if c == '\n' {
+                c = unwrap_or_return!(self.input_buffers.next(), None);
             }
+        }
 
-            match self.input_buffers.next() {
-                None => return None,
-                Some(nc) => c = nc,
-            }
+        if c == '\r' {
+            self.ignore_lf = true;
+            c = '\n';
         }
 
         if self.opts.exact_errors && match c as u32 {
@@ -214,7 +210,6 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self.emit_error(msg);
         }
 
-        self.discard_bom = false;
         debug!("got character {:?}", c);
         self.current_char = c;
         Some(c)
@@ -234,7 +229,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // In a data state, get a run of characters to process as data, or a single
     // character.
     fn get_data(&mut self) -> Option<DataRunOrChar> {
-        if self.opts.exact_errors || self.reconsume || self.ignore_lf || self.discard_bom {
+        if self.opts.exact_errors || self.reconsume || self.ignore_lf {
             return self.get_char().map(|x| OneChar(x));
         }
 

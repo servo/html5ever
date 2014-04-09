@@ -347,9 +347,6 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
 
                 // Not discarding a BOM is what the test suite expects; see
                 // https://github.com/html5lib/html5lib-tests/issues/2
-                //
-                // It also gives better coverage because discard_bom disables
-                // the !exact_errors fast path for the first data character.
                 discard_bom: false,
 
                 .. Default::default()
