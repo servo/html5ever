@@ -4,8 +4,7 @@
 
 use std::iter::range_inclusive;
 use std::str;
-use std::to_bytes::{IterBytes, Cb};
-use std::vec::{SplitIterator, VecIterator};
+use std::slice::{Splits, Items};
 
 pub struct DOMString {
     priv repr: ~[u16]
@@ -52,7 +51,7 @@ impl DOMString {
     }
 
     pub fn to_string(&self) -> ~str {
-        str::from_utf16(self.repr)
+        str::from_utf16(self.repr).expect("bad UTF-16")
     }
 
     pub fn to_ascii_lower(&self) -> DOMString {
@@ -86,12 +85,6 @@ impl Eq for DOMString {
     }
 }
 
-impl IterBytes for DOMString {
-    fn iter_bytes(&self, lsb0: bool, f: Cb) -> bool {
-        self.repr.iter_bytes(lsb0, f)
-    }
-}
-
 impl<'a> DOMSlice<'a> {
     pub fn empty() -> DOMSlice<'a> {
         DOMSlice { repr: &'a [] }
@@ -101,7 +94,7 @@ impl<'a> DOMSlice<'a> {
         self.repr.len()
     }
 
-    pub fn iter(&self) -> VecIterator<'a, u16> {
+    pub fn iter(&self) -> Items<'a, u16> {
         self.repr.iter()
     }
 
@@ -110,18 +103,18 @@ impl<'a> DOMSlice<'a> {
     }
 
     pub fn to_string(&self) -> ~str {
-        str::from_utf16(self.repr)
+        str::from_utf16(self.repr).expect("bad UTF-16")
     }
 
     pub fn slice(&'a self, begin: uint, end: uint) -> DOMSlice<'a> {
         DOMSlice { repr: self.repr.slice(begin, end) }
     }
 
-    pub fn split(&self, pred: 'a |&u16| -> bool) -> SplitIterator<'a, u16> {
+    pub fn split(&self, pred: 'a |&u16| -> bool) -> Splits<'a, u16> {
         self.repr.split(pred)
     }
 
-    pub fn split_whitespace(&self) -> SplitIterator<'a, u16> {
+    pub fn split_whitespace(&self) -> Splits<'a, u16> {
         self.repr.split(|c| ASCII_WHITESPACE.contains(c))
     }
 
@@ -221,12 +214,6 @@ impl<'a> DOMSlice<'a> {
 impl<'a> Eq for DOMSlice<'a> {
     fn eq(&self, other: &DOMSlice<'a>) -> bool {
         self.repr.eq(&other.repr)
-    }
-}
-
-impl<'a> IterBytes for DOMSlice<'a> {
-    fn iter_bytes(&self, lsb0: bool, f: Cb) -> bool {
-        self.repr.iter_bytes(lsb0, f)
     }
 }
 
