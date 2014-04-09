@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use util::domstring::{DOMString, DOMSlice};
+
 use std::str::CharRange;
 use collections::deque::Deque;
 use collections::dlist::DList;
@@ -10,7 +12,7 @@ struct Buffer {
     /// Byte position within the buffer.
     pos: uint,
     /// The buffer.
-    buf: ~str,
+    buf: DOMString,
 }
 
 /// Either a single character or a run of "data" characters: those which
@@ -20,14 +22,14 @@ struct Buffer {
 /// normally.
 #[deriving(Eq, TotalEq, Show)]
 pub enum DataRunOrChar {
-    DataRun(~str),
+    DataRun(DOMString),
     OneChar(char),
 }
 
 /// Count the number of bytes of data characters at the beginning of 's'.
-fn data_span(s: &str) -> uint {
+fn data_span(s: DOMSlice) -> uint {
     let mut n = 0;
-    for b in s.bytes() {
+    for &b in s.iter() {
         match b {
         //  \0     \r     &      -      <
             0x00 | 0x0D | 0x26 | 0x2D | 0x3C => break,
@@ -57,7 +59,7 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the beginning of the queue.
-    pub fn push_front(&mut self, buf: ~str) {
+    pub fn push_front(&mut self, buf: DOMString) {
         if buf.len() == 0 {
             return;
         }
@@ -71,7 +73,7 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     /// 'pos' can be non-zero to remove that many characters
     /// from the beginning.
-    pub fn push_back(&mut self, buf: ~str, pos: uint) {
+    pub fn push_back(&mut self, buf: DOMString, pos: uint) {
         if pos >= buf.len() {
             return;
         }
@@ -88,12 +90,15 @@ impl BufferQueue {
     }
 
     /// Get multiple characters, if that many are available.
-    pub fn pop_front(&mut self, n: uint) -> Option<~str> {
+    pub fn pop_front(&mut self, n: uint) -> Option<DOMString> {
         if !self.has(n) {
             return None;
         }
-        // FIXME: this is probably pretty inefficient
-        Some(self.by_ref().take(n).collect())
+        let mut s = DOMString::empty();
+        for c in self.by_ref().take(n) {
+            s.push_char(c)
+        }
+        Some(s)
     }
 
     /// Look at the next available character, if any.
@@ -135,9 +140,9 @@ impl BufferQueue {
         result
     }
 
-    fn account_new(&mut self, buf: &str) {
-        // FIXME: We could pass through length from the initial [u8] -> ~str
-        // conversion, which already must re-encode or at least scan for UTF-8
+    fn account_new(&mut self, buf: DOMSlice) {
+        // FIXME: We could pass through length from the initial [u8] -> DOMString
+        // conversion, which already must re-encode or at least scan for UTF-16
         // validity.
         self.available += buf.char_len();
     }
@@ -176,7 +181,7 @@ fn smoke_test() {
     assert_eq!(bq.peek(), None);
     assert_eq!(bq.next(), None);
 
-    bq.push_back(~"abc", 0);
+    bq.push_back(DOMString::from_string("abc"), 0);
     assert_eq!(bq.has(1), true);
     assert_eq!(bq.has(3), true);
     assert_eq!(bq.has(4), false);
@@ -195,9 +200,9 @@ fn smoke_test() {
 #[test]
 fn can_pop_front() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 0);
+    bq.push_back(DOMString::from_string("abc"), 0);
 
-    assert_eq!(bq.pop_front(2), Some(~"ab"));
+    assert_eq!(bq.pop_front(2), Some(DOMString::from_string("ab")));
     assert_eq!(bq.peek(), Some('c'));
     assert_eq!(bq.pop_front(2), None);
     assert_eq!(bq.next(), Some('c'));
@@ -207,10 +212,10 @@ fn can_pop_front() {
 #[test]
 fn can_unconsume() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 0);
+    bq.push_back(DOMString::from_string("abc"), 0);
     assert_eq!(bq.next(), Some('a'));
 
-    bq.push_front(~"xy");
+    bq.push_front(DOMString::from_string("xy"));
     assert_eq!(bq.next(), Some('x'));
     assert_eq!(bq.next(), Some('y'));
     assert_eq!(bq.next(), Some('b'));
@@ -221,17 +226,17 @@ fn can_unconsume() {
 #[test]
 fn can_pop_data() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc\0def", 0);
-    assert_eq!(bq.pop_data(), Some(DataRun(~"abc")));
+    bq.push_back(DOMString::from_string("abc\0def"), 0);
+    assert_eq!(bq.pop_data(), Some(DataRun(DOMString::from_string("abc"))));
     assert_eq!(bq.pop_data(), Some(OneChar('\0')));
-    assert_eq!(bq.pop_data(), Some(DataRun(~"def")));
+    assert_eq!(bq.pop_data(), Some(DataRun(DOMString::from_string("def"))));
     assert_eq!(bq.pop_data(), None);
 }
 
 #[test]
 fn can_push_truncated() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 1);
+    bq.push_back(DOMString::from_string("abc"), 1);
     assert_eq!(bq.next(), Some('b'));
     assert_eq!(bq.next(), Some('c'));
     assert_eq!(bq.next(), None);
@@ -239,7 +244,7 @@ fn can_push_truncated() {
 
 #[test]
 fn data_span_test() {
-    fn pad(s: &mut ~str, n: uint) {
+    fn pad(s: &mut DOMString, n: uint) {
         for _ in range(0, n) {
             s.push_char('x');
         }
@@ -248,7 +253,7 @@ fn data_span_test() {
     for &c in ['&', '\0'].iter() {
         for x in range(0, 48u) {
             for y in range(0, 48u) {
-                let mut s = ~"";
+                let mut s = DOMString::empty();
                 pad(&mut s, x);
                 s.push_char(c);
                 pad(&mut s, y);

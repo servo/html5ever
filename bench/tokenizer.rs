@@ -9,6 +9,7 @@ use test::{black_box, BenchHarness, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
+use html5::DOMString;
 
 struct Sink;
 
@@ -60,7 +61,7 @@ impl Bench {
 impl TDynBenchFn for Bench {
     fn run(&self, bh: &mut BenchHarness) {
         bh.iter(|| {
-            let input = self.input.clone();
+            let input = DOMString::from_string(self.input.as_slice());
             if self.clone_only {
                 // Because the tokenizer consumes its buffers, we need
                 // to clone inside iter().  We can benchmark this

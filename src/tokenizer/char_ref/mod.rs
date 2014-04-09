@@ -4,8 +4,11 @@
 
 use super::{Tokenizer, TokenSink};
 
-use util::str::{is_ascii_alnum, empty_str};
+use util::str::is_ascii_alnum;
+use util::domstring::DOMString;
+
 use std::char::{to_digit, from_u32};
+use std::str;
 
 mod data;
 
@@ -125,7 +128,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
             _ => {
                 self.state = Named;
-                self.name_buf_opt = Some(empty_str());
+                self.name_buf_opt = Some(str::with_capacity(4));
                 Progress
             }
         }
@@ -182,7 +185,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
-        let mut unconsume = ~"#";
+        let mut unconsume = DOMString::from_string("#");
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
             None => (),
@@ -251,7 +254,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
-        tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+        tokenizer.unconsume(DOMString::from_string(self.name_buf_opt.take_unwrap()));
     }
 
     fn finish_named(&mut self,
@@ -324,7 +327,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
+                    tokenizer.unconsume(DOMString::from_string(self.name_buf().slice_from(self.name_len)));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -368,7 +371,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(~"#");
+                    tokenizer.unconsume(DOMString::from_string("#"));
                     tokenizer.emit_error(~"EOF after '#' in character reference");
                     self.finish_none();
                 }

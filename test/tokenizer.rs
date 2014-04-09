@@ -16,6 +16,7 @@ use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+use html5::DOMString;
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -43,7 +44,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<~str>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
-    current_str: ~str,
+    current_str: DOMString,
     exact_errors: bool,
 }
 
@@ -51,7 +52,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: Vec::new(),
-            current_str: ~"",
+            current_str: DOMString::empty(),
             exact_errors: exact_errors,
         }
     }
@@ -64,7 +65,7 @@ impl TokenLogger {
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, ~"");
+            let s = replace(&mut self.current_str, DOMString::empty());
             self.tokens.push(MultiCharacterToken(s));
         }
     }
@@ -78,7 +79,7 @@ impl TokenSink for TokenLogger {
             }
 
             MultiCharacterToken(b) => {
-                self.current_str.push_str(b);
+                self.current_str.push_str(b.as_slice());
             }
 
             ParseError(_) => if self.exact_errors {
@@ -111,7 +112,7 @@ fn tokenize(input: Vec<~str>, opts: TokenizerOpts) -> Vec<Token> {
     {
         let mut tok = Tokenizer::new(&mut sink, opts);
         for chunk in input.move_iter() {
-            tok.feed(chunk);
+            tok.feed(DOMString::from_string(chunk));
         }
         tok.end();
     }
@@ -122,6 +123,8 @@ fn tokenize(input: Vec<~str>, opts: TokenizerOpts) -> Vec<Token> {
 trait JsonExt {
     fn get_str(&self) -> ~str;
     fn get_nullable_str(&self) -> Option<~str>;
+    fn get_dom_str(&self) -> DOMString;
+    fn get_nullable_dom_str(&self) -> Option<DOMString>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t TreeMap<~str, Self>;
     fn get_list<'t>(&'t self) -> &'t ~[Self];
@@ -142,6 +145,14 @@ impl JsonExt for Json {
             json::String(ref s) => Some(s.clone()),
             _ => fail!("Json::get_nullable_str: not a String"),
         }
+    }
+
+    fn get_dom_str(&self) -> DOMString {
+        DOMString::from_string(self.get_str())
+    }
+
+    fn get_nullable_dom_str(&self) -> Option<DOMString> {
+        self.get_nullable_str().map(|x| DOMString::from_string(x))
     }
 
     fn get_bool(&self) -> bool {
@@ -177,17 +188,17 @@ fn json_to_token(js: &Json) -> Token {
     let args: Vec<&Json> = parts.slice_from(1).iter().collect();
     match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
-            name: name.get_nullable_str(),
-            public_id: public_id.get_nullable_str(),
-            system_id: system_id.get_nullable_str(),
+            name: name.get_nullable_dom_str(),
+            public_id: public_id.get_nullable_dom_str(),
+            system_id: system_id.get_nullable_dom_str(),
             force_quirks: !correct.get_bool(),
         }),
 
         ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
             kind: StartTag,
-            name: name.get_str(),
+            name: name.get_dom_str(),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
-                Attribute { name: k.to_owned(), value: v.get_str() }
+                Attribute { name: DOMString::from_string(k.as_slice()), value: v.get_dom_str() }
             }).collect(),
             self_closing: match rest {
                 [ref b, ..] => b.get_bool(),
@@ -197,14 +208,14 @@ fn json_to_token(js: &Json) -> Token {
 
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
-            name: name.get_str(),
+            name: name.get_dom_str(),
             attrs: Vec::new(),
             self_closing: false
         }),
 
-        ("Comment", [txt]) => CommentToken(txt.get_str()),
+        ("Comment", [txt]) => CommentToken(txt.get_dom_str()),
 
-        ("Character", [txt]) => MultiCharacterToken(txt.get_str()),
+        ("Character", [txt]) => MultiCharacterToken(txt.get_dom_str()),
 
         _ => fail!("don't understand token {:?}", parts),
     }
@@ -314,7 +325,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let insplits = splits(input, 3);
 
     // Some tests have a last start tag name.
-    let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_str());
+    let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_dom_str());
 
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.find(&~"initialStates") {
