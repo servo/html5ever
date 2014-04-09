@@ -94,15 +94,19 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
 }
 
 pub fn tests() -> ~[TestDescAndFn] {
-    let opts_exact = TokenizerOpts {
-        exact_errors: true,
-        .. Default::default()
-    };
     let mut tests = ~[
         make_bench("lipsum.html", Some(1024*1024), true, Default::default()),
     ];
 
-    for opts in [Default::default(), opts_exact].iter() {
+    let mut opts_vec = ~[Default::default()];
+    if os::getenv("BENCH_EXACT_ERRORS").is_some() {
+        opts_vec.push(TokenizerOpts {
+            exact_errors: true,
+            .. Default::default()
+        });
+    }
+
+    for opts in opts_vec.iter() {
         for &file in ["lipsum.html", "lipsum-zh.html", "strong.html"].iter() {
             for &sz in [1024, 1024*1024].iter() {
                 tests.push(make_bench(file, Some(sz), false, opts.clone()));
