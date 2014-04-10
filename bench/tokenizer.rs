@@ -60,17 +60,18 @@ impl Bench {
 
 impl TDynBenchFn for Bench {
     fn run(&self, bh: &mut BenchHarness) {
+        let input = DOMString::from_string(self.input.as_slice());
         bh.iter(|| {
-            let input = DOMString::from_string(self.input.as_slice());
+            let my_input = input.clone();
             if self.clone_only {
                 // Because the tokenizer consumes its buffers, we need
                 // to clone inside iter().  We can benchmark this
                 // separately and subtract it out.
-                black_box(input);
+                black_box(my_input);
             } else {
                 let mut sink = Sink;
                 let mut tok = Tokenizer::new(&mut sink, self.opts.clone());
-                tok.feed(input);
+                tok.feed(my_input);
                 tok.end();
             }
         });
