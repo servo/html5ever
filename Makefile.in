@@ -66,9 +66,11 @@ check-internal: html5-test
 check-external: html5-external-test
 	./html5-external-test
 
+METRICS ?= metrics.json
+
 .PHONY: bench
 bench: html5-external-bench
-	./html5-external-bench --bench
+	./html5-external-bench --bench --save-metrics $(METRICS)
 
 .PHONY: clean
 clean:
