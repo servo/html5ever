@@ -39,9 +39,9 @@ tokenize-bench-example: $(VPATH)/examples/tokenize-bench-example.rs $(LIB)
 	$(RUSTC_CMD) $<
 
 # Workaround for mozilla/rust#13064; see preprocess-tests.py
-test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/codegen/preprocess-tests.py
+test-json/tokenizer: $(TEST_JSON_SRC) $(VPATH)/scripts/preprocess-tests.py
 	mkdir -p $@
-	$(VPATH)/codegen/preprocess-tests.py $(VPATH)/html5lib-tests $@
+	$(VPATH)/scripts/preprocess-tests.py $(VPATH)/html5lib-tests $@
 
 # Run #[test] functions
 html5-test: $(LIB_DEPS)
