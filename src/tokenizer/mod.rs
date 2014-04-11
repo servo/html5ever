@@ -1058,7 +1058,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         if self.opts.profile {
-            let mut results: ~[(states::State, u64)]
+            let mut results: Vec<(states::State, u64)>
                 = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
             results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 

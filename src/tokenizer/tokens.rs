@@ -55,7 +55,7 @@ pub struct Tag {
     kind: TagKind,
     name: ~str,
     self_closing: bool,
-    attrs: ~[Attribute],
+    attrs: Vec<Attribute>,
 }
 
 impl Tag {
@@ -64,7 +64,7 @@ impl Tag {
             kind: kind,
             name: empty_str(),
             self_closing: false,
-            attrs: ~[],
+            attrs: Vec::new(),
         }
     }
 }

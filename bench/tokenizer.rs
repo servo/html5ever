@@ -95,10 +95,9 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
 }
 
 pub fn tests() -> Vec<TestDescAndFn> {
-    let mut tests = Vec::new();
-    tests.push(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
+    let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
-    let mut opts_vec = ~[Default::default()];
+    let mut opts_vec = vec!(Default::default());
     if os::getenv("BENCH_EXACT_ERRORS").is_some() {
         opts_vec.push(TokenizerOpts {
             exact_errors: true,

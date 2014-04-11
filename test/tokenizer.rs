@@ -19,16 +19,16 @@ use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
-fn splits(s: &str, n: uint) -> ~[~[~str]] {
+fn splits(s: &str, n: uint) -> Vec<Vec<~str>> {
     if n == 1 {
-        return ~[~[s.to_owned()]];
+        return vec!(vec!(s.to_owned()));
     }
 
-    let mut points: ~[uint] = s.char_indices().map(|(n,_)| n).collect();
+    let mut points: Vec<uint> = s.char_indices().map(|(n,_)| n).collect();
     points.push(s.len());
 
     // do this with iterators?
-    let mut out = ~[];
+    let mut out = Vec::new();
     for p in points.move_iter() {
         let y = s.slice_from(p);
         for mut x in splits(s.slice_to(p), n-1).move_iter() {
@@ -42,7 +42,7 @@ fn splits(s: &str, n: uint) -> ~[~[~str]] {
 }
 
 struct TokenLogger {
-    tokens: ~[Token],
+    tokens: Vec<Token>,
     current_str: ~str,
     exact_errors: bool,
 }
@@ -50,7 +50,7 @@ struct TokenLogger {
 impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
-            tokens: ~[],
+            tokens: Vec::new(),
             current_str: ~"",
             exact_errors: exact_errors,
         }
@@ -92,7 +92,7 @@ impl TokenSink for TokenLogger {
                 match t.kind {
                     EndTag => {
                         t.self_closing = false;
-                        t.attrs = ~[];
+                        t.attrs = Vec::new();
                     }
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
@@ -106,7 +106,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: ~[~str], opts: TokenizerOpts) -> ~[Token] {
+fn tokenize(input: Vec<~str>, opts: TokenizerOpts) -> Vec<Token> {
     let mut sink = TokenLogger::new(opts.exact_errors);
     {
         let mut tok = Tokenizer::new(&mut sink, opts);
@@ -174,7 +174,7 @@ impl JsonExt for Json {
 fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
-    let args: ~[&Json] = parts.slice_from(1).iter().collect();
+    let args: Vec<&Json> = parts.slice_from(1).iter().collect();
     match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
             name: name.get_nullable_str(),
@@ -198,7 +198,7 @@ fn json_to_token(js: &Json) -> Token {
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
             name: name.get_str(),
-            attrs: ~[],
+            attrs: Vec::new(),
             self_closing: false
         }),
 
@@ -211,7 +211,7 @@ fn json_to_token(js: &Json) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: &Json, exact_errors: bool) -> ~[Token] {
+fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
@@ -269,7 +269,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token], opts: TokenizerOpts)
+fn mk_test(desc: ~str, insplits: Vec<Vec<~str>>, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -325,7 +325,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
                 "RCDATA state"    => RawData(Rcdata),
                 s => fail!("don't know state {:?}", s),
             })).collect(),
-        None => ~[None],
+        None => vec!(None),
         _ => fail!("don't understand initialStates value"),
     };
 

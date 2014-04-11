@@ -136,7 +136,7 @@ impl BufferQueue {
     }
 
     fn account_new(&mut self, buf: &str) {
-        // FIXME: We could pass through length from the initial ~[u8] -> ~str
+        // FIXME: We could pass through length from the initial [u8] -> ~str
         // conversion, which already must re-encode or at least scan for UTF-8
         // validity.
         self.available += buf.char_len();

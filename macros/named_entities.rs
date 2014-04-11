@@ -26,7 +26,7 @@ macro_rules! expect ( ($e:expr, $err:expr) => (
 // Simplifies JSON parsing because we can use Decodable.
 #[deriving(Decodable)]
 struct CharRef {
-    codepoints: ~[u32],
+    codepoints: Vec<u32>,
     //characters: ~str,  // Present in the file but we don't need it
 }
 
@@ -56,7 +56,7 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
 
     // Add every missing prefix of those keys, mapping to NULL characters.
     map.insert(~"", [0, 0]);
-    let keys: ~[~str] = map.keys().map(|k| k.to_owned()).collect();
+    let keys: Vec<~str> = map.keys().map(|k| k.to_owned()).collect();
     for k in keys.move_iter() {
         for n in range(1, k.len()) {
             let pfx = k.slice_to(n).to_owned();
