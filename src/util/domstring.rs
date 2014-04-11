@@ -6,12 +6,11 @@ use std::iter::range_inclusive;
 use std::char;
 use std::str;
 use std::str::CharRange;
-use std::slice;
 use std::slice::{Splits, Items};
 
 #[deriving(Ord, TotalEq, TotalOrd, Show)]
 pub struct DOMString {
-    priv repr: ~[u16]
+    priv repr: Vec<u16>
 }
 
 #[deriving(Ord, TotalEq, TotalOrd, Show)]
@@ -33,15 +32,23 @@ fn is_lead_surrogate(x: u16) -> bool {
 
 impl DOMString {
     pub fn empty() -> DOMString {
-        DOMString { repr: ~[] }
+        DOMString { repr: Vec::new() }
     }
 
     pub fn from_string(s: &str) -> DOMString {
-        DOMString { repr: s.to_utf16() }
+        let mut v = DOMString::empty();
+        for c in s.chars() {
+            v.push_char(c);
+        }
+        v
     }
 
-    pub fn from_buffer(s: ~[u16]) -> DOMString {
+    pub fn from_buffer(s: Vec<u16>) -> DOMString {
         DOMString { repr: s }
+    }
+
+    pub fn from_slice(s: &[u16]) -> DOMString {
+        DOMString { repr: Vec::from_slice(s) }
     }
 
     pub fn len(&self) -> uint {
@@ -65,7 +72,7 @@ impl DOMString {
     }
 
     pub fn to_string(&self) -> ~str {
-        str::from_utf16(self.repr).expect("bad UTF-16")
+        str::from_utf16(self.repr.as_slice()).expect("bad UTF-16")
     }
 
     pub fn to_ascii_lower(&self) -> DOMString {
@@ -77,11 +84,11 @@ impl DOMString {
     }
 
     pub fn split_first(&self, s: u16) -> (Option<DOMString>, DOMString) {
-        let mut parts = self.repr.splitn(1, |&c| c == s);
-        let fst = DOMString::from_buffer(
-            parts.next().expect("must have at least one part").to_owned());
+        let mut parts = self.repr.as_slice().splitn(1, |&c| c == s);
+        let fst = DOMString::from_slice(
+            parts.next().expect("must have at least one part"));
         match parts.next() {
-            Some(snd) => (Some(fst), DOMString::from_buffer(snd.to_owned())),
+            Some(snd) => (Some(fst), DOMString::from_slice(snd)),
             None => (None, fst),
         }
     }
@@ -96,6 +103,7 @@ impl DOMString {
         s
     }
 
+    #[inline(always)] // ~4x perf on from_string
     pub fn push_char(&mut self, c: char) {
         // FIXME: is this in the std lib?
         let n = c as u32;
@@ -152,10 +160,10 @@ impl<'a> DOMSlice<'a> {
     // See Rust bug #13472.
     pub fn to_owned(&self) -> DOMString {
         let n = self.repr.len();
-        let mut vec = slice::with_capacity(n);
+        let mut vec = Vec::with_capacity(n);
         unsafe {
             vec.set_len(n);
-            vec.copy_memory(self.repr);
+            vec.as_mut_slice().copy_memory(self.repr);
         }
         DOMString { repr: vec }
     }
@@ -177,7 +185,10 @@ impl<'a> DOMSlice<'a> {
     }
 
     pub fn replace(&self, f: |u16| -> DOMString) -> DOMString {
-        let replaced = self.repr.flat_map(|&c| f(c).repr);
+        let mut replaced = Vec::new();
+        for &c in self.repr.iter() {
+            replaced.push_all_move(f(c).repr);
+        }
         DOMString::from_buffer(replaced)
     }
 
@@ -205,7 +216,7 @@ impl<'a> DOMSlice<'a> {
         let bytes = self.repr
                         .iter()
                         .map(|&b| DOMSlice::ascii_lower_char(b))
-                        .to_owned_vec();
+                        .collect();
         DOMString { repr: bytes }
     }
 
@@ -213,7 +224,7 @@ impl<'a> DOMSlice<'a> {
         let bytes = self.repr
                         .iter()
                         .map(|&b| DOMSlice::ascii_upper_char(b))
-                        .to_owned_vec();
+                        .collect();
         DOMString { repr: bytes }
     }
 
@@ -251,7 +262,7 @@ impl<'a> DOMSlice<'a> {
 
         let slice = self.repr.slice_from(i);
         let mut last_whitespace = false;
-        let mut buffer = ~[];
+        let mut buffer = Vec::new();
         for &c in slice.iter() {
             if is_whitespace(c) {
                 if !last_whitespace {
@@ -262,7 +273,7 @@ impl<'a> DOMSlice<'a> {
                 buffer.push(c)
             }
         }
-        if buffer.ends_with([' ' as u16]) {
+        if buffer.as_slice().ends_with([' ' as u16]) {
             buffer.pop();
         }
         DOMString { repr: buffer }
@@ -311,18 +322,6 @@ impl<'a> DOMSlice<'a> {
 impl<'a> Eq for DOMSlice<'a> {
     fn eq(&self, other: &DOMSlice<'a>) -> bool {
         self.repr.eq(&other.repr)
-    }
-}
-
-impl Equiv<DOMString> for DOMString {
-    fn equiv(&self, other: &DOMString) -> bool {
-        self.repr.equiv(&other.repr)
-    }
-}
-
-impl<'a> Equiv<DOMString> for DOMSlice<'a> {
-    fn equiv(&self, other: &DOMString) -> bool {
-        self.repr.equiv(&other.repr)
     }
 }
 

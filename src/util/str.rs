@@ -4,8 +4,6 @@
 
 use util::domstring::DOMString;
 
-use std::slice;
-
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
@@ -26,7 +24,7 @@ pub fn is_ascii_alnum(c: char) -> bool {
 
 /// Allocate an empty string with a small non-zero capacity.
 pub fn empty_str() -> DOMString {
-    DOMString::from_buffer(slice::with_capacity(4))
+    DOMString::from_buffer(Vec::with_capacity(4))
 }
 
 test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
