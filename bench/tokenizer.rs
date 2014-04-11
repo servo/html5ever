@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{io, os, str};
+use std::default::Default;
 
 use test::{black_box, BenchHarness, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
@@ -93,10 +94,9 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
     }
 }
 
-pub fn tests() -> ~[TestDescAndFn] {
-    let mut tests = ~[
-        make_bench("lipsum.html", Some(1024*1024), true, Default::default()),
-    ];
+pub fn tests() -> Vec<TestDescAndFn> {
+    let mut tests = Vec::new();
+    tests.push(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = ~[Default::default()];
     if os::getenv("BENCH_EXACT_ERRORS").is_some() {

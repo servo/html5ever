@@ -7,7 +7,6 @@
 
 #[feature(macro_rules, macro_registrar, quote, managed_boxes)];
 
-extern crate extra;
 extern crate syntax;
 extern crate serialize;
 extern crate collections;

@@ -18,7 +18,7 @@ struct Buffer {
 /// of the Data / RawData / Plaintext tokenizer states.  We do not exclude
 /// characters which trigger a parse error but are otherwise handled
 /// normally.
-#[deriving(Eq)]
+#[deriving(Eq, TotalEq, Show)]
 pub enum DataRunOrChar {
     DataRun(~str),
     OneChar(char),

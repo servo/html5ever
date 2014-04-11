@@ -15,7 +15,7 @@ use test::test_main;
 mod tokenizer;
 
 fn main() {
-    let mut tests = ~[];
+    let mut tests = Vec::new();
 
     tests.push_all_move(tokenizer::tests());
     // more to follow

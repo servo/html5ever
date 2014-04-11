@@ -4,8 +4,8 @@
 
 use std::io;
 use std::path;
-use extra::json;
-use extra::json::Json;
+use serialize::json;
+use serialize::json::Json;
 use serialize::Decodable;
 use collections::hashmap::HashMap;
 
@@ -103,7 +103,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> MacResult {
     // Emit a macro invocation of the form
     //
     //     phf_map!(k => v, k => v, ...)
-    let mut tts: ~[TokenTree] = ~[];
+    let mut tts: Vec<TokenTree> = Vec::new();
     for (k, [c1, c2]) in map.move_iter() {
         tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c1, $c2],));
     }

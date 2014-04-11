@@ -7,6 +7,9 @@
 
 #[feature(macro_rules, phase)];
 
+#[phase(syntax, link)]
+extern crate log;
+
 #[phase(syntax)]
 extern crate phf_mac;
 

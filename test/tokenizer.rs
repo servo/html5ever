@@ -4,9 +4,11 @@
 
 use std::{io, str, num, char};
 use std::mem::replace;
+use std::default::Default;
+use std::from_str::FromStr;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use extra::json;
-use extra::json::Json;
+use serialize::json;
+use serialize::json::Json;
 use collections::treemap::TreeMap;
 
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
@@ -291,12 +293,12 @@ fn mk_test(desc: ~str, insplits: ~[~[~str]], expect: ~[Token], opts: TokenizerOp
     }
 }
 
-fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
+fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find("input").get_str();
-    let mut expect = js.find("output").clone();
+    let mut input = js.find(&~"input").unwrap().get_str();
+    let mut expect = js.find(&~"output").unwrap().clone();
     let desc = format!("{:s}: {:s}",
-        path_str, js.find("description").get_str());
+        path_str, js.find(&~"description").unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
@@ -355,8 +357,8 @@ fn mk_tests(tests: &mut ~[TestDescAndFn], path_str: &str, js: &Json) {
     }
 }
 
-pub fn tests() -> ~[TestDescAndFn] {
-    let mut tests: ~[TestDescAndFn] = ~[];
+pub fn tests() -> Vec<TestDescAndFn> {
+    let mut tests = Vec::new();
 
     let test_dir_path = FromStr::from_str("test-json/tokenizer").unwrap();
     let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");

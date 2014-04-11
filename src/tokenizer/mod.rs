@@ -22,6 +22,7 @@ use std::str;
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
 use std::iter::AdditiveIterator;
+use std::default::Default;
 
 use time::precise_time_ns;
 

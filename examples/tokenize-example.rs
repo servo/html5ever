@@ -6,6 +6,7 @@ extern crate html5;
 
 use std::io;
 use std::char;
+use std::default::Default;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, TagToken, StartTag, EndTag};

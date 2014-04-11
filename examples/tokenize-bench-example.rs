@@ -8,6 +8,7 @@ extern crate test;
 extern crate html5;
 
 use std::{io, os};
+use std::default::Default;
 
 use test::black_box;
 
