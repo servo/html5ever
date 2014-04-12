@@ -6,6 +6,7 @@ use std::iter::range_inclusive;
 use std::char;
 use std::str;
 use std::str::CharRange;
+use std::slice;
 use std::slice::{Splits, Items};
 
 #[deriving(Ord, TotalEq, TotalOrd, Show)]
@@ -122,7 +123,8 @@ impl DOMString {
 
 impl Clone for DOMString {
     fn clone(&self) -> DOMString {
-        DOMString { repr: self.repr.clone() }
+        // Use the fast to_owned defined below.
+        self.as_slice().to_owned()
     }
 }
 
@@ -145,8 +147,17 @@ impl<'a> DOMSlice<'a> {
         self.repr.iter()
     }
 
+    // We can use copy_memory because u16 is Plain Old Data.
+    // This is much faster than the generic Vec<T> methods.
+    // See Rust bug #13472.
     pub fn to_owned(&self) -> DOMString {
-        DOMString { repr: self.repr.to_owned() }
+        let n = self.repr.len();
+        let mut vec = slice::with_capacity(n);
+        unsafe {
+            vec.set_len(n);
+            vec.copy_memory(self.repr);
+        }
+        DOMString { repr: vec }
     }
 
     pub fn to_string(&self) -> ~str {
