@@ -3,14 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::str::CharRange;
+use std::strbuf::StrBuf;
 use collections::deque::Deque;
 use collections::dlist::DList;
 
 struct Buffer {
     /// Byte position within the buffer.
-    pos: uint,
+    pub pos: uint,
     /// The buffer.
-    buf: ~str,
+    pub buf: StrBuf,
 }
 
 /// Either a single character or a run of "data" characters: those which
@@ -20,7 +21,7 @@ struct Buffer {
 /// normally.
 #[deriving(Eq, TotalEq, Show)]
 pub enum DataRunOrChar {
-    DataRun(~str),
+    DataRun(StrBuf),
     OneChar(char),
 }
 
@@ -41,10 +42,10 @@ fn data_span(s: &str) -> uint {
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    priv buffers: DList<Buffer>,
+    buffers: DList<Buffer>,
 
     /// Number of available characters.
-    priv available: uint,
+    available: uint,
 }
 
 impl BufferQueue {
@@ -57,7 +58,7 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the beginning of the queue.
-    pub fn push_front(&mut self, buf: ~str) {
+    pub fn push_front(&mut self, buf: StrBuf) {
         if buf.len() == 0 {
             return;
         }
@@ -71,7 +72,7 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     /// 'pos' can be non-zero to remove that many characters
     /// from the beginning.
-    pub fn push_back(&mut self, buf: ~str, pos: uint) {
+    pub fn push_back(&mut self, buf: StrBuf, pos: uint) {
         if pos >= buf.len() {
             return;
         }
@@ -88,7 +89,7 @@ impl BufferQueue {
     }
 
     /// Get multiple characters, if that many are available.
-    pub fn pop_front(&mut self, n: uint) -> Option<~str> {
+    pub fn pop_front(&mut self, n: uint) -> Option<StrBuf> {
         if !self.has(n) {
             return None;
         }
@@ -99,7 +100,7 @@ impl BufferQueue {
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
         match self.buffers.front() {
-            Some(&Buffer { pos, ref buf }) => Some(buf.char_at(pos)),
+            Some(&Buffer { pos, ref buf }) => Some(buf.as_slice().char_at(pos)),
             None => None,
         }
     }
@@ -109,17 +110,17 @@ impl BufferQueue {
     pub fn pop_data(&mut self) -> Option<DataRunOrChar> {
         let (result, now_empty) = match self.buffers.front_mut() {
             Some(&Buffer { ref mut pos, ref buf }) => {
-                let n = data_span(buf.slice_from(*pos));
+                let n = data_span(buf.as_slice().slice_from(*pos));
 
                 // If we only have one character then it's cheaper not to allocate.
                 if n > 1 {
                     let new_pos = *pos + n;
-                    let out = buf.slice(*pos, new_pos).to_owned();
+                    let out = StrBuf::from_str(buf.as_slice().slice(*pos, new_pos));
                     *pos = new_pos;
                     self.available -= n;
                     (Some(DataRun(out)), new_pos >= buf.len())
                 } else {
-                    let CharRange { ch, next } = buf.char_range_at(*pos);
+                    let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
                     *pos = next;
                     self.available -= 1;
                     (Some(OneChar(ch)), next >= buf.len())
@@ -136,7 +137,7 @@ impl BufferQueue {
     }
 
     fn account_new(&mut self, buf: &str) {
-        // FIXME: We could pass through length from the initial [u8] -> ~str
+        // FIXME: We could pass through length from the initial [u8] -> StrBuf
         // conversion, which already must re-encode or at least scan for UTF-8
         // validity.
         self.available += buf.char_len();
@@ -153,7 +154,7 @@ impl Iterator<char> for BufferQueue {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(&Buffer { ref mut pos, ref buf }) => {
-                let CharRange { ch, next } = buf.char_range_at(*pos);
+                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
                 *pos = next;
                 self.available -= 1;
                 (Some(ch), next >= buf.len())
@@ -239,7 +240,7 @@ fn can_push_truncated() {
 
 #[test]
 fn data_span_test() {
-    fn pad(s: &mut ~str, n: uint) {
+    fn pad(s: &mut StrBuf, n: uint) {
         for _ in range(0, n) {
             s.push_char('x');
         }

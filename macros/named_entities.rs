@@ -41,7 +41,10 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
     // Add every named entity to the map.
     for (k,v) in json_map.move_iter() {
         let mut decoder = json::Decoder::new(v);
-        let CharRef { codepoints }: CharRef = Decodable::decode(&mut decoder);
+        let CharRef { codepoints }: CharRef = match Decodable::decode(&mut decoder) {
+            Ok(o) => o,
+            Err(_) => return None,
+        };
 
         assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
         let mut codepoint_pair = [0, 0];
