@@ -12,10 +12,10 @@ mod data;
 
 pub struct CharRef {
     /// The resulting character(s)
-    chars: [char, ..2],
+    pub chars: [char, ..2],
 
     /// How many slots in `chars` are valid?
-    num_chars: u8,
+    pub num_chars: u8,
 }
 
 pub enum Status {
@@ -34,18 +34,18 @@ enum State {
 }
 
 pub struct CharRefTokenizer {
-    priv state: State,
-    priv addnl_allowed: Option<char>,
-    priv result: Option<CharRef>,
+    state: State,
+    addnl_allowed: Option<char>,
+    result: Option<CharRef>,
 
-    priv num: u32,
-    priv num_too_big: bool,
-    priv seen_digit: bool,
-    priv hex_marker: Option<char>,
+    num: u32,
+    num_too_big: bool,
+    seen_digit: bool,
+    hex_marker: Option<char>,
 
-    priv name_buf_opt: Option<StrBuf>,
-    priv name_match: Option<&'static [u32, ..2]>,
-    priv name_len: uint,
+    name_buf_opt: Option<StrBuf>,
+    name_match: Option<&'static [u32, ..2]>,
+    name_len: uint,
 }
 
 impl CharRefTokenizer {

@@ -48,23 +48,23 @@ fn option_push_char(opt_str: &mut Option<StrBuf>, c: char) {
 pub struct TokenizerOpts {
     /// Report all parse errors described in the spec, at some
     /// performance penalty?  Default: false
-    exact_errors: bool,
+    pub exact_errors: bool,
 
     /// Discard a U+FEFF BYTE ORDER MARK if we see one at the beginning
     /// of the stream?  Default: true
-    discard_bom: bool,
+    pub discard_bom: bool,
 
     /// Keep a record of how long we spent in each state?  Printed
     /// when end() is called.  Default: false
-    profile: bool,
+    pub profile: bool,
 
     /// Initial state override.  Only the test runner should use
     /// a non-None value!
-    initial_state: Option<states::State>,
+    pub initial_state: Option<states::State>,
 
     /// Last start tag.  Only the test runner should use a
     /// non-None value!
-    last_start_tag_name: Option<StrBuf>,
+    pub last_start_tag_name: Option<StrBuf>,
 }
 
 impl Default for TokenizerOpts {
@@ -81,66 +81,66 @@ impl Default for TokenizerOpts {
 
 pub struct Tokenizer<'sink, Sink> {
     /// Options controlling the behavior of the tokenizer.
-    priv opts: TokenizerOpts,
+    opts: TokenizerOpts,
 
     /// Destination for tokens we emit.
-    priv sink: &'sink mut Sink,
+    sink: &'sink mut Sink,
 
     /// The abstract machine state as described in the spec.
-    priv state: states::State,
+    state: states::State,
 
     /// Input ready to be tokenized.
-    priv input_buffers: BufferQueue,
+    input_buffers: BufferQueue,
 
     /// If Some(n), the abstract machine needs n available
     /// characters to continue.
-    priv wait_for: Option<uint>,
+    wait_for: Option<uint>,
 
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
-    priv at_eof: bool,
+    at_eof: bool,
 
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
-    priv char_ref_tokenizer: Option<~CharRefTokenizer>,
+    char_ref_tokenizer: Option<~CharRefTokenizer>,
 
     /// Current input character.  Just consumed, may reconsume.
-    priv current_char: char,
+    current_char: char,
 
     /// Should we reconsume the current input character?
-    priv reconsume: bool,
+    reconsume: bool,
 
     /// Did we just consume \r, translating it to \n?  In that case we need
     /// to ignore the next character if it's \n.
-    priv ignore_lf: bool,
+    ignore_lf: bool,
 
     /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
     /// beginning of the stream.
-    priv discard_bom: bool,
+    discard_bom: bool,
 
     // FIXME: The state machine guarantees the tag exists when
     // we need it, so we could eliminate the Option overhead.
     // Leaving it as Option for now, to find bugs.
     /// Current tag.
-    priv current_tag: Option<Tag>,
+    current_tag: Option<Tag>,
 
     /// Current attribute.
-    priv current_attr: Attribute,
+    current_attr: Attribute,
 
     /// Current comment.
-    priv current_comment: StrBuf,
+    current_comment: StrBuf,
 
     /// Current doctype token.
-    priv current_doctype: Doctype,
+    current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    priv last_start_tag_name: Option<StrBuf>,
+    last_start_tag_name: Option<StrBuf>,
 
     /// The "temporary buffer" mentioned in the spec.
-    priv temp_buf: StrBuf,
+    temp_buf: StrBuf,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
-    priv state_profile: HashMap<states::State, u64>,
+    state_profile: HashMap<states::State, u64>,
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
