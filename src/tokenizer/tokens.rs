@@ -8,10 +8,10 @@ use util::str::empty_str;
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Doctype {
-    name: Option<StrBuf>,
-    public_id: Option<StrBuf>,
-    system_id: Option<StrBuf>,
-    force_quirks: bool,
+    pub name: Option<StrBuf>,
+    pub public_id: Option<StrBuf>,
+    pub system_id: Option<StrBuf>,
+    pub force_quirks: bool,
 }
 
 impl Doctype {
@@ -27,8 +27,8 @@ impl Doctype {
 
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Attribute {
-    name: StrBuf,
-    value: StrBuf,
+    pub name: StrBuf,
+    pub value: StrBuf,
 }
 
 impl Attribute {
@@ -53,10 +53,10 @@ pub enum TagKind {
 
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Tag {
-    kind: TagKind,
-    name: StrBuf,
-    self_closing: bool,
-    attrs: Vec<Attribute>,
+    pub kind: TagKind,
+    pub name: StrBuf,
+    pub self_closing: bool,
+    pub attrs: Vec<Attribute>,
 }
 
 impl Tag {

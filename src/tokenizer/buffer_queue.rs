@@ -9,9 +9,9 @@ use collections::dlist::DList;
 
 struct Buffer {
     /// Byte position within the buffer.
-    pos: uint,
+    pub pos: uint,
     /// The buffer.
-    buf: StrBuf,
+    pub buf: StrBuf,
 }
 
 /// Either a single character or a run of "data" characters: those which
@@ -42,10 +42,10 @@ fn data_span(s: &str) -> uint {
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    priv buffers: DList<Buffer>,
+    buffers: DList<Buffer>,
 
     /// Number of available characters.
-    priv available: uint,
+    available: uint,
 }
 
 impl BufferQueue {
