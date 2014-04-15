@@ -18,7 +18,6 @@ use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 
-use std::str;
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
 use std::iter::AdditiveIterator;
@@ -37,10 +36,10 @@ pub trait TokenSink {
     fn process_token(&mut self, token: Token);
 }
 
-fn option_push_char(opt_str: &mut Option<~str>, c: char) {
+fn option_push_char(opt_str: &mut Option<StrBuf>, c: char) {
     match *opt_str {
         Some(ref mut s) => s.push_char(c),
-        None => *opt_str = Some(str::from_char(c)),
+        None => *opt_str = Some(StrBuf::from_char(1, c)),
     }
 }
 
@@ -65,7 +64,7 @@ pub struct TokenizerOpts {
 
     /// Last start tag.  Only the test runner should use a
     /// non-None value!
-    last_start_tag_name: Option<~str>,
+    last_start_tag_name: Option<StrBuf>,
 }
 
 impl Default for TokenizerOpts {
@@ -129,16 +128,16 @@ pub struct Tokenizer<'sink, Sink> {
     priv current_attr: Attribute,
 
     /// Current comment.
-    priv current_comment: ~str,
+    priv current_comment: StrBuf,
 
     /// Current doctype token.
     priv current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    priv last_start_tag_name: Option<~str>,
+    priv last_start_tag_name: Option<StrBuf>,
 
     /// The "temporary buffer" mentioned in the spec.
-    priv temp_buf: ~str,
+    priv temp_buf: StrBuf,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     priv state_profile: HashMap<states::State, u64>,
@@ -171,12 +170,12 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    pub fn feed(&mut self, input: ~str) {
+    pub fn feed(&mut self, input: StrBuf) {
         if input.len() == 0 {
             return;
         }
 
-        let pos = if self.discard_bom && input.char_at(0) == '\ufeff' {
+        let pos = if self.discard_bom && input.as_slice().char_at(0) == '\ufeff' {
             self.discard_bom = false;
             3  // length of BOM in UTF-8
         } else {
@@ -309,7 +308,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.sink.process_token(CharacterToken(c));
     }
 
-    fn emit_chars(&mut self, b: ~str) {
+    fn emit_chars(&mut self, b: StrBuf) {
         self.sink.process_token(MultiCharacterToken(b));
     }
 
@@ -408,7 +407,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             replace(&mut self.current_doctype, Doctype::new())));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<~str> {
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrBuf> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,
@@ -446,7 +445,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, buf: ~str) {
+    fn unconsume(&mut self, buf: StrBuf) {
         self.input_buffers.push_front(buf);
     }
 
@@ -1023,7 +1022,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         for i in range(0, num_chars) {
-            let c = chars[i];
+            let c = chars[i as uint];
             match self.state {
                 states::Data | states::RawData(states::Rcdata)
                     => go!(emit c),
@@ -1144,21 +1143,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 #[test]
 fn push_to_None_gives_singleton() {
-    let mut s: Option<~str> = None;
+    let mut s: Option<StrBuf> = None;
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some(~"x"));
 }
 
 #[test]
 fn push_to_empty_appends() {
-    let mut s: Option<~str> = Some(~"");
+    let mut s: Option<StrBuf> = Some(~"");
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some(~"x"));
 }
 
 #[test]
 fn push_to_nonempty_appends() {
-    let mut s: Option<~str> = Some(~"y");
+    let mut s: Option<StrBuf> = Some(~"y");
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some(~"yx"));
 }

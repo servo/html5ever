@@ -6,6 +6,7 @@ use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
 use std::char::{to_digit, from_u32};
+use std::strbuf::StrBuf;
 
 mod data;
 
@@ -42,7 +43,7 @@ pub struct CharRefTokenizer {
     priv seen_digit: bool,
     priv hex_marker: Option<char>,
 
-    priv name_buf_opt: Option<~str>,
+    priv name_buf_opt: Option<StrBuf>,
     priv name_match: Option<&'static [u32, ..2]>,
     priv name_len: uint,
 }
@@ -71,7 +72,7 @@ impl CharRefTokenizer {
         self.result.expect("get_result called before done")
     }
 
-    fn name_buf<'t>(&'t mut self) -> &'t mut ~str {
+    fn name_buf<'t>(&'t mut self) -> &'t mut StrBuf {
         self.name_buf_opt.as_mut()
             .expect("name_buf missing in named character reference")
     }
@@ -182,7 +183,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
-        let mut unconsume = ~"#";
+        let mut unconsume = StrBuf::from_str("#");
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
             None => (),
@@ -202,7 +203,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
             n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
             0x00 | 0xD800..0xDFFF => ('\ufffd', true),
 
-            0x80..0x9F => match data::c1_replacements[self.num - 0x80] {
+            0x80..0x9F => match data::c1_replacements[(self.num - 0x80) as uint] {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },
@@ -287,14 +288,14 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 //     &notit  => can't continue match
 
                 assert!(self.name_len > 0);
-                let last_matched = self.name_buf().char_at(self.name_len-1);
+                let last_matched = self.name_buf().as_slice().char_at(self.name_len-1);
 
                 // There might not be a next character after the match, if
                 // we had a full match and then hit EOF.
                 let next_after = if self.name_len == self.name_buf().len() {
                     None
                 } else {
-                    Some(self.name_buf().char_at(self.name_len))
+                    Some(self.name_buf().as_slice().char_at(self.name_len))
                 };
 
                 // "If the character reference is being consumed as part of an
@@ -324,7 +325,8 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(self.name_buf().slice_from(self.name_len).to_owned());
+                    tokenizer.unconsume(StrBuf::from_str(
+                        self.name_buf().as_slice().slice_from(self.name_len)));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -368,7 +370,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(~"#");
+                    tokenizer.unconsume(StrBuf::from_str("#"));
                     tokenizer.emit_error(~"EOF after '#' in character reference");
                     self.finish_none();
                 }
