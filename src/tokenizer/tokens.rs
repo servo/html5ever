@@ -2,14 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::strbuf::StrBuf;
 use util::str::empty_str;
 
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Doctype {
-    name: Option<~str>,
-    public_id: Option<~str>,
-    system_id: Option<~str>,
+    name: Option<StrBuf>,
+    public_id: Option<StrBuf>,
+    system_id: Option<StrBuf>,
     force_quirks: bool,
 }
 
@@ -26,8 +27,8 @@ impl Doctype {
 
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Attribute {
-    name: ~str,
-    value: ~str,
+    name: StrBuf,
+    value: StrBuf,
 }
 
 impl Attribute {
@@ -53,7 +54,7 @@ pub enum TagKind {
 #[deriving(Eq, TotalEq, Clone)]
 pub struct Tag {
     kind: TagKind,
-    name: ~str,
+    name: StrBuf,
     self_closing: bool,
     attrs: Vec<Attribute>,
 }
@@ -73,9 +74,9 @@ impl Tag {
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
-    CommentToken(~str),
+    CommentToken(StrBuf),
     CharacterToken(char),
-    MultiCharacterToken(~str),
+    MultiCharacterToken(StrBuf),
     EOFToken,
     ParseError(~str),
 }
