@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[crate_id="html5-macros"];
-#[crate_type="dylib"];
+#![crate_id="html5-macros"]
+#![crate_type="dylib"]
 
-#[feature(macro_rules, macro_registrar, quote, managed_boxes)];
+#![feature(macro_rules, macro_registrar, quote, managed_boxes)]
 
 extern crate syntax;
 extern crate serialize;
