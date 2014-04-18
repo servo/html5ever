@@ -23,7 +23,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: ~str,
+    input: ~[u16],
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -50,7 +50,7 @@ impl Bench {
         };
 
         Bench {
-            input: input,
+            input: input.to_utf16(),
             clone_only: clone_only,
             opts: opts,
         }
@@ -60,7 +60,7 @@ impl Bench {
 impl TDynBenchFn for Bench {
     fn run(&self, bh: &mut BenchHarness) {
         bh.iter(|| {
-            let input = self.input.clone();
+            let input = str::from_utf16(self.input.as_slice()).unwrap();
             if self.clone_only {
                 // Because the tokenizer consumes its buffers, we need
                 // to clone inside iter().  We can benchmark this
