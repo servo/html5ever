@@ -6,18 +6,19 @@
 #[crate_type="bin"];
 
 extern crate test;
+extern crate hubbub;
 
 extern crate html5;
 
 use std::os;
 use test::test_main;
 
-mod tokenizer;
+mod bench_hubbub;
 
 fn main() {
     let mut tests = Vec::new();
 
-    tests.push_all_move(tokenizer::tests());
+    tests.push_all_move(bench_hubbub::tests());
     // more to follow
 
     let args = os::args();

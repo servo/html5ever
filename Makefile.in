@@ -1,7 +1,7 @@
 VPATH := %VPATH%
 
 RUSTC ?= rustc
-RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
+RUST_DIRS := -L . -L $(VPATH)/rust-phf/build -L /home/keegan/proj/servo/servo/build.debug/x86_64-unknown-linux-gnu/src/support/hubbub/rust-hubbub -L /home/keegan/proj/servo/servo/build.debug/x86_64-unknown-linux-gnu/src/support/hubbub/libhubbub -L /home/keegan/proj/servo/servo/build.debug/x86_64-unknown-linux-gnu/src/support/libparserutils/libparserutils
 
 RUSTC_CMD := $(RUSTC) $(RUST_DIRS) $(RUSTFLAGS)
 
