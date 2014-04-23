@@ -112,7 +112,7 @@ pub fn tests() -> Vec<TestDescAndFn> {
             }
         }
 
-        for &file in ["small-fragment.html", "medium-fragment.html"].iter() {
+        for &file in ["tiny-fragment.html", "small-fragment.html", "medium-fragment.html"].iter() {
             tests.push(make_bench(file, None, false, opts.clone()));
         }
 
