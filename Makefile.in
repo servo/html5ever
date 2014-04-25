@@ -56,7 +56,10 @@ html5-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
 	$(RUSTC_CMD) $(EXT_BENCH_TOP_SRC)
 
 .PHONY: check
-check: check-internal check-external
+check: check-build check-internal check-external
+
+.PHONY: check-build
+check-build: all html5-test html5-external-test html5-external-bench
 
 .PHONY: check-internal
 check-internal: html5-test
