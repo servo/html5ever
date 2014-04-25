@@ -11,6 +11,7 @@ use serialize::json;
 use serialize::json::Json;
 use collections::treemap::TreeMap;
 
+use html5::Atom;
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
 use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
@@ -185,9 +186,12 @@ fn json_to_token(js: &Json) -> Token {
 
         ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
             kind: StartTag,
-            name: name.get_str(),
+            name: Atom::from_buf(name.get_str()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
-                Attribute { name: k.to_strbuf(), value: v.get_str() }
+                Attribute {
+                    name: Atom::from_buf(k.to_strbuf()),
+                    value: v.get_str()
+                }
             }).collect(),
             self_closing: match rest {
                 [ref b, ..] => b.get_bool(),
@@ -197,7 +201,7 @@ fn json_to_token(js: &Json) -> Token {
 
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
-            name: name.get_str(),
+            name: Atom::from_buf(name.get_str()),
             attrs: Vec::new(),
             self_closing: false
         }),
@@ -285,7 +289,7 @@ fn mk_test(desc: ~str, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: Tok
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
                 if output != expect {
-                    fail!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
+                    fail!("\ninput: {}\ngot: {}\nexpected: {}",
                         input, output, expect);
                 }
             }

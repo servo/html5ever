@@ -20,8 +20,11 @@ extern crate phf;
 extern crate collections;
 extern crate time;
 
+pub use util::atom::Atom;
+
 mod util {
     pub mod str;
+    pub mod atom;
 }
 
 pub mod tokenizer;

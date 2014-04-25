@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::strbuf::StrBuf;
-use util::str::empty_str;
+use util::atom::Atom;
 
 // FIXME: already exists in Servo DOM
-#[deriving(Eq, TotalEq, Clone)]
+#[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Doctype {
     pub name: Option<StrBuf>,
     pub public_id: Option<StrBuf>,
@@ -25,52 +25,27 @@ impl Doctype {
     }
 }
 
-#[deriving(Eq, TotalEq, Clone)]
+#[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Attribute {
-    pub name: StrBuf,
+    pub name: Atom,
     pub value: StrBuf,
 }
 
-impl Attribute {
-    pub fn new() -> Attribute {
-        Attribute {
-            name: empty_str(),
-            value: empty_str(),
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.name.truncate(0);
-        self.value.truncate(0);
-    }
-}
-
-#[deriving(Eq, TotalEq, Clone)]
+#[deriving(Eq, TotalEq, Clone, Show)]
 pub enum TagKind {
     StartTag,
     EndTag,
 }
 
-#[deriving(Eq, TotalEq, Clone)]
+#[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Tag {
     pub kind: TagKind,
-    pub name: StrBuf,
+    pub name: Atom,
     pub self_closing: bool,
     pub attrs: Vec<Attribute>,
 }
 
-impl Tag {
-    pub fn new(kind: TagKind) -> Tag {
-        Tag {
-            kind: kind,
-            name: empty_str(),
-            self_closing: false,
-            attrs: Vec::new(),
-        }
-    }
-}
-
-#[deriving(Eq, TotalEq, Clone)]
+#[deriving(Eq, TotalEq, Clone, Show)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),

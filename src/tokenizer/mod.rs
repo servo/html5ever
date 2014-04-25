@@ -17,6 +17,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
+use util::atom::Atom;
 
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
@@ -118,14 +119,23 @@ pub struct Tokenizer<'sink, Sink> {
     /// beginning of the stream.
     discard_bom: bool,
 
-    // FIXME: The state machine guarantees the tag exists when
-    // we need it, so we could eliminate the Option overhead.
-    // Leaving it as Option for now, to find bugs.
-    /// Current tag.
-    current_tag: Option<Tag>,
+    /// Current tag kind.
+    current_tag_kind: TagKind,
 
-    /// Current attribute.
-    current_attr: Attribute,
+    /// Current tag name.
+    current_tag_name: StrBuf,
+
+    /// Current tag is self-closing?
+    current_tag_self_closing: bool,
+
+    /// Current tag attributes.
+    current_tag_attrs: Vec<Attribute>,
+
+    /// Current attribute name.
+    current_attr_name: StrBuf,
+
+    /// Current attribute value.
+    current_attr_value: StrBuf,
 
     /// Current comment.
     current_comment: StrBuf,
@@ -160,8 +170,12 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             reconsume: false,
             ignore_lf: false,
             discard_bom: discard_bom,
-            current_tag: None,
-            current_attr: Attribute::new(),
+            current_tag_kind: StartTag,
+            current_tag_name: empty_str(),
+            current_tag_self_closing: false,
+            current_tag_attrs: Vec::new(),
+            current_attr_name: empty_str(),
+            current_attr_value: empty_str(),
             current_comment: empty_str(),
             current_doctype: Doctype::new(),
             last_start_tag_name: start_tag_name,
@@ -315,22 +329,26 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
-        let tag = self.current_tag.take().unwrap();
-        match tag.kind {
+        match self.current_tag_kind {
             StartTag => {
-                self.last_start_tag_name = Some(tag.name.clone());
+                self.last_start_tag_name = Some(self.current_tag_name.clone());
             }
             EndTag => {
-                if !tag.attrs.is_empty() {
+                if !self.current_tag_attrs.is_empty() {
                     self.emit_error(~"Attributes on an end tag");
                 }
-                if tag.self_closing {
+                if self.current_tag_self_closing {
                     self.emit_error(~"Self-closing end tag");
                 }
             }
         }
 
-        self.sink.process_token(TagToken(tag));
+        self.sink.process_token(TagToken(Tag {
+            kind: self.current_tag_kind,
+            name: Atom::take_from_buf(&mut self.current_tag_name),
+            self_closing: self.current_tag_self_closing,
+            attrs: replace(&mut self.current_tag_attrs, Vec::new()),
+        }));
     }
 
     fn emit_temp_buf(&mut self) {
@@ -349,39 +367,36 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             replace(&mut self.current_comment, empty_str())));
     }
 
+
+    fn discard_tag(&mut self) {
+        self.current_tag_name = StrBuf::new();
+        self.current_tag_self_closing = false;
+        self.current_tag_attrs = Vec::new();
+    }
+
     fn create_tag(&mut self, kind: TagKind, c: char) {
-        assert!(self.current_tag.is_none());
-        let mut t = Tag::new(kind);
-        t.name.push_char(c);
-        self.current_tag = Some(t);
-    }
-
-    fn tag<'t>(&'t self) -> &'t Tag {
-        // Only use this from places where the state machine guarantees we have a tag
-        self.current_tag.get_ref()
-    }
-
-    fn tag_mut<'t>(&'t mut self) -> &'t mut Tag {
-        self.current_tag.get_mut_ref()
+        self.discard_tag();
+        self.current_tag_name.push_char(c);
+        self.current_tag_kind = kind;
     }
 
     fn have_appropriate_end_tag(&self) -> bool {
-        match (self.last_start_tag_name.as_ref(), self.current_tag.as_ref()) {
-            (Some(last), Some(tag)) =>
-                (tag.kind == EndTag) && (tag.name.as_slice() == last.as_slice()),
-            _ => false
+        match self.last_start_tag_name.as_ref() {
+            Some(last) =>
+                (self.current_tag_kind == EndTag)
+                && (self.current_tag_name.as_slice() == last.as_slice()),
+            None => false,
         }
     }
 
     fn create_attribute(&mut self, c: char) {
         self.finish_attribute();
 
-        let attr = &mut self.current_attr;
-        attr.name.push_char(c);
+        self.current_attr_name.push_char(c);
     }
 
     fn finish_attribute(&mut self) {
-        if self.current_attr.name.len() == 0 {
+        if self.current_attr_name.len() == 0 {
             return;
         }
 
@@ -389,16 +404,19 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         // FIXME: the spec says we should error as soon as the name is finished.
         // FIXME: linear time search, do we care?
         let dup = {
-            let name = self.current_attr.name.as_slice();
-            self.tag().attrs.iter().any(|a| a.name.as_slice() == name)
+            let name = self.current_attr_name.as_slice();
+            self.current_tag_attrs.iter().any(|a| a.name.as_slice() == name)
         };
 
         if dup {
             self.emit_error(~"Duplicate attribute");
-            self.current_attr.clear();
+            self.current_attr_name.truncate(0);
+            self.current_attr_value.truncate(0);
         } else {
-            let attr = replace(&mut self.current_attr, Attribute::new());
-            self.tag_mut().attrs.push(attr);
+            self.current_tag_attrs.push(Attribute {
+                name: Atom::take_from_buf(&mut self.current_attr_name),
+                value: replace(&mut self.current_attr_value, empty_str()),
+            });
         }
     }
 
@@ -458,15 +476,15 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 macro_rules! shorthand (
     ( emit $c:expr                    ) => ( self.emit_char($c);                                   );
     ( create_tag $kind:expr $c:expr   ) => ( self.create_tag($kind, $c);                           );
-    ( push_tag $c:expr                ) => ( self.tag_mut().name.push_char($c);                    );
+    ( push_tag $c:expr                ) => ( self.current_tag_name.push_char($c);                  );
     ( emit_tag                        ) => ( self.emit_current_tag();                              );
-    ( discard_tag                     ) => ( self.current_tag = None;                              );
+    ( discard_tag                     ) => ( self.discard_tag();                                   );
     ( push_temp $c:expr               ) => ( self.temp_buf.push_char($c);                          );
     ( emit_temp                       ) => ( self.emit_temp_buf();                                 );
     ( clear_temp                      ) => ( self.clear_temp_buf();                                );
     ( create_attr $c:expr             ) => ( self.create_attribute($c);                            );
-    ( push_name $c:expr               ) => ( self.current_attr.name.push_char($c);                 );
-    ( push_value $c:expr              ) => ( self.current_attr.value.push_char($c);                );
+    ( push_name $c:expr               ) => ( self.current_attr_name.push_char($c);                 );
+    ( push_value $c:expr              ) => ( self.current_attr_value.push_char($c);                );
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
     ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
@@ -833,7 +851,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             states::SelfClosingStartTag => loop { match get_char!() {
                 '>' => {
-                    self.tag_mut().self_closing = true;
+                    self.current_tag_self_closing = true;
                     go!(emit_tag; to Data);
                 }
                 _ => go!(error; reconsume BeforeAttributeName),
