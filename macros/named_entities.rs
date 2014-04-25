@@ -12,7 +12,7 @@ use collections::hashmap::HashMap;
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TTTok};
 use syntax::parse::token::{get_ident, LIT_STR};
-use syntax::ext::base::{ExtCtxt, MacResult, MRExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::ext::source_util::expand_file;
 
 macro_rules! expect ( ($e:expr, $err:expr) => (
@@ -41,10 +41,8 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
     // Add every named entity to the map.
     for (k,v) in json_map.move_iter() {
         let mut decoder = json::Decoder::new(v);
-        let CharRef { codepoints }: CharRef = match Decodable::decode(&mut decoder) {
-            Ok(o) => o,
-            Err(_) => return None,
-        };
+        let CharRef { codepoints }: CharRef
+            = Decodable::decode(&mut decoder).ok().expect("bad CharRef");
 
         assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
         let mut codepoint_pair = [0, 0];
@@ -73,7 +71,7 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
 }
 
 // Expand named_entities!("path/to/entities.json") into an invocation of phf_map!().
-pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> MacResult {
+pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> ~MacResult {
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
@@ -83,8 +81,8 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> MacResult {
 
     // Get the result of calling file!() in the same place as our macro.
     // This would be a lot nicer if @-patterns were still supported.
-    let mod_filename = expect!(match expand_file(cx, sp, &[]) {
-        MRExpr(e) => match e.node {
+    let mod_filename = expect!(match expand_file(cx, sp, &[]).make_expr() {
+        Some(e) => match e.node {
             ExprLit(s) => match s.node {
                 LitStr(ref s, _) => Some(s.get().to_owned()),
                 _ => None,
@@ -110,5 +108,5 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> MacResult {
     for (k, [c1, c2]) in map.move_iter() {
         tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c1, $c2],));
     }
-    MRExpr(quote_expr!(&mut *cx, phf_map!($tts)))
+    MacExpr::new(quote_expr!(&mut *cx, phf_map!($tts)))
 }
