@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{io, os, str};
+use std::{io, os};
 use std::default::Default;
 
-use test::{black_box, BenchHarness, TestDesc, TestDescAndFn};
+use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
@@ -23,7 +23,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: ~str,
+    input: StrBuf,
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -38,10 +38,10 @@ impl Bench {
         let file_input = file.read_to_str().ok().expect("can't read file");
 
         let input = match size {
-            None => file_input,
+            None => file_input.into_strbuf(),
             Some(size) => {
                 // Replicate the input in memory up to the desired size.
-                let mut input = str::with_capacity(size);
+                let mut input = StrBuf::with_capacity(size);
                 while input.len() < size {
                     input.push_str(file_input);
                 }
@@ -58,7 +58,7 @@ impl Bench {
 }
 
 impl TDynBenchFn for Bench {
-    fn run(&self, bh: &mut BenchHarness) {
+    fn run(&self, bh: &mut Bencher) {
         bh.iter(|| {
             let input = self.input.clone();
             if self.clone_only {

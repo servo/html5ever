@@ -177,7 +177,7 @@ fn smoke_test() {
     assert_eq!(bq.peek(), None);
     assert_eq!(bq.next(), None);
 
-    bq.push_back(~"abc", 0);
+    bq.push_back(StrBuf::from_str("abc"), 0);
     assert_eq!(bq.has(1), true);
     assert_eq!(bq.has(3), true);
     assert_eq!(bq.has(4), false);
@@ -196,9 +196,9 @@ fn smoke_test() {
 #[test]
 fn can_pop_front() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 0);
+    bq.push_back(StrBuf::from_str("abc"), 0);
 
-    assert_eq!(bq.pop_front(2), Some(~"ab"));
+    assert_eq!(bq.pop_front(2), Some(StrBuf::from_str("ab")));
     assert_eq!(bq.peek(), Some('c'));
     assert_eq!(bq.pop_front(2), None);
     assert_eq!(bq.next(), Some('c'));
@@ -208,10 +208,10 @@ fn can_pop_front() {
 #[test]
 fn can_unconsume() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 0);
+    bq.push_back(StrBuf::from_str("abc"), 0);
     assert_eq!(bq.next(), Some('a'));
 
-    bq.push_front(~"xy");
+    bq.push_front(StrBuf::from_str("xy"));
     assert_eq!(bq.next(), Some('x'));
     assert_eq!(bq.next(), Some('y'));
     assert_eq!(bq.next(), Some('b'));
@@ -222,17 +222,17 @@ fn can_unconsume() {
 #[test]
 fn can_pop_data() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc\0def", 0);
-    assert_eq!(bq.pop_data(), Some(DataRun(~"abc")));
+    bq.push_back(StrBuf::from_str("abc\0def"), 0);
+    assert_eq!(bq.pop_data(), Some(DataRun(StrBuf::from_str("abc"))));
     assert_eq!(bq.pop_data(), Some(OneChar('\0')));
-    assert_eq!(bq.pop_data(), Some(DataRun(~"def")));
+    assert_eq!(bq.pop_data(), Some(DataRun(StrBuf::from_str("def"))));
     assert_eq!(bq.pop_data(), None);
 }
 
 #[test]
 fn can_push_truncated() {
     let mut bq = BufferQueue::new();
-    bq.push_back(~"abc", 1);
+    bq.push_back(StrBuf::from_str("abc"), 1);
     assert_eq!(bq.next(), Some('b'));
     assert_eq!(bq.next(), Some('c'));
     assert_eq!(bq.next(), None);
@@ -249,7 +249,7 @@ fn data_span_test() {
     for &c in ['&', '\0'].iter() {
         for x in range(0, 48u) {
             for y in range(0, 48u) {
-                let mut s = ~"";
+                let mut s = StrBuf::new();
                 pad(&mut s, x);
                 s.push_char(c);
                 pad(&mut s, y);
