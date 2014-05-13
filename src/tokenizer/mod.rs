@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub use self::tokens::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
-pub use self::tokens::{DoctypeToken, TagToken, CommentToken};
-pub use self::tokens::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
+pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
+pub use self::interface::{DoctypeToken, TagToken, CommentToken};
+pub use self::interface::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
+pub use self::interface::TokenSink;
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
@@ -29,13 +30,9 @@ use time::precise_time_ns;
 use collections::hashmap::HashMap;
 
 pub mod states;
-mod tokens;
+mod interface;
 mod char_ref;
 mod buffer_queue;
-
-pub trait TokenSink {
-    fn process_token(&mut self, token: Token);
-}
 
 fn option_push_char(opt_str: &mut Option<StrBuf>, c: char) {
     match *opt_str {

@@ -55,3 +55,7 @@ pub enum Token {
     EOFToken,
     ParseError(~str),
 }
+
+pub trait TokenSink {
+    fn process_token(&mut self, token: Token);
+}
