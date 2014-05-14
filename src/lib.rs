@@ -21,10 +21,12 @@ extern crate collections;
 extern crate time;
 
 pub use util::atom::Atom;
+pub use util::namespace::Namespace;
 
 mod util {
     pub mod str;
     pub mod atom;
+    pub mod namespace;
 }
 
 pub mod tokenizer;
