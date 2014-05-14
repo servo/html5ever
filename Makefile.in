@@ -3,7 +3,7 @@ VPATH := %VPATH%
 RUSTC ?= rustc
 RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
 
-RUSTC_CMD := $(RUSTC) $(RUST_DIRS) $(RUSTFLAGS)
+RUSTC_CMD := $(RUSTC) -D warnings $(RUST_DIRS) $(RUSTFLAGS)
 
 PHF_DUMMY := rust-phf.dummy
 PHF_ALL_SRC := $(shell find $(VPATH)/rust-phf -type f -name '*.rs')
