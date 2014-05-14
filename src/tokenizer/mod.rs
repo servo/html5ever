@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag, Token};
-pub use self::interface::{DoctypeToken, TagToken, CommentToken};
+pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
+pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
 pub use self::interface::TokenSink;
 
@@ -411,7 +411,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self.current_attr_value.truncate(0);
         } else {
             self.current_tag_attrs.push(Attribute {
-                name: Atom::take_from_buf(&mut self.current_attr_name),
+                name: AttrName::new(Atom::take_from_buf(&mut self.current_attr_name)),
                 value: replace(&mut self.current_attr_value, empty_str()),
             });
         }

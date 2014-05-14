@@ -12,8 +12,8 @@ use serialize::json::Json;
 use collections::treemap::TreeMap;
 
 use html5::Atom;
-use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, Token};
-use html5::tokenizer::{DoctypeToken, TagToken, CommentToken};
+use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
+use html5::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
@@ -193,7 +193,7 @@ fn json_to_token(js: &Json) -> Token {
             name: Atom::from_buf(name.get_str()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: Atom::from_buf(k.to_strbuf()),
+                    name: AttrName::new(Atom::from_buf(k.to_strbuf())),
                     value: v.get_str()
                 }
             }).collect(),

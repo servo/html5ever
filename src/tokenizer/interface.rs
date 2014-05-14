@@ -25,9 +25,29 @@ impl Doctype {
     }
 }
 
+/// Attribute name; will eventually support namespaces.
+#[deriving(Eq, TotalEq, Ord, TotalOrd, Clone, Show)]
+pub struct AttrName {
+    name: Atom,
+}
+
+impl AttrName {
+    pub fn new(name: Atom) -> AttrName {
+        AttrName {
+            name: name,
+        }
+    }
+}
+
+impl Str for AttrName {
+    fn as_slice<'t>(&'t self) -> &'t str {
+        self.name.as_slice()
+    }
+}
+
 #[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Attribute {
-    pub name: Atom,
+    pub name: AttrName,
     pub value: StrBuf,
 }
 
