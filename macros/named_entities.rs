@@ -56,7 +56,7 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.
-    map.insert(~"", [0, 0]);
+    map.insert("".to_owned(), [0, 0]);
     let keys: Vec<~str> = map.keys().map(|k| k.to_owned()).collect();
     for k in keys.move_iter() {
         for n in range(1, k.len()) {
@@ -71,7 +71,7 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
 }
 
 // Expand named_entities!("path/to/entities.json") into an invocation of phf_map!().
-pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> ~MacResult {
+pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {

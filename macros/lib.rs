@@ -36,8 +36,8 @@ macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
 // NB: This needs to be public or we get a linker error.
 #[macro_registrar]
 pub fn macro_registrar(register: |Name, SyntaxExtension|) {
-    register(token::intern(&"named_entities"),
-        NormalTT(~BasicMacroExpander {
+    register(token::intern("named_entities"),
+        NormalTT(box BasicMacroExpander {
             expander: named_entities::expand,
             span: None
         },

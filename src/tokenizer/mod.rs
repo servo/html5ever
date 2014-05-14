@@ -100,7 +100,7 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
-    char_ref_tokenizer: Option<~CharRefTokenizer>,
+    char_ref_tokenizer: Option<Box<CharRefTokenizer>>,
 
     /// Current input character.  Just consumed, may reconsume.
     current_char: char,
@@ -332,10 +332,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error(~"Attributes on an end tag");
+                    self.emit_error("Attributes on an end tag".to_owned());
                 }
                 if self.current_tag_self_closing {
-                    self.emit_error(~"Self-closing end tag");
+                    self.emit_error("Self-closing end tag".to_owned());
                 }
             }
         }
@@ -406,7 +406,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         };
 
         if dup {
-            self.emit_error(~"Duplicate attribute");
+            self.emit_error("Duplicate attribute".to_owned());
             self.current_attr_name.truncate(0);
             self.current_attr_value.truncate(0);
         } else {
@@ -440,7 +440,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
         // NB: The char ref tokenizer assumes we have an additional allowed
         // character iff we're tokenizing in an attribute value.
-        self.char_ref_tokenizer = Some(~CharRefTokenizer::new(addnl_allowed));
+        self.char_ref_tokenizer = Some(box CharRefTokenizer::new(addnl_allowed));
     }
 
     fn emit_eof(&mut self) {

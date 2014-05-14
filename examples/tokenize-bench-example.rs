@@ -28,7 +28,7 @@ impl TokenSink for Sink {
 fn main() {
     let mut path = os::self_exe_path().expect("can't get exe path");
     path.push("../data/bench/");
-    path.push(os::args()[1]);
+    path.push(os::args().get(1).as_slice());
 
     let mut file = io::File::open(&path).ok().expect("can't open file");
     let file_input = StrBuf::from_owned_str(file.read_to_str().ok().expect("can't read file"));

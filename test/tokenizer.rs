@@ -83,7 +83,7 @@ impl TokenSink for TokenLogger {
             }
 
             ParseError(_) => if self.exact_errors {
-                self.push(ParseError(~""));
+                self.push(ParseError("".to_owned()));
             },
 
             TagToken(mut t) => {
@@ -125,7 +125,7 @@ trait JsonExt {
     fn get_nullable_str(&self) -> Option<StrBuf>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t TreeMap<~str, Self>;
-    fn get_list<'t>(&'t self) -> &'t ~[Self];
+    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
@@ -159,7 +159,7 @@ impl JsonExt for Json {
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t ~[Json] {
+    fn get_list<'t>(&'t self) -> &'t Vec<Json> {
         match *self {
             json::List(ref m) => m,
             _ => fail!("Json::get_list: not a List"),
@@ -176,7 +176,7 @@ fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts.slice_from(1).iter().collect();
-    match (parts[0].get_str().as_slice(), args.as_slice()) {
+    match (parts.get(0).get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
             name: name.get_nullable_str(),
             public_id: public_id.get_nullable_str(),
@@ -222,7 +222,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             json::String(ref s)
-                if s.as_slice() == "ParseError" => sink.process_token(ParseError(~"")),
+                if s.as_slice() == "ParseError" => sink.process_token(ParseError("".to_owned())),
             _ => sink.process_token(json_to_token(tok)),
         }
     }
@@ -263,7 +263,7 @@ fn unescape_json(js: &Json) -> Json {
         json::String(ref s) => json::String(unescape(s.as_slice()).unwrap().into_owned()),
         json::List(ref xs) => json::List(xs.iter().map(unescape_json).collect()),
         json::Object(ref obj) => {
-            let mut new_obj = ~TreeMap::new();
+            let mut new_obj = box TreeMap::new();
             for (k,v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
             }
@@ -299,14 +299,14 @@ fn mk_test(desc: ~str, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: Tok
 
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find(&~"input").unwrap().get_str();
-    let mut expect = js.find(&~"output").unwrap().clone();
+    let mut input = js.find(&"input".to_owned()).unwrap().get_str();
+    let mut expect = js.find(&"output".to_owned()).unwrap().clone();
     let desc = format!("{:s}: {:s}",
-        path_str, js.find(&~"description").unwrap().get_str());
+        path_str, js.find(&"description".to_owned()).unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
-    if obj.find(&~"doubleEscaped").map_or(false, |j| j.get_bool()) {
+    if obj.find(&"doubleEscaped".to_owned()).map_or(false, |j| j.get_bool()) {
         match unescape(input.as_slice()) {
             None => return,
             Some(i) => input = i,
@@ -318,10 +318,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let insplits = splits(input.as_slice(), 3);
 
     // Some tests have a last start tag name.
-    let start_tag = obj.find(&~"lastStartTag").map(|s| s.get_str());
+    let start_tag = obj.find(&"lastStartTag".to_owned()).map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    let state_overrides = match obj.find(&~"initialStates") {
+    let state_overrides = match obj.find(&"initialStates".to_owned()) {
         Some(&json::List(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
@@ -375,7 +375,7 @@ pub fn tests() -> Vec<TestDescAndFn> {
         let js = json::from_reader(&mut file as &mut Reader)
             .ok().expect("json parse error");
 
-        match js.get_obj().find(&~"tests") {
+        match js.get_obj().find(&"tests".to_owned()) {
             Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);

@@ -177,7 +177,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => tokenizer.discard_char(),
-            _   => tokenizer.emit_error(~"Semicolon missing after numeric character reference"),
+            _   => tokenizer.emit_error("Semicolon missing after numeric character reference".to_owned()),
         };
         self.finish_numeric(tokenizer)
     }
@@ -190,7 +190,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
 
         tokenizer.unconsume(unconsume);
-        tokenizer.emit_error(~"Numeric character reference without digits");
+        tokenizer.emit_error("Numeric character reference without digits".to_owned());
         self.finish_none()
     }
 
@@ -311,12 +311,12 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
                     (_, ';', _) => false,
                     (Some(_), _, Some('=')) => {
-                        tokenizer.emit_error(~"Equals sign after character reference in attribute");
+                        tokenizer.emit_error("Equals sign after character reference in attribute".to_owned());
                         true
                     }
                     (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
                     _ => {
-                        tokenizer.emit_error(~"Character reference does not end with semicolon");
+                        tokenizer.emit_error("Character reference does not end with semicolon".to_owned());
                         false
                     }
                 };
@@ -358,7 +358,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                     => drop(self.unconsume_numeric(tokenizer)),
 
                 Numeric(_) | NumericSemicolon => {
-                    tokenizer.emit_error(~"EOF in numeric character reference");
+                    tokenizer.emit_error("EOF in numeric character reference".to_owned());
                     self.finish_numeric(tokenizer);
                 }
 
@@ -371,7 +371,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
                 Octothorpe => {
                     tokenizer.unconsume(StrBuf::from_str("#"));
-                    tokenizer.emit_error(~"EOF after '#' in character reference");
+                    tokenizer.emit_error("EOF after '#' in character reference".to_owned());
                     self.finish_none();
                 }
             }

@@ -81,16 +81,16 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
     TestDescAndFn {
         desc: TestDesc {
             name: DynTestName([
-                ~"tokenize ",
+                "tokenize ".to_owned(),
                 name.to_owned(),
-                size.map_or(~"", |s| format!(" size {:7u}", s)),
-                if clone_only { ~" (clone only)" } else { ~"" },
-                if opts.exact_errors { ~" (exact errors)" } else { ~"" },
+                size.map_or("".to_owned(), |s| format!(" size {:7u}", s)),
+                (if clone_only { " (clone only)" } else { "" }).to_owned(),
+                (if opts.exact_errors { " (exact errors)" } else { "" }).to_owned(),
             ].concat()),
             ignore: false,
             should_fail: false,
         },
-        testfn: DynBenchFn(~Bench::new(name, size, clone_only, opts)),
+        testfn: DynBenchFn(box Bench::new(name, size, clone_only, opts)),
     }
 }
 
@@ -119,7 +119,7 @@ pub fn tests() -> Vec<TestDescAndFn> {
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
             for &file in ["webapps.html", "sina.com.cn.html", "wikipedia.html"].iter() {
-                let name: ~str = (~"uncommitted/").append(file);
+                let name = "uncommitted/".to_owned().append(file);
                 tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
         }

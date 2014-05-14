@@ -62,7 +62,9 @@ impl Str for Atom {
             Owned(ref s) => s.as_slice(),
         }
     }
+}
 
+impl StrAllocating for Atom {
     fn into_owned(self) -> ~str {
         match self {
             Static(s) => s.into_owned(),
@@ -139,9 +141,9 @@ fn as_slice() {
 
 #[test]
 fn into_owned() {
-    assert_eq!(Atom::from_str("").into_owned(), ~"");
-    assert_eq!(Atom::from_str("body").into_owned(), ~"body");
-    assert_eq!(Atom::from_str("asdfghjk").into_owned(), ~"asdfghjk");
+    assert_eq!(Atom::from_str("").into_owned(), "".to_owned());
+    assert_eq!(Atom::from_str("body").into_owned(), "body".to_owned());
+    assert_eq!(Atom::from_str("asdfghjk").into_owned(), "asdfghjk".to_owned());
 }
 
 #[test]
