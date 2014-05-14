@@ -12,14 +12,19 @@ extern crate collections;
 extern crate html5;
 
 use std::os;
+use std::from_str::FromStr;
 use test::test_main;
 
 mod tokenizer;
 
 fn main() {
+    let src_dir: Path = FromStr::from_str(
+        os::getenv("HTML5_SRC_DIR").expect("HTML5_SRC_DIR not set")
+    ).expect("HTML5_SRC_DIR invalid");
+
     let mut tests = Vec::new();
 
-    tests.push_all_move(tokenizer::tests());
+    tests.push_all_move(tokenizer::tests(src_dir));
     // more to follow
 
     let args = os::args();

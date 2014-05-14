@@ -5,7 +5,7 @@
 use std::{io, num, char};
 use std::mem::replace;
 use std::default::Default;
-use std::from_str::FromStr;
+use std::path::Path;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use serialize::json;
 use serialize::json::Json;
@@ -361,10 +361,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     }
 }
 
-pub fn tests() -> Vec<TestDescAndFn> {
+pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
     let mut tests = Vec::new();
 
-    let test_dir_path = FromStr::from_str("test-json/tokenizer").unwrap();
+    let test_dir_path = src_dir.join("html5lib-tests/tokenizer");
     let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");
 
     for path in test_files.move_iter() {

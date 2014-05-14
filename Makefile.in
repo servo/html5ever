@@ -22,8 +22,6 @@ EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
 EXT_BENCH_TOP_SRC := $(VPATH)/bench/lib.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
-TEST_JSON_SRC := $(shell find $(VPATH)/html5lib-tests/ -type f -name '*.test')
-
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
 
 .PHONY: all
@@ -54,17 +52,12 @@ tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
 tokenize-bench-example: $(VPATH)/examples/tokenize-bench-example.rs $(LIB)
 	$(RUSTC_CMD) $<
 
-# Workaround for mozilla/rust#13064; see preprocess-tests.py
-test-json/tokenizer: submodules $(TEST_JSON_SRC) $(VPATH)/scripts/preprocess-tests.py
-	mkdir -p $@
-	$(VPATH)/scripts/preprocess-tests.py $(VPATH)/html5lib-tests $@
-
 # Run #[test] functions
 html5-test: $(LIB_DEPS)
 	$(RUSTC_CMD) -o $@ --test $(LIB_TOP_SRC)
 
 # Run external tests loaded from JSON
-html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB) test-json/tokenizer
+html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
 	$(RUSTC_CMD) $(EXT_TEST_TOP_SRC)
 
 # Run benchmarks
@@ -83,7 +76,7 @@ check-internal: html5-test
 
 .PHONY: check-external
 check-external: html5-external-test
-	./html5-external-test
+	HTML5_SRC_DIR=$(VPATH) ./html5-external-test
 
 METRICS ?= metrics.json
 
@@ -94,4 +87,3 @@ bench: html5-external-bench
 .PHONY: clean
 clean:
 	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench *-example
-	rm -rf test-json

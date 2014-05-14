@@ -20,4 +20,4 @@ pub static c1_replacements: [Option<char>, ..32] = [
 
 // The named_entities! macro is defined in html5/macros/named_entities.rs.
 pub static named_entities: PhfMap<[u32, ..2]>
-    = named_entities!("../../../data/entities.pp.json");
+    = named_entities!("../../../data/entities.json");
