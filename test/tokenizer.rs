@@ -69,6 +69,11 @@ impl TokenLogger {
             self.tokens.push(MultiCharacterToken(s));
         }
     }
+
+    fn get_tokens(mut self) -> Vec<Token> {
+        self.finish_str();
+        self.tokens
+    }
 }
 
 impl TokenSink for TokenLogger {
@@ -116,8 +121,7 @@ fn tokenize(input: Vec<StrBuf>, opts: TokenizerOpts) -> Vec<Token> {
         }
         tok.end();
     }
-    sink.finish_str();
-    sink.tokens
+    sink.get_tokens()
 }
 
 trait JsonExt {
@@ -226,8 +230,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
             _ => sink.process_token(json_to_token(tok)),
         }
     }
-    sink.finish_str();
-    sink.tokens
+    sink.get_tokens()
 }
 
 // Undo the escaping in "doubleEscaped" tests.
