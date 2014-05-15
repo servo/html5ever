@@ -25,7 +25,7 @@ EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
 
 .PHONY: all
-all: $(LIB) tokenize-example tokenize-bench-example
+all: $(LIB) tokenize-example tokenize-bench-example tree-print-example
 
 .PHONY: submodules
 submodules:
@@ -50,6 +50,9 @@ tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
 	$(RUSTC_CMD) $<
 
 tokenize-bench-example: $(VPATH)/examples/tokenize-bench-example.rs $(LIB)
+	$(RUSTC_CMD) $<
+
+tree-print-example: $(VPATH)/examples/tree-print-example.rs $(LIB)
 	$(RUSTC_CMD) $<
 
 # Run #[test] functions
