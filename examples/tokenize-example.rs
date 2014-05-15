@@ -7,7 +7,6 @@ extern crate html5;
 use std::io;
 use std::char;
 use std::default::Default;
-use std::strbuf::StrBuf;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
 use html5::tokenizer::{CharacterToken, MultiCharacterToken, TagToken, StartTag, EndTag};
@@ -79,7 +78,7 @@ fn main() {
             profile: true,
             .. Default::default()
         });
-        tok.feed(StrBuf::from_owned_str(io::stdin().read_to_str().unwrap()));
+        tok.feed(io::stdin().read_to_str().unwrap().into_strbuf());
         tok.end();
     }
     sink.is_char(false);

@@ -1160,19 +1160,19 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 fn push_to_None_gives_singleton() {
     let mut s: Option<StrBuf> = None;
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(StrBuf::from_str("x")));
+    assert_eq!(s, Some("x".to_strbuf()));
 }
 
 #[test]
 fn push_to_empty_appends() {
     let mut s: Option<StrBuf> = Some(StrBuf::new());
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(StrBuf::from_str("x")));
+    assert_eq!(s, Some("x".to_strbuf()));
 }
 
 #[test]
 fn push_to_nonempty_appends() {
-    let mut s: Option<StrBuf> = Some(StrBuf::from_str("y"));
+    let mut s: Option<StrBuf> = Some("y".to_strbuf());
     option_push_char(&mut s, 'x');
-    assert_eq!(s, Some(StrBuf::from_str("yx")));
+    assert_eq!(s, Some("yx".to_strbuf()));
 }

@@ -148,32 +148,32 @@ fn into_owned() {
 
 #[test]
 fn to_strbuf() {
-    assert_eq!(Atom::from_str("").to_strbuf(), StrBuf::from_str(""));
-    assert_eq!(Atom::from_str("body").to_strbuf(), StrBuf::from_str("body"));
-    assert_eq!(Atom::from_str("asdfghjk").to_strbuf(), StrBuf::from_str("asdfghjk"));
+    assert_eq!(Atom::from_str("").to_strbuf(), "".to_strbuf());
+    assert_eq!(Atom::from_str("body").to_strbuf(), "body".to_strbuf());
+    assert_eq!(Atom::from_str("asdfghjk").to_strbuf(), "asdfghjk".to_strbuf());
 }
 
 #[test]
 fn into_strbuf() {
-    assert_eq!(Atom::from_str("").into_strbuf(), StrBuf::from_str(""));
-    assert_eq!(Atom::from_str("body").into_strbuf(), StrBuf::from_str("body"));
-    assert_eq!(Atom::from_str("asdfghjk").into_strbuf(), StrBuf::from_str("asdfghjk"));
+    assert_eq!(Atom::from_str("").into_strbuf(), "".to_strbuf());
+    assert_eq!(Atom::from_str("body").into_strbuf(), "body".to_strbuf());
+    assert_eq!(Atom::from_str("asdfghjk").into_strbuf(), "asdfghjk".to_strbuf());
 }
 
 #[test]
 fn equality() {
     // Equality between interned and non-interned atoms
-    assert!(Atom::from_str("body") == Owned(StrBuf::from_str("body")));
-    assert!(Owned(StrBuf::from_str("body")) == Atom::from_str("body"));
-    assert!(Atom::from_str("body") != Owned(StrBuf::from_str("asdfghjk")));
-    assert!(Owned(StrBuf::from_str("asdfghjk")) != Atom::from_str("body"));
-    assert!(Atom::from_str("asdfghjk") != Owned(StrBuf::from_str("body")));
-    assert!(Owned(StrBuf::from_str("body")) != Atom::from_str("asdfghjk"));
+    assert!(Atom::from_str("body") == Owned("body".to_strbuf()));
+    assert!(Owned("body".to_strbuf()) == Atom::from_str("body"));
+    assert!(Atom::from_str("body") != Owned("asdfghjk".to_strbuf()));
+    assert!(Owned("asdfghjk".to_strbuf()) != Atom::from_str("body"));
+    assert!(Atom::from_str("asdfghjk") != Owned("body".to_strbuf()));
+    assert!(Owned("body".to_strbuf()) != Atom::from_str("asdfghjk"));
 }
 
 #[test]
 fn take_from_buf_interned() {
-    let mut b = StrBuf::from_str("body");
+    let mut b = "body".to_strbuf();
     let a = Atom::take_from_buf(&mut b);
     assert_eq!(a, Atom::from_str("body"));
     assert_eq!(b, StrBuf::new());
@@ -181,7 +181,7 @@ fn take_from_buf_interned() {
 
 #[test]
 fn take_from_buf_not_interned() {
-    let mut b = StrBuf::from_str("asdfghjk");
+    let mut b = "asdfghjk".to_strbuf();
     let a = Atom::take_from_buf(&mut b);
     assert_eq!(a, Atom::from_str("asdfghjk"));
     assert_eq!(b, StrBuf::new());

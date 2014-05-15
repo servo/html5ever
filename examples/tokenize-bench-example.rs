@@ -9,7 +9,6 @@ extern crate html5;
 
 use std::{io, os};
 use std::default::Default;
-use std::strbuf::StrBuf;
 
 use test::black_box;
 
@@ -31,7 +30,7 @@ fn main() {
     path.push(os::args().get(1).as_slice());
 
     let mut file = io::File::open(&path).ok().expect("can't open file");
-    let file_input = StrBuf::from_owned_str(file.read_to_str().ok().expect("can't read file"));
+    let file_input = file.read_to_str().ok().expect("can't read file").into_strbuf();
 
     let mut sink = Sink;
     let mut tok = Tokenizer::new(&mut sink, Default::default());

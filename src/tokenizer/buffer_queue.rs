@@ -115,7 +115,7 @@ impl BufferQueue {
                 // If we only have one character then it's cheaper not to allocate.
                 if n > 1 {
                     let new_pos = *pos + n;
-                    let out = StrBuf::from_str(buf.as_slice().slice(*pos, new_pos));
+                    let out = buf.as_slice().slice(*pos, new_pos).to_strbuf();
                     *pos = new_pos;
                     self.available -= n;
                     (Some(DataRun(out)), new_pos >= buf.len())
@@ -177,7 +177,7 @@ fn smoke_test() {
     assert_eq!(bq.peek(), None);
     assert_eq!(bq.next(), None);
 
-    bq.push_back(StrBuf::from_str("abc"), 0);
+    bq.push_back("abc".to_strbuf(), 0);
     assert_eq!(bq.has(1), true);
     assert_eq!(bq.has(3), true);
     assert_eq!(bq.has(4), false);
@@ -196,9 +196,9 @@ fn smoke_test() {
 #[test]
 fn can_pop_front() {
     let mut bq = BufferQueue::new();
-    bq.push_back(StrBuf::from_str("abc"), 0);
+    bq.push_back("abc".to_strbuf(), 0);
 
-    assert_eq!(bq.pop_front(2), Some(StrBuf::from_str("ab")));
+    assert_eq!(bq.pop_front(2), Some("ab".to_strbuf()));
     assert_eq!(bq.peek(), Some('c'));
     assert_eq!(bq.pop_front(2), None);
     assert_eq!(bq.next(), Some('c'));
@@ -208,10 +208,10 @@ fn can_pop_front() {
 #[test]
 fn can_unconsume() {
     let mut bq = BufferQueue::new();
-    bq.push_back(StrBuf::from_str("abc"), 0);
+    bq.push_back("abc".to_strbuf(), 0);
     assert_eq!(bq.next(), Some('a'));
 
-    bq.push_front(StrBuf::from_str("xy"));
+    bq.push_front("xy".to_strbuf());
     assert_eq!(bq.next(), Some('x'));
     assert_eq!(bq.next(), Some('y'));
     assert_eq!(bq.next(), Some('b'));
@@ -222,17 +222,17 @@ fn can_unconsume() {
 #[test]
 fn can_pop_data() {
     let mut bq = BufferQueue::new();
-    bq.push_back(StrBuf::from_str("abc\0def"), 0);
-    assert_eq!(bq.pop_data(), Some(DataRun(StrBuf::from_str("abc"))));
+    bq.push_back("abc\0def".to_strbuf(), 0);
+    assert_eq!(bq.pop_data(), Some(DataRun("abc".to_strbuf())));
     assert_eq!(bq.pop_data(), Some(OneChar('\0')));
-    assert_eq!(bq.pop_data(), Some(DataRun(StrBuf::from_str("def"))));
+    assert_eq!(bq.pop_data(), Some(DataRun("def".to_strbuf())));
     assert_eq!(bq.pop_data(), None);
 }
 
 #[test]
 fn can_push_truncated() {
     let mut bq = BufferQueue::new();
-    bq.push_back(StrBuf::from_str("abc"), 1);
+    bq.push_back("abc".to_strbuf(), 1);
     assert_eq!(bq.next(), Some('b'));
     assert_eq!(bq.next(), Some('c'));
     assert_eq!(bq.next(), None);
@@ -240,19 +240,12 @@ fn can_push_truncated() {
 
 #[test]
 fn data_span_test() {
-    fn pad(s: &mut StrBuf, n: uint) {
-        for _ in range(0, n) {
-            s.push_char('x');
-        }
-    }
-
     for &c in ['&', '\0'].iter() {
         for x in range(0, 48u) {
             for y in range(0, 48u) {
-                let mut s = StrBuf::new();
-                pad(&mut s, x);
+                let mut s = StrBuf::from_char(x, 'x');
                 s.push_char(c);
-                pad(&mut s, y);
+                s.grow(y, 'x');
 
                 assert_eq!(x, data_span(s.as_slice()));
             }
