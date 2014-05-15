@@ -4,4 +4,4 @@
 
 Very much a work in progress!  Don't use this.
 
-Tested on rustc 0.11.0-pre (8e7c1e8 2014-05-13 18:17:47 -0700)
+Tested on rustc 0.11.0-pre (fbd8f4a 2014-05-15 08:36:50 -0700)

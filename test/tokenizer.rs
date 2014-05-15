@@ -276,7 +276,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: ~str, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: StrBuf, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -349,7 +349,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc, insplits.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc.into_strbuf(), insplits.clone(), expect_toks, TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
