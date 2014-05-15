@@ -10,7 +10,7 @@ pub use self::interface::TreeSink;
 
 use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
-use tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
+use tokenizer::{CharacterTokens, EOFToken, ParseError};
 use tokenizer::TokenSink;
 
 use std::default::Default;

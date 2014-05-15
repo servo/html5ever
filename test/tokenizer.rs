@@ -14,7 +14,7 @@ use collections::treemap::TreeMap;
 use html5::Atom;
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
 use html5::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
-use html5::tokenizer::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
+use html5::tokenizer::{CharacterTokens, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
@@ -66,7 +66,7 @@ impl TokenLogger {
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
             let s = replace(&mut self.current_str, StrBuf::new());
-            self.tokens.push(MultiCharacterToken(s));
+            self.tokens.push(CharacterTokens(s));
         }
     }
 
@@ -79,11 +79,7 @@ impl TokenLogger {
 impl TokenSink for TokenLogger {
     fn process_token(&mut self, token: Token) {
         match token {
-            CharacterToken(c) => {
-                self.current_str.push_char(c);
-            }
-
-            MultiCharacterToken(b) => {
+            CharacterTokens(b) => {
                 self.current_str.push_str(b.as_slice());
             }
 
@@ -212,7 +208,7 @@ fn json_to_token(js: &Json) -> Token {
 
         ("Comment", [txt]) => CommentToken(txt.get_str()),
 
-        ("Character", [txt]) => MultiCharacterToken(txt.get_str()),
+        ("Character", [txt]) => CharacterTokens(txt.get_str()),
 
         _ => fail!("don't understand token {:?}", parts),
     }

@@ -9,7 +9,7 @@ use std::char;
 use std::default::Default;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
-use html5::tokenizer::{CharacterToken, MultiCharacterToken, TagToken, StartTag, EndTag};
+use html5::tokenizer::{CharacterTokens, TagToken, StartTag, EndTag};
 
 struct TokenPrinter {
     in_char_run: bool,
@@ -34,10 +34,7 @@ impl TokenPrinter {
 impl TokenSink for TokenPrinter {
     fn process_token(&mut self, token: Token) {
         match token {
-            CharacterToken(c) => {
-                self.do_char(c);
-            }
-            MultiCharacterToken(b) => {
+            CharacterTokens(b) => {
                 for c in b.as_slice().chars() {
                     self.do_char(c);
                 }

@@ -4,7 +4,7 @@
 
 pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
-pub use self::interface::{CharacterToken, MultiCharacterToken, EOFToken, ParseError};
+pub use self::interface::{CharacterTokens, EOFToken, ParseError};
 pub use self::interface::TokenSink;
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
@@ -316,11 +316,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.sink.process_token(CharacterToken(c));
+        self.sink.process_token(CharacterTokens(StrBuf::from_char(1, c)));
     }
 
     fn emit_chars(&mut self, b: StrBuf) {
-        self.sink.process_token(MultiCharacterToken(b));
+        self.sink.process_token(CharacterTokens(b));
     }
 
     fn emit_current_tag(&mut self) {

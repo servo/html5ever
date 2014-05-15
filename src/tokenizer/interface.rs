@@ -70,8 +70,7 @@ pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
     CommentToken(StrBuf),
-    CharacterToken(char),
-    MultiCharacterToken(StrBuf),
+    CharacterTokens(StrBuf),
     EOFToken,
     ParseError(~str),
 }
