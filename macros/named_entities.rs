@@ -104,7 +104,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     // Emit a macro invocation of the form
     //
     //     phf_map!(k => v, k => v, ...)
-    let mut tts: Vec<TokenTree> = Vec::new();
+    let mut tts: Vec<TokenTree> = vec!();
     for (k, [c1, c2]) in map.move_iter() {
         tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c1, $c2],));
     }

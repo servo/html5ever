@@ -22,7 +22,7 @@ fn main() {
         os::getenv("HTML5_SRC_DIR").expect("HTML5_SRC_DIR not set")
     ).expect("HTML5_SRC_DIR invalid");
 
-    let mut tests = Vec::new();
+    let mut tests = vec!();
 
     tests.push_all_move(tokenizer::tests(src_dir));
     // more to follow

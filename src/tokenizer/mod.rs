@@ -170,7 +170,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_tag_kind: StartTag,
             current_tag_name: empty_str(),
             current_tag_self_closing: false,
-            current_tag_attrs: Vec::new(),
+            current_tag_attrs: vec!(),
             current_attr_name: empty_str(),
             current_attr_value: empty_str(),
             current_comment: empty_str(),
@@ -344,7 +344,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             kind: self.current_tag_kind,
             name: Atom::take_from_buf(&mut self.current_tag_name),
             self_closing: self.current_tag_self_closing,
-            attrs: replace(&mut self.current_tag_attrs, Vec::new()),
+            attrs: replace(&mut self.current_tag_attrs, vec!()),
         }));
     }
 
@@ -368,7 +368,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn discard_tag(&mut self) {
         self.current_tag_name = StrBuf::new();
         self.current_tag_self_closing = false;
-        self.current_tag_attrs = Vec::new();
+        self.current_tag_attrs = vec!();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {

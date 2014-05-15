@@ -29,7 +29,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<StrBuf>> {
     points.push(s.len());
 
     // do this with iterators?
-    let mut out = Vec::new();
+    let mut out = vec!();
     for p in points.move_iter() {
         let y = s.slice_from(p);
         for mut x in splits(s.slice_to(p), n-1).move_iter() {
@@ -51,7 +51,7 @@ struct TokenLogger {
 impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
-            tokens: Vec::new(),
+            tokens: vec!(),
             current_str: StrBuf::new(),
             exact_errors: exact_errors,
         }
@@ -98,7 +98,7 @@ impl TokenSink for TokenLogger {
                 match t.kind {
                     EndTag => {
                         t.self_closing = false;
-                        t.attrs = Vec::new();
+                        t.attrs = vec!();
                     }
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
@@ -206,7 +206,7 @@ fn json_to_token(js: &Json) -> Token {
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
             name: Atom::from_buf(name.get_str()),
-            attrs: Vec::new(),
+            attrs: vec!(),
             self_closing: false
         }),
 
@@ -365,7 +365,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
 }
 
 pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
-    let mut tests = Vec::new();
+    let mut tests = vec!();
 
     let test_dir_path = src_dir.join("html5lib-tests/tokenizer");
     let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");
