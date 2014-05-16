@@ -6,7 +6,7 @@ use util::atom::Atom;
 use util::namespace::Namespace;
 use tokenizer::Attribute;
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(Eq, TotalEq, Clone, Hash, Show)]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,
