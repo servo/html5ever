@@ -76,3 +76,33 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
         }
     ))
 }
+
+// Translate `atomset!(title body head)` into a static `AtomSet`.
+pub fn expand_atomset(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
+    let err = "atomset!() expects a space-separated sequence of idents and/or string literals";
+
+    let mut bitmask: u64 = 0;
+    let mut others: Vec<uint> = vec!();
+    for i in tt.iter().map(|t| expect!(find_atom(t), err)) {
+        if i < 64 {
+            bitmask |= 1 << i;
+        } else {
+            others.push(i);
+        }
+    }
+
+    others.sort();
+    let init: Vec<TokenTree> = others.move_iter().flat_map(|i|
+        quote_tokens!(&mut *cx, $i,).move_iter()
+    ).collect();
+
+    MacExpr::new(quote_expr!(&mut *cx,
+        ::util::atom::AtomSet {
+            bitmask: $bitmask,
+            others: {
+                static __atomset_macro_others: &'static [uint] = &[ $init ];
+                __atomset_macro_others
+            }
+        }
+    ))
+}

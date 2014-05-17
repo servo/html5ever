@@ -58,4 +58,5 @@ pub fn macro_registrar(register: |Name, SyntaxExtension|) {
     register!("static_atom_map", atom::expand_static_atom_map);
     register!("static_atom_array", atom::expand_static_atom_array);
     register!("atom", atom::expand_atom);
+    register!("atomset", atom::expand_atomset);
 }

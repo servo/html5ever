@@ -9,10 +9,10 @@ use std::mem::replace;
 static static_atom_map: PhfMap<uint> = static_atom_map!();
 static static_atom_array: &'static [&'static str] = static_atom_array!();
 
-// Careful which things we derive, because we need to maintain equivalent
-// behavior between an interned and a non-interned string.
+// Assume that a string which can be interned always is.
+// FIXME: Revisit this assumption when we have dynamic interning.
 /// Interned string.
-#[deriving(Clone, Show)]
+#[deriving(Clone, Show, Eq, TotalEq)]
 pub enum Atom {
     Static(uint),
     // dynamic interning goes here
@@ -101,17 +101,6 @@ impl StrAllocating for Atom {
     }
 }
 
-impl Eq for Atom {
-    fn eq(&self, other: &Atom) -> bool {
-        match self.fast_partial_eq(other) {
-            Some(b) => b,
-            None => self.as_slice() == other.as_slice(),
-        }
-    }
-}
-
-impl TotalEq for Atom { }
-
 impl Ord for Atom {
     fn lt(&self, other: &Atom) -> bool {
         match self.fast_partial_eq(other) {
@@ -126,6 +115,28 @@ impl TotalOrd for Atom {
         match self.fast_partial_eq(other) {
             Some(true) => Equal,
             _ => self.as_slice().cmp(&other.as_slice()),
+        }
+    }
+}
+
+/// A set of static atoms, supporting efficient membership testing.
+/// These are created by the `atomset!()` macro.
+///
+/// The fields should be initialized by that macro, never directly.
+pub struct AtomSet {
+    /// Set members among the first 64 atoms.
+    pub bitmask: u64,
+
+    /// Other set members, as a sorted array.
+    pub others: &'static [uint],
+}
+
+impl AtomSet {
+    pub fn contains(&self, x: &Atom) -> bool {
+        match *x {
+            Static(i) if i < 64 => (self.bitmask & (1 << i)) != 0,
+            Static(i) => self.others.bsearch_elem(&i).is_some(),
+            Owned(_) => false,
         }
     }
 }
@@ -175,17 +186,6 @@ fn into_strbuf() {
 }
 
 #[test]
-fn equality() {
-    // Equality between interned and non-interned atoms
-    assert!(Atom::from_str("body") == Owned("body".to_strbuf()));
-    assert!(Owned("body".to_strbuf()) == Atom::from_str("body"));
-    assert!(Atom::from_str("body") != Owned("asdfghjk".to_strbuf()));
-    assert!(Owned("asdfghjk".to_strbuf()) != Atom::from_str("body"));
-    assert!(Atom::from_str("asdfghjk") != Owned("body".to_strbuf()));
-    assert!(Owned("body".to_strbuf()) != Atom::from_str("asdfghjk"));
-}
-
-#[test]
 fn take_from_buf_interned() {
     let mut b = "body".to_strbuf();
     let a = Atom::take_from_buf(&mut b);
@@ -224,4 +224,14 @@ fn atom_macro() {
     assert_eq!(atom!(body), Atom::from_str("body"));
     assert_eq!(atom!("body"), Atom::from_str("body"));
     assert_eq!(atom!("font-weight"), Atom::from_str("font-weight"));
+}
+
+#[test]
+fn atomset() {
+    assert!(atomset!(body "font-weight").contains(&Atom::from_str("body")));
+    assert!(atomset!(body "font-weight").contains(&atom!(body)));
+    assert!(atomset!(body "font-weight").contains(&atom!("font-weight")));
+    assert!(!atomset!(body "font-weight").contains(&atom!(br)));
+    assert!(!atomset!(body "font-weight").contains(&Atom::from_str("zzzzz")));
+    assert!(!atomset!().contains(&atom!(body)));
 }
