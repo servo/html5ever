@@ -49,6 +49,13 @@ impl Atom {
         }
     }
 
+    /// Only for use by the atom!() macro!
+    #[inline(always)]
+    #[experimental="Only for use by the atom!() macro"]
+    pub fn unchecked_static_atom_from_macro(i: uint) -> Atom {
+        Static(i)
+    }
+
     #[inline(always)]
     fn fast_partial_eq(&self, other: &Atom) -> Option<bool> {
         match (self, other) {
@@ -210,4 +217,11 @@ fn ord() {
     check("asdf", "bbbbb");
     check("zasdf", "bbbbb");
     check("z", "bbbbb");
+}
+
+#[test]
+fn atom_macro() {
+    assert_eq!(atom!(body), Atom::from_str("body"));
+    assert_eq!(atom!("body"), Atom::from_str("body"));
+    assert_eq!(atom!("font-weight"), Atom::from_str("font-weight"));
 }

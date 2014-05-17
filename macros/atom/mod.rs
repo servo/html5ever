@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use syntax::codemap::Span;
-use syntax::ast::TokenTree;
+use syntax::ast::{TokenTree, TTTok};
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::parse::token::{get_ident, LIT_STR, IDENT};
 
 use std::iter::Chain;
 use std::slice::Items;
@@ -39,4 +40,39 @@ pub fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) ->
         quote_tokens!(&mut *cx, $k,).move_iter()
     ).collect();
     MacExpr::new(quote_expr!(&mut *cx, &[$tts]))
+}
+
+fn find_atom(t: &TokenTree) -> Option<uint> {
+    let s = get_ident(match *t {
+        TTTok(_, IDENT(s, _)) => s,
+        TTTok(_, LIT_STR(s)) => s,
+        _ => return None,
+    });
+
+    // Use bsearch instead of bsearch_elem because of type mismatch
+    // between &'t str and &'static str.
+    data::fast_set_atoms.bsearch(|&x| x.cmp(&s.get())).or_else(||
+        data::other_atoms.bsearch(|&x| x.cmp(&s.get())).map(|i| i+64))
+}
+
+// Translate `atom!(title)` or `atom!("font-weight")` into an `Atom` constant.
+pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
+    let i = match tt {
+        [ref t] => expect!(find_atom(t), "atom!() expects an ident or string literal"),
+        _ => cx.span_fatal(sp, "atom!() expects one argument"),
+    };
+
+    MacExpr::new(quote_expr!(&mut *cx,
+        {
+            // We need to call unchecked_static_atom_from_macro, which is
+            // marked experimental so that nobody else calls it.  We can't put
+            // attributes on arbitrary blocks, so we define an inner function.
+            #[inline(always)]
+            #[allow(experimental)]
+            fn __atom_macro_inner() -> ::util::atom::Atom {
+                ::util::atom::Atom::unchecked_static_atom_from_macro($i)
+            }
+            __atom_macro_inner()
+        }
+    ))
 }

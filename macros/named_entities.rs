@@ -15,13 +15,6 @@ use syntax::parse::token::{get_ident, LIT_STR};
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::ext::source_util::expand_file;
 
-macro_rules! expect ( ($e:expr, $err:expr) => (
-    match $e {
-        Some(x) => x,
-        None => cx.span_fatal(sp, $err),
-    }
-))
-
 // A struct matching the entries in entities.json.
 // Simplifies JSON parsing because we can use Decodable.
 #[deriving(Decodable)]

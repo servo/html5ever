@@ -15,6 +15,14 @@ use syntax::ast::Name;
 use syntax::parse::token;
 use syntax::ext::base::{SyntaxExtension, BasicMacroExpander, NormalTT};
 
+#[macro_escape]
+macro_rules! expect ( ($e:expr, $err:expr) => (
+    match $e {
+        Some(x) => x,
+        None => cx.span_fatal(sp, $err),
+    }
+))
+
 mod named_entities;
 mod atom;
 
@@ -49,4 +57,5 @@ pub fn macro_registrar(register: |Name, SyntaxExtension|) {
     register!("named_entities", named_entities::expand);
     register!("static_atom_map", atom::expand_static_atom_map);
     register!("static_atom_array", atom::expand_static_atom_array);
+    register!("atom", atom::expand_atom);
 }
