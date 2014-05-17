@@ -16,6 +16,7 @@ use syntax::parse::token;
 use syntax::ext::base::{SyntaxExtension, BasicMacroExpander, NormalTT};
 
 mod named_entities;
+mod atom;
 
 #[macro_export]
 macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
@@ -33,13 +34,19 @@ macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
     }
 ))
 
-// NB: This needs to be public or we get a linker error.
-#[macro_registrar]
-pub fn macro_registrar(register: |Name, SyntaxExtension|) {
-    register(token::intern("named_entities"),
+macro_rules! register( ($name:expr, $expand:expr) => (
+    register(token::intern($name),
         NormalTT(box BasicMacroExpander {
-            expander: named_entities::expand,
+            expander: $expand,
             span: None
         },
         None));
+))
+
+// NB: This needs to be public or we get a linker error.
+#[macro_registrar]
+pub fn macro_registrar(register: |Name, SyntaxExtension|) {
+    register!("named_entities", named_entities::expand);
+    register!("static_atom_map", atom::expand_static_atom_map);
+    register!("static_atom_array", atom::expand_static_atom_array);
 }

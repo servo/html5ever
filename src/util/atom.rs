@@ -2,31 +2,34 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use phf::PhfMap;
+
 use std::mem::replace;
 
-mod data;
+static static_atom_map: PhfMap<uint> = static_atom_map!();
+static static_atom_array: &'static [&'static str] = static_atom_array!();
 
 // Careful which things we derive, because we need to maintain equivalent
 // behavior between an interned and a non-interned string.
 /// Interned string.
 #[deriving(Clone, Show)]
 pub enum Atom {
-    Static(&'static str),
+    Static(uint),
     // dynamic interning goes here
     Owned(StrBuf),
 }
 
 impl Atom {
     pub fn from_str(s: &str) -> Atom {
-        match data::atoms.find_key(&s) {
-            Some(k) => Static(k),
+        match static_atom_map.find(&s) {
+            Some(&k) => Static(k),
             None => Owned(s.to_strbuf()),
         }
     }
 
     pub fn from_buf(s: StrBuf) -> Atom {
-        match data::atoms.find_key(&s.as_slice()) {
-            Some(k) => Static(k),
+        match static_atom_map.find(&s.as_slice()) {
+            Some(&k) => Static(k),
             None => Owned(s),
         }
     }
@@ -35,8 +38,8 @@ impl Atom {
     /// allocating a new `StrBuf` when the string is interned --
     /// just truncates the old one.
     pub fn take_from_buf(s: &mut StrBuf) -> Atom {
-        match data::atoms.find_key(&s.as_slice()) {
-            Some(k) => {
+        match static_atom_map.find(&s.as_slice()) {
+            Some(&k) => {
                 s.truncate(0);
                 Static(k)
             }
@@ -49,16 +52,20 @@ impl Atom {
     #[inline(always)]
     fn fast_partial_eq(&self, other: &Atom) -> Option<bool> {
         match (self, other) {
-            (&Static(x), &Static(y)) => Some(x.as_ptr() == y.as_ptr()),
+            (&Static(x), &Static(y)) => Some(x == y),
             _ => None,
         }
     }
 }
 
+fn get_static(i: uint) -> &'static str {
+    *static_atom_array.get(i).expect("bad static atom")
+}
+
 impl Str for Atom {
     fn as_slice<'t>(&'t self) -> &'t str {
         match *self {
-            Static(s) => s,
+            Static(i) => get_static(i),
             Owned(ref s) => s.as_slice(),
         }
     }
@@ -67,21 +74,21 @@ impl Str for Atom {
 impl StrAllocating for Atom {
     fn into_owned(self) -> ~str {
         match self {
-            Static(s) => s.into_owned(),
+            Static(i) => get_static(i).to_owned(),
             Owned(s) => s.into_owned(),
         }
     }
 
     fn to_strbuf(&self) -> StrBuf {
         match *self {
-            Static(s) => s.to_strbuf(),
+            Static(i) => get_static(i).to_strbuf(),
             Owned(ref s) => s.clone(),
         }
     }
 
     fn into_strbuf(self) -> StrBuf {
         match self {
-            Static(s) => s.into_strbuf(),
+            Static(i) => get_static(i).to_strbuf(),
             Owned(s) => s,
         }
     }
@@ -119,7 +126,7 @@ impl TotalOrd for Atom {
 #[test]
 fn interned() {
     match Atom::from_str("body") {
-        Static("body") => (),
+        Static(i) => assert_eq!(get_static(i), "body"),
         _ => fail!("wrong interning"),
     }
 }
