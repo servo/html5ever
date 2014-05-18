@@ -5,16 +5,19 @@ RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
 
 RUSTC_CMD := $(RUSTC) -D warnings $(RUST_DIRS) $(RUSTFLAGS)
 
+# Hack to make sure the build fails if rustc --crate-file-name does
+crate_name = $$(shell $$(RUSTC) --crate-file-name $(1) || echo rustc_crate_name_failed)
+
 PHF_DUMMY := rust-phf.dummy
 PHF_ALL_SRC := $(shell find $(VPATH)/rust-phf -type f -name '*.rs')
 
 LIB_TOP_SRC := $(VPATH)/src/lib.rs
 LIB_ALL_SRC := $(shell find $(VPATH)/src -type f -name '*.rs')
-LIB         := $(shell $(RUSTC) --crate-file-name "$(LIB_TOP_SRC)")
+$(eval LIB := $(call crate_name,$(LIB_TOP_SRC)))
 
 MACROS_TOP_SRC := $(VPATH)/macros/lib.rs
 MACROS_ALL_SRC := $(shell find $(VPATH)/macros -type f -name '*.rs')
-MACROS         := $(shell $(RUSTC) --crate-file-name "$(MACROS_TOP_SRC)")
+$(eval MACROS := $(call crate_name,$(MACROS_TOP_SRC)))
 
 EXT_TEST_TOP_SRC := $(VPATH)/test/lib.rs
 EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
