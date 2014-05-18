@@ -15,11 +15,24 @@ use syntax::ast::Name;
 use syntax::parse::token;
 use syntax::ext::base::{SyntaxExtension, BasicMacroExpander, NormalTT};
 
+// Internal macros for use in defining other macros.
+
 #[macro_escape]
-macro_rules! expect ( ($e:expr, $err:expr) => (
+macro_rules! bail ( ($msg:expr) => ({
+    cx.span_err(sp, $msg);
+    return DummyResult::any(sp);
+}))
+
+#[macro_escape]
+macro_rules! bail_if ( ($e:expr, $msg:expr) => (
+    if $e { bail!($msg) }
+))
+
+#[macro_escape]
+macro_rules! expect ( ($e:expr, $msg:expr) => (
     match $e {
         Some(x) => x,
-        None => cx.span_fatal(sp, $err),
+        None => bail!($msg),
     }
 ))
 

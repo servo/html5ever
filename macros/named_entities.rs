@@ -12,7 +12,7 @@ use collections::hashmap::HashMap;
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TTTok};
 use syntax::parse::token::{get_ident, LIT_STR};
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacExpr, DummyResult};
 use syntax::ext::source_util::expand_file;
 
 // A struct matching the entries in entities.json.
@@ -65,11 +65,13 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
 
 // Expand named_entities!("path/to/entities.json") into an invocation of phf_map!().
 pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
+    let usage = "Usage: named_entities!(\"path/to/entities.json\")";
+
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
         [TTTok(_, LIT_STR(s))] => get_ident(s).get().to_owned(),
-        _ => cx.span_fatal(sp, "named_entities takes one argument, a relative path to entities.json"),
+        _ => bail!(usage),
     };
 
     // Get the result of calling file!() in the same place as our macro.

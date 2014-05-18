@@ -4,7 +4,7 @@
 
 use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TTTok};
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacExpr, DummyResult};
 use syntax::parse::token::{get_ident, LIT_STR, IDENT};
 
 use std::iter::Chain;
@@ -19,10 +19,7 @@ fn all_atoms<'a>() -> Chain<Items<'a, &'static str>, Items<'a, &'static str>> {
 // Build a PhfMap yielding static atom IDs.
 // Takes no arguments.
 pub fn expand_static_atom_map(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
-    if tt.len() > 0 {
-        cx.span_fatal(sp, "static_atom_map!() expects no arguments");
-    }
-
+    bail_if!(tt.len() != 0, "Usage: static_atom_map!()");
     let tts: Vec<TokenTree> = all_atoms().enumerate().flat_map(|(i, k)|
         quote_tokens!(&mut *cx, $k => $i,).move_iter()
     ).collect();
@@ -32,10 +29,7 @@ pub fn expand_static_atom_map(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> B
 // Build the array to convert IDs back to strings.
 // FIXME: share storage with the PhfMap keys.
 pub fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
-    if tt.len() > 0 {
-        cx.span_fatal(sp, "static_atom_array!() expects no arguments");
-    }
-
+    bail_if!(tt.len() != 0, "Usage: static_atom_array!()");
     let tts: Vec<TokenTree> = all_atoms().flat_map(|k|
         quote_tokens!(&mut *cx, $k,).move_iter()
     ).collect();
@@ -57,9 +51,10 @@ fn find_atom(t: &TokenTree) -> Option<uint> {
 
 // Translate `atom!(title)` or `atom!("font-weight")` into an `Atom` constant.
 pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
+    let usage = "Usage: atom!(html) or atom!(\"font-weight\")";
     let i = match tt {
-        [ref t] => expect!(find_atom(t), "atom!() expects an ident or string literal"),
-        _ => cx.span_fatal(sp, "atom!() expects one argument"),
+        [ref t] => expect!(find_atom(t), usage),
+        _ => bail!(usage),
     };
 
     MacExpr::new(quote_expr!(&mut *cx,
@@ -79,11 +74,12 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
 
 // Translate `atomset!(title body head)` into a static `AtomSet`.
 pub fn expand_atomset(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
-    let err = "atomset!() expects a space-separated sequence of idents and/or string literals";
+    let usage = "Usage: atomset!(title body head)";
 
     let mut bitmask: u64 = 0;
     let mut others: Vec<uint> = vec!();
-    for i in tt.iter().map(|t| expect!(find_atom(t), err)) {
+    for t in tt.iter() {
+        let i = expect!(find_atom(t), usage);
         if i < 64 {
             bitmask |= 1 << i;
         } else {
