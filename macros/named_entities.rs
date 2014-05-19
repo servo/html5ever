@@ -44,8 +44,8 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
         }
 
         // Slice off the initial '&'
-        assert!(k.char_at(0) == '&');
-        map.insert(k.slice_from(1).to_owned(), codepoint_pair);
+        assert!(k.as_slice().char_at(0) == '&');
+        map.insert(k.as_slice().slice_from(1).to_owned(), codepoint_pair);
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.

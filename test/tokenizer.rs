@@ -124,7 +124,7 @@ trait JsonExt {
     fn get_str(&self) -> StrBuf;
     fn get_nullable_str(&self) -> Option<StrBuf>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<~str, Self>;
+    fn get_obj<'t>(&'t self) -> &'t TreeMap<StrBuf, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
@@ -152,7 +152,7 @@ impl JsonExt for Json {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<~str, Json> {
+    fn get_obj<'t>(&'t self) -> &'t TreeMap<StrBuf, Json> {
         match *self {
             json::Object(ref m) => &**m,
             _ => fail!("Json::get_obj: not an Object"),
@@ -167,7 +167,7 @@ impl JsonExt for Json {
     }
 
     fn find<'t>(&'t self, key: &str) -> &'t Json {
-        self.get_obj().find(&key.to_owned()).unwrap()
+        self.get_obj().find(&key.to_strbuf()).unwrap()
     }
 }
 
@@ -259,7 +259,7 @@ fn unescape_json(js: &Json) -> Json {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        json::String(ref s) => json::String(unescape(s.as_slice()).unwrap().into_owned()),
+        json::String(ref s) => json::String(unescape(s.as_slice()).unwrap()),
         json::List(ref xs) => json::List(xs.iter().map(unescape_json).collect()),
         json::Object(ref obj) => {
             let mut new_obj = box TreeMap::new();
@@ -298,14 +298,14 @@ fn mk_test(desc: StrBuf, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: T
 
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find(&"input".to_owned()).unwrap().get_str();
-    let mut expect = js.find(&"output".to_owned()).unwrap().clone();
+    let mut input = js.find(&"input".to_strbuf()).unwrap().get_str();
+    let mut expect = js.find(&"output".to_strbuf()).unwrap().clone();
     let desc = format!("{:s}: {:s}",
-        path_str, js.find(&"description".to_owned()).unwrap().get_str());
+        path_str, js.find(&"description".to_strbuf()).unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
-    if obj.find(&"doubleEscaped".to_owned()).map_or(false, |j| j.get_bool()) {
+    if obj.find(&"doubleEscaped".to_strbuf()).map_or(false, |j| j.get_bool()) {
         match unescape(input.as_slice()) {
             None => return,
             Some(i) => input = i,
@@ -317,10 +317,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let insplits = splits(input.as_slice(), 3);
 
     // Some tests have a last start tag name.
-    let start_tag = obj.find(&"lastStartTag".to_owned()).map(|s| s.get_str());
+    let start_tag = obj.find(&"lastStartTag".to_strbuf()).map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    let state_overrides = match obj.find(&"initialStates".to_owned()) {
+    let state_overrides = match obj.find(&"initialStates".to_strbuf()) {
         Some(&json::List(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
@@ -374,7 +374,7 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
         let js = json::from_reader(&mut file as &mut Reader)
             .ok().expect("json parse error");
 
-        match js.get_obj().find(&"tests".to_owned()) {
+        match js.get_obj().find(&"tests".to_strbuf()) {
             Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);
