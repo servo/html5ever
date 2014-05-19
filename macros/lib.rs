@@ -55,6 +55,13 @@ macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
     }
 ))
 
+// Wrap the procedural macro match_atom_impl! so that the
+// scrutinee expression is always a single token tree.
+#[macro_export]
+macro_rules! match_atom( ($scrutinee:expr $body:tt) => (
+    match_atom_impl!(($scrutinee) $body)
+))
+
 macro_rules! register( ($name:expr, $expand:expr) => (
     register(token::intern($name),
         NormalTT(box BasicMacroExpander {
@@ -72,4 +79,5 @@ pub fn macro_registrar(register: |Name, SyntaxExtension|) {
     register!("static_atom_array", atom::expand_static_atom_array);
     register!("atom", atom::expand_atom);
     register!("atomset", atom::expand_atomset);
+    register!("match_atom_impl", atom::expand_match_atom_impl);
 }

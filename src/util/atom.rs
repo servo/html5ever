@@ -57,6 +57,14 @@ impl Atom {
     }
 
     #[inline(always)]
+    pub fn get_static_atom_id_from_macro(&self) -> Option<uint> {
+        match *self {
+            Static(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
     fn fast_partial_eq(&self, other: &Atom) -> Option<bool> {
         match (self, other) {
             (&Static(x), &Static(y)) => Some(x == y),
@@ -234,4 +242,25 @@ fn atomset() {
     assert!(!atomset!(body "font-weight").contains(&atom!(br)));
     assert!(!atomset!(body "font-weight").contains(&Atom::from_str("zzzzz")));
     assert!(!atomset!().contains(&atom!(body)));
+}
+
+#[test]
+fn match_atom() {
+    assert_eq!(2, match_atom!(Atom::from_str("head") {
+        br => 1,
+        html head => { 2 }
+        _ => 3,
+    }));
+
+    assert_eq!(3, match_atom!(Atom::from_str("body") {
+        br => { 1 }
+        html head => 2,
+        _ => { 3 }
+    }));
+
+    assert_eq!(3, match_atom!(Atom::from_str("zzzzzz") {
+        br => 1,
+        html head => 2,
+        _ => 3,
+    }));
 }
