@@ -91,7 +91,7 @@ fn drop_whitespace(token: Token) -> Option<Token> {
 
 enum ProcessResult {
     Done,
-    Reprocess(Token),
+    Reprocess(states::InsertionMode, Token),
 }
 
 macro_rules! drop_whitespace ( ($x:expr) => (
@@ -112,7 +112,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
-    fn process_in_mode(&mut self, mode: states::InsertionMode, token: tokenizer::Token) {
+    fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
         debug!("processing {} in insertion mode {:?}", token, mode);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
@@ -151,7 +151,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         loop {
             match self.process_local(mode, token) {
                 Done => return,
-                Reprocess(t) => token = t,
+                Reprocess(m, t) => {
+                    mode = m;
+                    token = t;
+                }
             }
         }
     }
@@ -168,8 +171,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.sink.parse_error(format!("Bad token in initial insertion mode: {}", token));
                         self.sink.set_quirks_mode(Quirks);
                     }
-                    self.mode = states::BeforeHtml;
-                    Reprocess(token)
+                    Reprocess(states::BeforeHtml, token)
                 }
             },
 
