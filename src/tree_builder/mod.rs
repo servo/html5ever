@@ -179,8 +179,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                TagToken(ref t) if atomset!(head body html br).contains(&t.name) =>
-                    fail!("not implemented"),
+                TagToken(ref t) => match_atom!(t.name {
+                    head body html br => fail!("not implemented"),
+                    _ => fail!("not implemented"),
+                }),
 
                 _ => fail!("not implemented"),
             },

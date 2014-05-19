@@ -127,28 +127,6 @@ impl TotalOrd for Atom {
     }
 }
 
-/// A set of static atoms, supporting efficient membership testing.
-/// These are created by the `atomset!()` macro.
-///
-/// The fields should be initialized by that macro, never directly.
-pub struct AtomSet {
-    /// Set members among the first 64 atoms.
-    pub bitmask: u64,
-
-    /// Other set members, as a sorted array.
-    pub others: &'static [uint],
-}
-
-impl AtomSet {
-    pub fn contains(&self, x: &Atom) -> bool {
-        match *x {
-            Static(i) if i < 64 => (self.bitmask & (1 << i)) != 0,
-            Static(i) => self.others.bsearch_elem(&i).is_some(),
-            Owned(_) => false,
-        }
-    }
-}
-
 #[test]
 fn interned() {
     match Atom::from_str("body") {
@@ -232,16 +210,6 @@ fn atom_macro() {
     assert_eq!(atom!(body), Atom::from_str("body"));
     assert_eq!(atom!("body"), Atom::from_str("body"));
     assert_eq!(atom!("font-weight"), Atom::from_str("font-weight"));
-}
-
-#[test]
-fn atomset() {
-    assert!(atomset!(body "font-weight").contains(&Atom::from_str("body")));
-    assert!(atomset!(body "font-weight").contains(&atom!(body)));
-    assert!(atomset!(body "font-weight").contains(&atom!("font-weight")));
-    assert!(!atomset!(body "font-weight").contains(&atom!(br)));
-    assert!(!atomset!(body "font-weight").contains(&Atom::from_str("zzzzz")));
-    assert!(!atomset!().contains(&atom!(body)));
 }
 
 #[test]
