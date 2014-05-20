@@ -13,6 +13,7 @@ use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
 
 use util::str::{strip_leading_whitespace, none_as_empty};
+use util::atom::Atom;
 use util::namespace::HTML;
 
 use std::default::Default;
@@ -107,17 +108,27 @@ macro_rules! drop_whitespace ( ($x:expr) => (
     unwrap_or_return!(drop_whitespace($x), Done)
 ))
 
-macro_rules! start ( ($var:ident) => (
-    TagToken(ref mut $var @ Tag { kind: StartTag, ..})
-))
+macro_rules! tag_pattern (
+    ($kind:ident     $var:ident) => ( TagToken(ref     $var @ Tag { kind: $kind, ..}) );
+    ($kind:ident mut $var:ident) => ( TagToken(ref mut $var @ Tag { kind: $kind, ..}) );
+)
 
-macro_rules! end ( ($var:ident) => (
-    TagToken(ref mut $var @ Tag { kind: EndTag, ..})
-))
+macro_rules! start ( ($($args:tt)*) => ( tag_pattern!(StartTag $($args)*) ))
+macro_rules! end   ( ($($args:tt)*) => ( tag_pattern!(EndTag   $($args)*) ))
 
 macro_rules! named ( ($t:expr, $($atom:ident)*) => (
     match_atom!($t.name { $($atom)* => true, _ => false })
 ))
+
+macro_rules! kind_named ( ($kind:ident $t:expr, $($atom:ident)*) => (
+    match $t {
+        tag_pattern!($kind t) => named!(t, $($atom)*),
+        _ => false,
+    }
+))
+
+macro_rules! start_named ( ($($args:tt)*) => ( kind_named!(StartTag $($args)*) ))
+macro_rules! end_named   ( ($($args:tt)*) => ( kind_named!(EndTag   $($args)*) ))
 
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Sink> {
     pub fn new(sink: &'sink mut Sink, opts: TreeBuilderOpts) -> TreeBuilder<'sink, Handle, Sink> {
@@ -133,6 +144,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
+    // The "appropriate place for inserting a node".
+    fn target(&self) -> Handle {
+        // FIXME: foster parenting, templates, other nonsense
+        self.open_elems.last().expect("no current element").clone()
+    }
+
     fn push(&mut self, elem: &Handle) {
         self.open_elems.push(elem.clone());
     }
@@ -142,6 +159,15 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.push(&elem);
         self.sink.append_element(self.doc_handle.clone(), elem);
         // FIXME: application cache selection algorithm
+    }
+
+    fn create_element(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
+        let target = self.target();
+        let elem = self.sink.create_element(HTML, name, attrs);
+        self.push(&elem);
+        self.sink.append_element(target, elem.clone());
+        // FIXME: Remove from the stack if we can't append?
+        elem
     }
 
     fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
@@ -212,7 +238,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     self.sink.append_comment(self.doc_handle.clone(), text);
                     Done
                 }
-                start!(t) if named!(t, html) => {
+                start!(mut t) if named!(t, html) => {
                     self.create_root(take_attrs(t));
                     Done
                 }
@@ -226,8 +252,31 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             },
 
-              states::BeforeHead
-            | states::InHead
+            states::BeforeHead => match drop_whitespace!(token) {
+                CommentToken(text) => {
+                    let target = self.target();
+                    self.sink.append_comment(target, text);
+                    Done
+                }
+                end!(t) if !named!(t, head body html br) => {
+                    self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", t));
+                    Done
+                }
+                start!(mut t) if named!(t, head) => {
+                    self.head_elem = Some(self.create_element(atom!(head), take_attrs(t)));
+                    self.mode = states::InHead;
+                    Done
+                }
+                token => if start_named!(token, html) {
+                    // Do this here because we can't move out of `token` when it's borrowed.
+                    self.process_local(states::InBody, token)
+                } else {
+                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
+                    Reprocess(states::InHead, token)
+                },
+            },
+
+              states::InHead
             | states::InHeadNoscript
             | states::AfterHead
             | states::InBody
