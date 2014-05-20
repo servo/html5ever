@@ -13,8 +13,10 @@ use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
 
 use util::str::{strip_leading_whitespace, none_as_empty};
+use util::namespace::HTML;
 
 use std::default::Default;
+use std::mem::replace;
 
 mod interface;
 mod states;
@@ -89,6 +91,13 @@ fn drop_whitespace(token: Token) -> Option<Token> {
     Some(token)
 }
 
+// We use guards, so we can't bind tags by move.  Instead, bind by ref
+// mut and take attrs with `replace`.  This is basically fine since
+// empty `Vec` doesn't allocate.
+fn take_attrs(t: &mut Tag) -> Vec<Attribute> {
+    replace(&mut t.attrs, vec!())
+}
+
 enum ProcessResult {
     Done,
     Reprocess(states::InsertionMode, Token),
@@ -96,6 +105,18 @@ enum ProcessResult {
 
 macro_rules! drop_whitespace ( ($x:expr) => (
     unwrap_or_return!(drop_whitespace($x), Done)
+))
+
+macro_rules! start ( ($var:ident) => (
+    TagToken(ref mut $var @ Tag { kind: StartTag, ..})
+))
+
+macro_rules! end ( ($var:ident) => (
+    TagToken(ref mut $var @ Tag { kind: EndTag, ..})
+))
+
+macro_rules! named ( ($t:expr, $($atom:ident)*) => (
+    match_atom!($t.name { $($atom)* => true, _ => false })
 ))
 
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Sink> {
@@ -112,9 +133,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
-    fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
-        debug!("processing {} in insertion mode {:?}", token, mode);
+    fn push(&mut self, elem: &Handle) {
+        self.open_elems.push(elem.clone());
+    }
 
+    fn create_root(&mut self, attrs: Vec<Attribute>) {
+        let elem = self.sink.create_element(HTML, atom!(html), attrs);
+        self.push(&elem);
+        self.sink.append_element(self.doc_handle.clone(), elem);
+        // FIXME: application cache selection algorithm
+    }
+
+    fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let mut token = match token {
             tokenizer::ParseError(e) => {
@@ -160,6 +190,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn process_local(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
+        debug!("processing {} in insertion mode {:?}", token, mode);
+
         match mode {
             states::Initial => match drop_whitespace!(token) {
                 CommentToken(text) => {
@@ -168,7 +200,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
                 token => {
                     if !self.opts.iframe_srcdoc {
-                        self.sink.parse_error(format!("Bad token in initial insertion mode: {}", token));
+                        self.sink.parse_error(format!("Bad token in Initial insertion mode: {}", token));
                         self.sink.set_quirks_mode(Quirks);
                     }
                     Reprocess(states::BeforeHtml, token)
@@ -180,13 +212,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     self.sink.append_comment(self.doc_handle.clone(), text);
                     Done
                 }
-
-                TagToken(ref t) => match_atom!(t.name {
-                    head body html br => fail!("not implemented"),
-                    _ => fail!("not implemented"),
-                }),
-
-                _ => fail!("not implemented"),
+                start!(t) if named!(t, html) => {
+                    self.create_root(take_attrs(t));
+                    Done
+                }
+                end!(t) if !named!(t, head body html br) => {
+                    self.sink.parse_error(format!("Unexpected end tag in BeforeHtml mode: {}", t));
+                    Done
+                }
+                token => {
+                    self.create_root(vec!());
+                    Reprocess(states::BeforeHead, token)
+                }
             },
 
               states::BeforeHead
