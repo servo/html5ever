@@ -40,7 +40,7 @@ mod named_entities;
 mod atom;
 
 #[macro_export]
-macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
+macro_rules! unwrap_or_return ( ($opt:expr, $retval:expr) => (
     match $opt {
         None => return $retval,
         Some(x) => x,
@@ -48,7 +48,7 @@ macro_rules! unwrap_or_return( ($opt:expr, $retval:expr) => (
 ))
 
 #[macro_export]
-macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
+macro_rules! test_eq ( ($name:ident, $left:expr, $right:expr) => (
     #[test]
     fn $name() {
         assert_eq!($left, $right);
@@ -58,11 +58,11 @@ macro_rules! test_eq( ($name:ident, $left:expr, $right:expr) => (
 // Wrap the procedural macro match_atom_impl! so that the
 // scrutinee expression is always a single token tree.
 #[macro_export]
-macro_rules! match_atom( ($scrutinee:expr $body:tt) => (
+macro_rules! match_atom ( ($scrutinee:expr $body:tt) => (
     match_atom_impl!(($scrutinee) $body)
 ))
 
-macro_rules! register( ($name:expr, $expand:expr) => (
+macro_rules! register ( ($name:expr, $expand:expr) => (
     register(token::intern($name),
         NormalTT(box BasicMacroExpander {
             expander: $expand,
