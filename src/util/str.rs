@@ -48,14 +48,6 @@ pub fn strip_leading_whitespace<'t>(x: &'t str) -> &'t str {
     x.trim_left_chars(AsciiWhitespace)
 }
 
-pub fn none_as_empty(s: Option<StrBuf>) -> StrBuf {
-    // We don't use map_default because it would allocate even for Some.
-    match s {
-        Some(s) => s,
-        None => StrBuf::new(),
-    }
-}
-
 test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
 test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'))
 test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None)

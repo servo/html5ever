@@ -12,7 +12,7 @@ use tokenizer;
 use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
 
-use util::str::{strip_leading_whitespace, none_as_empty};
+use util::str::strip_leading_whitespace;
 use util::atom::Atom;
 use util::namespace::HTML;
 
@@ -185,9 +185,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 self.sink.append_doctype_to_document(
-                    none_as_empty(name),
-                    none_as_empty(public_id),
-                    none_as_empty(system_id)
+                    name.unwrap_or(StrBuf::new()),
+                    public_id.unwrap_or(StrBuf::new()),
+                    system_id.unwrap_or(StrBuf::new())
                 );
                 self.sink.set_quirks_mode(quirk);
 
