@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // FIXME
-#![allow(unused_imports)]
+#![warn(warnings)]
 
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
@@ -12,7 +12,6 @@ use tokenizer;
 use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
 
-use util::str::strip_leading_whitespace;
 use util::atom::Atom;
 use util::namespace::HTML;
 
@@ -75,21 +74,52 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     head_elem: Option<Handle>,
 }
 
+/// ASCII whitespace characters as used for special
+/// handling of character tokens.
+fn is_ascii_whitespace(c: char) -> bool {
+    match c {
+        '\t' | '\r' | '\n' | '\x0C' | ' ' => true,
+        _ => false,
+    }
+}
+
 /// Remove leading whitespace from character tokens;
 /// return None if the entire string is removed.
 fn drop_whitespace(token: Token) -> Option<Token> {
     match token {
-        CharacterTokens(ref x) => match strip_leading_whitespace(x.as_slice()) {
-            "" => return None,
-            // FIXME: We don't absolutely need to copy here, but it's hard
-            // to correctly handle reconsumption without it.
-            y if y.len() != x.len() => return Some(CharacterTokens(y.to_strbuf())),
-            _ => (),
+        // FIXME: We don't absolutely need to copy, but it's hard
+        // to correctly handle reconsumption without it.
+        CharacterTokens(x) => {
+            match x.as_slice().trim_left_chars(|c| is_ascii_whitespace(c)) {
+                "" => return None,
+                y if y.len() != x.len() => return Some(CharacterTokens(y.to_strbuf())),
+                _ => (),
+            }
+            // unborrow `x`
+            Some(CharacterTokens(x))
         },
-        _ => (),
+        token => Some(token),
     }
-    // Fall through to un-borrow `token`.
-    Some(token)
+}
+
+/// Split a character token into a non-empty sequence of
+/// whitespace characters, if any, and a remaining
+/// token, if any.
+fn split_whitespace(token: Token) -> (Option<StrBuf>, Option<Token>) {
+    match token {
+        CharacterTokens(x) => {
+            if x.len() == 0 {
+                return (None, None);
+            }
+            match x.as_slice().find(|c| !is_ascii_whitespace(c)) {
+                None => (Some(x), None),
+                Some(0) => (None, Some(CharacterTokens(x))),
+                Some(i) => (Some(x.as_slice().slice_to(i).to_strbuf()),
+                            Some(CharacterTokens(x.as_slice().slice_from(i).to_strbuf()))),
+            }
+        }
+        token => (None, Some(token)),
+    }
 }
 
 // We use guards, so we can't bind tags by move.  Instead, bind by ref
@@ -316,16 +346,38 @@ test_eq!(drop_no_whitespace,
     drop_whitespace(CharacterTokens("hello".to_strbuf())),
     Some(CharacterTokens("hello".to_strbuf())))
 
+#[cfg(test)]
+fn get_char_ptr(token: &Token) -> *u8 {
+    match *token {
+        CharacterTokens(ref x) => x.as_slice().as_ptr(),
+        _ => fail!("not characters"),
+    }
+}
+
 #[test]
 fn empty_drop_doesnt_reallocate() {
-    fn get_ptr(token: &Token) -> *u8 {
-        match *token {
-            CharacterTokens(ref x) => x.as_slice().as_ptr(),
-            _ => fail!("not characters"),
-        }
-    }
-
     let x = CharacterTokens("hello".to_strbuf());
-    let p = get_ptr(&x);
-    assert_eq!(p, get_ptr(&drop_whitespace(x).unwrap()));
+    let p = get_char_ptr(&x);
+    assert_eq!(p, get_char_ptr(&drop_whitespace(x).unwrap()));
+}
+
+test_eq!(split_not_characters, split_whitespace(EOFToken), (None, Some(EOFToken)))
+test_eq!(split_all_whitespace,
+    split_whitespace(CharacterTokens("    ".to_strbuf())),
+    (Some("    ".to_strbuf()), None))
+test_eq!(split_some_whitespace,
+    split_whitespace(CharacterTokens("   hello".to_strbuf())),
+    (Some("   ".to_strbuf()), Some(CharacterTokens("hello".to_strbuf()))))
+test_eq!(split_no_whitespace,
+    split_whitespace(CharacterTokens("hello".to_strbuf())),
+    (None, Some(CharacterTokens("hello".to_strbuf()))))
+
+#[test]
+fn empty_split_doesnt_reallocate() {
+    let x = CharacterTokens("hello".to_strbuf());
+    let p = get_char_ptr(&x);
+    match split_whitespace(x) {
+        (None, Some(ref y)) => assert_eq!(p, get_char_ptr(y)),
+        _ => fail!("unexpected split_whitespace result"),
+    }
 }
