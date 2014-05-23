@@ -234,6 +234,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.create_element_impl(false, name, attrs)
     }
 
+    fn create_element_for(&mut self, tag: &mut Tag) -> Handle {
+        self.create_element(tag.name.clone(), take_attrs(tag))
+    }
+
     fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let mut token = match token {
@@ -327,7 +331,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
                 start!(mut t) if named!(t, head) => {
-                    self.head_elem = Some(self.create_element(atom!(head), take_attrs(t)));
+                    self.head_elem = Some(self.create_element_for(t));
                     self.mode = states::InHead;
                     Done
                 }
@@ -368,16 +372,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         }
                         title => {
                             self.parse_raw_data(Rcdata);
-                            self.create_element(atom!(title), take_attrs(t));
+                            self.create_element_for(t);
                             true
                         }
                         noframes style noscript => {
                             if (!self.opts.scripting_enabled) && named!(t, noscript) {
-                                self.create_element(atom!(noscript), take_attrs(t));
+                                self.create_element_for(t);
                                 self.mode = states::InHeadNoscript;
                             } else {
                                 self.parse_raw_data(Rawtext);
-                                self.create_element(t.name.clone(), take_attrs(t));
+                                self.create_element_for(t);
                             }
                             true
                         }
