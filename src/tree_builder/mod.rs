@@ -433,8 +433,39 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             },
 
-              states::InHeadNoscript
-            | states::AfterHead
+            states::InHeadNoscript => match append_whitespace!(token) {
+                end!(t) if match_atom!(t.name {
+                    noscript => {
+                        self.pop();
+                        self.mode = states::InHead;
+                        true
+                    }
+                    br => false,
+                    _ => {
+                        self.sink.parse_error(format!("Unexpected end tag in InHeadNoscript mode: {}", t));
+                        true
+                    }
+                }) => Done,
+
+                start!(t) if named!(t, head noscript) => {
+                    self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", t));
+                    Done
+                }
+
+                token @ CommentToken(_) => self.process_local(states::InHead, token),
+
+                token => if start_named!(token, html) {
+                    self.process_local(states::InBody, token)
+                } else if start_named!(token, basefont bgsound link meta noframes style) {
+                    self.process_local(states::InHead, token)
+                } else {
+                    self.sink.parse_error(format!("Unexpected token in InHeadNoscript mode: {}", token));
+                    self.pop();
+                    Reprocess(states::InHead, token)
+                },
+            },
+
+              states::AfterHead
             | states::InBody
             | states::Text
             | states::InTable
