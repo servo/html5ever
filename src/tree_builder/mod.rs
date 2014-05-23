@@ -11,6 +11,7 @@ pub use self::interface::TreeSink;
 use tokenizer;
 use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
+use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData};
 
 use util::atom::Atom;
 use util::namespace::HTML;
@@ -40,6 +41,9 @@ pub struct TreeBuilderOpts {
 
     /// Is this an iframe srcdoc document?
     pub iframe_srcdoc: bool,
+
+    /// Are we parsing a HTML fragment?
+    pub fragment: bool,
 }
 
 impl Default for TreeBuilderOpts {
@@ -47,6 +51,7 @@ impl Default for TreeBuilderOpts {
         TreeBuilderOpts {
             scripting_enabled: true,
             iframe_srcdoc: false,
+            fragment: false,
         }
     }
 }
@@ -62,7 +67,7 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     mode: states::InsertionMode,
 
     /// Original insertion mode, used by Text and InTableText modes.
-    orig_mode: states::InsertionMode,
+    orig_mode: Option<states::InsertionMode>,
 
     /// The document node, which is created by the sink.
     doc_handle: Handle,
@@ -72,6 +77,9 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
 
     /// Head element pointer.
     head_elem: Option<Handle>,
+
+    /// Next state change for the tokenizer, if any.
+    next_tokenizer_state: Option<tokenizer::states::State>,
 }
 
 /// ASCII whitespace characters as used for special
@@ -167,11 +175,23 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             opts: opts,
             sink: sink,
             mode: states::Initial,
-            orig_mode: states::Initial,
+            orig_mode: None,
             doc_handle: doc_handle,
             open_elems: vec!(),
             head_elem: None,
+            next_tokenizer_state: None,
         }
+    }
+
+    // Switch to `Text` insertion mode, save the old mode, and
+    // switch the tokenizer to a raw-data state.
+    // The latter only takes effect after the current / next
+    // `process_token` of a start tag returns!
+    fn parse_raw_data(&mut self, k: RawKind) {
+        assert!(self.next_tokenizer_state.is_none());
+        self.next_tokenizer_state = Some(RawData(k));
+        self.orig_mode = Some(self.mode);
+        self.mode = states::Text;
     }
 
     // The "appropriate place for inserting a node".
@@ -184,6 +204,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.open_elems.push(elem.clone());
     }
 
+    fn pop(&mut self) -> Handle {
+        self.open_elems.pop().expect("no current element")
+    }
+
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = self.sink.create_element(HTML, atom!(html), attrs);
         self.push(&elem);
@@ -191,13 +215,23 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         // FIXME: application cache selection algorithm
     }
 
-    fn create_element(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
+    fn create_element_impl(&mut self, push: bool, name: Atom, attrs: Vec<Attribute>) -> Handle {
         let target = self.target();
         let elem = self.sink.create_element(HTML, name, attrs);
-        self.push(&elem);
+        if push {
+            self.push(&elem);
+        }
         self.sink.append_element(target, elem.clone());
         // FIXME: Remove from the stack if we can't append?
         elem
+    }
+
+    fn create_element(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
+        self.create_element_impl(true, name, attrs)
+    }
+
+    fn create_element_nopush(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
+        self.create_element_impl(false, name, attrs)
     }
 
     fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
@@ -306,8 +340,89 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             },
 
-              states::InHead
-            | states::InHeadNoscript
+            states::InHead => {
+                let (ws, mut token) = split_whitespace(token);
+                match ws {
+                    Some(ws) => {
+                        let target = self.target();
+                        self.sink.append_text(target, ws);
+                    }
+                    None => (),
+                }
+                match token {
+                    None => Done,
+                    Some(CommentToken(text)) => {
+                        let target = self.target();
+                        self.sink.append_comment(target, text);
+                        Done
+                    }
+                    Some(start!(mut t)) if match_atom!(t.name {
+                        base basefont bgsound link meta => {
+                            self.create_element_nopush(t.name.clone(), take_attrs(t));
+                            /* FIXME: handle charset= and http-equiv="Content-Type"
+                            if named!(t, meta) {
+                                ...
+                            }
+                            */
+                            true
+                        }
+                        title => {
+                            self.parse_raw_data(Rcdata);
+                            self.create_element(atom!(title), take_attrs(t));
+                            true
+                        }
+                        noframes style noscript => {
+                            if (!self.opts.scripting_enabled) && named!(t, noscript) {
+                                self.create_element(atom!(noscript), take_attrs(t));
+                                self.mode = states::InHeadNoscript;
+                            } else {
+                                self.parse_raw_data(Rawtext);
+                                self.create_element(t.name.clone(), take_attrs(t));
+                            }
+                            true
+                        }
+                        script => {
+                            let target = self.target();
+                            let elem = self.sink.create_element(HTML, atom!(script), take_attrs(t));
+                            if self.opts.fragment {
+                                self.sink.mark_script_already_started(elem.clone());
+                            }
+                            self.push(&elem);
+                            self.sink.append_element(target, elem);
+                            self.parse_raw_data(ScriptData);
+                            true
+                        }
+                        template => fail!("FIXME: <template> not implemented"),
+                        head => {
+                            self.sink.parse_error("<head> in insertion mode InHead".to_owned());
+                            true
+                        }
+                        _ => false,
+                    }) => Done,
+                    Some(end!(mut t)) if match_atom!(t.name {
+                        head => {
+                            self.pop();
+                            self.mode = states::AfterHead;
+                            true
+                        }
+                        body html br => false,
+                        template => fail!("FIXME: <template> not implemented"),
+                        _ => {
+                            self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", t));
+                            true
+                        }
+                    }) => Done,
+                    Some(token) => if start_named!(token, html) {
+                        // Do this here because we can't move out of `token` when it's borrowed.
+                        self.process_local(states::InBody, token)
+                    } else {
+                        self.pop();
+                        Reprocess(states::AfterHead, token)
+                    },
+                }
+            }
+
+              states::InHeadNoscript
             | states::AfterHead
             | states::InBody
             | states::Text
@@ -334,6 +449,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'sink, Handle, Sink> {
     fn process_token(&mut self, token: tokenizer::Token) {
         self.process_in_mode(self.mode, token);
+    }
+
+    fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
+        self.next_tokenizer_state.take()
     }
 }
 

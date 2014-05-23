@@ -36,6 +36,10 @@ impl TreeSink<uint> for Sink {
         id
     }
 
+    fn append_text(&mut self, parent: uint, text: StrBuf) {
+        println!("Append text to {:u}: {:s}", parent, text);
+    }
+
     fn append_comment(&mut self, parent: uint, text: StrBuf) {
         println!("Append comment to {:u}: {:s}", parent, text);
     }
@@ -46,6 +50,10 @@ impl TreeSink<uint> for Sink {
 
     fn append_doctype_to_document(&mut self, name: StrBuf, public_id: StrBuf, system_id: StrBuf) {
         println!("Append doctype: {:s} {:s} {:s}", name, public_id, system_id);
+    }
+
+    fn mark_script_already_started(&mut self, node: uint) {
+        println!("Mark script {:u} as already started", node);
     }
 }
 

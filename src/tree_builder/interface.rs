@@ -20,7 +20,10 @@ pub trait TreeSink<Handle> {
 
     fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
 
+    fn append_text(&mut self, parent: Handle, text: StrBuf);
     fn append_comment(&mut self, parent: Handle, text: StrBuf);
     fn append_element(&mut self, parent: Handle, child: Handle);
     fn append_doctype_to_document(&mut self, name: StrBuf, public_id: StrBuf, system_id: StrBuf);
+
+    fn mark_script_already_started(&mut self, node: Handle);
 }
