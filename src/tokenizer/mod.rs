@@ -346,6 +346,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         }));
+
+        if self.current_tag_kind == StartTag {
+            match self.sink.query_state_change() {
+                None => (),
+                Some(s) => self.state = s,
+            }
+        }
     }
 
     fn emit_temp_buf(&mut self) {
@@ -474,7 +481,6 @@ macro_rules! shorthand (
     ( emit $c:expr                    ) => ( self.emit_char($c);                                   );
     ( create_tag $kind:expr $c:expr   ) => ( self.create_tag($kind, $c);                           );
     ( push_tag $c:expr                ) => ( self.current_tag_name.push_char($c);                  );
-    ( emit_tag                        ) => ( self.emit_current_tag();                              );
     ( discard_tag                     ) => ( self.discard_tag();                                   );
     ( push_temp $c:expr               ) => ( self.temp_buf.push_char($c);                          );
     ( emit_temp                       ) => ( self.emit_temp_buf();                                 );
@@ -529,6 +535,13 @@ macro_rules! go (
 
     ( consume_char_ref             ) => ({ self.consume_char_ref(None); return true;         });
     ( consume_char_ref $addnl:expr ) => ({ self.consume_char_ref(Some($addnl)); return true; });
+
+    // We have a default next state after emitting a tag, but the sink can override.
+    ( emit_tag $s:ident ) => ({
+        self.state = states::$s;
+        self.emit_current_tag();
+        return true;
+    });
 
     ( eof ) => ({ self.emit_eof(); return false; });
 
@@ -638,7 +651,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 '\0' => go!(error; push_tag '\ufffd'),
                 c    => go!(push_tag (lower_ascii(c))),
             }},
@@ -679,7 +692,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                         '\t' | '\n' | '\x0C' | ' '
                             => go!(to BeforeAttributeName),
                         '/' => go!(to SelfClosingStartTag),
-                        '>' => go!(emit_tag; to Data),
+                        '>' => go!(emit_tag Data),
                         _ => (),
                     }
                 }
@@ -752,7 +765,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::BeforeAttributeName => loop { match get_char!() {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
@@ -769,7 +782,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                      => go!(to AfterAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
                 '='  => go!(to BeforeAttributeValue),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 '\0' => go!(error; push_name '\ufffd'),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(push_name cl),
@@ -785,7 +798,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(to SelfClosingStartTag),
                 '='  => go!(to BeforeAttributeValue),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 '\0' => go!(error; create_attr '\ufffd'; to AttributeName),
                 c    => match lower_ascii_letter(c) {
                     Some(cl) => go!(create_attr cl; to AttributeName),
@@ -803,7 +816,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '&'  => go!(reconsume AttributeValue Unquoted),
                 '\'' => go!(to AttributeValue SingleQuoted),
                 '\0' => go!(error; push_value '\ufffd'; to AttributeValue Unquoted),
-                '>'  => go!(error; emit_tag; to Data),
+                '>'  => go!(error; emit_tag Data),
                 c => {
                     go_match!(c,
                         '<' | '=' | '`' => error);
@@ -829,7 +842,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '&'  => go!(consume_char_ref '>'),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 '\0' => go!(error; push_value '\ufffd'),
                 c    => {
                     go_match!(c,
@@ -842,14 +855,14 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(to BeforeAttributeName),
                 '/'  => go!(to SelfClosingStartTag),
-                '>'  => go!(emit_tag; to Data),
+                '>'  => go!(emit_tag Data),
                 _    => go!(error; reconsume BeforeAttributeName),
             }},
 
             states::SelfClosingStartTag => loop { match get_char!() {
                 '>' => {
                     self.current_tag_self_closing = true;
-                    go!(emit_tag; to Data);
+                    go!(emit_tag Data);
                 }
                 _ => go!(error; reconsume BeforeAttributeName),
             }},

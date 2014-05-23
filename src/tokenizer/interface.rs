@@ -4,6 +4,7 @@
 
 use std::strbuf::StrBuf;
 use util::atom::Atom;
+use tokenizer::states;
 
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, TotalEq, Clone, Show)]
@@ -76,5 +77,12 @@ pub enum Token {
 }
 
 pub trait TokenSink {
+    /// Process a token.
     fn process_token(&mut self, token: Token);
+
+    /// The tokenizer will call this after emitting any start tag.
+    /// This allows the tree builder to change the tokenizer's state.
+    fn query_state_change(&mut self) -> Option<states::State> {
+        None
+    }
 }
