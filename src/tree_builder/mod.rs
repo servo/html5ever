@@ -146,6 +146,10 @@ macro_rules! drop_whitespace ( ($x:expr) => (
     unwrap_or_return!(drop_whitespace($x), Done)
 ))
 
+macro_rules! append_whitespace ( ($x:expr) => (
+    unwrap_or_return!(self.append_whitespace($x), Done)
+))
+
 macro_rules! tag_pattern (
     ($kind:ident     $var:ident) => ( TagToken(ref     $var @ Tag { kind: $kind, ..}) );
     ($kind:ident mut $var:ident) => ( TagToken(ref mut $var @ Tag { kind: $kind, ..}) );
@@ -206,6 +210,20 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn pop(&mut self) -> Handle {
         self.open_elems.pop().expect("no current element")
+    }
+
+    /// Append whitespace characters and return a remaining token,
+    /// if any.
+    fn append_whitespace(&mut self, token: Token) -> Option<Token> {
+        let (ws, token) = split_whitespace(token);
+        match ws {
+            Some(ws) => {
+                let target = self.target();
+                self.sink.append_text(target, ws);
+            }
+            None => (),
+        }
+        token
     }
 
     fn create_root(&mut self, attrs: Vec<Attribute>) {
@@ -344,87 +362,76 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             },
 
-            states::InHead => {
-                let (ws, mut token) = split_whitespace(token);
-                match ws {
-                    Some(ws) => {
-                        let target = self.target();
-                        self.sink.append_text(target, ws);
-                    }
-                    None => (),
+            states::InHead => match append_whitespace!(token) {
+                CommentToken(text) => {
+                    let target = self.target();
+                    self.sink.append_comment(target, text);
+                    Done
                 }
-                match token {
-                    None => Done,
-                    Some(CommentToken(text)) => {
-                        let target = self.target();
-                        self.sink.append_comment(target, text);
-                        Done
-                    }
-                    Some(start!(mut t)) if match_atom!(t.name {
-                        base basefont bgsound link meta => {
-                            self.create_element_nopush(t.name.clone(), take_attrs(t));
-                            /* FIXME: handle charset= and http-equiv="Content-Type"
-                            if named!(t, meta) {
-                                ...
-                            }
-                            */
-                            true
+                start!(mut t) if match_atom!(t.name {
+                    base basefont bgsound link meta => {
+                        self.create_element_nopush(t.name.clone(), take_attrs(t));
+                        /* FIXME: handle charset= and http-equiv="Content-Type"
+                        if named!(t, meta) {
+                            ...
                         }
-                        title => {
-                            self.parse_raw_data(Rcdata);
+                        */
+                        true
+                    }
+                    title => {
+                        self.parse_raw_data(Rcdata);
+                        self.create_element_for(t);
+                        true
+                    }
+                    noframes style noscript => {
+                        if (!self.opts.scripting_enabled) && named!(t, noscript) {
                             self.create_element_for(t);
-                            true
+                            self.mode = states::InHeadNoscript;
+                        } else {
+                            self.parse_raw_data(Rawtext);
+                            self.create_element_for(t);
                         }
-                        noframes style noscript => {
-                            if (!self.opts.scripting_enabled) && named!(t, noscript) {
-                                self.create_element_for(t);
-                                self.mode = states::InHeadNoscript;
-                            } else {
-                                self.parse_raw_data(Rawtext);
-                                self.create_element_for(t);
-                            }
-                            true
+                        true
+                    }
+                    script => {
+                        let target = self.target();
+                        let elem = self.sink.create_element(HTML, atom!(script), take_attrs(t));
+                        if self.opts.fragment {
+                            self.sink.mark_script_already_started(elem.clone());
                         }
-                        script => {
-                            let target = self.target();
-                            let elem = self.sink.create_element(HTML, atom!(script), take_attrs(t));
-                            if self.opts.fragment {
-                                self.sink.mark_script_already_started(elem.clone());
-                            }
-                            self.push(&elem);
-                            self.sink.append_element(target, elem);
-                            self.parse_raw_data(ScriptData);
-                            true
-                        }
-                        template => fail!("FIXME: <template> not implemented"),
-                        head => {
-                            self.sink.parse_error("<head> in insertion mode InHead".to_owned());
-                            true
-                        }
-                        _ => false,
-                    }) => Done,
-                    Some(end!(mut t)) if match_atom!(t.name {
-                        head => {
-                            self.pop();
-                            self.mode = states::AfterHead;
-                            true
-                        }
-                        body html br => false,
-                        template => fail!("FIXME: <template> not implemented"),
-                        _ => {
-                            self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", t));
-                            true
-                        }
-                    }) => Done,
-                    Some(token) => if start_named!(token, html) {
-                        // Do this here because we can't move out of `token` when it's borrowed.
-                        self.process_local(states::InBody, token)
-                    } else {
+                        self.push(&elem);
+                        self.sink.append_element(target, elem);
+                        self.parse_raw_data(ScriptData);
+                        true
+                    }
+                    template => fail!("FIXME: <template> not implemented"),
+                    head => {
+                        self.sink.parse_error("<head> in insertion mode InHead".to_owned());
+                        true
+                    }
+                    _ => false,
+                }) => Done,
+                end!(mut t) if match_atom!(t.name {
+                    head => {
                         self.pop();
-                        Reprocess(states::AfterHead, token)
-                    },
-                }
-            }
+                        self.mode = states::AfterHead;
+                        true
+                    }
+                    body html br => false,
+                    template => fail!("FIXME: <template> not implemented"),
+                    _ => {
+                        self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", t));
+                        true
+                    }
+                }) => Done,
+                token => if start_named!(token, html) {
+                    // Do this here because we can't move out of `token` when it's borrowed.
+                    self.process_local(states::InBody, token)
+                } else {
+                    self.pop();
+                    Reprocess(states::AfterHead, token)
+                },
+            },
 
               states::InHeadNoscript
             | states::AfterHead
