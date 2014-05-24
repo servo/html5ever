@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::strbuf::StrBuf;
+use std::str::CharEq;
 
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
@@ -42,3 +43,65 @@ test_eq!(is_alnum_A, is_ascii_alnum('A'), true)
 test_eq!(is_alnum_1, is_ascii_alnum('1'), true)
 test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false)
 test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\ua66e'), false)
+
+
+/// ASCII whitespace characters, as defined by
+/// tree construction modes that treat them specially.
+pub fn is_ascii_whitespace(c: char) -> bool {
+    match c {
+        '\t' | '\r' | '\n' | '\x0C' | ' ' => true,
+        _ => false,
+    }
+}
+
+/// Split a string into runs of characters that
+/// do and don't match a predicate.
+pub struct Runs<'t, Pred> {
+    pred: Pred,
+    buf: &'t str,
+}
+
+impl<'t, Pred: CharEq> Runs<'t, Pred> {
+    pub fn new(pred: Pred, buf: &'t str) -> Runs<'t, Pred> {
+        Runs {
+            pred: pred,
+            buf: buf,
+        }
+    }
+}
+
+impl<'t, Pred: CharEq> Iterator<(bool, &'t str)> for Runs<'t, Pred> {
+    fn next(&mut self) -> Option<(bool, &'t str)> {
+        let (first, rest) = self.buf.slice_shift_char();
+        let first = unwrap_or_return!(first, None);
+
+        let matches = self.pred.matches(first);
+        let len = match rest.find(|c| self.pred.matches(c) != matches) {
+            Some(i) => i+1,
+            None => self.buf.len(),
+        };
+
+        let run = self.buf.slice_to(len);
+        self.buf = self.buf.slice_from(len);
+        Some((matches, run))
+    }
+}
+
+macro_rules! test_runs ( ($name:ident, $input:expr, $expect:expr) => (
+    #[test]
+    fn $name() {
+        let mut runs = Runs::new(is_ascii_whitespace, $input);
+        let result: Vec<(bool, &'static str)> = runs.collect();
+        assert_eq!($expect.as_slice(), result.as_slice());
+    }
+))
+
+test_runs!(runs_empty, "", [])
+test_runs!(runs_one_t, " ", [(true, " ")])
+test_runs!(runs_one_f, "x", [(false, "x")])
+test_runs!(runs_t, "  \t  \n", [(true, "  \t  \n")])
+test_runs!(runs_f, "xyzzy", [(false, "xyzzy")])
+test_runs!(runs_tf, "   xyzzy", [(true, "   "), (false, "xyzzy")])
+test_runs!(runs_ft, "xyzzy   ", [(false, "xyzzy"), (true, "   ")])
+test_runs!(runs_tft, "   xyzzy  ", [(true, "   "), (false, "xyzzy"), (true, "  ")])
+test_runs!(runs_ftf, "xyzzy   hi", [(false, "xyzzy"), (true, "   "), (false, "hi")])

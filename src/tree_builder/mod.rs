@@ -15,6 +15,7 @@ use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData};
 
 use util::atom::Atom;
 use util::namespace::HTML;
+use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
 use std::mem::replace;
@@ -29,7 +30,7 @@ mod data;
 enum Token {
     TagToken(Tag),
     CommentToken(StrBuf),
-    CharacterTokens(StrBuf),
+    CharacterTokens(bool, StrBuf),
     EOFToken,
 }
 
@@ -82,54 +83,6 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     next_tokenizer_state: Option<tokenizer::states::State>,
 }
 
-/// ASCII whitespace characters as used for special
-/// handling of character tokens.
-fn is_ascii_whitespace(c: char) -> bool {
-    match c {
-        '\t' | '\r' | '\n' | '\x0C' | ' ' => true,
-        _ => false,
-    }
-}
-
-/// Remove leading whitespace from character tokens;
-/// return None if the entire string is removed.
-fn drop_whitespace(token: Token) -> Option<Token> {
-    match token {
-        // FIXME: We don't absolutely need to copy, but it's hard
-        // to correctly handle reconsumption without it.
-        CharacterTokens(x) => {
-            match x.as_slice().trim_left_chars(|c| is_ascii_whitespace(c)) {
-                "" => return None,
-                y if y.len() != x.len() => return Some(CharacterTokens(y.to_strbuf())),
-                _ => (),
-            }
-            // unborrow `x`
-            Some(CharacterTokens(x))
-        },
-        token => Some(token),
-    }
-}
-
-/// Split a character token into a non-empty sequence of
-/// whitespace characters, if any, and a remaining
-/// token, if any.
-fn split_whitespace(token: Token) -> (Option<StrBuf>, Option<Token>) {
-    match token {
-        CharacterTokens(x) => {
-            if x.len() == 0 {
-                return (None, None);
-            }
-            match x.as_slice().find(|c| !is_ascii_whitespace(c)) {
-                None => (Some(x), None),
-                Some(0) => (None, Some(CharacterTokens(x))),
-                Some(i) => (Some(x.as_slice().slice_to(i).to_strbuf()),
-                            Some(CharacterTokens(x.as_slice().slice_from(i).to_strbuf()))),
-            }
-        }
-        token => (None, Some(token)),
-    }
-}
-
 // We use guards, so we can't bind tags by move.  Instead, bind by ref
 // mut and take attrs with `replace`.  This is basically fine since
 // empty `Vec` doesn't allocate.
@@ -141,14 +94,6 @@ enum ProcessResult {
     Done,
     Reprocess(states::InsertionMode, Token),
 }
-
-macro_rules! drop_whitespace ( ($x:expr) => (
-    unwrap_or_return!(drop_whitespace($x), Done)
-))
-
-macro_rules! append_whitespace ( ($x:expr) => (
-    unwrap_or_return!(self.append_whitespace($x), Done)
-))
 
 macro_rules! tag_pattern (
     ($kind:ident     $var:ident) => ( TagToken(ref     $var @ Tag { kind: $kind, ..}) );
@@ -212,20 +157,6 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.open_elems.pop().expect("no current element")
     }
 
-    /// Append whitespace characters and return a remaining token,
-    /// if any.
-    fn append_whitespace(&mut self, token: Token) -> Option<Token> {
-        let (ws, token) = split_whitespace(token);
-        match ws {
-            Some(ws) => {
-                let target = self.target();
-                self.sink.append_text(target, ws);
-            }
-            None => (),
-        }
-        token
-    }
-
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = self.sink.create_element(HTML, atom!(html), attrs);
         self.push(&elem);
@@ -258,7 +189,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
-        let mut token = match token {
+        let token = match token {
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return;
@@ -286,26 +217,53 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::CharacterTokens(x) => CharacterTokens(x),
+            tokenizer::CharacterTokens(x) => CharacterTokens(false, x),
             tokenizer::EOFToken => EOFToken,
         };
 
-        loop {
-            match self.process_local(mode, token) {
-                Done => return,
-                Reprocess(m, t) => {
-                    mode = m;
-                    token = t;
+        // Do we split the token into whitespace / non-whitespace and, if so,
+        // do we keep the whitespace or just drop it?
+        let (process_whitespace, keep_whitespace) = match mode {
+            states::InHead | states::InHeadNoscript
+                => (true, true),
+            states::Initial | states::BeforeHtml | states::BeforeHead
+                => (true, false),
+            _ => (false, false)
+        };
+
+        match (process_whitespace, token) {
+            (true, CharacterTokens(_, buf)) => self.process_after_whitespace(mode,
+                Runs::new(is_ascii_whitespace, buf.as_slice())
+                    .filter(|&(m, _)| keep_whitespace || !m)
+                    .map(|(m, b)| CharacterTokens(m, b.to_strbuf()))),
+
+            (_, token) => self.process_after_whitespace(mode, Some(token).move_iter()),
+        }
+    }
+
+    fn process_after_whitespace<Iter: Iterator<Token>>
+        (&mut self,
+         mut mode: states::InsertionMode,
+         mut tokens: Iter) {
+
+        for mut token in tokens {
+            loop {
+                match self.process_local(mode, token) {
+                    Done => break,
+                    Reprocess(m, t) => {
+                        mode = m;
+                        token = t;
+                    }
                 }
             }
         }
     }
 
-    fn process_local(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
+    fn process_local(&mut self, mode: states::InsertionMode, mut token: Token) -> ProcessResult {
         debug!("processing {} in insertion mode {:?}", token, mode);
 
         match mode {
-            states::Initial => match drop_whitespace!(token) {
+            states::Initial => match token {
                 CommentToken(text) => {
                     self.sink.append_comment(self.doc_handle.clone(), text);
                     Done
@@ -319,7 +277,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             },
 
-            states::BeforeHtml => match drop_whitespace!(token) {
+            states::BeforeHtml => match token {
                 CommentToken(text) => {
                     self.sink.append_comment(self.doc_handle.clone(), text);
                     Done
@@ -338,7 +296,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             },
 
-            states::BeforeHead => match drop_whitespace!(token) {
+            states::BeforeHead => match token {
                 CommentToken(text) => {
                     let target = self.target();
                     self.sink.append_comment(target, text);
@@ -362,7 +320,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             },
 
-            states::InHead => match append_whitespace!(token) {
+            states::InHead => match token {
+                CharacterTokens(true, text) => {
+                    let target = self.target();
+                    self.sink.append_text(target, text);
+                    Done
+                }
                 CommentToken(text) => {
                     let target = self.target();
                     self.sink.append_comment(target, text);
@@ -433,7 +396,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             },
 
-            states::InHeadNoscript => match append_whitespace!(token) {
+            states::InHeadNoscript => match token {
+                CharacterTokens(true, text) => {
+                    let target = self.target();
+                    self.sink.append_text(target, text);
+                    Done
+                }
                 end!(t) if match_atom!(t.name {
                     noscript => {
                         self.pop();
@@ -495,50 +463,5 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
         self.next_tokenizer_state.take()
-    }
-}
-
-test_eq!(drop_not_characters, drop_whitespace(EOFToken), Some(EOFToken))
-test_eq!(drop_all_whitespace, drop_whitespace(CharacterTokens("    ".to_strbuf())), None)
-test_eq!(drop_some_whitespace,
-    drop_whitespace(CharacterTokens("   hello".to_strbuf())),
-    Some(CharacterTokens("hello".to_strbuf())))
-test_eq!(drop_no_whitespace,
-    drop_whitespace(CharacterTokens("hello".to_strbuf())),
-    Some(CharacterTokens("hello".to_strbuf())))
-
-#[cfg(test)]
-fn get_char_ptr(token: &Token) -> *u8 {
-    match *token {
-        CharacterTokens(ref x) => x.as_slice().as_ptr(),
-        _ => fail!("not characters"),
-    }
-}
-
-#[test]
-fn empty_drop_doesnt_reallocate() {
-    let x = CharacterTokens("hello".to_strbuf());
-    let p = get_char_ptr(&x);
-    assert_eq!(p, get_char_ptr(&drop_whitespace(x).unwrap()));
-}
-
-test_eq!(split_not_characters, split_whitespace(EOFToken), (None, Some(EOFToken)))
-test_eq!(split_all_whitespace,
-    split_whitespace(CharacterTokens("    ".to_strbuf())),
-    (Some("    ".to_strbuf()), None))
-test_eq!(split_some_whitespace,
-    split_whitespace(CharacterTokens("   hello".to_strbuf())),
-    (Some("   ".to_strbuf()), Some(CharacterTokens("hello".to_strbuf()))))
-test_eq!(split_no_whitespace,
-    split_whitespace(CharacterTokens("hello".to_strbuf())),
-    (None, Some(CharacterTokens("hello".to_strbuf()))))
-
-#[test]
-fn empty_split_doesnt_reallocate() {
-    let x = CharacterTokens("hello".to_strbuf());
-    let p = get_char_ptr(&x);
-    match split_whitespace(x) {
-        (None, Some(ref y)) => assert_eq!(p, get_char_ptr(y)),
-        _ => fail!("unexpected split_whitespace result"),
     }
 }
