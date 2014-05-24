@@ -25,7 +25,7 @@ mod states;
 mod data;
 
 /// We mostly only work with these tokens. Everything else is handled
-/// specially at the beginning of `process_in_mode`.
+/// specially at the beginning of `process_token`.
 #[deriving(Eq, TotalEq, Clone, Show)]
 enum Token {
     TagToken(Tag),
@@ -187,61 +187,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.create_element(tag.name.clone(), take_attrs(tag))
     }
 
-    fn process_in_mode(&mut self, mut mode: states::InsertionMode, token: tokenizer::Token) {
-        // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
-        let token = match token {
-            tokenizer::ParseError(e) => {
-                self.sink.parse_error(e);
-                return;
-            }
-
-            tokenizer::DoctypeToken(dt) => if mode == states::Initial {
-                let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
-                if err {
-                    self.sink.parse_error(format!("Bad DOCTYPE: {}", dt));
-                }
-                let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
-                self.sink.append_doctype_to_document(
-                    name.unwrap_or(StrBuf::new()),
-                    public_id.unwrap_or(StrBuf::new()),
-                    system_id.unwrap_or(StrBuf::new())
-                );
-                self.sink.set_quirks_mode(quirk);
-
-                self.mode = states::BeforeHtml;
-                return;
-            } else {
-                self.sink.parse_error(format!("DOCTYPE in insertion mode {:?}", mode));
-                return;
-            },
-
-            tokenizer::TagToken(x) => TagToken(x),
-            tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::CharacterTokens(x) => CharacterTokens(false, x),
-            tokenizer::EOFToken => EOFToken,
-        };
-
-        // Do we split the token into whitespace / non-whitespace and, if so,
-        // do we keep the whitespace or just drop it?
-        let (process_whitespace, keep_whitespace) = match mode {
-            states::InHead | states::InHeadNoscript
-                => (true, true),
-            states::Initial | states::BeforeHtml | states::BeforeHead
-                => (true, false),
-            _ => (false, false)
-        };
-
-        match (process_whitespace, token) {
-            (true, CharacterTokens(_, buf)) => self.process_after_whitespace(mode,
-                Runs::new(is_ascii_whitespace, buf.as_slice())
-                    .filter(|&(m, _)| keep_whitespace || !m)
-                    .map(|(m, b)| CharacterTokens(m, b.to_strbuf()))),
-
-            (_, token) => self.process_after_whitespace(mode, Some(token).move_iter()),
-        }
-    }
-
-    fn process_after_whitespace<Iter: Iterator<Token>>
+    fn process_local_tokens<Iter: Iterator<Token>>
         (&mut self,
          mut mode: states::InsertionMode,
          mut tokens: Iter) {
@@ -414,7 +360,6 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         true
                     }
                 }) => Done,
-
                 start!(t) if named!(t, head noscript) => {
                     self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", t));
                     Done
@@ -458,7 +403,57 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'sink, Handle, Sink> {
     fn process_token(&mut self, token: tokenizer::Token) {
-        self.process_in_mode(self.mode, token);
+        // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
+        let token = match token {
+            tokenizer::ParseError(e) => {
+                self.sink.parse_error(e);
+                return;
+            }
+
+            tokenizer::DoctypeToken(dt) => if self.mode == states::Initial {
+                let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
+                if err {
+                    self.sink.parse_error(format!("Bad DOCTYPE: {}", dt));
+                }
+                let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
+                self.sink.append_doctype_to_document(
+                    name.unwrap_or(StrBuf::new()),
+                    public_id.unwrap_or(StrBuf::new()),
+                    system_id.unwrap_or(StrBuf::new())
+                );
+                self.sink.set_quirks_mode(quirk);
+
+                self.mode = states::BeforeHtml;
+                return;
+            } else {
+                self.sink.parse_error(format!("DOCTYPE in insertion mode {:?}", self.mode));
+                return;
+            },
+
+            tokenizer::TagToken(x) => TagToken(x),
+            tokenizer::CommentToken(x) => CommentToken(x),
+            tokenizer::CharacterTokens(x) => CharacterTokens(false, x),
+            tokenizer::EOFToken => EOFToken,
+        };
+
+        // Do we split the token into whitespace / non-whitespace and, if so,
+        // do we keep the whitespace or just drop it?
+        let (process_whitespace, keep_whitespace) = match self.mode {
+            states::InHead | states::InHeadNoscript
+                => (true, true),
+            states::Initial | states::BeforeHtml | states::BeforeHead
+                => (true, false),
+            _ => (false, false)
+        };
+
+        match (process_whitespace, token) {
+            (true, CharacterTokens(_, buf)) => self.process_local_tokens(self.mode,
+                Runs::new(is_ascii_whitespace, buf.as_slice())
+                    .filter(|&(m, _)| keep_whitespace || !m)
+                    .map(|(m, b)| CharacterTokens(m, b.to_strbuf()))),
+
+            (_, token) => self.process_local_tokens(self.mode, Some(token).move_iter()),
+        }
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
