@@ -2,14 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// FIXME
-#![warn(warnings)]
-
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
 use tokenizer;
-use tokenizer::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
+use tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use tokenizer::TokenSink;
 use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData};
 
