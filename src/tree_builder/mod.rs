@@ -114,6 +114,16 @@ macro_rules! kind_named ( ($kind:ident $t:expr, $($atom:ident)*) => (
 macro_rules! start_named ( ($($args:tt)*) => ( kind_named!(StartTag $($args)*) ))
 macro_rules! end_named   ( ($($args:tt)*) => ( kind_named!(EndTag   $($args)*) ))
 
+macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
+    // two steps to avoid double borrow
+    let target = $target;
+    self.sink.$fun(target, $($args),*);
+    Done
+}))
+
+macro_rules! append_text    ( ($target:expr, $text:expr) => ( append_with!(append_text,    $target, $text) ))
+macro_rules! append_comment ( ($target:expr, $text:expr) => ( append_with!(append_comment, $target, $text) ))
+
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Sink> {
     pub fn new(sink: &'sink mut Sink, opts: TreeBuilderOpts) -> TreeBuilder<'sink, Handle, Sink> {
         let doc_handle = sink.get_document();
@@ -207,10 +217,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
         match mode {
             states::Initial => match token {
-                CommentToken(text) => {
-                    self.sink.append_comment(self.doc_handle.clone(), text);
-                    Done
-                }
+                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
                     if !self.opts.iframe_srcdoc {
                         self.sink.parse_error(format!("Bad token in Initial insertion mode: {}", token));
@@ -221,10 +228,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::BeforeHtml => match token {
-                CommentToken(text) => {
-                    self.sink.append_comment(self.doc_handle.clone(), text);
-                    Done
-                }
+                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 start!(mut t) if named!(t, html) => {
                     self.create_root(take_attrs(t));
                     Done
@@ -240,11 +244,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::BeforeHead => match token {
-                CommentToken(text) => {
-                    let target = self.target();
-                    self.sink.append_comment(target, text);
-                    Done
-                }
+                CommentToken(text) => append_comment!(self.target(), text),
                 end!(t) if !named!(t, head body html br) => {
                     self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", t));
                     Done
@@ -264,16 +264,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::InHead => match token {
-                CharacterTokens(true, text) => {
-                    let target = self.target();
-                    self.sink.append_text(target, text);
-                    Done
-                }
-                CommentToken(text) => {
-                    let target = self.target();
-                    self.sink.append_comment(target, text);
-                    Done
-                }
+                CharacterTokens(true, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
                 start!(mut t) if match_atom!(t.name {
                     base basefont bgsound link meta => {
                         self.create_element_nopush(t.name.clone(), take_attrs(t));
@@ -340,11 +332,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::InHeadNoscript => match token {
-                CharacterTokens(true, text) => {
-                    let target = self.target();
-                    self.sink.append_text(target, text);
-                    Done
-                }
+                CharacterTokens(true, text) => append_text!(self.target(), text),
                 end!(t) if match_atom!(t.name {
                     noscript => {
                         self.pop();
