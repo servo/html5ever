@@ -28,7 +28,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: StrBuf,
+    input: String,
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -46,9 +46,9 @@ impl Bench {
             None => file_input.into_strbuf(),
             Some(size) => {
                 // Replicate the input in memory up to the desired size.
-                let mut input = StrBuf::with_capacity(size);
+                let mut input = String::with_capacity(size);
                 while input.len() < size {
-                    input.push_str(file_input);
+                    input.push_str(file_input.as_slice());
                 }
                 input
             }

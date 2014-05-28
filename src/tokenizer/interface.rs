@@ -7,16 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::strbuf::StrBuf;
+use std::string::String;
 use util::atom::Atom;
 use tokenizer::states;
 
 // FIXME: already exists in Servo DOM
 #[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Doctype {
-    pub name: Option<StrBuf>,
-    pub public_id: Option<StrBuf>,
-    pub system_id: Option<StrBuf>,
+    pub name: Option<String>,
+    pub public_id: Option<String>,
+    pub system_id: Option<String>,
     pub force_quirks: bool,
 }
 
@@ -54,7 +54,7 @@ impl Str for AttrName {
 #[deriving(Eq, TotalEq, Clone, Show)]
 pub struct Attribute {
     pub name: AttrName,
-    pub value: StrBuf,
+    pub value: String,
 }
 
 #[deriving(Eq, TotalEq, Clone, Show)]
@@ -75,10 +75,10 @@ pub struct Tag {
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
-    CommentToken(StrBuf),
-    CharacterTokens(StrBuf),
+    CommentToken(String),
+    CharacterTokens(String),
     EOFToken,
-    ParseError(~str),
+    ParseError(String),
 }
 
 pub trait TokenSink {

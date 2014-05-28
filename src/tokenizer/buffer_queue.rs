@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use std::str::CharRange;
-use std::strbuf::StrBuf;
+use std::string::String;
 use collections::deque::Deque;
 use collections::dlist::DList;
 
@@ -16,7 +16,7 @@ struct Buffer {
     /// Byte position within the buffer.
     pub pos: uint,
     /// The buffer.
-    pub buf: StrBuf,
+    pub buf: String,
 }
 
 /// Either a single character or a run of "data" characters: those which
@@ -26,7 +26,7 @@ struct Buffer {
 /// normally.
 #[deriving(Eq, TotalEq, Show)]
 pub enum DataRunOrChar {
-    DataRun(StrBuf),
+    DataRun(String),
     OneChar(char),
 }
 
@@ -63,7 +63,7 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the beginning of the queue.
-    pub fn push_front(&mut self, buf: StrBuf) {
+    pub fn push_front(&mut self, buf: String) {
         if buf.len() == 0 {
             return;
         }
@@ -77,7 +77,7 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     /// 'pos' can be non-zero to remove that many characters
     /// from the beginning.
-    pub fn push_back(&mut self, buf: StrBuf, pos: uint) {
+    pub fn push_back(&mut self, buf: String, pos: uint) {
         if pos >= buf.len() {
             return;
         }
@@ -94,7 +94,7 @@ impl BufferQueue {
     }
 
     /// Get multiple characters, if that many are available.
-    pub fn pop_front(&mut self, n: uint) -> Option<StrBuf> {
+    pub fn pop_front(&mut self, n: uint) -> Option<String> {
         if !self.has(n) {
             return None;
         }
@@ -142,7 +142,7 @@ impl BufferQueue {
     }
 
     fn account_new(&mut self, buf: &str) {
-        // FIXME: We could pass through length from the initial [u8] -> StrBuf
+        // FIXME: We could pass through length from the initial [u8] -> String
         // conversion, which already must re-encode or at least scan for UTF-8
         // validity.
         self.available += buf.char_len();
@@ -248,7 +248,7 @@ fn data_span_test() {
     for &c in ['&', '\0'].iter() {
         for x in range(0, 48u) {
             for y in range(0, 48u) {
-                let mut s = StrBuf::from_char(x, 'x');
+                let mut s = String::from_char(x, 'x');
                 s.push_char(c);
                 s.grow(y, 'x');
 

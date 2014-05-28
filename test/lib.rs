@@ -24,7 +24,7 @@ mod tokenizer;
 
 fn main() {
     let src_dir: Path = FromStr::from_str(
-        os::getenv("HTML5_SRC_DIR").expect("HTML5_SRC_DIR not set")
+        os::getenv("HTML5_SRC_DIR").expect("HTML5_SRC_DIR not set").as_slice()
     ).expect("HTML5_SRC_DIR invalid");
 
     let mut tests = vec!();
@@ -32,6 +32,6 @@ fn main() {
     tests.push_all_move(tokenizer::tests(src_dir));
     // more to follow
 
-    let args: Vec<StrBuf> = os::args().move_iter().map(|x| x.into_strbuf()).collect();
+    let args: Vec<String> = os::args().move_iter().map(|x| x.into_strbuf()).collect();
     test_main(args.as_slice(), tests);
 }

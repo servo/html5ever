@@ -21,7 +21,7 @@ static static_atom_array: &'static [&'static str] = static_atom_array!();
 pub enum Atom {
     Static(uint),
     // dynamic interning goes here
-    Owned(StrBuf),
+    Owned(String),
 }
 
 impl Atom {
@@ -32,24 +32,24 @@ impl Atom {
         }
     }
 
-    pub fn from_buf(s: StrBuf) -> Atom {
+    pub fn from_buf(s: String) -> Atom {
         match static_atom_map.find(&s.as_slice()) {
             Some(&k) => Static(k),
             None => Owned(s),
         }
     }
 
-    /// Like `Atom::from_buf(replace(s, StrBuf::new()))` but avoids
-    /// allocating a new `StrBuf` when the string is interned --
+    /// Like `Atom::from_buf(replace(s, String::new()))` but avoids
+    /// allocating a new `String` when the string is interned --
     /// just truncates the old one.
-    pub fn take_from_buf(s: &mut StrBuf) -> Atom {
+    pub fn take_from_buf(s: &mut String) -> Atom {
         match static_atom_map.find(&s.as_slice()) {
             Some(&k) => {
                 s.truncate(0);
                 Static(k)
             }
             None => {
-                Owned(replace(s, StrBuf::new()))
+                Owned(replace(s, String::new()))
             }
         }
     }
@@ -92,21 +92,21 @@ impl Str for Atom {
 }
 
 impl StrAllocating for Atom {
-    fn into_owned(self) -> ~str {
+    fn into_owned(self) -> String {
         match self {
             Static(i) => get_static(i).to_owned(),
             Owned(s) => s.into_owned(),
         }
     }
 
-    fn to_strbuf(&self) -> StrBuf {
+    fn to_strbuf(&self) -> String {
         match *self {
             Static(i) => get_static(i).to_strbuf(),
             Owned(ref s) => s.clone(),
         }
     }
 
-    fn into_strbuf(self) -> StrBuf {
+    fn into_strbuf(self) -> String {
         match self {
             Static(i) => get_static(i).to_strbuf(),
             Owned(s) => s,
@@ -181,7 +181,7 @@ fn take_from_buf_interned() {
     let mut b = "body".to_strbuf();
     let a = Atom::take_from_buf(&mut b);
     assert_eq!(a, Atom::from_str("body"));
-    assert_eq!(b, StrBuf::new());
+    assert_eq!(b, String::new());
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn take_from_buf_not_interned() {
     let mut b = "asdfghjk".to_strbuf();
     let a = Atom::take_from_buf(&mut b);
     assert_eq!(a, Atom::from_str("asdfghjk"));
-    assert_eq!(b, StrBuf::new());
+    assert_eq!(b, String::new());
 }
 
 #[test]

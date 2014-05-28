@@ -91,11 +91,11 @@ static html4_public_prefixes: &'static [&'static str] = &[
 ];
 
 pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool, QuirksMode) {
-    fn opt_as_slice<'t>(x: &'t Option<StrBuf>) -> Option<&'t str> {
+    fn opt_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
         x.as_ref().map(|y| y.as_slice())
     }
 
-    fn opt_to_ascii_lower(x: Option<&str>) -> Option<StrBuf> {
+    fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {
         x.map(|y| y.to_ascii_lower().into_strbuf())
     }
 

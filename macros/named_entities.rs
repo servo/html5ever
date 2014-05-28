@@ -25,11 +25,11 @@ use syntax::ext::source_util::expand_file;
 #[deriving(Decodable)]
 struct CharRef {
     codepoints: Vec<u32>,
-    //characters: ~str,  // Present in the file but we don't need it
+    //characters: String,  // Present in the file but we don't need it
 }
 
 // Build the map from entity names (and their prefixes) to characters.
-fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
+fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     let mut map = HashMap::new();
     let json_map = match js {
         json::Object(m) => m,
@@ -55,10 +55,10 @@ fn build_map(js: Json) -> Option<HashMap<~str, [u32, ..2]>> {
 
     // Add every missing prefix of those keys, mapping to NULL characters.
     map.insert("".to_owned(), [0, 0]);
-    let keys: Vec<~str> = map.keys().map(|k| k.to_owned()).collect();
+    let keys: Vec<String> = map.keys().map(|k| k.to_owned()).collect();
     for k in keys.move_iter() {
         for n in range(1, k.len()) {
-            let pfx = k.slice_to(n).to_owned();
+            let pfx = k.as_slice().slice_to(n).to_owned();
             if !map.contains_key(&pfx) {
                 map.insert(pfx, [0, 0]);
             }
@@ -93,7 +93,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     }, "unexpected result from file!()");
 
     // Combine those to get an absolute path to entities.json.
-    let mod_path: path::Path = expect!(from_str(mod_filename), "can't parse module filename");
+    let mod_path: path::Path = expect!(from_str(mod_filename.as_slice()), "can't parse module filename");
     let json_path = mod_path.dir_path().join(json_filename);
 
     // Open the JSON file, parse it, and build the map from names to characters.
@@ -105,8 +105,11 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     //
     //     phf_map!(k => v, k => v, ...)
     let mut tts: Vec<TokenTree> = vec!();
-    for (k, [c1, c2]) in map.move_iter() {
-        tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c1, $c2],));
+    for (k, c) in map.move_iter() {
+        let k = k.as_slice();
+        let c0 = c[0];
+        let c1 = c[1];
+        tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c0, $c1],));
     }
     MacExpr::new(quote_expr!(&mut *cx, phf_map!($tts)))
 }

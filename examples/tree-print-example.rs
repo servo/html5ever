@@ -11,7 +11,7 @@ extern crate html5;
 
 use std::io;
 use std::default::Default;
-use std::strbuf::StrBuf;
+use std::string::String;
 
 use html5::{Namespace, Atom};
 use html5::tokenizer::{Tokenizer, Attribute};
@@ -22,7 +22,7 @@ struct Sink {
 }
 
 impl TreeSink<uint> for Sink {
-    fn parse_error(&mut self, msg: ~str) {
+    fn parse_error(&mut self, msg: String) {
         println!("Parse error: {:s}", msg);
     }
 
@@ -41,11 +41,11 @@ impl TreeSink<uint> for Sink {
         id
     }
 
-    fn append_text(&mut self, parent: uint, text: StrBuf) {
+    fn append_text(&mut self, parent: uint, text: String) {
         println!("Append text to {:u}: {:s}", parent, text);
     }
 
-    fn append_comment(&mut self, parent: uint, text: StrBuf) {
+    fn append_comment(&mut self, parent: uint, text: String) {
         println!("Append comment to {:u}: {:s}", parent, text);
     }
 
@@ -53,7 +53,7 @@ impl TreeSink<uint> for Sink {
         println!("Append element {:u} to {:u}", child, parent);
     }
 
-    fn append_doctype_to_document(&mut self, name: StrBuf, public_id: StrBuf, system_id: StrBuf) {
+    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
         println!("Append doctype: {:s} {:s} {:s}", name, public_id, system_id);
     }
 

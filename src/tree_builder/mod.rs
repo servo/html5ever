@@ -31,8 +31,8 @@ mod data;
 #[deriving(Eq, TotalEq, Clone, Show)]
 enum Token {
     TagToken(Tag),
-    CommentToken(StrBuf),
-    CharacterTokens(bool, StrBuf),
+    CommentToken(String),
+    CharacterTokens(bool, String),
     EOFToken,
 }
 
@@ -407,9 +407,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                 }
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 self.sink.append_doctype_to_document(
-                    name.unwrap_or(StrBuf::new()),
-                    public_id.unwrap_or(StrBuf::new()),
-                    system_id.unwrap_or(StrBuf::new())
+                    name.unwrap_or(String::new()),
+                    public_id.unwrap_or(String::new()),
+                    system_id.unwrap_or(String::new())
                 );
                 self.sink.set_quirks_mode(quirk);
 

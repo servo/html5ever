@@ -25,7 +25,7 @@ use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
-fn splits(s: &str, n: uint) -> Vec<Vec<StrBuf>> {
+fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
     if n == 1 {
         return vec!(vec!(s.to_strbuf()));
     }
@@ -49,7 +49,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<StrBuf>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
-    current_str: StrBuf,
+    current_str: String,
     exact_errors: bool,
 }
 
@@ -57,7 +57,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: vec!(),
-            current_str: StrBuf::new(),
+            current_str: String::new(),
             exact_errors: exact_errors,
         }
     }
@@ -70,7 +70,7 @@ impl TokenLogger {
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, StrBuf::new());
+            let s = replace(&mut self.current_str, String::new());
             self.tokens.push(CharacterTokens(s));
         }
     }
@@ -113,7 +113,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<StrBuf>, opts: TokenizerOpts) -> Vec<Token> {
+fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
     let mut sink = TokenLogger::new(opts.exact_errors);
     {
         let mut tok = Tokenizer::new(&mut sink, opts);
@@ -126,23 +126,23 @@ fn tokenize(input: Vec<StrBuf>, opts: TokenizerOpts) -> Vec<Token> {
 }
 
 trait JsonExt {
-    fn get_str(&self) -> StrBuf;
-    fn get_nullable_str(&self) -> Option<StrBuf>;
+    fn get_str(&self) -> String;
+    fn get_nullable_str(&self) -> Option<String>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<StrBuf, Self>;
+    fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
 impl JsonExt for Json {
-    fn get_str(&self) -> StrBuf {
+    fn get_str(&self) -> String {
         match *self {
             json::String(ref s) => s.to_strbuf(),
             _ => fail!("Json::get_str: not a String"),
         }
     }
 
-    fn get_nullable_str(&self) -> Option<StrBuf> {
+    fn get_nullable_str(&self) -> Option<String> {
         match *self {
             json::Null => None,
             json::String(ref s) => Some(s.to_strbuf()),
@@ -157,7 +157,7 @@ impl JsonExt for Json {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<StrBuf, Json> {
+    fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Json> {
         match *self {
             json::Object(ref m) => &**m,
             _ => fail!("Json::get_obj: not an Object"),
@@ -235,15 +235,15 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
 }
 
 // Undo the escaping in "doubleEscaped" tests.
-fn unescape(s: &str) -> Option<StrBuf> {
-    let mut out = StrBuf::with_capacity(s.len());
+fn unescape(s: &str) -> Option<String> {
+    let mut out = String::with_capacity(s.len());
     let mut it = s.chars().peekable();
     loop {
         match it.next() {
             None => return Some(out),
             Some('\\') if it.peek() == Some(&'u') => {
                 drop(it.next());
-                let hex: StrBuf = it.by_ref().take(4).collect();
+                let hex: String = it.by_ref().take(4).collect();
                 match num::from_str_radix(hex.as_slice(), 16)
                           .and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
@@ -277,7 +277,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: StrBuf, insplits: Vec<Vec<StrBuf>>, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {

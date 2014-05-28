@@ -11,7 +11,7 @@ use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
 use std::char::{to_digit, from_u32};
-use std::strbuf::StrBuf;
+use std::string::String;
 
 mod data;
 
@@ -48,7 +48,7 @@ pub struct CharRefTokenizer {
     seen_digit: bool,
     hex_marker: Option<char>,
 
-    name_buf_opt: Option<StrBuf>,
+    name_buf_opt: Option<String>,
     name_match: Option<&'static [u32, ..2]>,
     name_len: uint,
 }
@@ -77,7 +77,7 @@ impl CharRefTokenizer {
         self.result.expect("get_result called before done")
     }
 
-    fn name_buf<'t>(&'t mut self) -> &'t mut StrBuf {
+    fn name_buf<'t>(&'t mut self) -> &'t mut String {
         self.name_buf_opt.as_mut()
             .expect("name_buf missing in named character reference")
     }

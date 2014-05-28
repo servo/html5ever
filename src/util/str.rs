@@ -7,15 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::strbuf::StrBuf;
+use std::string::String;
 use std::str::CharEq;
 
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     c.to_ascii_opt()
-        .filtered(|a| a.is_alpha())
-        .map(|a| a.to_lower().to_char())
+        .filtered(|a| a.is_alphabetic())
+        .map(|a| a.to_lowercase().to_char())
 }
 
 /// Map ASCII uppercase to lowercase; preserve other characters.
@@ -25,12 +25,12 @@ pub fn lower_ascii(c: char) -> char {
 
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
-    c.to_ascii_opt().map_or(false, |a| a.is_alnum())
+    c.to_ascii_opt().map_or(false, |a| a.is_alphanumeric())
 }
 
 /// Allocate an empty string with a small non-zero capacity.
-pub fn empty_str() -> StrBuf {
-    StrBuf::with_capacity(4)
+pub fn empty_str() -> String {
+    String::with_capacity(4)
 }
 
 test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))

@@ -39,10 +39,10 @@ mod interface;
 mod char_ref;
 mod buffer_queue;
 
-fn option_push_char(opt_str: &mut Option<StrBuf>, c: char) {
+fn option_push_char(opt_str: &mut Option<String>, c: char) {
     match *opt_str {
         Some(ref mut s) => s.push_char(c),
-        None => *opt_str = Some(StrBuf::from_char(1, c)),
+        None => *opt_str = Some(String::from_char(1, c)),
     }
 }
 
@@ -67,7 +67,7 @@ pub struct TokenizerOpts {
 
     /// Last start tag.  Only the test runner should use a
     /// non-None value!
-    pub last_start_tag_name: Option<StrBuf>,
+    pub last_start_tag_name: Option<String>,
 }
 
 impl Default for TokenizerOpts {
@@ -125,7 +125,7 @@ pub struct Tokenizer<'sink, Sink> {
     current_tag_kind: TagKind,
 
     /// Current tag name.
-    current_tag_name: StrBuf,
+    current_tag_name: String,
 
     /// Current tag is self-closing?
     current_tag_self_closing: bool,
@@ -134,22 +134,22 @@ pub struct Tokenizer<'sink, Sink> {
     current_tag_attrs: Vec<Attribute>,
 
     /// Current attribute name.
-    current_attr_name: StrBuf,
+    current_attr_name: String,
 
     /// Current attribute value.
-    current_attr_value: StrBuf,
+    current_attr_value: String,
 
     /// Current comment.
-    current_comment: StrBuf,
+    current_comment: String,
 
     /// Current doctype token.
     current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    last_start_tag_name: Option<StrBuf>,
+    last_start_tag_name: Option<String>,
 
     /// The "temporary buffer" mentioned in the spec.
-    temp_buf: StrBuf,
+    temp_buf: String,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     state_profile: HashMap<states::State, u64>,
@@ -186,7 +186,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    pub fn feed(&mut self, input: StrBuf) {
+    pub fn feed(&mut self, input: String) {
         if input.len() == 0 {
             return;
         }
@@ -321,10 +321,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.sink.process_token(CharacterTokens(StrBuf::from_char(1, c)));
+        self.sink.process_token(CharacterTokens(String::from_char(1, c)));
     }
 
-    fn emit_chars(&mut self, b: StrBuf) {
+    fn emit_chars(&mut self, b: String) {
         self.sink.process_token(CharacterTokens(b));
     }
 
@@ -378,7 +378,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 
     fn discard_tag(&mut self) {
-        self.current_tag_name = StrBuf::new();
+        self.current_tag_name = String::new();
         self.current_tag_self_closing = false;
         self.current_tag_attrs = vec!();
     }
@@ -434,7 +434,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             replace(&mut self.current_doctype, Doctype::new())));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrBuf> {
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<String> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,
@@ -472,11 +472,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, buf: StrBuf) {
+    fn unconsume(&mut self, buf: String) {
         self.input_buffers.push_front(buf);
     }
 
-    fn emit_error(&mut self, error: ~str) {
+    fn emit_error(&mut self, error: String) {
         self.sink.process_token(ParseError(error));
     }
 }
@@ -1176,21 +1176,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
 #[test]
 fn push_to_None_gives_singleton() {
-    let mut s: Option<StrBuf> = None;
+    let mut s: Option<String> = None;
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some("x".to_strbuf()));
 }
 
 #[test]
 fn push_to_empty_appends() {
-    let mut s: Option<StrBuf> = Some(StrBuf::new());
+    let mut s: Option<String> = Some(String::new());
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some("x".to_strbuf()));
 }
 
 #[test]
 fn push_to_nonempty_appends() {
-    let mut s: Option<StrBuf> = Some("y".to_strbuf());
+    let mut s: Option<String> = Some("y".to_strbuf());
     option_push_char(&mut s, 'x');
     assert_eq!(s, Some("yx".to_strbuf()));
 }
