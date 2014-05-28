@@ -26,13 +26,20 @@ mod interface;
 mod states;
 mod data;
 
+#[deriving(Eq, TotalEq, Clone, Show)]
+enum SplitStatus {
+    NotSplit,
+    Whitespace,
+    NotWhitespace,
+}
+
 /// We mostly only work with these tokens. Everything else is handled
 /// specially at the beginning of `process_token`.
 #[deriving(Eq, TotalEq, Clone, Show)]
 enum Token {
     TagToken(Tag),
     CommentToken(String),
-    CharacterTokens(bool, String),
+    CharacterTokens(SplitStatus, String),
     EOFToken,
 }
 
@@ -92,8 +99,14 @@ fn take_attrs(t: &mut Tag) -> Vec<Attribute> {
     replace(&mut t.attrs, vec!())
 }
 
+enum SplitKind {
+    DropWhitespace,
+    KeepWhitespace,
+}
+
 enum ProcessResult {
     Done,
+    Split(SplitKind, String),
     Reprocess(states::InsertionMode, Token),
 }
 
@@ -199,29 +212,54 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.create_element(tag.name.clone(), take_attrs(tag))
     }
 
-    fn process_local_tokens<Iter: Iterator<Token>>
-        (&mut self,
-         mut mode: states::InsertionMode,
-         mut tokens: Iter) {
+    fn process_to_completion(&mut self, mut mode: states::InsertionMode, mut token: Token) {
+        // Additional tokens yet to be processed. First to be processed is on
+        // the *end*, because that's where Vec supports O(1) push/pop.
+        // This stays empty (and hence non-allocating) in the common case
+        // where we don't split whitespace.
+        let mut more_tokens = vec!();
 
-        for mut token in tokens {
-            loop {
-                match self.process_local(mode, token) {
-                    Done => break,
-                    Reprocess(m, t) => {
-                        mode = m;
-                        token = t;
+        loop {
+            match self.step(mode, token) {
+                Done => {
+                    token = unwrap_or_return!(more_tokens.pop(), ());
+                }
+                Reprocess(m, t) => {
+                    mode = m;
+                    token = t;
+                }
+                Split(k, buf) => {
+                    let keep = match k {
+                        KeepWhitespace => true,
+                        _ => false,
+                    };
+                    let mut it = Runs::new(is_ascii_whitespace, buf.as_slice())
+                        .filter(|&(m, _)| keep || !m)
+                        .map(|(m, b)| CharacterTokens(match m {
+                            true => Whitespace,
+                            false => NotWhitespace,
+                        }, b.to_strbuf()));
+
+                    token = it.next().expect("Empty Runs iterator");
+
+                    // Push additional tokens in reverse order, so the next one
+                    // is first to be popped.
+                    // FIXME: copy/allocate less
+                    let rest: Vec<Token> = it.collect();
+                    for t in rest.move_iter().rev() {
+                        more_tokens.push(t);
                     }
                 }
             }
         }
     }
 
-    fn process_local(&mut self, mode: states::InsertionMode, mut token: Token) -> ProcessResult {
+    fn step(&mut self, mode: states::InsertionMode, mut token: Token) -> ProcessResult {
         debug!("processing {} in insertion mode {:?}", token, mode);
 
         match mode {
             states::Initial => match token {
+                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
                     if !self.opts.iframe_srcdoc {
@@ -233,6 +271,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::BeforeHtml => match token {
+                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 start!(mut t) if named!(t, html) => {
                     self.create_root(take_attrs(t));
@@ -249,6 +288,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::BeforeHead => match token {
+                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.target(), text),
                 end!(t) if !named!(t, head body html br) => {
                     self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", t));
@@ -261,7 +301,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
                 token => if start_named!(token, html) {
                     // Do this here because we can't move out of `token` when it's borrowed.
-                    self.process_local(states::InBody, token)
+                    self.step(states::InBody, token)
                 } else {
                     self.head_elem = Some(self.create_element(atom!(head), vec!()));
                     Reprocess(states::InHead, token)
@@ -269,7 +309,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::InHead => match token {
-                CharacterTokens(true, text) => append_text!(self.target(), text),
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
                 start!(mut t) if match_atom!(t.name {
                     base basefont bgsound link meta => {
@@ -329,7 +370,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }) => Done,
                 token => if start_named!(token, html) {
                     // Do this here because we can't move out of `token` when it's borrowed.
-                    self.process_local(states::InBody, token)
+                    self.step(states::InBody, token)
                 } else {
                     self.pop();
                     Reprocess(states::AfterHead, token)
@@ -337,7 +378,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             },
 
             states::InHeadNoscript => match token {
-                CharacterTokens(true, text) => append_text!(self.target(), text),
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 end!(t) if match_atom!(t.name {
                     noscript => {
                         self.pop();
@@ -355,12 +397,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                token @ CommentToken(_) => self.process_local(states::InHead, token),
+                token @ CommentToken(_) => self.step(states::InHead, token),
 
                 token => if start_named!(token, html) {
-                    self.process_local(states::InBody, token)
+                    self.step(states::InBody, token)
                 } else if start_named!(token, basefont bgsound link meta noframes style) {
-                    self.process_local(states::InHead, token)
+                    self.step(states::InHead, token)
                 } else {
                     self.sink.parse_error(format!("Unexpected token in InHeadNoscript mode: {}", token));
                     self.pop();
@@ -422,28 +464,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
 
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::CharacterTokens(x) => CharacterTokens(false, x),
+            tokenizer::CharacterTokens(x) => CharacterTokens(NotSplit, x),
             tokenizer::EOFToken => EOFToken,
         };
 
-        // Do we split the token into whitespace / non-whitespace and, if so,
-        // do we keep the whitespace or just drop it?
-        let (process_whitespace, keep_whitespace) = match self.mode {
-            states::InHead | states::InHeadNoscript
-                => (true, true),
-            states::Initial | states::BeforeHtml | states::BeforeHead
-                => (true, false),
-            _ => (false, false)
-        };
-
-        match (process_whitespace, token) {
-            (true, CharacterTokens(_, buf)) => self.process_local_tokens(self.mode,
-                Runs::new(is_ascii_whitespace, buf.as_slice())
-                    .filter(|&(m, _)| keep_whitespace || !m)
-                    .map(|(m, b)| CharacterTokens(m, b.to_strbuf()))),
-
-            (_, token) => self.process_local_tokens(self.mode, Some(token).move_iter()),
-        }
+        self.process_to_completion(self.mode, token);
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
