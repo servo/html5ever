@@ -9,7 +9,7 @@
 
 pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
-pub use self::interface::{CharacterTokens, EOFToken, ParseError};
+pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 pub use self::interface::TokenSink;
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
@@ -321,9 +321,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.sink.process_token(CharacterTokens(String::from_char(1, c)));
+        self.sink.process_token(match c {
+            '\0' => NullCharacterToken,
+            _ => CharacterTokens(String::from_char(1, c)),
+        });
     }
 
+    // The string must not contain '\0'!
     fn emit_chars(&mut self, b: String) {
         self.sink.process_token(CharacterTokens(b));
     }

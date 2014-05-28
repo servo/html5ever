@@ -77,6 +77,7 @@ pub enum Token {
     TagToken(Tag),
     CommentToken(String),
     CharacterTokens(String),
+    NullCharacterToken,
     EOFToken,
     ParseError(String),
 }

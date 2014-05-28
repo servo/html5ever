@@ -44,6 +44,7 @@ impl TokenSink for TokenPrinter {
                     self.do_char(c);
                 }
             }
+            NullCharacterToken => self.do_char('\0'),
             TagToken(tag) => {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.

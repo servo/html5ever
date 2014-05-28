@@ -19,7 +19,7 @@ use collections::treemap::TreeMap;
 use html5::Atom;
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
 use html5::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
-use html5::tokenizer::{CharacterTokens, EOFToken, ParseError};
+use html5::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
@@ -86,6 +86,10 @@ impl TokenSink for TokenLogger {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_str(b.as_slice());
+            }
+
+            NullCharacterToken => {
+                self.current_str.push_char('\0');
             }
 
             ParseError(_) => if self.exact_errors {
@@ -214,6 +218,9 @@ fn json_to_token(js: &Json) -> Token {
         ("Comment", [txt]) => CommentToken(txt.get_str()),
 
         ("Character", [txt]) => CharacterTokens(txt.get_str()),
+
+        // We don't need to produce NullCharacterToken because
+        // the TokenLogger will convert them to CharacterTokens.
 
         _ => fail!("don't understand token {:?}", parts),
     }
