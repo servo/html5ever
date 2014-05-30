@@ -14,7 +14,7 @@ use std::path::Path;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use serialize::json;
 use serialize::json::Json;
-use collections::treemap::TreeMap;
+use std::collections::treemap::TreeMap;
 
 use html5::Atom;
 use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
@@ -27,7 +27,7 @@ use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 // possibly-empty pieces.
 fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
     if n == 1 {
-        return vec!(vec!(s.to_strbuf()));
+        return vec!(vec!(s.to_string()));
     }
 
     let mut points: Vec<uint> = s.char_indices().map(|(n,_)| n).collect();
@@ -38,7 +38,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
     for p in points.move_iter() {
         let y = s.slice_from(p);
         for mut x in splits(s.slice_to(p), n-1).move_iter() {
-            x.push(y.to_strbuf());
+            x.push(y.to_string());
             out.push(x);
         }
     }
@@ -93,7 +93,7 @@ impl TokenSink for TokenLogger {
             }
 
             ParseError(_) => if self.exact_errors {
-                self.push(ParseError("".to_owned()));
+                self.push(ParseError("".to_string()));
             },
 
             TagToken(mut t) => {
@@ -141,7 +141,7 @@ trait JsonExt {
 impl JsonExt for Json {
     fn get_str(&self) -> String {
         match *self {
-            json::String(ref s) => s.to_strbuf(),
+            json::String(ref s) => s.to_string(),
             _ => fail!("Json::get_str: not a String"),
         }
     }
@@ -149,7 +149,7 @@ impl JsonExt for Json {
     fn get_nullable_str(&self) -> Option<String> {
         match *self {
             json::Null => None,
-            json::String(ref s) => Some(s.to_strbuf()),
+            json::String(ref s) => Some(s.to_string()),
             _ => fail!("Json::get_nullable_str: not a String"),
         }
     }
@@ -176,7 +176,7 @@ impl JsonExt for Json {
     }
 
     fn find<'t>(&'t self, key: &str) -> &'t Json {
-        self.get_obj().find(&key.to_strbuf()).unwrap()
+        self.get_obj().find(&key.to_string()).unwrap()
     }
 }
 
@@ -198,7 +198,7 @@ fn json_to_token(js: &Json) -> Token {
             name: Atom::from_buf(name.get_str()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: AttrName::new(Atom::from_buf(k.to_strbuf())),
+                    name: AttrName::new(Atom::from_buf(k.to_string())),
                     value: v.get_str()
                 }
             }).collect(),
@@ -234,7 +234,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             json::String(ref s)
-                if s.as_slice() == "ParseError" => sink.process_token(ParseError("".to_owned())),
+                if s.as_slice() == "ParseError" => sink.process_token(ParseError("".to_string())),
             _ => sink.process_token(json_to_token(tok)),
         }
     }
@@ -310,14 +310,14 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
 
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find(&"input".to_strbuf()).unwrap().get_str();
-    let mut expect = js.find(&"output".to_strbuf()).unwrap().clone();
+    let mut input = js.find(&"input".to_string()).unwrap().get_str();
+    let mut expect = js.find(&"output".to_string()).unwrap().clone();
     let desc = format!("{:s}: {:s}",
-        path_str, js.find(&"description".to_strbuf()).unwrap().get_str());
+        path_str, js.find(&"description".to_string()).unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
-    if obj.find(&"doubleEscaped".to_strbuf()).map_or(false, |j| j.get_bool()) {
+    if obj.find(&"doubleEscaped".to_string()).map_or(false, |j| j.get_bool()) {
         match unescape(input.as_slice()) {
             None => return,
             Some(i) => input = i,
@@ -329,10 +329,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let insplits = splits(input.as_slice(), 3);
 
     // Some tests have a last start tag name.
-    let start_tag = obj.find(&"lastStartTag".to_strbuf()).map(|s| s.get_str());
+    let start_tag = obj.find(&"lastStartTag".to_string()).map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    let state_overrides = match obj.find(&"initialStates".to_strbuf()) {
+    let state_overrides = match obj.find(&"initialStates".to_string()) {
         Some(&json::List(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
@@ -357,7 +357,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc.into_strbuf(), insplits.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc.into_string(), insplits.clone(), expect_toks, TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
@@ -386,7 +386,7 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
         let js = json::from_reader(&mut file as &mut Reader)
             .ok().expect("json parse error");
 
-        match js.get_obj().find(&"tests".to_strbuf()) {
+        match js.get_obj().find(&"tests".to_string()) {
             Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);

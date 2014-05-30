@@ -12,7 +12,7 @@ use std::path;
 use serialize::json;
 use serialize::json::Json;
 use serialize::Decodable;
-use collections::hashmap::HashMap;
+use std::collections::hashmap::HashMap;
 
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TTTok};
@@ -50,15 +50,15 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
 
         // Slice off the initial '&'
         assert!(k.as_slice().char_at(0) == '&');
-        map.insert(k.as_slice().slice_from(1).to_owned(), codepoint_pair);
+        map.insert(k.as_slice().slice_from(1).to_string(), codepoint_pair);
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.
-    map.insert("".to_owned(), [0, 0]);
-    let keys: Vec<String> = map.keys().map(|k| k.to_owned()).collect();
+    map.insert("".to_string(), [0, 0]);
+    let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
     for k in keys.move_iter() {
         for n in range(1, k.len()) {
-            let pfx = k.as_slice().slice_to(n).to_owned();
+            let pfx = k.as_slice().slice_to(n).to_string();
             if !map.contains_key(&pfx) {
                 map.insert(pfx, [0, 0]);
             }
@@ -75,7 +75,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
-        [TTTok(_, LIT_STR(s))] => get_ident(s).get().to_owned(),
+        [TTTok(_, LIT_STR(s))] => get_ident(s).get().to_string(),
         _ => bail!(usage),
     };
 
@@ -84,7 +84,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     let mod_filename = expect!(match expand_file(cx, sp, &[]).make_expr() {
         Some(e) => match e.node {
             ExprLit(s) => match s.node {
-                LitStr(ref s, _) => Some(s.get().to_owned()),
+                LitStr(ref s, _) => Some(s.get().to_string()),
                 _ => None,
             },
             _ => None,

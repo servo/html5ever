@@ -43,7 +43,7 @@ impl Bench {
         let file_input = file.read_to_str().ok().expect("can't read file");
 
         let input = match size {
-            None => file_input.into_strbuf(),
+            None => file_input.into_string(),
             Some(size) => {
                 // Replicate the input in memory up to the desired size.
                 let mut input = String::with_capacity(size);
@@ -86,12 +86,12 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
     TestDescAndFn {
         desc: TestDesc {
             name: DynTestName([
-                "tokenize ".to_owned(),
-                name.to_owned(),
-                size.map_or("".to_owned(), |s| format!(" size {:7u}", s)),
-                (if clone_only { " (clone only)" } else { "" }).to_owned(),
-                (if opts.exact_errors { " (exact errors)" } else { "" }).to_owned(),
-            ].concat().to_strbuf()),
+                "tokenize ".to_string(),
+                name.to_string(),
+                size.map_or("".to_string(), |s| format!(" size {:7u}", s)),
+                (if clone_only { " (clone only)" } else { "" }).to_string(),
+                (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
+            ].concat().to_string()),
             ignore: false,
             should_fail: false,
         },
@@ -124,7 +124,7 @@ pub fn tests() -> Vec<TestDescAndFn> {
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
             for &file in ["webapps.html", "sina.com.cn.html", "wikipedia.html"].iter() {
-                let name = "uncommitted/".to_owned().append(file);
+                let name = "uncommitted/".to_string().append(file);
                 tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
         }

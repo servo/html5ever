@@ -35,7 +35,7 @@ fn main() {
     path.push(os::args().get(1).as_slice());
 
     let mut file = io::File::open(&path).ok().expect("can't open file");
-    let file_input = file.read_to_str().ok().expect("can't read file").into_strbuf();
+    let file_input = file.read_to_str().ok().expect("can't read file").into_string();
 
     let mut sink = Sink;
     let mut tok = Tokenizer::new(&mut sink, Default::default());

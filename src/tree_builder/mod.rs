@@ -26,7 +26,7 @@ mod interface;
 mod states;
 mod data;
 
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 enum SplitStatus {
     NotSplit,
     Whitespace,
@@ -35,7 +35,7 @@ enum SplitStatus {
 
 /// We mostly only work with these tokens. Everything else is handled
 /// specially at the beginning of `process_token`.
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 enum Token {
     TagToken(Tag),
     CommentToken(String),
@@ -239,7 +239,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         .map(|(m, b)| CharacterTokens(match m {
                             true => Whitespace,
                             false => NotWhitespace,
-                        }, b.to_strbuf()));
+                        }, b.to_string()));
 
                     token = it.next().expect("Empty Runs iterator");
 
@@ -351,7 +351,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }
                     template => fail!("FIXME: <template> not implemented"),
                     head => {
-                        self.sink.parse_error("<head> in insertion mode InHead".to_owned());
+                        self.sink.parse_error("<head> in insertion mode InHead".to_string());
                         true
                     }
                     _ => false,

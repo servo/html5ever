@@ -96,7 +96,7 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
     }
 
     fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {
-        x.map(|y| y.to_ascii_lower().into_strbuf())
+        x.map(|y| y.to_ascii_lower().into_string())
     }
 
     let name = opt_as_slice(&doctype.name);

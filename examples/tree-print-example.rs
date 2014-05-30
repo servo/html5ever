@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate debug;
+
 extern crate html5;
 
 use std::io;
@@ -71,6 +73,6 @@ fn main() {
     let mut tb  = TreeBuilder::new(&mut sink, Default::default());
     let mut tok = Tokenizer::new(&mut tb, Default::default());
 
-    tok.feed(io::stdin().read_to_str().unwrap().into_strbuf());
+    tok.feed(io::stdin().read_to_str().unwrap().into_string());
     tok.end();
 }

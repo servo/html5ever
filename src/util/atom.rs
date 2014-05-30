@@ -17,7 +17,7 @@ static static_atom_array: &'static [&'static str] = static_atom_array!();
 // Assume that a string which can be interned always is.
 // FIXME: Revisit this assumption when we have dynamic interning.
 /// Interned string.
-#[deriving(Clone, Show, Eq, TotalEq)]
+#[deriving(Clone, Show, PartialEq, Eq)]
 pub enum Atom {
     Static(uint),
     // dynamic interning goes here
@@ -28,7 +28,7 @@ impl Atom {
     pub fn from_str(s: &str) -> Atom {
         match static_atom_map.find(&s) {
             Some(&k) => Static(k),
-            None => Owned(s.to_strbuf()),
+            None => Owned(s.to_string()),
         }
     }
 
@@ -92,29 +92,29 @@ impl Str for Atom {
 }
 
 impl StrAllocating for Atom {
-    fn into_owned(self) -> String {
+    fn into_string(self) -> String {
         match self {
-            Static(i) => get_static(i).to_owned(),
-            Owned(s) => s.into_owned(),
+            Static(i) => get_static(i).to_string(),
+            Owned(s) => s.into_string(),
         }
     }
 
-    fn to_strbuf(&self) -> String {
+    fn to_string(&self) -> String {
         match *self {
-            Static(i) => get_static(i).to_strbuf(),
+            Static(i) => get_static(i).to_string(),
             Owned(ref s) => s.clone(),
         }
     }
 
-    fn into_strbuf(self) -> String {
+    fn into_owned(self) -> String {
         match self {
-            Static(i) => get_static(i).to_strbuf(),
+            Static(i) => get_static(i).to_string(),
             Owned(s) => s,
         }
     }
 }
 
-impl Ord for Atom {
+impl PartialOrd for Atom {
     fn lt(&self, other: &Atom) -> bool {
         match self.fast_partial_eq(other) {
             Some(true) => false,
@@ -123,7 +123,7 @@ impl Ord for Atom {
     }
 }
 
-impl TotalOrd for Atom {
+impl Ord for Atom {
     fn cmp(&self, other: &Atom) -> Ordering {
         match self.fast_partial_eq(other) {
             Some(true) => Equal,
@@ -132,108 +132,108 @@ impl TotalOrd for Atom {
     }
 }
 
-#[test]
-fn interned() {
-    match Atom::from_str("body") {
-        Static(i) => assert_eq!(get_static(i), "body"),
-        _ => fail!("wrong interning"),
-    }
-}
+#[cfg(test)]
+#[allow(non_snake_case_functions)]
+mod test {
+    use super::*; // public items
+    use super::{get_static}; // private items
 
-#[test]
-fn not_interned() {
-    match Atom::from_str("asdfghjk") {
-        Owned(b) => assert_eq!(b.as_slice(), "asdfghjk"),
-        _ => fail!("wrong interning"),
-    }
-}
-
-#[test]
-fn as_slice() {
-    assert_eq!(Atom::from_str("").as_slice(), "");
-    assert_eq!(Atom::from_str("body").as_slice(), "body");
-    assert_eq!(Atom::from_str("asdfghjk").as_slice(), "asdfghjk");
-}
-
-#[test]
-fn into_owned() {
-    assert_eq!(Atom::from_str("").into_owned(), "".to_owned());
-    assert_eq!(Atom::from_str("body").into_owned(), "body".to_owned());
-    assert_eq!(Atom::from_str("asdfghjk").into_owned(), "asdfghjk".to_owned());
-}
-
-#[test]
-fn to_strbuf() {
-    assert_eq!(Atom::from_str("").to_strbuf(), "".to_strbuf());
-    assert_eq!(Atom::from_str("body").to_strbuf(), "body".to_strbuf());
-    assert_eq!(Atom::from_str("asdfghjk").to_strbuf(), "asdfghjk".to_strbuf());
-}
-
-#[test]
-fn into_strbuf() {
-    assert_eq!(Atom::from_str("").into_strbuf(), "".to_strbuf());
-    assert_eq!(Atom::from_str("body").into_strbuf(), "body".to_strbuf());
-    assert_eq!(Atom::from_str("asdfghjk").into_strbuf(), "asdfghjk".to_strbuf());
-}
-
-#[test]
-fn take_from_buf_interned() {
-    let mut b = "body".to_strbuf();
-    let a = Atom::take_from_buf(&mut b);
-    assert_eq!(a, Atom::from_str("body"));
-    assert_eq!(b, String::new());
-}
-
-#[test]
-fn take_from_buf_not_interned() {
-    let mut b = "asdfghjk".to_strbuf();
-    let a = Atom::take_from_buf(&mut b);
-    assert_eq!(a, Atom::from_str("asdfghjk"));
-    assert_eq!(b, String::new());
-}
-
-#[test]
-fn ord() {
-    fn check(x: &str, y: &str) {
-        assert_eq!(x < y, Atom::from_str(x) < Atom::from_str(y));
-        assert_eq!(x.cmp(&y), Atom::from_str(x).cmp(&Atom::from_str(y)));
+    #[test]
+    fn interned() {
+        match Atom::from_str("body") {
+            Static(i) => assert_eq!(get_static(i), "body"),
+            _ => fail!("wrong interning"),
+        }
     }
 
-    check("a", "body");
-    check("asdf", "body");
-    check("zasdf", "body");
-    check("z", "body");
+    #[test]
+    fn not_interned() {
+        match Atom::from_str("asdfghjk") {
+            Owned(b) => assert_eq!(b.as_slice(), "asdfghjk"),
+            _ => fail!("wrong interning"),
+        }
+    }
 
-    check("a", "bbbbb");
-    check("asdf", "bbbbb");
-    check("zasdf", "bbbbb");
-    check("z", "bbbbb");
-}
+    #[test]
+    fn as_slice() {
+        assert_eq!(Atom::from_str("").as_slice(), "");
+        assert_eq!(Atom::from_str("body").as_slice(), "body");
+        assert_eq!(Atom::from_str("asdfghjk").as_slice(), "asdfghjk");
+    }
 
-#[test]
-fn atom_macro() {
-    assert_eq!(atom!(body), Atom::from_str("body"));
-    assert_eq!(atom!("body"), Atom::from_str("body"));
-    assert_eq!(atom!("font-weight"), Atom::from_str("font-weight"));
-}
+    #[test]
+    fn into_string() {
+        assert_eq!(Atom::from_str("").into_string(), "".to_string());
+        assert_eq!(Atom::from_str("body").into_string(), "body".to_string());
+        assert_eq!(Atom::from_str("asdfghjk").into_string(), "asdfghjk".to_string());
+    }
 
-#[test]
-fn match_atom() {
-    assert_eq!(2, match_atom!(Atom::from_str("head") {
-        br => 1,
-        html head => { 2 }
-        _ => 3,
-    }));
+    #[test]
+    fn to_string() {
+        assert_eq!(Atom::from_str("").to_string(), "".to_string());
+        assert_eq!(Atom::from_str("body").to_string(), "body".to_string());
+        assert_eq!(Atom::from_str("asdfghjk").to_string(), "asdfghjk".to_string());
+    }
 
-    assert_eq!(3, match_atom!(Atom::from_str("body") {
-        br => { 1 }
-        html head => 2,
-        _ => { 3 }
-    }));
+    #[test]
+    fn take_from_buf_interned() {
+        let mut b = "body".to_string();
+        let a = Atom::take_from_buf(&mut b);
+        assert_eq!(a, Atom::from_str("body"));
+        assert_eq!(b, String::new());
+    }
 
-    assert_eq!(3, match_atom!(Atom::from_str("zzzzzz") {
-        br => 1,
-        html head => 2,
-        _ => 3,
-    }));
+    #[test]
+    fn take_from_buf_not_interned() {
+        let mut b = "asdfghjk".to_string();
+        let a = Atom::take_from_buf(&mut b);
+        assert_eq!(a, Atom::from_str("asdfghjk"));
+        assert_eq!(b, String::new());
+    }
+
+    #[test]
+    fn ord() {
+        fn check(x: &str, y: &str) {
+            assert_eq!(x < y, Atom::from_str(x) < Atom::from_str(y));
+            assert_eq!(x.cmp(&y), Atom::from_str(x).cmp(&Atom::from_str(y)));
+        }
+
+        check("a", "body");
+        check("asdf", "body");
+        check("zasdf", "body");
+        check("z", "body");
+
+        check("a", "bbbbb");
+        check("asdf", "bbbbb");
+        check("zasdf", "bbbbb");
+        check("z", "bbbbb");
+    }
+
+    #[test]
+    fn atom_macro() {
+        assert_eq!(atom!(body), Atom::from_str("body"));
+        assert_eq!(atom!("body"), Atom::from_str("body"));
+        assert_eq!(atom!("font-weight"), Atom::from_str("font-weight"));
+    }
+
+    #[test]
+    fn match_atom() {
+        assert_eq!(2, match_atom!(Atom::from_str("head") {
+            br => 1,
+            html head => { 2 }
+            _ => 3,
+        }));
+
+        assert_eq!(3, match_atom!(Atom::from_str("body") {
+            br => { 1 }
+            html head => 2,
+            _ => { 3 }
+        }));
+
+        assert_eq!(3, match_atom!(Atom::from_str("zzzzzz") {
+            br => 1,
+            html head => 2,
+            _ => 3,
+        }));
+    }
 }

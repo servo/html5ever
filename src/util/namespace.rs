@@ -9,7 +9,7 @@
 
 // FIXME: Unify with Servo's namespace.rs.
 
-#[deriving(Eq, Clone)]
+#[deriving(PartialEq, Clone)]
 pub enum Namespace {
     HTML,
     // FIXME: others

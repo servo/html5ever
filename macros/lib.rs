@@ -12,9 +12,10 @@
 
 #![feature(macro_rules, macro_registrar, quote, managed_boxes)]
 
+#![allow(unused_imports)]  // for quotes
+
 extern crate syntax;
 extern crate serialize;
-extern crate collections;
 
 use syntax::ast::Name;
 use syntax::parse::token;

@@ -12,7 +12,7 @@ use util::atom::Atom;
 use tokenizer::states;
 
 // FIXME: already exists in Servo DOM
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Doctype {
     pub name: Option<String>,
     pub public_id: Option<String>,
@@ -32,7 +32,7 @@ impl Doctype {
 }
 
 /// Attribute name; will eventually support namespaces.
-#[deriving(Eq, TotalEq, Ord, TotalOrd, Clone, Show)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct AttrName {
     name: Atom,
 }
@@ -51,19 +51,19 @@ impl Str for AttrName {
     }
 }
 
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Attribute {
     pub name: AttrName,
     pub value: String,
 }
 
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 pub enum TagKind {
     StartTag,
     EndTag,
 }
 
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Tag {
     pub kind: TagKind,
     pub name: Atom,
@@ -71,7 +71,7 @@ pub struct Tag {
     pub attrs: Vec<Attribute>,
 }
 
-#[deriving(Eq, TotalEq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Show)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),

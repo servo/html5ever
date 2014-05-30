@@ -9,8 +9,8 @@
 
 use std::str::CharRange;
 use std::string::String;
-use collections::deque::Deque;
-use collections::dlist::DList;
+use std::collections::Deque;
+use std::collections::dlist::DList;
 
 struct Buffer {
     /// Byte position within the buffer.
@@ -24,7 +24,7 @@ struct Buffer {
 /// of the Data / RawData / Plaintext tokenizer states.  We do not exclude
 /// characters which trigger a parse error but are otherwise handled
 /// normally.
-#[deriving(Eq, TotalEq, Show)]
+#[deriving(PartialEq, Eq, Show)]
 pub enum DataRunOrChar {
     DataRun(String),
     OneChar(char),
@@ -120,7 +120,7 @@ impl BufferQueue {
                 // If we only have one character then it's cheaper not to allocate.
                 if n > 1 {
                     let new_pos = *pos + n;
-                    let out = buf.as_slice().slice(*pos, new_pos).to_strbuf();
+                    let out = buf.as_slice().slice(*pos, new_pos).to_string();
                     *pos = new_pos;
                     self.available -= n;
                     (Some(DataRun(out)), new_pos >= buf.len())
@@ -174,85 +174,91 @@ impl Iterator<char> for BufferQueue {
     }
 }
 
+#[cfg(test)]
+#[allow(non_snake_case_functions)]
+mod test {
+    use super::*; // public items
+    use super::{data_span}; // private items
 
-#[test]
-fn smoke_test() {
-    let mut bq = BufferQueue::new();
-    assert_eq!(bq.has(1), false);
-    assert_eq!(bq.peek(), None);
-    assert_eq!(bq.next(), None);
+    #[test]
+    fn smoke_test() {
+        let mut bq = BufferQueue::new();
+        assert_eq!(bq.has(1), false);
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
 
-    bq.push_back("abc".to_strbuf(), 0);
-    assert_eq!(bq.has(1), true);
-    assert_eq!(bq.has(3), true);
-    assert_eq!(bq.has(4), false);
+        bq.push_back("abc".to_string(), 0);
+        assert_eq!(bq.has(1), true);
+        assert_eq!(bq.has(3), true);
+        assert_eq!(bq.has(4), false);
 
-    assert_eq!(bq.peek(), Some('a'));
-    assert_eq!(bq.next(), Some('a'));
-    assert_eq!(bq.peek(), Some('b'));
-    assert_eq!(bq.peek(), Some('b'));
-    assert_eq!(bq.next(), Some('b'));
-    assert_eq!(bq.peek(), Some('c'));
-    assert_eq!(bq.next(), Some('c'));
-    assert_eq!(bq.peek(), None);
-    assert_eq!(bq.next(), None);
-}
+        assert_eq!(bq.peek(), Some('a'));
+        assert_eq!(bq.next(), Some('a'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.peek(), Some('c'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
+    }
 
-#[test]
-fn can_pop_front() {
-    let mut bq = BufferQueue::new();
-    bq.push_back("abc".to_strbuf(), 0);
+    #[test]
+    fn can_pop_front() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc".to_string(), 0);
 
-    assert_eq!(bq.pop_front(2), Some("ab".to_strbuf()));
-    assert_eq!(bq.peek(), Some('c'));
-    assert_eq!(bq.pop_front(2), None);
-    assert_eq!(bq.next(), Some('c'));
-    assert_eq!(bq.next(), None);
-}
+        assert_eq!(bq.pop_front(2), Some("ab".to_string()));
+        assert_eq!(bq.peek(), Some('c'));
+        assert_eq!(bq.pop_front(2), None);
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
 
-#[test]
-fn can_unconsume() {
-    let mut bq = BufferQueue::new();
-    bq.push_back("abc".to_strbuf(), 0);
-    assert_eq!(bq.next(), Some('a'));
+    #[test]
+    fn can_unconsume() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc".to_string(), 0);
+        assert_eq!(bq.next(), Some('a'));
 
-    bq.push_front("xy".to_strbuf());
-    assert_eq!(bq.next(), Some('x'));
-    assert_eq!(bq.next(), Some('y'));
-    assert_eq!(bq.next(), Some('b'));
-    assert_eq!(bq.next(), Some('c'));
-    assert_eq!(bq.next(), None);
-}
+        bq.push_front("xy".to_string());
+        assert_eq!(bq.next(), Some('x'));
+        assert_eq!(bq.next(), Some('y'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
 
-#[test]
-fn can_pop_data() {
-    let mut bq = BufferQueue::new();
-    bq.push_back("abc\0def".to_strbuf(), 0);
-    assert_eq!(bq.pop_data(), Some(DataRun("abc".to_strbuf())));
-    assert_eq!(bq.pop_data(), Some(OneChar('\0')));
-    assert_eq!(bq.pop_data(), Some(DataRun("def".to_strbuf())));
-    assert_eq!(bq.pop_data(), None);
-}
+    #[test]
+    fn can_pop_data() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc\0def".to_string(), 0);
+        assert_eq!(bq.pop_data(), Some(DataRun("abc".to_string())));
+        assert_eq!(bq.pop_data(), Some(OneChar('\0')));
+        assert_eq!(bq.pop_data(), Some(DataRun("def".to_string())));
+        assert_eq!(bq.pop_data(), None);
+    }
 
-#[test]
-fn can_push_truncated() {
-    let mut bq = BufferQueue::new();
-    bq.push_back("abc".to_strbuf(), 1);
-    assert_eq!(bq.next(), Some('b'));
-    assert_eq!(bq.next(), Some('c'));
-    assert_eq!(bq.next(), None);
-}
+    #[test]
+    fn can_push_truncated() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc".to_string(), 1);
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
 
-#[test]
-fn data_span_test() {
-    for &c in ['&', '\0'].iter() {
-        for x in range(0, 48u) {
-            for y in range(0, 48u) {
-                let mut s = String::from_char(x, 'x');
-                s.push_char(c);
-                s.grow(y, 'x');
+    #[test]
+    fn data_span_test() {
+        for &c in ['&', '\0'].iter() {
+            for x in range(0, 48u) {
+                for y in range(0, 48u) {
+                    let mut s = String::from_char(x, 'x');
+                    s.push_char(c);
+                    s.grow(y, 'x');
 
-                assert_eq!(x, data_span(s.as_slice()));
+                    assert_eq!(x, data_span(s.as_slice()));
+                }
             }
         }
     }

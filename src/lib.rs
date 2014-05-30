@@ -10,10 +10,13 @@
 #![crate_id="github.com/kmcallister/html5"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, phase)]
+#![feature(macro_rules, phase, globs)]
 
 #[phase(syntax, link)]
 extern crate log;
+
+#[phase(syntax, link)]
+extern crate debug;
 
 #[phase(syntax)]
 extern crate phf_mac;
@@ -22,7 +25,6 @@ extern crate phf_mac;
 extern crate macros = "html5-macros";
 
 extern crate phf;
-extern crate collections;
 extern crate time;
 
 pub use util::atom::Atom;

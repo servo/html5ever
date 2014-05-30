@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate debug;
+
 extern crate html5;
 
 use std::io;
@@ -14,7 +16,7 @@ use std::char;
 use std::default::Default;
 
 use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
-use html5::tokenizer::{CharacterTokens, TagToken, StartTag, EndTag};
+use html5::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
 
 struct TokenPrinter {
     in_char_run: bool,
@@ -81,7 +83,7 @@ fn main() {
             profile: true,
             .. Default::default()
         });
-        tok.feed(io::stdin().read_to_str().unwrap().into_strbuf());
+        tok.feed(io::stdin().read_to_str().unwrap().into_string());
         tok.end();
     }
     sink.is_char(false);

@@ -7,19 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum ScriptEscapeKind {
     Escaped,
     DoubleEscaped,
 }
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum DoctypeIdKind {
     Public,
     System,
 }
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
@@ -27,14 +27,14 @@ pub enum RawKind {
     ScriptDataEscaped(ScriptEscapeKind),
 }
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum AttrValueKind {
     Unquoted,
     SingleQuoted,
     DoubleQuoted,
 }
 
-#[deriving(Eq, TotalEq, Clone, Hash)]
+#[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum State {
     Data,
     Plaintext,
