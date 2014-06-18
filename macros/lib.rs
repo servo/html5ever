@@ -12,8 +12,6 @@
 
 #![feature(macro_rules, plugin_registrar, quote, managed_boxes)]
 
-#![allow(unused_imports)]  // for quotes
-
 extern crate syntax;
 extern crate rustc;
 extern crate serialize;

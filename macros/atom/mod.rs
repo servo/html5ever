@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unused_imports)]  // for quotes
+
 use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TTTok, TTDelim};
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr, DummyResult};
