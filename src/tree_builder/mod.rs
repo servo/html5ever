@@ -120,7 +120,7 @@ macro_rules! start ( ($($args:tt)*) => ( tag_pattern!(StartTag $($args)*) ))
 macro_rules! end   ( ($($args:tt)*) => ( tag_pattern!(EndTag   $($args)*) ))
 
 macro_rules! named ( ($t:expr, $($atom:ident)*) => (
-    match_atom!($t.name { $($atom)* => true, _ => false })
+    match $t.name { $( atom!($atom) )|* => true, _ => false }
 ))
 
 macro_rules! kind_named ( ($kind:ident $t:expr, $($atom:ident)*) => (
@@ -313,8 +313,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
-                start!(mut t) if match_atom!(t.name {
-                    base basefont bgsound link meta => {
+                start!(mut t) if match t.name {
+                    atom!(base) | atom!(basefont) | atom!(bgsound) | atom!(link) | atom!(meta) => {
                         self.create_element_nopush(t.name.clone(), take_attrs(t));
                         /* FIXME: handle charset= and http-equiv="Content-Type"
                         if named!(t, meta) {
@@ -323,12 +323,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         */
                         true
                     }
-                    title => {
+                    atom!(title) => {
                         self.parse_raw_data(Rcdata);
                         self.create_element_for(t);
                         true
                     }
-                    noframes style noscript => {
+                    atom!(noframes) | atom!(style) | atom!(noscript) => {
                         if (!self.opts.scripting_enabled) && named!(t, noscript) {
                             self.create_element_for(t);
                             self.mode = states::InHeadNoscript;
@@ -338,7 +338,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         }
                         true
                     }
-                    script => {
+                    atom!(script) => {
                         let target = self.target();
                         let elem = self.sink.create_element(HTML, atom!(script), take_attrs(t));
                         if self.opts.fragment {
@@ -349,26 +349,26 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.parse_raw_data(ScriptData);
                         true
                     }
-                    template => fail!("FIXME: <template> not implemented"),
-                    head => {
+                    atom!(template) => fail!("FIXME: <template> not implemented"),
+                    atom!(head) => {
                         self.sink.parse_error("<head> in insertion mode InHead".to_string());
                         true
                     }
                     _ => false,
-                }) => Done,
-                end!(mut t) if match_atom!(t.name {
-                    head => {
+                } => Done,
+                end!(mut t) if match t.name {
+                    atom!(head) => {
                         self.pop();
                         self.mode = states::AfterHead;
                         true
                     }
-                    body html br => false,
-                    template => fail!("FIXME: <template> not implemented"),
+                    atom!(body) | atom!(html) | atom!(br) => false,
+                    atom!(template) => fail!("FIXME: <template> not implemented"),
                     _ => {
                         self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", t));
                         true
                     }
-                }) => Done,
+                } => Done,
                 token => if start_named!(token, html) {
                     // Do this here because we can't move out of `token` when it's borrowed.
                     self.step(states::InBody, token)
@@ -381,18 +381,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             states::InHeadNoscript => match token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                end!(t) if match_atom!(t.name {
-                    noscript => {
+                end!(t) if match t.name {
+                    atom!(noscript) => {
                         self.pop();
                         self.mode = states::InHead;
                         true
                     }
-                    br => false,
+                    atom!(br) => false,
                     _ => {
                         self.sink.parse_error(format!("Unexpected end tag in InHeadNoscript mode: {}", t));
                         true
                     }
-                }) => Done,
+                } => Done,
                 start!(t) if named!(t, head noscript) => {
                     self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", t));
                     Done

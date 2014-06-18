@@ -58,13 +58,6 @@ macro_rules! test_eq ( ($name:ident, $left:expr, $right:expr) => (
     }
 ))
 
-// Wrap the procedural macro match_atom_impl! so that the
-// scrutinee expression is always a single token tree.
-#[macro_export]
-macro_rules! match_atom ( ($scrutinee:expr $body:tt) => (
-    match_atom_impl!(($scrutinee) $body)
-))
-
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
@@ -72,5 +65,4 @@ pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("static_atom_map", atom::expand_static_atom_map);
     reg.register_macro("static_atom_array", atom::expand_static_atom_array);
     reg.register_macro("atom", atom::expand_atom);
-    reg.register_macro("match_atom_impl", atom::expand_match_atom_impl);
 }

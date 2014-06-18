@@ -17,6 +17,8 @@ static static_atom_array: &'static [&'static str] = static_atom_array!();
 // Assume that a string which can be interned always is.
 // FIXME: Revisit this assumption when we have dynamic interning.
 /// Interned string.
+///
+/// Don't pattern-match this directly! Use the `atom!()` pattern macro.
 #[deriving(Clone, Show, PartialEq, Eq)]
 pub enum Atom {
     Static(uint),
@@ -51,21 +53,6 @@ impl Atom {
             None => {
                 Owned(replace(s, String::new()))
             }
-        }
-    }
-
-    /// Only for use by the atom!() macro!
-    #[inline(always)]
-    #[experimental="Only for use by the atom!() macro"]
-    pub fn unchecked_static_atom_from_macro(i: uint) -> Atom {
-        Static(i)
-    }
-
-    #[inline(always)]
-    pub fn get_static_atom_id_from_macro(&self) -> Option<uint> {
-        match *self {
-            Static(i) => Some(i),
-            _ => None,
         }
     }
 
@@ -218,22 +205,22 @@ mod test {
 
     #[test]
     fn match_atom() {
-        assert_eq!(2, match_atom!(Atom::from_str("head") {
-            br => 1,
-            html head => { 2 }
+        assert_eq!(2, match Atom::from_str("head") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
             _ => 3,
-        }));
+        });
 
-        assert_eq!(3, match_atom!(Atom::from_str("body") {
-            br => { 1 }
-            html head => 2,
-            _ => { 3 }
-        }));
-
-        assert_eq!(3, match_atom!(Atom::from_str("zzzzzz") {
-            br => 1,
-            html head => 2,
+        assert_eq!(3, match Atom::from_str("body") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
             _ => 3,
-        }));
+        });
+
+        assert_eq!(3, match Atom::from_str("zzzzzz") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
+            _ => 3,
+        });
     }
 }
