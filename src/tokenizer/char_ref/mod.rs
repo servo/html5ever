@@ -292,15 +292,16 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 //     &noti   => valid prefix for &notin
                 //     &notit  => can't continue match
 
-                assert!(self.name_len > 0);
-                let last_matched = self.name_buf().as_slice().char_at(self.name_len-1);
+                let name_len = self.name_len;
+                assert!(name_len > 0);
+                let last_matched = self.name_buf().as_slice().char_at(name_len-1);
 
                 // There might not be a next character after the match, if
                 // we had a full match and then hit EOF.
-                let next_after = if self.name_len == self.name_buf().len() {
+                let next_after = if name_len == self.name_buf().len() {
                     None
                 } else {
-                    Some(self.name_buf().as_slice().char_at(self.name_len))
+                    Some(self.name_buf().as_slice().char_at(name_len))
                 };
 
                 // "If the character reference is being consumed as part of an
@@ -331,7 +332,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                     self.finish_none()
                 } else {
                     tokenizer.unconsume(self.name_buf().as_slice()
-                        .slice_from(self.name_len).to_string());
+                        .slice_from(name_len).to_string());
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },

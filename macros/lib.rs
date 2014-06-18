@@ -10,16 +10,15 @@
 #![crate_id="html5-macros"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, macro_registrar, quote, managed_boxes)]
+#![feature(macro_rules, plugin_registrar, quote, managed_boxes)]
 
 #![allow(unused_imports)]  // for quotes
 
 extern crate syntax;
+extern crate rustc;
 extern crate serialize;
 
-use syntax::ast::Name;
-use syntax::parse::token;
-use syntax::ext::base::{SyntaxExtension, BasicMacroExpander, NormalTT};
+use rustc::plugin::Registry;
 
 // Internal macros for use in defining other macros.
 
@@ -68,21 +67,12 @@ macro_rules! match_atom ( ($scrutinee:expr $body:tt) => (
     match_atom_impl!(($scrutinee) $body)
 ))
 
-macro_rules! register ( ($name:expr, $expand:expr) => (
-    register(token::intern($name),
-        NormalTT(box BasicMacroExpander {
-            expander: $expand,
-            span: None
-        },
-        None));
-))
-
 // NB: This needs to be public or we get a linker error.
-#[macro_registrar]
-pub fn macro_registrar(register: |Name, SyntaxExtension|) {
-    register!("named_entities", named_entities::expand);
-    register!("static_atom_map", atom::expand_static_atom_map);
-    register!("static_atom_array", atom::expand_static_atom_array);
-    register!("atom", atom::expand_atom);
-    register!("match_atom_impl", atom::expand_match_atom_impl);
+#[plugin_registrar]
+pub fn plugin_registrar(reg: &mut Registry) {
+    reg.register_macro("named_entities", named_entities::expand);
+    reg.register_macro("static_atom_map", atom::expand_static_atom_map);
+    reg.register_macro("static_atom_array", atom::expand_static_atom_array);
+    reg.register_macro("atom", atom::expand_atom);
+    reg.register_macro("match_atom_impl", atom::expand_match_atom_impl);
 }

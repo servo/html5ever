@@ -470,7 +470,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
             tokenizer::EOFToken => EOFToken,
         };
 
-        self.process_to_completion(self.mode, token);
+        let mode = self.mode;
+        self.process_to_completion(mode, token);
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {

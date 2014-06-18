@@ -12,16 +12,16 @@
 
 #![feature(macro_rules, phase, globs)]
 
-#[phase(syntax, link)]
+#[phase(plugin, link)]
 extern crate log;
 
-#[phase(syntax, link)]
+#[phase(plugin, link)]
 extern crate debug;
 
-#[phase(syntax)]
+#[phase(plugin)]
 extern crate phf_mac;
 
-#[phase(syntax)]
+#[phase(plugin)]
 extern crate macros = "html5-macros";
 
 extern crate phf;
