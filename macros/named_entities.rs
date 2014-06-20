@@ -78,12 +78,12 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
         [TTTok(_, LIT_STR(s))] => get_ident(s).get().to_string(),
-        _ => bail!(usage),
+        _ => bail!(sp, usage),
     };
 
     // Get the result of calling file!() in the same place as our macro.
     // This would be a lot nicer if @-patterns were still supported.
-    let mod_filename = expect!(match expand_file(cx, sp, &[]).make_expr() {
+    let mod_filename = expect!(sp, match expand_file(cx, sp, &[]).make_expr() {
         Some(e) => match e.node {
             ExprLit(s) => match s.node {
                 LitStr(ref s, _) => Some(s.get().to_string()),
@@ -95,13 +95,17 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     }, "unexpected result from file!()");
 
     // Combine those to get an absolute path to entities.json.
-    let mod_path: path::Path = expect!(from_str(mod_filename.as_slice()), "can't parse module filename");
+    let mod_path: path::Path = expect!(sp, from_str(mod_filename.as_slice()),
+        "can't parse module filename");
     let json_path = mod_path.dir_path().join(json_filename);
 
     // Open the JSON file, parse it, and build the map from names to characters.
-    let mut json_file = expect!(io::File::open(&json_path).ok(), "can't open JSON file");
-    let js = expect!(json::from_reader(&mut json_file as &mut Reader).ok(), "can't parse JSON file");
-    let map = expect!(build_map(js), "JSON file does not match entities.json format");
+    let mut json_file = expect!(sp, io::File::open(&json_path).ok(),
+        "can't open JSON file");
+    let js = expect!(sp, json::from_reader(&mut json_file as &mut Reader).ok(),
+        "can't parse JSON file");
+    let map = expect!(sp, build_map(js),
+        "JSON file does not match entities.json format");
 
     // Emit a macro invocation of the form
     //
