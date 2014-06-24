@@ -102,3 +102,4 @@ bench: html5-external-bench
 .PHONY: clean
 clean:
 	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench *-example
+	(cd $(VPATH)/rust-phf && make clean)
