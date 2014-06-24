@@ -37,7 +37,7 @@ EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
 
 .PHONY: all
-all: $(LIB) tokenize-example tokenize-bench-example tree-print-example
+all: $(LIB) tokenize-example tokenize-bench-example tree-print-example docs
 
 .PHONY: submodules
 submodules:
@@ -103,3 +103,15 @@ bench: html5-external-bench
 clean:
 	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench *-example
 	(cd $(VPATH)/rust-phf && make clean)
+
+.PHONY: docs
+docs: doc doc/html5-macros/index.html doc/html5/index.html
+
+doc:
+	mkdir doc
+
+doc/html5-macros/index.html: $(MACROS_TOP_SRC)
+	rustdoc $(RUST_DIRS) $(VPATH)/macros/lib.rs
+
+doc/html5/index.html: $(LIB_DEPS)
+	rustdoc $(RUST_DIRS) $(VPATH)/src/lib.rs
