@@ -20,6 +20,7 @@ use util::namespace::HTML;
 use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
+use std::mem::replace;
 
 mod interface;
 mod states;
@@ -90,6 +91,9 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
 
     /// Next state change for the tokenizer, if any.
     next_tokenizer_state: Option<tokenizer::states::State>,
+
+    /// Frameset-ok flag.
+    frameset_ok: bool,
 }
 
 enum SplitKind {
@@ -125,6 +129,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             open_elems: vec!(),
             head_elem: None,
             next_tokenizer_state: None,
+            frameset_ok: true,
         }
     }
 
@@ -151,6 +156,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn pop(&mut self) -> Handle {
         self.open_elems.pop().expect("no current element")
+    }
+
+    fn remove_from_stack(&mut self, elem: &Handle) {
+        let mut open_elems = replace(&mut self.open_elems, vec!());
+        open_elems.retain(|x| !self.sink.same_node(elem.clone(), x.clone()));
+        self.open_elems = open_elems;
     }
 
     fn create_root(&mut self, attrs: Vec<Attribute>) {
@@ -384,8 +395,50 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             }),
 
-              states::AfterHead
-            | states::InBody
+            states::AfterHead => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                tag @ <body> => {
+                    self.create_element_for(tag);
+                    self.frameset_ok = false;
+                    self.mode = states::InBody;
+                    Done
+                }
+
+                tag @ <frameset> => {
+                    self.create_element_for(tag);
+                    self.mode = states::InFrameset;
+                    Done
+                }
+
+                <base> <basefont> <bgsound> <link> <meta>
+                      <noframes> <script> <style> <template> <title> => {
+                    unexpected!(token);
+                    let head = self.head_elem.as_ref().expect("no head element").clone();
+                    self.push(&head);
+                    let result = self.step(states::InHead, token);
+                    self.remove_from_stack(&head);
+                    result
+                }
+
+                </template> => self.step(states::InHead, token),
+
+                </body> </html> </br> => else,
+
+                <head> => drop_unexpected!(token),
+                tag @ </_> => drop_unexpected!(tag),
+
+                token => {
+                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
+                    Reprocess(states::InHead, token)
+                }
+            }),
+
+              states::InBody
             | states::Text
             | states::InTable
             | states::InTableText

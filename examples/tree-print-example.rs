@@ -36,6 +36,10 @@ impl TreeSink<uint> for Sink {
         println!("Set quirks mode to {:?}", mode);
     }
 
+    fn same_node(&mut self, x: uint, y: uint) -> bool {
+        x == y
+    }
+
     fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
         let id = self.next_id;
         self.next_id += 1;

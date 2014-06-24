@@ -22,6 +22,7 @@ pub trait TreeSink<Handle> {
     fn parse_error(&mut self, msg: String);
     fn get_document(&mut self) -> Handle;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
+    fn same_node(&mut self, x: Handle, y: Handle) -> bool;
 
     fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
 
