@@ -12,7 +12,7 @@
 use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TTTok};
 use syntax::ast;
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr, DummyResult};
+use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::parse::token::{get_ident, LIT_STR, IDENT};
 
 use std::iter::Chain;

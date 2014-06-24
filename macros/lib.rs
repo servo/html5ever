@@ -23,7 +23,7 @@ use rustc::plugin::Registry;
 #[macro_escape]
 macro_rules! bail ( ($sp:expr, $msg:expr) => ({
     cx.span_err($sp, $msg);
-    return DummyResult::any($sp);
+    return ::syntax::ext::base::DummyResult::any($sp);
 }))
 
 #[macro_escape]

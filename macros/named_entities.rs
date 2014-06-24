@@ -19,7 +19,7 @@ use std::collections::hashmap::HashMap;
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TTTok};
 use syntax::parse::token::{get_ident, LIT_STR};
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr, DummyResult};
+use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::ext::source_util::expand_file;
 
 // A struct matching the entries in entities.json.
