@@ -226,6 +226,17 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn step(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
+        // $thing may be either a Token or a Tag
+        macro_rules! unexpected ( ($thing:expr) => (
+            self.sink.parse_error(format!("Unexpected token {} in insertion mode {}",
+                $thing, mode));
+        ))
+
+        macro_rules! drop_unexpected ( ($thing:expr) => ({
+            unexpected!($thing);
+            Done
+        }))
+
         debug!("processing {} in insertion mode {:?}", token, mode);
 
         match mode {
@@ -234,7 +245,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
                     if !self.opts.iframe_srcdoc {
-                        self.sink.parse_error(format!("Bad token in Initial insertion mode: {}", token));
+                        unexpected!(token);
                         self.sink.set_quirks_mode(Quirks);
                     }
                     Reprocess(states::BeforeHtml, token)
@@ -252,10 +263,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => {
-                    self.sink.parse_error(format!("Unexpected end tag in BeforeHtml mode: {}", tag));
-                    Done
-                }
+                tag @ </_> => drop_unexpected!(tag),
 
                 token => {
                     self.create_root(vec!());
@@ -277,10 +285,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => {
-                    self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", tag));
-                    Done
-                }
+                tag @ </_> => drop_unexpected!(tag),
 
                 token => {
                     self.head_elem = Some(self.create_element(atom!(head), vec!()));
@@ -341,16 +346,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <template> => fail!("FIXME: <template> not implemented"),
                 </template> => fail!("FIXME: <template> not implemented"),
 
-                <head> => {
-                    self.sink.parse_error("<head> in insertion mode InHead".to_string());
-                    Done
-                }
-
-
-                tag @ </_> => {
-                    self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", tag));
-                    Done
-                }
+                <head> => drop_unexpected!(token),
+                tag @ </_> => drop_unexpected!(tag),
 
                 token => {
                     self.pop();
@@ -377,18 +374,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </br> => else,
 
-                tag @ <head> <noscript> => {
-                    self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", tag));
-                    Done
-                },
-
-                tag @ </_> => {
-                    self.sink.parse_error(format!("Unexpected end tag in InHeadNoscript mode: {}", tag));
-                    Done
-                },
+                <head> <noscript> => drop_unexpected!(token),
+                tag @ </_> => drop_unexpected!(tag),
 
                 token => {
-                    self.sink.parse_error(format!("Unexpected token in InHeadNoscript mode: {}", token));
+                    unexpected!(token);
                     self.pop();
                     Reprocess(states::InHead, token)
                 },
