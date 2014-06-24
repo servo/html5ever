@@ -11,7 +11,7 @@ pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
 use tokenizer;
-use tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
+use tokenizer::{Doctype, Attribute, Tag};
 use tokenizer::TokenSink;
 use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData};
 
@@ -20,7 +20,6 @@ use util::namespace::HTML;
 use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
-use std::mem::replace;
 
 mod interface;
 mod states;
@@ -93,13 +92,6 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     next_tokenizer_state: Option<tokenizer::states::State>,
 }
 
-// We use guards, so we can't bind tags by move.  Instead, bind by ref
-// mut and take attrs with `replace`.  This is basically fine since
-// empty `Vec` doesn't allocate.
-fn take_attrs(t: &mut Tag) -> Vec<Attribute> {
-    replace(&mut t.attrs, vec!())
-}
-
 enum SplitKind {
     DropWhitespace,
     KeepWhitespace,
@@ -110,28 +102,6 @@ enum ProcessResult {
     Split(SplitKind, String),
     Reprocess(states::InsertionMode, Token),
 }
-
-macro_rules! tag_pattern (
-    ($kind:ident     $var:ident) => ( TagToken(ref     $var @ Tag { kind: $kind, ..}) );
-    ($kind:ident mut $var:ident) => ( TagToken(ref mut $var @ Tag { kind: $kind, ..}) );
-)
-
-macro_rules! start ( ($($args:tt)*) => ( tag_pattern!(StartTag $($args)*) ))
-macro_rules! end   ( ($($args:tt)*) => ( tag_pattern!(EndTag   $($args)*) ))
-
-macro_rules! named ( ($t:expr, $($atom:ident)*) => (
-    match $t.name { $( atom!($atom) )|* => true, _ => false }
-))
-
-macro_rules! kind_named ( ($kind:ident $t:expr, $($atom:ident)*) => (
-    match $t {
-        tag_pattern!($kind t) => named!(t, $($atom)*),
-        _ => false,
-    }
-))
-
-macro_rules! start_named ( ($($args:tt)*) => ( kind_named!(StartTag $($args)*) ))
-macro_rules! end_named   ( ($($args:tt)*) => ( kind_named!(EndTag   $($args)*) ))
 
 macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
     // two steps to avoid double borrow
@@ -209,8 +179,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.create_element_impl(false, name, attrs)
     }
 
-    fn create_element_for(&mut self, tag: &mut Tag) -> Handle {
-        self.create_element(tag.name.clone(), take_attrs(tag))
+    fn create_element_for(&mut self, tag: Tag) -> Handle {
+        self.create_element(tag.name, tag.attrs)
     }
 
     fn process_to_completion(&mut self, mut mode: states::InsertionMode, mut token: Token) {
@@ -255,11 +225,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
-    fn step(&mut self, mode: states::InsertionMode, mut token: Token) -> ProcessResult {
+    fn step(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
         debug!("processing {} in insertion mode {:?}", token, mode);
 
         match mode {
-            states::Initial => match token {
+            states::Initial => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
@@ -269,147 +239,160 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }
                     Reprocess(states::BeforeHtml, token)
                 }
-            },
+            }),
 
-            states::BeforeHtml => match token {
+            states::BeforeHtml => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
-                start!(mut t) if named!(t, html) => {
-                    self.create_root(take_attrs(t));
+
+                tag @ <html> => {
+                    self.create_root(tag.attrs);
                     Done
                 }
-                end!(t) if !named!(t, head body html br) => {
-                    self.sink.parse_error(format!("Unexpected end tag in BeforeHtml mode: {}", t));
+
+                </head> </body> </html> </br> => else,
+
+                tag @ </_> => {
+                    self.sink.parse_error(format!("Unexpected end tag in BeforeHtml mode: {}", tag));
                     Done
                 }
+
                 token => {
                     self.create_root(vec!());
                     Reprocess(states::BeforeHead, token)
                 }
-            },
+            }),
 
-            states::BeforeHead => match token {
+            states::BeforeHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.target(), text),
-                end!(t) if !named!(t, head body html br) => {
-                    self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", t));
-                    Done
-                }
-                start!(mut t) if named!(t, head) => {
-                    self.head_elem = Some(self.create_element_for(t));
+
+                <html> => self.step(states::InBody, token),
+
+                tag @ <head> => {
+                    self.head_elem = Some(self.create_element_for(tag));
                     self.mode = states::InHead;
                     Done
                 }
-                token => if start_named!(token, html) {
-                    // Do this here because we can't move out of `token` when it's borrowed.
-                    self.step(states::InBody, token)
-                } else {
-                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
-                    Reprocess(states::InHead, token)
-                },
-            },
 
-            states::InHead => match token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
-                start!(mut t) if match t.name {
-                    atom!(base) | atom!(basefont) | atom!(bgsound) | atom!(link) | atom!(meta) => {
-                        self.create_element_nopush(t.name.clone(), take_attrs(t));
-                        /* FIXME: handle charset= and http-equiv="Content-Type"
-                        if named!(t, meta) {
-                            ...
-                        }
-                        */
-                        true
-                    }
-                    atom!(title) => {
-                        self.parse_raw_data(Rcdata);
-                        self.create_element_for(t);
-                        true
-                    }
-                    atom!(noframes) | atom!(style) | atom!(noscript) => {
-                        if (!self.opts.scripting_enabled) && named!(t, noscript) {
-                            self.create_element_for(t);
-                            self.mode = states::InHeadNoscript;
-                        } else {
-                            self.parse_raw_data(Rawtext);
-                            self.create_element_for(t);
-                        }
-                        true
-                    }
-                    atom!(script) => {
-                        let target = self.target();
-                        let elem = self.sink.create_element(HTML, atom!(script), take_attrs(t));
-                        if self.opts.fragment {
-                            self.sink.mark_script_already_started(elem.clone());
-                        }
-                        self.push(&elem);
-                        self.sink.append_element(target, elem);
-                        self.parse_raw_data(ScriptData);
-                        true
-                    }
-                    atom!(template) => fail!("FIXME: <template> not implemented"),
-                    atom!(head) => {
-                        self.sink.parse_error("<head> in insertion mode InHead".to_string());
-                        true
-                    }
-                    _ => false,
-                } => Done,
-                end!(mut t) if match t.name {
-                    atom!(head) => {
-                        self.pop();
-                        self.mode = states::AfterHead;
-                        true
-                    }
-                    atom!(body) | atom!(html) | atom!(br) => false,
-                    atom!(template) => fail!("FIXME: <template> not implemented"),
-                    _ => {
-                        self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", t));
-                        true
-                    }
-                } => Done,
-                token => if start_named!(token, html) {
-                    // Do this here because we can't move out of `token` when it's borrowed.
-                    self.step(states::InBody, token)
-                } else {
-                    self.pop();
-                    Reprocess(states::AfterHead, token)
-                },
-            },
+                </head> </body> </html> </br> => else,
 
-            states::InHeadNoscript => match token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                end!(t) if match t.name {
-                    atom!(noscript) => {
-                        self.pop();
-                        self.mode = states::InHead;
-                        true
-                    }
-                    atom!(br) => false,
-                    _ => {
-                        self.sink.parse_error(format!("Unexpected end tag in InHeadNoscript mode: {}", t));
-                        true
-                    }
-                } => Done,
-                start!(t) if named!(t, head noscript) => {
-                    self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", t));
+                tag @ </_> => {
+                    self.sink.parse_error(format!("Unexpected end tag in BeforeHead mode: {}", tag));
                     Done
                 }
 
-                token @ CommentToken(_) => self.step(states::InHead, token),
+                token => {
+                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
+                    Reprocess(states::InHead, token)
+                }
+            }),
 
-                token => if start_named!(token, html) {
-                    self.step(states::InBody, token)
-                } else if start_named!(token, basefont bgsound link meta noframes style) {
-                    self.step(states::InHead, token)
-                } else {
+            states::InHead => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                tag @ <base> <basefont> <bgsound> <link> <meta> => {
+                    // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
+                    self.create_element_nopush(tag.name, tag.attrs);
+                    Done
+                }
+
+                tag @ <title> => {
+                    self.parse_raw_data(Rcdata);
+                    self.create_element_for(tag);
+                    Done
+                }
+
+                tag @ <noframes> <style> <noscript> => {
+                    if (!self.opts.scripting_enabled) && (tag.name == atom!(noscript)) {
+                        self.create_element_for(tag);
+                        self.mode = states::InHeadNoscript;
+                    } else {
+                        self.parse_raw_data(Rawtext);
+                        self.create_element_for(tag);
+                    }
+                    Done
+                }
+
+                tag @ <script> => {
+                    let target = self.target();
+                    let elem = self.sink.create_element(HTML, atom!(script), tag.attrs);
+                    if self.opts.fragment {
+                        self.sink.mark_script_already_started(elem.clone());
+                    }
+                    self.push(&elem);
+                    self.sink.append_element(target, elem);
+                    self.parse_raw_data(ScriptData);
+                    Done
+                }
+
+                </head> => {
+                    self.pop();
+                    self.mode = states::AfterHead;
+                    Done
+                }
+
+                </body> </html> </br> => else,
+
+                <template> => fail!("FIXME: <template> not implemented"),
+                </template> => fail!("FIXME: <template> not implemented"),
+
+                <head> => {
+                    self.sink.parse_error("<head> in insertion mode InHead".to_string());
+                    Done
+                }
+
+
+                tag @ </_> => {
+                    self.sink.parse_error(format!("Unexpected end tag in InHead mode: {}", tag));
+                    Done
+                }
+
+                token => {
+                    self.pop();
+                    Reprocess(states::AfterHead, token)
+                }
+            }),
+
+            states::InHeadNoscript => match_token!(token {
+                <html> => self.step(states::InBody, token),
+
+                </noscript> => {
+                    self.pop();
+                    self.mode = states::InHead;
+                    Done
+                },
+
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, _) => self.step(states::InHead, token),
+
+                CommentToken(_) => self.step(states::InHead, token),
+
+                <basefont> <bgsound> <link> <meta> <noframes> <style>
+                    => self.step(states::InHead, token),
+
+                </br> => else,
+
+                tag @ <head> <noscript> => {
+                    self.sink.parse_error(format!("Unexpected start tag in InHeadNoscript mode: {}", tag));
+                    Done
+                },
+
+                tag @ </_> => {
+                    self.sink.parse_error(format!("Unexpected end tag in InHeadNoscript mode: {}", tag));
+                    Done
+                },
+
+                token => {
                     self.sink.parse_error(format!("Unexpected token in InHeadNoscript mode: {}", token));
                     self.pop();
                     Reprocess(states::InHead, token)
                 },
-            },
+            }),
 
               states::AfterHead
             | states::InBody

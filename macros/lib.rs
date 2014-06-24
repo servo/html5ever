@@ -15,6 +15,7 @@
 extern crate syntax;
 extern crate rustc;
 extern crate serialize;
+extern crate debug;
 
 use rustc::plugin::Registry;
 
@@ -39,8 +40,10 @@ macro_rules! expect ( ($sp:expr, $e:expr, $msg:expr) => (
     }
 ))
 
-mod named_entities;
-mod atom;
+// Make these public so that rustdoc will generate documentation for them.
+pub mod named_entities;
+pub mod atom;
+pub mod match_token;
 
 #[macro_export]
 macro_rules! unwrap_or_return ( ($opt:expr, $retval:expr) => (
@@ -65,4 +68,5 @@ pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("static_atom_map", atom::expand_static_atom_map);
     reg.register_macro("static_atom_array", atom::expand_static_atom_array);
     reg.register_macro("atom", atom::expand_atom);
+    reg.register_macro("match_token", match_token::expand);
 }
