@@ -238,13 +238,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn step(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
         // $thing may be either a Token or a Tag
-        macro_rules! unexpected ( ($thing:expr) => (
+        macro_rules! unexpected ( ($thing:expr) => ({
             self.sink.parse_error(format!("Unexpected token {} in insertion mode {}",
                 $thing, mode));
-        ))
-
-        macro_rules! drop_unexpected ( ($thing:expr) => ({
-            unexpected!($thing);
             Done
         }))
 
@@ -274,7 +270,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => drop_unexpected!(tag),
+                tag @ </_> => unexpected!(tag),
 
                 token => {
                     self.create_root(vec!());
@@ -296,7 +292,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => drop_unexpected!(tag),
+                tag @ </_> => unexpected!(tag),
 
                 token => {
                     self.head_elem = Some(self.create_element(atom!(head), vec!()));
@@ -357,8 +353,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <template> => fail!("FIXME: <template> not implemented"),
                 </template> => fail!("FIXME: <template> not implemented"),
 
-                <head> => drop_unexpected!(token),
-                tag @ </_> => drop_unexpected!(tag),
+                <head> => unexpected!(token),
+                tag @ </_> => unexpected!(tag),
 
                 token => {
                     self.pop();
@@ -385,8 +381,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </br> => else,
 
-                <head> <noscript> => drop_unexpected!(token),
-                tag @ </_> => drop_unexpected!(tag),
+                <head> <noscript> => unexpected!(token),
+                tag @ </_> => unexpected!(tag),
 
                 token => {
                     unexpected!(token);
@@ -429,8 +425,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </body> </html> </br> => else,
 
-                <head> => drop_unexpected!(token),
-                tag @ </_> => drop_unexpected!(tag),
+                <head> => unexpected!(token),
+                tag @ </_> => unexpected!(tag),
 
                 token => {
                     self.head_elem = Some(self.create_element(atom!(head), vec!()));
