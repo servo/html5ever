@@ -14,6 +14,7 @@ extern crate html5;
 use std::io;
 use std::default::Default;
 use std::string::String;
+use std::collections::hashmap::HashMap;
 
 use html5::{Namespace, Atom};
 use html5::tokenizer::{Tokenizer, Attribute};
@@ -21,6 +22,7 @@ use html5::tree_builder::{TreeBuilder, TreeSink, QuirksMode};
 
 struct Sink {
     next_id: uint,
+    names: HashMap<uint, (Namespace, Atom)>,
 }
 
 impl TreeSink<uint> for Sink {
@@ -36,14 +38,19 @@ impl TreeSink<uint> for Sink {
         println!("Set quirks mode to {:?}", mode);
     }
 
-    fn same_node(&mut self, x: uint, y: uint) -> bool {
+    fn same_node(&self, x: uint, y: uint) -> bool {
         x == y
+    }
+
+    fn elem_name(&self, target: uint) -> (Namespace, Atom) {
+        self.names.find(&target).expect("not an element").clone()
     }
 
     fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
         let id = self.next_id;
         self.next_id += 1;
         println!("Created {:?}:{:s} as {:u}", ns, name, id);
+        self.names.insert(id, (ns, name));
         id
     }
 
@@ -63,6 +70,17 @@ impl TreeSink<uint> for Sink {
         println!("Append doctype: {:s} {:s} {:s}", name, public_id, system_id);
     }
 
+    fn add_attrs_if_missing(&mut self, target: uint, attrs: Vec<Attribute>) {
+        println!("Add missing attributes to {:u}:", target);
+        for attr in attrs.move_iter() {
+            println!("    {} = {}", attr.name, attr.value);
+        }
+    }
+
+    fn remove_from_parent(&mut self, target: uint) {
+        println!("Remove {:u} from parent", target);
+    }
+
     fn mark_script_already_started(&mut self, node: uint) {
         println!("Mark script {:u} as already started", node);
     }
@@ -72,6 +90,7 @@ impl TreeSink<uint> for Sink {
 fn main() {
     let mut sink = Sink {
         next_id: 1,
+        names: HashMap::new(),
     };
 
     let mut tb  = TreeBuilder::new(&mut sink, Default::default());

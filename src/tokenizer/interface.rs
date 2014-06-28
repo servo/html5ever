@@ -51,7 +51,7 @@ impl Str for AttrName {
     }
 }
 
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct Attribute {
     pub name: AttrName,
     pub value: String,
@@ -69,6 +69,23 @@ pub struct Tag {
     pub name: Atom,
     pub self_closing: bool,
     pub attrs: Vec<Attribute>,
+}
+
+impl Tag {
+    /// Are the tags equivalent when we don't care about attribute order?
+    /// Also ignores the self-closing flag.
+    pub fn equiv_modulo_attr_order(&self, other: &Tag) -> bool {
+        if (self.kind != other.kind) || (self.name != other.name) {
+            return false;
+        }
+
+        let mut self_attrs = self.attrs.clone();
+        let mut other_attrs = other.attrs.clone();
+        self_attrs.sort();
+        other_attrs.sort();
+
+        self_attrs == other_attrs
+    }
 }
 
 #[deriving(PartialEq, Eq, Clone, Show)]

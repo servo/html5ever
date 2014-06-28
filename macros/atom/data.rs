@@ -303,6 +303,7 @@ pub static other_atoms: &'static [&'static str] = &[
     "details",
     "determinant",
     "dfn",
+    "dialog",
     "diff",
     "diffuseConstant",
     "diffuseconstant",

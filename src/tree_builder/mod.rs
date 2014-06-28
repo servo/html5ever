@@ -7,16 +7,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![warn(warnings)]
+
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
 use tokenizer;
-use tokenizer::{Doctype, Attribute, Tag};
+use tokenizer::{Doctype, Attribute, Tag, StartTag};
 use tokenizer::TokenSink;
-use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData};
+use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData, Plaintext};
 
 use util::atom::Atom;
-use util::namespace::HTML;
+use util::namespace::{Namespace, HTML};
 use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
@@ -67,6 +69,11 @@ impl Default for TreeBuilderOpts {
     }
 }
 
+enum FormatEntry<Handle> {
+    Element(Handle, Tag),
+    Marker,
+}
+
 pub struct TreeBuilder<'sink, Handle, Sink> {
     /// Options controlling the behavior of the tree builder.
     opts: TreeBuilderOpts,
@@ -80,20 +87,33 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     /// Original insertion mode, used by Text and InTableText modes.
     orig_mode: Option<states::InsertionMode>,
 
+    /// Quirks mode as set by the parser.
+    /// FIXME: can scripts etc. change this?
+    quirks_mode: QuirksMode,
+
     /// The document node, which is created by the sink.
     doc_handle: Handle,
 
     /// Stack of open elements, most recently added at end.
     open_elems: Vec<Handle>,
 
+    /// List of active formatting elements.
+    active_formatting: Vec<FormatEntry<Handle>>,
+
     /// Head element pointer.
     head_elem: Option<Handle>,
+
+    /// Form element pointer.
+    form_elem: Option<Handle>,
 
     /// Next state change for the tokenizer, if any.
     next_tokenizer_state: Option<tokenizer::states::State>,
 
     /// Frameset-ok flag.
     frameset_ok: bool,
+
+    /// Ignore a following U+000A LINE FEED?
+    ignore_lf: bool,
 }
 
 enum SplitKind {
@@ -106,6 +126,42 @@ enum ProcessResult {
     Split(SplitKind, String),
     Reprocess(states::InsertionMode, Token),
 }
+
+macro_rules! tag_op_to_bool (
+    (+) => (true);
+    (-) => (false);
+)
+
+macro_rules! declare_tag_set ( ($name:ident = $supr:ident $op:tt $($tag:ident)+) => (
+    fn $name(p: (Namespace, Atom)) -> bool {
+        match p {
+            $( (HTML, atom!($tag)) => tag_op_to_bool!($op), )+
+            p => $supr(p),
+        }
+    }
+))
+
+type TagSet<'a> = |(Namespace, Atom)|: 'a -> bool;
+
+#[inline(always)] fn empty_set(_: (Namespace, Atom)) -> bool { false }
+#[inline(always)] fn full_set(_: (Namespace, Atom)) -> bool { true }
+
+// FIXME: MathML, SVG
+declare_tag_set!(default_scope = empty_set
+    + applet caption html table td th marquee object template)
+
+declare_tag_set!(list_item_scope = default_scope + ol ul)
+declare_tag_set!(button_scope = default_scope + button)
+declare_tag_set!(table_scope = empty_set + html table template)
+declare_tag_set!(select_scope = full_set - optgroup option)
+
+declare_tag_set!(cursory_implied_end = empty_set
+    + dd dt li option optgroup p rp rt)
+
+declare_tag_set!(thorough_implied_end = cursory_implied_end
+    + caption colgroup tbody td tfoot th thead tr)
+
+declare_tag_set!(heading_tag = empty_set + h1 h2 h3 h4 h5 h6)
 
 macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
     // two steps to avoid double borrow
@@ -125,12 +181,25 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             sink: sink,
             mode: states::Initial,
             orig_mode: None,
+            quirks_mode: NoQuirks,
             doc_handle: doc_handle,
             open_elems: vec!(),
+            active_formatting: vec!(),
             head_elem: None,
+            form_elem: None,
             next_tokenizer_state: None,
             frameset_ok: true,
+            ignore_lf: false,
         }
+    }
+
+    fn set_quirks_mode(&mut self, mode: QuirksMode) {
+        self.quirks_mode = mode;
+        self.sink.set_quirks_mode(mode);
+    }
+
+    fn stop_parsing(&mut self) {
+        fail!("not implemented");
     }
 
     // Switch to `Text` insertion mode, save the old mode, and
@@ -144,10 +213,22 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.mode = states::Text;
     }
 
+    fn current_node(&self) -> Handle {
+        self.open_elems.last().expect("no current element").clone()
+    }
+
+    fn current_node_in(&self, set: TagSet) -> bool {
+        set(self.sink.elem_name(self.current_node()))
+    }
+
     // The "appropriate place for inserting a node".
     fn target(&self) -> Handle {
         // FIXME: foster parenting, templates, other nonsense
-        self.open_elems.last().expect("no current element").clone()
+        self.current_node()
+    }
+
+    fn adoption_agency(&mut self, subject: Atom) {
+        // FIXME
     }
 
     fn push(&mut self, elem: &Handle) {
@@ -162,6 +243,123 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         let mut open_elems = replace(&mut self.open_elems, vec!());
         open_elems.retain(|x| !self.sink.same_node(elem.clone(), x.clone()));
         self.open_elems = open_elems;
+    }
+
+    /// Reconstruct the active formatting elements.
+    fn reconstruct_formatting(&mut self) {
+        // FIXME
+    }
+
+    /// Get the second element on the stack, if it's a HTML body element.
+    fn get_body(&mut self) -> Option<Handle> {
+        if self.open_elems.len() <= 1 {
+            return None;
+        }
+
+        let node = self.open_elems.get(1).clone();
+        if self.html_elem_named(node.clone(), atom!(body)) {
+            Some(node)
+        } else {
+            None
+        }
+    }
+
+    /// Signal an error depending on the state of the stack of open elements at
+    /// the end of the body.
+    fn check_body_end(&mut self) {
+        declare_tag_set!(body_end_ok = empty_set
+            + dd dt li optgroup option p rp rt tbody td tfoot th
+              thead tr body html)
+
+        for elem in self.open_elems.iter() {
+            let name = self.sink.elem_name(elem.clone());
+            if !body_end_ok(name.clone()) {
+                self.sink.parse_error(
+                    format!("Unexpected open tag {} at end of body", name));
+                // FIXME: Do we keep checking after finding one bad tag?
+                // The spec suggests not.
+                return;
+            }
+        }
+    }
+
+    fn in_scope(&self, scope: TagSet, pred: |Handle| -> bool) -> bool {
+        for node in self.open_elems.iter().rev() {
+            if pred(node.clone()) {
+                return true;
+            }
+            if scope(self.sink.elem_name(node.clone())) {
+                return false;
+            }
+        }
+
+        // supposed to be impossible, because <html> is always in scope
+
+        false
+    }
+
+    fn elem_in(&self, elem: Handle, set: TagSet) -> bool {
+        set(self.sink.elem_name(elem))
+    }
+
+    fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
+        self.sink.elem_name(elem) == (HTML, name)
+    }
+
+    fn in_scope_named(&self, scope: TagSet, name: Atom) -> bool {
+        self.in_scope(scope, |elem|
+            self.html_elem_named(elem, name.clone()))
+    }
+
+    fn generate_implied_end(&mut self, set: TagSet) {
+        loop {
+            let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
+            let nsname = self.sink.elem_name(elem);
+            if !set(nsname) { return; }
+            self.pop();
+        }
+    }
+
+    fn generate_implied_end_except(&mut self, except: Atom) {
+        self.generate_implied_end(|p| match p {
+            (HTML, ref name) if *name == except => true,
+            _ => cursory_implied_end(p),
+        });
+    }
+
+    // Pop elements until an element from the set has been popped.  Returns the
+    // number of elements popped.
+    fn pop_until(&mut self, pred: TagSet) -> uint {
+        let mut n = 0;
+        loop {
+            match self.open_elems.pop() {
+                None => break,
+                Some(elem) => if pred(self.sink.elem_name(elem)) { break; },
+            }
+            n += 1;
+        }
+        n
+    }
+
+    // Pop elements until one with the specified name has been popped.
+    // Signal an error if it was not the first one.
+    fn expect_to_close(&mut self, name: Atom) {
+        if self.pop_until(|p| p == (HTML, name.clone())) != 1 {
+            self.sink.parse_error(
+                format!("Unexpected open element while closing {}", name));
+        }
+    }
+
+    fn close_p_element(&mut self) {
+        declare_tag_set!(implied = cursory_implied_end - p);
+        self.generate_implied_end(implied);
+        self.expect_to_close(atom!(p));
+    }
+
+    fn close_p_element_in_button_scope(&mut self) {
+        if self.in_scope_named(button_scope, atom!(p)) {
+            self.close_p_element();
+        }
     }
 
     fn create_root(&mut self, attrs: Vec<Attribute>) {
@@ -192,6 +390,39 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn create_element_for(&mut self, tag: Tag) -> Handle {
         self.create_element(tag.name, tag.attrs)
+    }
+
+    fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
+        // FIXME: This really wants unit tests.
+        let mut first_match = None;
+        let mut matches = 0u;
+        for (i, entry) in self.active_formatting.iter().enumerate().rev() {
+            match *entry {
+                Element(_, ref old_tag) if tag.equiv_modulo_attr_order(old_tag) => {
+                    first_match = Some(i);
+                    matches += 1;
+                }
+                Element(..) => (),
+                Marker => break,
+            }
+        }
+
+        if matches >= 3 {
+            self.active_formatting.remove(first_match.expect("matches with no index"));
+        }
+
+        let elem = self.create_element(tag.name.clone(), tag.attrs.clone());
+        self.active_formatting.push(Element(elem.clone(), tag));
+        elem
+    }
+
+    fn clear_active_formatting_to_marker(&mut self) {
+        loop {
+            match self.active_formatting.pop() {
+                None | Some(Marker) => break,
+                _ => (),
+            }
+        }
     }
 
     fn process_to_completion(&mut self, mut mode: states::InsertionMode, mut token: Token) {
@@ -253,7 +484,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => {
                     if !self.opts.iframe_srcdoc {
                         unexpected!(token);
-                        self.sink.set_quirks_mode(Quirks);
+                        self.set_quirks_mode(Quirks);
                     }
                     Reprocess(states::BeforeHtml, token)
                 }
@@ -434,8 +665,294 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-              states::InBody
-            | states::Text
+            states::InBody => match_token!(token {
+                NullCharacterToken => unexpected!(token),
+
+                CharacterTokens(_, text) => {
+                    self.reconstruct_formatting();
+                    // FIXME: this might be much faster as a byte scan
+                    let unset_frameset_ok = text.as_slice().chars().any(|c| !is_ascii_whitespace(c));
+                    append_text!(self.target(), text);
+                    if unset_frameset_ok {
+                        self.frameset_ok = false;
+                    }
+                    Done
+                }
+
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                tag @ <html> => {
+                    unexpected!(tag);
+                    // FIXME: <template>
+                    let top = self.open_elems.get(0).clone();
+                    self.sink.add_attrs_if_missing(top, tag.attrs);
+                    Done
+                }
+
+                <base> <basefont> <bgsound> <link> <meta> <noframes>
+                  <script> <style> <template> <title> </template> => {
+                    self.step(states::InHead, token)
+                }
+
+                tag @ <body> => {
+                    unexpected!(tag);
+                    // FIXME: <template>
+                    match self.get_body() {
+                        None => (),
+                        Some(node) => {
+                            self.frameset_ok = false;
+                            self.sink.add_attrs_if_missing(node, tag.attrs)
+                        }
+                    }
+                    Done
+                }
+
+                tag @ <frameset> => {
+                    unexpected!(tag);
+                    if !self.frameset_ok { return Done; }
+
+                    let body = unwrap_or_return!(self.get_body(), Done);
+                    self.sink.remove_from_parent(body);
+
+                    // FIXME: can we get here in the fragment case?
+                    // What to do with the first element then?
+                    self.open_elems.truncate(1);
+                    self.create_element_for(tag);
+                    self.mode = states::InFrameset;
+                    Done
+                }
+
+                EOFToken => {
+                    // FIXME: <template>
+                    self.check_body_end();
+                    self.stop_parsing();
+                    Done
+                }
+
+                </body> => {
+                    if self.in_scope_named(default_scope, atom!(body)) {
+                        self.check_body_end();
+                        self.mode = states::AfterBody;
+                    } else {
+                        self.sink.parse_error("</body> with no <body> in scope".to_string());
+                    }
+                    Done
+                }
+
+                </html> => {
+                    if self.in_scope_named(default_scope, atom!(body)) {
+                        self.check_body_end();
+                        Reprocess(states::AfterBody, token)
+                    } else {
+                        self.sink.parse_error("</html> with no <body> in scope".to_string());
+                        Done
+                    }
+                }
+
+                tag @ <address> <article> <aside> <blockquote> <center> <details> <dialog>
+                  <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
+                  <hgroup> <main> <menu> <nav> <ol> <p> <section> <summary> <ul> => {
+                    self.close_p_element_in_button_scope();
+                    self.create_element_for(tag);
+                    Done
+                }
+
+                tag @ <h1> <h2> <h3> <h4> <h5> <h6> => {
+                    self.close_p_element_in_button_scope();
+                    if self.current_node_in(heading_tag) {
+                        self.sink.parse_error("nested heading tags".to_string());
+                        self.pop();
+                    }
+                    self.create_element_for(tag);
+                    Done
+                }
+
+                tag @ <pre> <listing> => {
+                    self.close_p_element_in_button_scope();
+                    self.create_element_for(tag);
+                    self.ignore_lf = true;
+                    self.frameset_ok = false;
+                    Done
+                }
+
+                tag @ <form> => {
+                    // FIXME: <template>
+                    if self.form_elem.is_some() {
+                        self.sink.parse_error("nested forms".to_string());
+                    } else {
+                        self.close_p_element_in_button_scope();
+                        let elem = self.create_element_for(tag);
+                        // FIXME: <template>
+                        self.form_elem = Some(elem);
+                    }
+                    Done
+                }
+
+                <li> => fail!("FIXME"),
+                <dd> <dt> => fail!("FIXME"),
+
+                tag @ <plaintext> => {
+                    self.close_p_element_in_button_scope();
+                    self.create_element_for(tag);
+                    self.next_tokenizer_state = Some(Plaintext);
+                    Done
+                }
+
+                tag @ <button> => {
+                    if self.in_scope_named(default_scope, atom!(button)) {
+                        self.sink.parse_error("nested buttons".to_string());
+                        self.generate_implied_end(cursory_implied_end);
+                        self.pop_until(|p| p == (HTML, atom!(button)));
+                    }
+                    self.reconstruct_formatting();
+                    self.create_element_for(tag);
+                    self.frameset_ok = false;
+                    Done
+                }
+
+                tag @ </address> </article> </aside> </blockquote> </button> </center>
+                  </details> </dialog> </dir> </div> </dl> </fieldset> </figcaption>
+                  </figure> </footer> </header> </hgroup> </listing> </main> </menu>
+                  </nav> </ol> </pre> </section> </summary> </ul> => {
+                    if !self.in_scope_named(default_scope, tag.name.clone()) {
+                        unexpected!(tag);
+                    } else {
+                        self.generate_implied_end(cursory_implied_end);
+                        self.expect_to_close(tag.name);
+                    }
+                    Done
+                }
+
+                </form> => {
+                    // FIXME: <template>
+                    let node = unwrap_or_return!(self.form_elem.take(), {
+                        self.sink.parse_error("Null form element pointer on </form>".to_string());
+                        Done
+                    });
+                    if !self.in_scope(default_scope,
+                        |n| self.sink.same_node(node.clone(), n)) {
+                        self.sink.parse_error("Form element not in scope on </form>".to_string());
+                        return Done;
+                    }
+                    self.generate_implied_end(cursory_implied_end);
+                    let current = self.current_node();
+                    self.remove_from_stack(&node);
+                    if !self.sink.same_node(current, node) {
+                        self.sink.parse_error("Bad open element on </form>".to_string());
+                    }
+                    Done
+                }
+
+                </p> => {
+                    if !self.in_scope_named(button_scope, atom!(p)) {
+                        self.sink.parse_error("No <p> tag to close".to_string());
+                        self.create_element(atom!(p), vec!());
+                    }
+                    self.close_p_element();
+                    Done
+                }
+
+                tag @ </li> </dd> </dt> => {
+                    let scope = match tag.name {
+                        atom!(li) => list_item_scope,
+                        _ => default_scope,
+                    };
+                    if self.in_scope_named(|x| scope(x), tag.name.clone()) {
+                        self.generate_implied_end_except(tag.name.clone());
+                        self.expect_to_close(tag.name);
+                    } else {
+                        self.sink.parse_error(format!("No {} tag to close", tag.name));
+                    }
+                    Done
+                }
+
+                tag @ </h1> </h2> </h3> </h4> </h5> </h6> => {
+                    if self.in_scope(default_scope, |n| self.elem_in(n.clone(), heading_tag)) {
+                        self.generate_implied_end(cursory_implied_end);
+                        if !self.html_elem_named(self.current_node(), tag.name) {
+                            self.sink.parse_error("Closing wrong heading tag".to_string());
+                        }
+                        self.pop_until(heading_tag);
+                    } else {
+                        self.sink.parse_error("No heading tag to close".to_string());
+                    }
+                    Done
+                }
+
+                <a> => fail!("FIXME"),
+
+                tag @ <b> <big> <code> <em> <font> <i> <s> <small> <strike> <strong> <tt> <u> => {
+                    self.reconstruct_formatting();
+                    self.create_formatting_element_for(tag);
+                    Done
+                }
+
+                tag @ <nobr> => {
+                    self.reconstruct_formatting();
+                    if self.in_scope_named(default_scope, atom!(nobr)) {
+                        self.sink.parse_error("Nested <nobr>".to_string());
+                        self.adoption_agency(atom!(nobr));
+                        self.reconstruct_formatting();
+                    }
+                    self.create_formatting_element_for(tag);
+                    Done
+                }
+
+                tag @ </a> </b> </big> </code> </em> </font> </i> </nobr>
+                  </s> </small> </strike> </strong> </tt> </u> => {
+                    self.adoption_agency(tag.name);
+                    Done
+                }
+
+                tag @ <applet> <marquee> <object> => {
+                    self.reconstruct_formatting();
+                    self.create_element_for(tag);
+                    self.active_formatting.push(Marker);
+                    self.frameset_ok = false;
+                    Done
+                }
+
+                tag @ </applet> </marquee> </object> => {
+                    if !self.in_scope_named(default_scope, tag.name.clone()) {
+                        unexpected!(tag);
+                    } else {
+                        self.generate_implied_end(cursory_implied_end);
+                        self.expect_to_close(tag.name);
+                        self.clear_active_formatting_to_marker();
+                    }
+                    Done
+                }
+
+                tag @ <table> => {
+                    if self.quirks_mode != Quirks {
+                        self.close_p_element_in_button_scope();
+                    }
+                    self.create_element_for(tag);
+                    self.frameset_ok = false;
+                    self.mode = states::InTable;
+                    Done
+                }
+
+                tag @ </br> => {
+                    self.sink.parse_error("</br> tag".to_string());
+                    self.step(states::InBody, TagToken(Tag {
+                        kind: StartTag,
+                        attrs: vec!(),
+                        ..tag
+                    }))
+                }
+
+                tag @ <area> <br> <embed> <img> <keygen> <wbr> => {
+                    self.reconstruct_formatting();
+                    self.create_element_nopush(tag.name, tag.attrs);
+                    self.frameset_ok = false;
+                    Done
+                }
+
+                _ => fail!("not implemented"),
+            }),
+
+              states::Text
             | states::InTable
             | states::InTableText
             | states::InCaption
@@ -476,7 +993,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                     public_id.unwrap_or(String::new()),
                     system_id.unwrap_or(String::new())
                 );
-                self.sink.set_quirks_mode(quirk);
+                self.set_quirks_mode(quirk);
 
                 self.mode = states::BeforeHtml;
                 return;
@@ -487,11 +1004,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
 
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::CharacterTokens(x) => CharacterTokens(NotSplit, x),
             tokenizer::NullCharacterToken => NullCharacterToken,
             tokenizer::EOFToken => EOFToken,
+
+            tokenizer::CharacterTokens(mut x) => {
+                if self.ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
+                    x.shift_char();
+                }
+                CharacterTokens(NotSplit, x)
+            }
         };
 
+        self.ignore_lf = false;
         let mode = self.mode;
         self.process_to_completion(mode, token);
     }

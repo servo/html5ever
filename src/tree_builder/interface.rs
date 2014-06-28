@@ -22,7 +22,8 @@ pub trait TreeSink<Handle> {
     fn parse_error(&mut self, msg: String);
     fn get_document(&mut self) -> Handle;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
-    fn same_node(&mut self, x: Handle, y: Handle) -> bool;
+    fn same_node(&self, x: Handle, y: Handle) -> bool;
+    fn elem_name(&self, target: Handle) -> (Namespace, Atom);
 
     fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
 
@@ -30,6 +31,8 @@ pub trait TreeSink<Handle> {
     fn append_comment(&mut self, parent: Handle, text: String);
     fn append_element(&mut self, parent: Handle, child: Handle);
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);
+    fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>);
+    fn remove_from_parent(&mut self, target: Handle);
 
     fn mark_script_already_started(&mut self, node: Handle);
 }
