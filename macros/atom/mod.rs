@@ -13,7 +13,7 @@ use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TTTok};
 use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
-use syntax::parse::token::{get_ident, LIT_STR, IDENT};
+use syntax::parse::token::{get_ident, InternedString, LIT_STR, IDENT};
 
 use std::iter::Chain;
 use std::slice::Items;
@@ -45,17 +45,19 @@ pub fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) ->
     MacExpr::new(quote_expr!(&mut *cx, &[$tts]))
 }
 
-fn find_atom(t: &TokenTree) -> Option<uint> {
-    let s = get_ident(match *t {
+fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
+    Some(get_ident(match *t {
         TTTok(_, IDENT(s, _)) => s,
         TTTok(_, LIT_STR(s)) => s,
         _ => return None,
-    });
+    }))
+}
 
+fn find_atom(name: InternedString) -> Option<uint> {
     // Use bsearch instead of bsearch_elem because of type mismatch
     // between &'t str and &'static str.
-    data::fast_set_atoms.bsearch(|&x| x.cmp(&s.get())).or_else(||
-        data::other_atoms.bsearch(|&x| x.cmp(&s.get())).map(|i| i+64))
+    data::fast_set_atoms.bsearch(|&x| x.cmp(&name.get())).or_else(||
+        data::other_atoms.bsearch(|&x| x.cmp(&name.get())).map(|i| i+64))
 }
 
 struct AtomResult {
@@ -76,10 +78,13 @@ impl MacResult for AtomResult {
 // Translate `atom!(title)` or `atom!("font-weight")` into an `Atom` constant or pattern.
 pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     let usage = "Usage: atom!(html) or atom!(\"font-weight\")";
-    let i = match tt {
-        [ref t] => expect!(sp, find_atom(t), usage),
+    let name = match tt {
+        [ref t] => expect!(sp, atom_tok_to_str(t), usage),
         _ => bail!(sp, usage),
     };
+
+    let i = expect!(sp, find_atom(name.clone()),
+        format!("Unknown static atom {:s}", name.get()).as_slice());
 
     box AtomResult {
         expr: quote_expr!(&mut *cx, ::util::atom::Static($i)),
