@@ -205,22 +205,22 @@ mod test {
 
     #[test]
     fn match_atom() {
-        assert_eq!(2, match Atom::from_str("head") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
-            _ => 3,
+        assert_eq!(2u, match Atom::from_str("head") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
         });
 
-        assert_eq!(3, match Atom::from_str("body") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
-            _ => 3,
+        assert_eq!(3u, match Atom::from_str("body") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
         });
 
-        assert_eq!(3, match Atom::from_str("zzzzzz") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
-            _ => 3,
+        assert_eq!(3u, match Atom::from_str("zzzzzz") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
         });
     }
 }
