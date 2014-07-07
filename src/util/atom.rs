@@ -102,10 +102,10 @@ impl StrAllocating for Atom {
 }
 
 impl PartialOrd for Atom {
-    fn lt(&self, other: &Atom) -> bool {
+    fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
         match self.fast_partial_eq(other) {
-            Some(true) => false,
-            _ => self.as_slice() < other.as_slice(),
+            Some(true) => Some(Equal),
+            _ => self.as_slice().partial_cmp(&other.as_slice()),
         }
     }
 }

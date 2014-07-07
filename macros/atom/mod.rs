@@ -28,7 +28,7 @@ fn all_atoms<'a>() -> Chain<Items<'a, &'static str>, Items<'a, &'static str>> {
 // Build a PhfMap yielding static atom IDs.
 // Takes no arguments.
 pub fn expand_static_atom_map(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
-    bail_if!(tt.len() != 0, sp, "Usage: static_atom_map!()");
+    bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
     let tts: Vec<TokenTree> = all_atoms().enumerate().flat_map(|(i, k)|
         quote_tokens!(&mut *cx, $k => $i,).move_iter()
     ).collect();
@@ -38,7 +38,7 @@ pub fn expand_static_atom_map(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> B
 // Build the array to convert IDs back to strings.
 // FIXME: share storage with the PhfMap keys.
 pub fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
-    bail_if!(tt.len() != 0, sp, "Usage: static_atom_array!()");
+    bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_array!()");
     let tts: Vec<TokenTree> = all_atoms().flat_map(|k|
         quote_tokens!(&mut *cx, $k,).move_iter()
     ).collect();
@@ -79,11 +79,11 @@ impl MacResult for AtomResult {
 pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     let usage = "Usage: atom!(html) or atom!(\"font-weight\")";
     let name = match tt {
-        [ref t] => expect!(sp, atom_tok_to_str(t), usage),
-        _ => bail!(sp, usage),
+        [ref t] => expect!(cx, sp, atom_tok_to_str(t), usage),
+        _ => bail!(cx, sp, usage),
     };
 
-    let i = expect!(sp, find_atom(name.clone()),
+    let i = expect!(cx, sp, find_atom(name.clone()),
         format!("Unknown static atom {:s}", name.get()).as_slice());
 
     box AtomResult {

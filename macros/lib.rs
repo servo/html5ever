@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_id="html5-macros"]
+#![crate_name="html5-macros"]
 #![crate_type="dylib"]
 
 #![feature(macro_rules, plugin_registrar, quote, managed_boxes)]
@@ -22,21 +22,21 @@ use rustc::plugin::Registry;
 // Internal macros for use in defining other macros.
 
 #[macro_escape]
-macro_rules! bail ( ($sp:expr, $msg:expr) => ({
-    cx.span_err($sp, $msg);
+macro_rules! bail ( ($cx:expr, $sp:expr, $msg:expr) => ({
+    $cx.span_err($sp, $msg);
     return ::syntax::ext::base::DummyResult::any($sp);
 }))
 
 #[macro_escape]
-macro_rules! bail_if ( ($e:expr, $sp:expr, $msg:expr) => (
-    if $e { bail!($sp, $msg) }
+macro_rules! bail_if ( ($e:expr, $cx:expr, $sp:expr, $msg:expr) => (
+    if $e { bail!($cx, $sp, $msg) }
 ))
 
 #[macro_escape]
-macro_rules! expect ( ($sp:expr, $e:expr, $msg:expr) => (
+macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
     match $e {
         Some(x) => x,
-        None => bail!($sp, $msg),
+        None => bail!($cx, $sp, $msg),
     }
 ))
 

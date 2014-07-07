@@ -163,7 +163,7 @@ impl JsonExt for Json {
 
     fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Json> {
         match *self {
-            json::Object(ref m) => &**m,
+            json::Object(ref m) => &*m,
             _ => fail!("Json::get_obj: not an Object"),
         }
     }
@@ -274,7 +274,7 @@ fn unescape_json(js: &Json) -> Json {
         json::String(ref s) => json::String(unescape(s.as_slice()).unwrap()),
         json::List(ref xs) => json::List(xs.iter().map(unescape_json).collect()),
         json::Object(ref obj) => {
-            let mut new_obj = box TreeMap::new();
+            let mut new_obj = TreeMap::new();
             for (k,v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
             }

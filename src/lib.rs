@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_id="github.com/kmcallister/html5"]
+#![crate_name="html5"]
 #![crate_type="dylib"]
 
 #![feature(macro_rules, phase, globs)]

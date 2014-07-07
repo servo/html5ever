@@ -14,8 +14,8 @@ RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
 
 RUSTC_CMD := $(RUSTC) -D warnings $(RUST_DIRS) $(RUSTFLAGS)
 
-# Hack to make sure the build fails if rustc --crate-file-name does
-crate_name = $$(shell $$(RUSTC) --crate-file-name $(1) || echo rustc_crate_name_failed)
+# Hack to make sure the build fails if rustc --print-file-name does
+crate_name = $$(shell $$(RUSTC) --print-file-name $(1) || echo rustc_crate_name_failed)
 
 PHF_DUMMY := rust-phf.dummy
 PHF_ALL_SRC := $(shell find $(VPATH)/rust-phf -type f -name '*.rs')

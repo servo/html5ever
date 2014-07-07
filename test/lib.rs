@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_id="html5-external-test"]
+#![crate_name="html5-external-test"]
 #![crate_type="bin"]
 
 extern crate test;

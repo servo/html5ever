@@ -289,7 +289,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
     // Handle the last arm specially at the end.
     let last_arm = match arms.pop() {
         Some(x) => x,
-        None => bail!(span, "need at least one match arm"),
+        None => bail!(cx, span, "need at least one match arm"),
     };
 
     // Code for the arms other than the last one.
@@ -314,11 +314,11 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
         match (lhs.node, rhs.node) {
             (Pat(_), Else)
-                => bail!(rhs.span, "'else' may not appear with an ordinary pattern"),
+                => bail!(cx, rhs.span, "'else' may not appear with an ordinary pattern"),
 
             // ordinary pattern => expression
             (Pat(pat), Expr(expr)) => {
-                bail_if!(!wildcards.is_empty(), lhs.span,
+                bail_if!(!wildcards.is_empty(), cx, lhs.span,
                     "ordinary patterns may not appear after wildcard tags");
                 arm_code.push_all_move(quote_tokens!(&mut *cx, $binding $pat => $expr,));
             }
@@ -326,8 +326,8 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
             // <tag> <tag> ... => else
             (Tags(tags), Else) => {
                 for Spanned { span, node: tag } in tags.move_iter() {
-                    bail_if!(!seen_tags.insert(tag.clone()), span, "duplicate tag");
-                    bail_if!(tag.name.is_none(), rhs.span,
+                    bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
+                    bail_if!(tag.name.is_none(), cx, rhs.span,
                         "'else' may not appear with a wildcard tag");
                     let excluded = wild_excluded.find_or_insert(tag.kind, vec!());
                     excluded.push(tag.clone());
@@ -341,15 +341,15 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                 // `None` if we haven't processed the first tag yet.
                 let mut wildcard = None;
                 for Spanned { span, node: tag } in tags.move_iter() {
-                    bail_if!(!seen_tags.insert(tag.clone()), span, "duplicate tag");
+                    bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
 
                     match tag.name {
                         // <tag>
                         Some(_) => {
-                            bail_if!(!wildcards.is_empty(), lhs.span,
+                            bail_if!(!wildcards.is_empty(), cx, lhs.span,
                                 "specific tags may not appear after wildcard tags");
 
-                            bail_if!(wildcard == Some(true), span,
+                            bail_if!(wildcard == Some(true), cx, span,
                                 "wildcard tags must appear alone");
 
                             if wildcard.is_some() {
@@ -363,7 +363,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
                         // <_>
                         None => {
-                            bail_if!(wildcard.is_some(), span,
+                            bail_if!(wildcard.is_some(), cx, span,
                                 "wildcard tags must appear alone");
                             wildcard = Some(true);
                             wildcards.push(WildcardArm {
@@ -376,7 +376,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                 }
 
                 match wildcard {
-                    None => bail!(lhs.span, "[internal macro error] tag arm with no tags"),
+                    None => bail!(cx, lhs.span, "[internal macro error] tag arm with no tags"),
                     Some(false) => {
                         arm_code.push_all_move(quote_tokens!(&mut *cx, => $expr,));
                     }
@@ -412,12 +412,12 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
     let enable_wildcards = token::gensym_ident("enable_wildcards");
 
     let (last_pat, last_expr) = match (binding, lhs.node, rhs.node) {
-        (Some(id), _, _) => bail!(id.span, "the last arm cannot have an @-binding"),
-        (None, Tags(_), _) => bail!(lhs.span, "the last arm cannot have tag patterns"),
-        (None, _, Else) => bail!(rhs.span, "the last arm cannot use 'else'"),
+        (Some(id), _, _) => bail!(cx, id.span, "the last arm cannot have an @-binding"),
+        (None, Tags(_), _) => bail!(cx, lhs.span, "the last arm cannot have tag patterns"),
+        (None, _, Else) => bail!(cx, rhs.span, "the last arm cannot use 'else'"),
         (None, Pat(p), Expr(e)) => match p.node {
             ast::PatWild | ast::PatIdent(..) => (p, e),
-            _ => bail!(lhs.span, "the last arm must have a wildcard or ident pattern"),
+            _ => bail!(cx, lhs.span, "the last arm must have a wildcard or ident pattern"),
         },
     };
 
