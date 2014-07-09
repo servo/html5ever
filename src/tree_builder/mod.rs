@@ -123,6 +123,7 @@ enum SplitKind {
 
 enum ProcessResult {
     Done,
+    DoneAckSelfClosing,
     Split(SplitKind, String),
     Reprocess(states::InsertionMode, Token),
 }
@@ -433,8 +434,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         let mut more_tokens = vec!();
 
         loop {
+            let is_self_closing = match token {
+                TagToken(Tag { self_closing: c, .. }) => c,
+                _ => false,
+            };
             match self.step(mode, token) {
                 Done => {
+                    if is_self_closing {
+                        self.sink.parse_error("Unacknowledged self-closing tag".to_string());
+                    }
+                    token = unwrap_or_return!(more_tokens.pop(), ());
+                }
+                DoneAckSelfClosing => {
                     token = unwrap_or_return!(more_tokens.pop(), ());
                 }
                 Reprocess(m, t) => {
@@ -541,7 +552,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ <base> <basefont> <bgsound> <link> <meta> => {
                     // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
                     self.create_element_nopush(tag.name, tag.attrs);
-                    Done
+                    DoneAckSelfClosing
                 }
 
                 tag @ <title> => {
@@ -946,7 +957,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     self.reconstruct_formatting();
                     self.create_element_nopush(tag.name, tag.attrs);
                     self.frameset_ok = false;
-                    Done
+                    DoneAckSelfClosing
                 }
 
                 _ => fail!("not implemented"),
