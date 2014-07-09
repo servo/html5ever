@@ -128,6 +128,11 @@ enum ProcessResult {
     Reprocess(states::InsertionMode, Token),
 }
 
+enum PushFlag {
+    Push,
+    NoPush,
+}
+
 macro_rules! tag_op_to_bool (
     (+) => (true);
     (-) => (false);
@@ -370,27 +375,25 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         // FIXME: application cache selection algorithm
     }
 
-    fn create_element_impl(&mut self, push: bool, name: Atom, attrs: Vec<Attribute>) -> Handle {
+    fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
+            -> Handle {
         let target = self.target();
         let elem = self.sink.create_element(HTML, name, attrs);
-        if push {
-            self.push(&elem);
+        match push {
+            Push => self.push(&elem),
+            NoPush => (),
         }
         self.sink.append_element(target, elem.clone());
         // FIXME: Remove from the stack if we can't append?
         elem
     }
 
-    fn create_element(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
-        self.create_element_impl(true, name, attrs)
+    fn insert_element_for(&mut self, tag: Tag) -> Handle {
+        self.insert_element(Push, tag.name, tag.attrs)
     }
 
-    fn create_element_nopush(&mut self, name: Atom, attrs: Vec<Attribute>) -> Handle {
-        self.create_element_impl(false, name, attrs)
-    }
-
-    fn create_element_for(&mut self, tag: Tag) -> Handle {
-        self.create_element(tag.name, tag.attrs)
+    fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle {
+        self.insert_element(NoPush, tag.name, tag.attrs)
     }
 
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
@@ -412,7 +415,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             self.active_formatting.remove(first_match.expect("matches with no index"));
         }
 
-        let elem = self.create_element(tag.name.clone(), tag.attrs.clone());
+        let elem = self.insert_element(Push, tag.name.clone(), tag.attrs.clone());
         self.active_formatting.push(Element(elem.clone(), tag));
         elem
     }
@@ -527,7 +530,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <html> => self.step(states::InBody, token),
 
                 tag @ <head> => {
-                    self.head_elem = Some(self.create_element_for(tag));
+                    self.head_elem = Some(self.insert_element_for(tag));
                     self.mode = states::InHead;
                     Done
                 }
@@ -537,7 +540,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </_> => unexpected!(tag),
 
                 token => {
-                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
+                    self.head_elem = Some(self.insert_element(Push, atom!(head), vec!()));
                     Reprocess(states::InHead, token)
                 }
             }),
@@ -551,23 +554,23 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <base> <basefont> <bgsound> <link> <meta> => {
                     // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
-                    self.create_element_nopush(tag.name, tag.attrs);
+                    self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
 
                 tag @ <title> => {
                     self.parse_raw_data(Rcdata);
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     Done
                 }
 
                 tag @ <noframes> <style> <noscript> => {
                     if (!self.opts.scripting_enabled) && (tag.name == atom!(noscript)) {
-                        self.create_element_for(tag);
+                        self.insert_element_for(tag);
                         self.mode = states::InHeadNoscript;
                     } else {
                         self.parse_raw_data(Rawtext);
-                        self.create_element_for(tag);
+                        self.insert_element_for(tag);
                     }
                     Done
                 }
@@ -641,14 +644,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <html> => self.step(states::InBody, token),
 
                 tag @ <body> => {
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.frameset_ok = false;
                     self.mode = states::InBody;
                     Done
                 }
 
                 tag @ <frameset> => {
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.mode = states::InFrameset;
                     Done
                 }
@@ -671,7 +674,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </_> => unexpected!(tag),
 
                 token => {
-                    self.head_elem = Some(self.create_element(atom!(head), vec!()));
+                    self.head_elem = Some(self.insert_element(Push, atom!(head), vec!()));
                     Reprocess(states::InHead, token)
                 }
             }),
@@ -728,7 +731,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     // FIXME: can we get here in the fragment case?
                     // What to do with the first element then?
                     self.open_elems.truncate(1);
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.mode = states::InFrameset;
                     Done
                 }
@@ -764,7 +767,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                   <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
                   <hgroup> <main> <menu> <nav> <ol> <p> <section> <summary> <ul> => {
                     self.close_p_element_in_button_scope();
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     Done
                 }
 
@@ -774,13 +777,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.sink.parse_error("nested heading tags".to_string());
                         self.pop();
                     }
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     Done
                 }
 
                 tag @ <pre> <listing> => {
                     self.close_p_element_in_button_scope();
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.ignore_lf = true;
                     self.frameset_ok = false;
                     Done
@@ -792,7 +795,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.sink.parse_error("nested forms".to_string());
                     } else {
                         self.close_p_element_in_button_scope();
-                        let elem = self.create_element_for(tag);
+                        let elem = self.insert_element_for(tag);
                         // FIXME: <template>
                         self.form_elem = Some(elem);
                     }
@@ -804,7 +807,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <plaintext> => {
                     self.close_p_element_in_button_scope();
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.next_tokenizer_state = Some(Plaintext);
                     Done
                 }
@@ -816,7 +819,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.pop_until(|p| p == (HTML, atom!(button)));
                     }
                     self.reconstruct_formatting();
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.frameset_ok = false;
                     Done
                 }
@@ -857,7 +860,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 </p> => {
                     if !self.in_scope_named(button_scope, atom!(p)) {
                         self.sink.parse_error("No <p> tag to close".to_string());
-                        self.create_element(atom!(p), vec!());
+                        self.insert_element(Push, atom!(p), vec!());
                     }
                     self.close_p_element();
                     Done
@@ -917,7 +920,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <applet> <marquee> <object> => {
                     self.reconstruct_formatting();
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.active_formatting.push(Marker);
                     self.frameset_ok = false;
                     Done
@@ -938,7 +941,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     if self.quirks_mode != Quirks {
                         self.close_p_element_in_button_scope();
                     }
-                    self.create_element_for(tag);
+                    self.insert_element_for(tag);
                     self.frameset_ok = false;
                     self.mode = states::InTable;
                     Done
@@ -955,7 +958,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <area> <br> <embed> <img> <keygen> <wbr> => {
                     self.reconstruct_formatting();
-                    self.create_element_nopush(tag.name, tag.attrs);
+                    self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
                 }
