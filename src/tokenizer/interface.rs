@@ -34,7 +34,7 @@ impl Doctype {
 /// Attribute name; will eventually support namespaces.
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct AttrName {
-    name: Atom,
+    pub name: Atom,
 }
 
 impl AttrName {

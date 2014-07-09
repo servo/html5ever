@@ -23,6 +23,7 @@ use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
 use std::mem::replace;
+use std::ascii::StrAsciiExt;
 
 mod interface;
 mod states;
@@ -310,6 +311,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
         self.sink.elem_name(elem) == (HTML, name)
+    }
+
+    fn current_node_named(&self, name: Atom) -> bool {
+        self.html_elem_named(self.current_node(), name)
     }
 
     fn in_scope_named(&self, scope: TagSet, name: Atom) -> bool {
@@ -883,7 +888,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </h1> </h2> </h3> </h4> </h5> </h6> => {
                     if self.in_scope(default_scope, |n| self.elem_in(n.clone(), heading_tag)) {
                         self.generate_implied_end(cursory_implied_end);
-                        if !self.html_elem_named(self.current_node(), tag.name) {
+                        if !self.current_node_named(tag.name) {
                             self.sink.parse_error("Closing wrong heading tag".to_string());
                         }
                         self.pop_until(heading_tag);
@@ -948,7 +953,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
 
                 tag @ </br> => {
-                    self.sink.parse_error("</br> tag".to_string());
+                    unexpected!(tag);
                     self.step(states::InBody, TagToken(Tag {
                         kind: StartTag,
                         attrs: vec!(),
@@ -956,11 +961,126 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }))
                 }
 
-                tag @ <area> <br> <embed> <img> <keygen> <wbr> => {
+                tag @ <area> <br> <embed> <img> <keygen> <wbr> <input> => {
+                    let keep_frameset_ok = match tag.name {
+                        atom!(input) => {
+                            match tag.attrs.iter().find(|&at| at.name.name == atom!("type")) {
+                                None => false,
+                                Some(at) => at.value.as_slice().eq_ignore_ascii_case("hidden"),
+                            }
+                        }
+                        _ => false,
+                    };
                     self.reconstruct_formatting();
+                    self.insert_and_pop_element_for(tag);
+                    if !keep_frameset_ok {
+                        self.frameset_ok = false;
+                    }
+                    DoneAckSelfClosing
+                }
+
+                tag @ <menuitem> <param> <source> <track> => {
+                    self.insert_and_pop_element_for(tag);
+                    DoneAckSelfClosing
+                }
+
+                tag @ <hr> => {
+                    self.close_p_element_in_button_scope();
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
+                }
+
+                tag @ <image> => {
+                    unexpected!(tag);
+                    self.step(states::InBody, TagToken(Tag {
+                        name: atom!(img),
+                        ..tag
+                    }))
+                }
+
+                <isindex> => fail!("FIXME"),
+
+                tag @ <textarea> => {
+                    self.insert_element_for(tag);
+                    self.ignore_lf = true;
+                    self.frameset_ok = false;
+                    self.parse_raw_data(Rcdata);
+                    Done
+                }
+
+                <xmp> => {
+                    self.close_p_element_in_button_scope();
+                    self.reconstruct_formatting();
+                    self.frameset_ok = false;
+                    self.parse_raw_data(Rawtext);
+                    Done
+                }
+
+                <iframe> => {
+                    self.frameset_ok = false;
+                    self.parse_raw_data(Rawtext);
+                    Done
+                }
+
+                <noembed> => {
+                    self.parse_raw_data(Rawtext);
+                    Done
+                }
+
+                // <noscript> handled in wildcard case below
+
+                tag @ <select> => {
+                    self.reconstruct_formatting();
+                    self.insert_element_for(tag);
+                    self.frameset_ok = false;
+                    // NB: mode == InBody but possibly self.mode != mode, if
+                    // we're processing "as in the rules for InBody".
+                    self.mode = match self.mode {
+                        states::InTable | states::InCaption | states::InTableBody
+                            | states::InRow | states::InCell => states::InSelectInTable,
+                        _ => states::InSelect,
+                    };
+                    Done
+                }
+
+                tag @ <optgroup> <option> => {
+                    if self.current_node_named(atom!(option)) {
+                        self.pop();
+                    }
+                    self.reconstruct_formatting();
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <rp> <rt> => {
+                    if self.in_scope_named(default_scope, atom!(ruby)) {
+                        self.generate_implied_end(cursory_implied_end);
+                    }
+                    if !self.current_node_named(atom!(ruby)) {
+                        unexpected!(tag);
+                    }
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                <math> => fail!("FIXME: MathML not implemented"),
+                <svg> => fail!("FIXME: SVG not implemented"),
+
+                <caption> <col> <colgroup> <frame> <head>
+                  <tbody> <td> <tfoot> <th> <thead> <tr> => {
+                    unexpected!(token);
+                    Done
+                }
+
+                tag @ <_> => {
+                    if self.opts.scripting_enabled && tag.name == atom!(noscript) {
+                        self.parse_raw_data(Rawtext);
+                    } else {
+                        self.reconstruct_formatting();
+                        self.insert_element_for(tag);
+                    }
+                    Done
                 }
 
                 _ => fail!("not implemented"),
