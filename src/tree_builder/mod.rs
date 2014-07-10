@@ -170,6 +170,14 @@ declare_tag_set!(thorough_implied_end = cursory_implied_end
 
 declare_tag_set!(heading_tag = empty_set + h1 h2 h3 h4 h5 h6)
 
+declare_tag_set!(special_tag = empty_set +
+    address applet area article aside base basefont bgsound blockquote body br button caption
+    center col colgroup dd details dir div dl dt embed fieldset figcaption figure footer form
+    frame frameset h1 h2 h3 h4 h5 h6 head header hgroup hr html iframe img input isindex li
+    link listing main marquee menu menuitem meta nav noembed noframes noscript object ol p
+    param plaintext pre script section select source style summary table tbody td template
+    textarea tfoot th thead title tr track ul wbr xmp)
+
 macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
     // two steps to avoid double borrow
     let target = $target;
@@ -1083,6 +1091,43 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
+                tag @ </_> => {
+                    // Look back for a matching open element.
+                    let mut match_idx = None;
+                    for (i, elem) in self.open_elems.iter().enumerate().rev() {
+                        if self.html_elem_named(elem.clone(), tag.name.clone()) {
+                            match_idx = Some(i);
+                            break;
+                        }
+
+                        if self.elem_in(elem.clone(), special_tag) {
+                            unexpected!(tag);
+                            return Done;
+                        }
+                    }
+
+                    let match_idx = unwrap_or_return!(match_idx, {
+                        // I believe this is impossible, because the root
+                        // <html> element is in special_tag.
+                        unexpected!(tag);
+                        Done
+                    });
+
+                    self.generate_implied_end(|p| match p {
+                        (HTML, ref name) if *name == tag.name => false,
+                        _ => cursory_implied_end(p),
+                    });
+
+                    if match_idx != self.open_elems.len() - 1 {
+                        // mis-nested tags
+                        unexpected!(tag);
+                    }
+                    self.open_elems.truncate(match_idx);
+                    Done
+                }
+
+                // FIXME: This should be unreachable, but match_token! requires a
+                // catch-all case.
                 _ => fail!("not implemented"),
             }),
 
