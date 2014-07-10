@@ -214,7 +214,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn stop_parsing(&mut self) {
-        fail!("not implemented");
+        fail!("stop_parsing not implemented");
     }
 
     // Switch to `Text` insertion mode, save the old mode, and
@@ -265,8 +265,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         // FIXME
     }
 
+    /// Get the first element on the stack, which will be the <html> element.
+    fn html_elem(&self) -> Handle {
+         self.open_elems.get(0).clone()
+    }
+
     /// Get the second element on the stack, if it's a HTML body element.
-    fn get_body(&mut self) -> Option<Handle> {
+    fn body_elem(&mut self) -> Option<Handle> {
         if self.open_elems.len() <= 1 {
             return None;
         }
@@ -711,7 +716,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ <html> => {
                     unexpected!(tag);
                     // FIXME: <template>
-                    let top = self.open_elems.get(0).clone();
+                    let top = self.html_elem();
                     self.sink.add_attrs_if_missing(top, tag.attrs);
                     Done
                 }
@@ -724,7 +729,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ <body> => {
                     unexpected!(tag);
                     // FIXME: <template>
-                    match self.get_body() {
+                    match self.body_elem() {
                         None => (),
                         Some(node) => {
                             self.frameset_ok = false;
@@ -738,7 +743,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     unexpected!(tag);
                     if !self.frameset_ok { return Done; }
 
-                    let body = unwrap_or_return!(self.get_body(), Done);
+                    let body = unwrap_or_return!(self.body_elem(), Done);
                     self.sink.remove_from_parent(body);
 
                     // FIXME: can we get here in the fragment case?
@@ -1142,12 +1147,58 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             | states::InSelect
             | states::InSelectInTable
             | states::InTemplate
-            | states::AfterBody
-            | states::InFrameset
-            | states::AfterFrameset
-            | states::AfterAfterBody
-            | states::AfterAfterFrameset
                 => fail!("not implemented"),
+
+            states::AfterBody => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CommentToken(text) => append_comment!(self.html_elem(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                </html> => {
+                    if self.opts.fragment {
+                        unexpected!(token);
+                    } else {
+                        self.mode = states::AfterAfterBody;
+                    }
+                    Done
+                }
+
+                EOFToken => {
+                    self.stop_parsing();
+                    Done
+                }
+
+                token => {
+                    unexpected!(token);
+                    Reprocess(states::InBody, token)
+                }
+            }),
+
+              states::InFrameset
+            | states::AfterFrameset
+                => fail!("not implemented"),
+
+            states::AfterAfterBody => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                EOFToken => {
+                    self.stop_parsing();
+                    Done
+                }
+
+                token => {
+                    unexpected!(token);
+                    Reprocess(states::InBody, token)
+                }
+            }),
+
+            states::AfterAfterFrameset => fail!("not implemented"),
         }
     }
 }
