@@ -214,7 +214,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn stop_parsing(&mut self) {
-        fail!("stop_parsing not implemented");
+        error!("stop_parsing not implemented, full speed ahead!");
     }
 
     // Switch to `Text` insertion mode, save the old mode, and

@@ -10,6 +10,8 @@
 use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
+use std::default::Default;
+
 pub fn tokenize_to<
         Sink: TokenSink,
         It: Iterator<String>
@@ -46,4 +48,22 @@ pub fn parse_to<
         tok.feed(s);
     }
     tok.end();
+}
+
+pub trait ParseResult<Sink> {
+    fn get_result(sink: Sink) -> Self;
+}
+
+pub fn parse<
+        Handle: Clone,
+        Sink: Default + TreeSink<Handle>,
+        Output: ParseResult<Sink>,
+        It: Iterator<String>
+    >(
+        input: It,
+        opts: ParseOpts) -> Output {
+
+    let mut sink: Sink = Default::default();
+    parse_to(&mut sink, input, opts);
+    ParseResult::get_result(sink)
 }
