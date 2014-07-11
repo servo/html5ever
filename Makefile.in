@@ -36,7 +36,7 @@ EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
 
-EXAMPLES := tokenize tokenize-bench print-tree-actions
+EXAMPLES := tokenize tokenize-bench print-tree-actions print-rcdom
 
 .PHONY: all
 all: $(LIB) $(EXAMPLES) docs

@@ -30,7 +30,7 @@ extern crate time;
 pub use util::atom::Atom;
 pub use util::namespace::Namespace;
 
-pub use driver::{ParseOpts, parse_to};
+pub use driver::{ParseOpts, parse_to, parse};
 
 mod util {
     pub mod str;
@@ -40,5 +40,9 @@ mod util {
 
 pub mod tokenizer;
 pub mod tree_builder;
+
+pub mod sink {
+    pub mod rcdom;
+}
 
 pub mod driver;
