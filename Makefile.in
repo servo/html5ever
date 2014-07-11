@@ -36,8 +36,10 @@ EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
 
+EXAMPLES := tokenize tokenize-bench print-tree-actions
+
 .PHONY: all
-all: $(LIB) tokenize-example tokenize-bench-example tree-print-example docs
+all: $(LIB) $(EXAMPLES) docs
 
 .PHONY: submodules
 submodules:
@@ -58,14 +60,13 @@ $(MACROS): $(MACROS_ALL_SRC) $(PHF_DUMMY)
 $(LIB): $(LIB_DEPS)
 	$(RUSTC_CMD) $(LIB_TOP_SRC)
 
-tokenize-example: $(VPATH)/examples/tokenize-example.rs $(LIB)
-	$(RUSTC_CMD) $<
+define DEF_EXAMPLE
+$(1): $$(VPATH)/examples/$(1).rs $$(LIB)
+	$$(RUSTC_CMD) $$<
+endef
 
-tokenize-bench-example: $(VPATH)/examples/tokenize-bench-example.rs $(LIB)
-	$(RUSTC_CMD) $<
-
-tree-print-example: $(VPATH)/examples/tree-print-example.rs $(LIB)
-	$(RUSTC_CMD) $<
+$(foreach example,$(EXAMPLES),\
+$(eval $(call DEF_EXAMPLE,$(example))))
 
 # Run #[test] functions
 html5-test: $(LIB_DEPS)
@@ -101,7 +102,7 @@ bench: html5-external-bench
 
 .PHONY: clean
 clean:
-	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench *-example
+	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench $(EXAMPLES)
 	(cd $(VPATH)/rust-phf && make clean)
 
 .PHONY: docs
