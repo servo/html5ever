@@ -17,8 +17,9 @@ use std::string::String;
 use std::collections::hashmap::HashMap;
 
 use html5::{Namespace, Atom};
-use html5::tokenizer::{Tokenizer, Attribute};
-use html5::tree_builder::{TreeBuilder, TreeSink, QuirksMode};
+use html5::tokenizer::Attribute;
+use html5::tree_builder::{TreeSink, QuirksMode};
+use html5::parse_to;
 
 struct Sink {
     next_id: uint,
@@ -86,16 +87,12 @@ impl TreeSink<uint> for Sink {
     }
 }
 
-
 fn main() {
     let mut sink = Sink {
         next_id: 1,
         names: HashMap::new(),
     };
 
-    let mut tb  = TreeBuilder::new(&mut sink, Default::default());
-    let mut tok = Tokenizer::new(&mut tb, Default::default());
-
-    tok.feed(io::stdin().read_to_str().unwrap().into_string());
-    tok.end();
+    let input = io::stdin().read_to_str().unwrap().into_string();
+    parse_to(&mut sink, Some(input).move_iter(), Default::default());
 }

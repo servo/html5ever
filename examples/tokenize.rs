@@ -15,8 +15,9 @@ use std::io;
 use std::char;
 use std::default::Default;
 
-use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, ParseError};
+use html5::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
 use html5::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
+use html5::driver::tokenize_to;
 
 struct TokenPrinter {
     in_char_run: bool,
@@ -78,13 +79,10 @@ fn main() {
     let mut sink = TokenPrinter {
         in_char_run: false,
     };
-    {
-        let mut tok = Tokenizer::new(&mut sink, TokenizerOpts {
-            profile: true,
-            .. Default::default()
-        });
-        tok.feed(io::stdin().read_to_str().unwrap().into_string());
-        tok.end();
-    }
+    let input = io::stdin().read_to_str().unwrap().into_string();
+    tokenize_to(&mut sink, Some(input).move_iter(), TokenizerOpts {
+        profile: true,
+        .. Default::default()
+    });
     sink.is_char(false);
 }
