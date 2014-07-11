@@ -692,8 +692,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </_> => unexpected!(tag),
 
                 token => {
-                    self.head_elem = Some(self.insert_element(Push, atom!(head), vec!()));
-                    Reprocess(states::InHead, token)
+                    self.insert_element(Push, atom!(body), vec!());
+                    Reprocess(states::InBody, token)
                 }
             }),
 
