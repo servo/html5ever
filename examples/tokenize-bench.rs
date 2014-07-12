@@ -18,7 +18,7 @@ use std::default::Default;
 use test::black_box;
 
 use html5::tokenizer::{TokenSink, Token};
-use html5::driver::tokenize_to;
+use html5::driver::{tokenize_to, one_input};
 
 struct Sink;
 
@@ -39,5 +39,5 @@ fn main() {
     let file_input = file.read_to_str().ok().expect("can't read file");
 
     let mut sink = Sink;
-    tokenize_to(&mut sink, Some(file_input).move_iter(), Default::default());
+    tokenize_to(&mut sink, one_input(file_input), Default::default());
 }

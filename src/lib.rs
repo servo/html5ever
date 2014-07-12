@@ -30,7 +30,7 @@ extern crate time;
 pub use util::atom::Atom;
 pub use util::namespace::Namespace;
 
-pub use driver::{ParseOpts, parse_to, parse};
+pub use driver::{one_input, ParseOpts, parse_to, parse};
 
 mod util {
     pub mod str;
