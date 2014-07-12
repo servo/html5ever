@@ -357,7 +357,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc.into_string(), insplits.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc, insplits.clone(), expect_toks, TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
