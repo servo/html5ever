@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The HTML5 tree builder.
+
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
@@ -51,7 +53,7 @@ pub struct TreeBuilderOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,
 
-    /// Is this an iframe srcdoc document?
+    /// Is this an `iframe srcdoc` document?
     pub iframe_srcdoc: bool,
 
     /// Are we parsing a HTML fragment?
@@ -73,6 +75,7 @@ enum FormatEntry<Handle> {
     Marker,
 }
 
+/// The HTML tree builder.
 pub struct TreeBuilder<'sink, Handle, Sink> {
     /// Options controlling the behavior of the tree builder.
     opts: TreeBuilderOpts,
@@ -196,6 +199,9 @@ macro_rules! append_text    ( ($target:expr, $text:expr) => ( append_with!(appen
 macro_rules! append_comment ( ($target:expr, $text:expr) => ( append_with!(append_comment, $target, $text) ))
 
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Sink> {
+    /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
+    ///
+    /// The tree builder is also a `TokenSink`.
     pub fn new(sink: &'sink mut Sink, opts: TreeBuilderOpts) -> TreeBuilder<'sink, Handle, Sink> {
         let doc_handle = sink.get_document();
         TreeBuilder {

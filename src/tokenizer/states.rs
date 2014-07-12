@@ -7,6 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Tokenizer states.
+//!
+//! This is public for use by the tokenizer tests.  Other library
+//! users should not have to care about this.
+
 #[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum ScriptEscapeKind {
     Escaped,

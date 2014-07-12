@@ -41,6 +41,7 @@ mod util {
 pub mod tokenizer;
 pub mod tree_builder;
 
+/// Consumers of the parser API.
 pub mod sink {
     pub mod rcdom;
 }
