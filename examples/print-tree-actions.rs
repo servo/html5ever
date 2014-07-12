@@ -16,10 +16,9 @@ use std::default::Default;
 use std::string::String;
 use std::collections::hashmap::HashMap;
 
-use html5::{Namespace, Atom};
+use html5::{Namespace, Atom, parse_to, one_input};
 use html5::tokenizer::Attribute;
 use html5::tree_builder::{TreeSink, QuirksMode};
-use html5::parse_to;
 
 struct Sink {
     next_id: uint,
@@ -94,5 +93,5 @@ fn main() {
     };
 
     let input = io::stdin().read_to_str().unwrap();
-    parse_to(&mut sink, Some(input).move_iter(), Default::default());
+    parse_to(&mut sink, one_input(input), Default::default());
 }

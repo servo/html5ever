@@ -14,7 +14,7 @@ use std::default::Default;
 use std::string::String;
 
 use html5::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
-use html5::parse;
+use html5::{parse, one_input};
 
 // This is not proper HTML serialization, of course.
 
@@ -51,6 +51,6 @@ fn walk(indent: uint, handle: Handle) {
 
 fn main() {
     let input = io::stdin().read_to_str().unwrap();
-    let dom: RcDom = parse(Some(input).move_iter(), Default::default());
+    let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 }

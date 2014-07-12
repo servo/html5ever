@@ -11,6 +11,11 @@ use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use std::default::Default;
+use std::option;
+
+pub fn one_input(x: String) -> option::Item<String> {
+    Some(x).move_iter()
+}
 
 pub fn tokenize_to<
         Sink: TokenSink,
