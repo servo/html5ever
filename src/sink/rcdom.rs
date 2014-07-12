@@ -44,62 +44,28 @@ impl Node {
     }
 
     fn parent(&self) -> Handle {
-        self.parent.as_ref().expect("no parent!").upgrade()
+        self.parent.as_ref().expect("no parent!")
+            .upgrade().expect("dangling weak pointer!")
     }
 }
 
-#[deriving(Clone)]
-pub struct Handle {
-    ptr: Rc<RefCell<Node>>,
+pub type Handle = Rc<RefCell<Node>>;
+pub type WeakHandle = Weak<RefCell<Node>>;
+
+fn same_node(x: &Handle, y: &Handle) -> bool {
+    // FIXME: This shouldn't really need to touch the borrow flags, right?
+    (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
 }
 
-impl Handle {
-    fn new(node: NodeEnum) -> Handle {
-        Handle {
-            ptr: Rc::new(RefCell::new(Node::new(node))),
-        }
-    }
-
-    pub fn downgrade(&self) -> WeakHandle {
-        WeakHandle {
-            ptr: self.ptr.downgrade(),
-        }
-    }
-
-    pub fn append(&self, child: Handle) {
-        self.borrow_mut().children.push(child.clone());
-        let parent = &mut child.borrow_mut().parent;
-        assert!(parent.is_none());
-        *parent = Some(self.downgrade());
-    }
+fn new_node(node: NodeEnum) -> Handle {
+    Rc::new(RefCell::new(Node::new(node)))
 }
 
-// Implement an object-identity Eq for use by position_elem().
-impl PartialEq for Handle {
-    fn eq(&self, other: &Handle) -> bool {
-        // FIXME: This shouldn't really need to touch the borrow flags, right?
-        (&*self.ptr.borrow() as *const Node) == (&*other.ptr.borrow() as *const Node)
-    }
-}
-
-impl Eq for Handle { }
-
-impl Deref<Rc<RefCell<Node>>> for Handle {
-    fn deref<'a>(&'a self) -> &'a Rc<RefCell<Node>> {
-        &self.ptr
-    }
-}
-
-pub struct WeakHandle {
-    ptr: Weak<RefCell<Node>>,
-}
-
-impl WeakHandle {
-    pub fn upgrade(&self) -> Handle {
-        Handle {
-            ptr: self.ptr.upgrade().expect("dangling weak pointer!"),
-        }
-    }
+fn append(new_parent: &Handle, child: Handle) {
+    new_parent.borrow_mut().children.push(child.clone());
+    let parent = &mut child.borrow_mut().parent;
+    assert!(parent.is_none());
+    *parent = Some(new_parent.downgrade());
 }
 
 pub struct RcDom {
@@ -123,11 +89,11 @@ impl TreeSink<Handle> for RcDom {
     }
 
     fn same_node(&self, x: Handle, y: Handle) -> bool {
-        x == y
+        same_node(&x, &y)
     }
 
     fn elem_name(&self, target: Handle) -> (Namespace, Atom) {
-        match target.ptr.borrow().node {
+        match target.borrow().node {
             Element(ref name, _) => (HTML, name.clone()),
             _ => fail!("not an element!"),
         }
@@ -135,27 +101,27 @@ impl TreeSink<Handle> for RcDom {
 
     fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle {
         assert!(ns == HTML);
-        Handle::new(Element(name, attrs))
+        new_node(Element(name, attrs))
     }
 
     fn append_text(&mut self, parent: Handle, text: String) {
-        parent.append(Handle::new(Text(text)));
+        append(&parent, new_node(Text(text)));
     }
 
     fn append_comment(&mut self, parent: Handle, text: String) {
-        parent.append(Handle::new(Comment(text)));
+        append(&parent, new_node(Comment(text)));
     }
 
     fn append_element(&mut self, parent: Handle, child: Handle) {
-        parent.append(child);
+        append(&parent, child);
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
-        self.document.append(Handle::new(Doctype(name, public_id, system_id)));
+        append(&self.document, new_node(Doctype(name, public_id, system_id)));
     }
 
     fn add_attrs_if_missing(&mut self, target: Handle, mut attrs: Vec<Attribute>) {
-        let mut node = target.ptr.borrow_mut();
+        let mut node = target.borrow_mut();
         // FIXME: mozilla/rust#15609
         let existing = match node.deref_mut().node {
             Element(_, ref mut attrs) => attrs,
@@ -173,7 +139,9 @@ impl TreeSink<Handle> for RcDom {
             let child = target.borrow();
             let parent = child.parent();
             let mut parent = parent.borrow_mut();
-            let i = parent.children.as_slice().position_elem(&target).expect("not found!");
+            let (i, _) = parent.children.iter().enumerate()
+                .find(|&(_, n)| same_node(n, &target))
+                .expect("not found!");
             parent.children.remove(i).expect("not found!");
         }
 
@@ -189,7 +157,7 @@ impl TreeSink<Handle> for RcDom {
 impl Default for RcDom {
     fn default() -> RcDom {
         RcDom {
-            document: Handle::new(Document),
+            document: new_node(Document),
             root: None,
             errors: vec!(),
             quirks_mode: NoQuirks,
