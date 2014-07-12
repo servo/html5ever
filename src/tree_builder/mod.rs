@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![warn(warnings)]
-
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
@@ -178,6 +176,15 @@ declare_tag_set!(special_tag = empty_set +
     param plaintext pre script section select source style summary table tbody td template
     textarea tfoot th thead title tr track ul wbr xmp)
 
+#[allow(dead_code)]
+fn unused_tag_sets() {
+    // FIXME: Some tag sets are unused until we implement <template> or other stuff.
+    // Suppress the warning here.
+    select_scope((HTML, atom!(p)));
+    table_scope((HTML, atom!(p)));
+    thorough_implied_end((HTML, atom!(p)));
+}
+
 macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
     // two steps to avoid double borrow
     let target = $target;
@@ -242,7 +249,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.current_node()
     }
 
-    fn adoption_agency(&mut self, subject: Atom) {
+    fn adoption_agency(&mut self, _subject: Atom) {
         // FIXME
     }
 
