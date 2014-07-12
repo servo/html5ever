@@ -454,7 +454,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
-    fn process_to_completion(&mut self, mut mode: states::InsertionMode, mut token: Token) {
+    fn process_to_completion(&mut self, mut token: Token) {
         // Additional tokens yet to be processed. First to be processed is on
         // the *end*, because that's where Vec supports O(1) push/pop.
         // This stays empty (and hence non-allocating) in the common case
@@ -466,6 +466,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 TagToken(Tag { self_closing: c, .. }) => c,
                 _ => false,
             };
+            let mode = self.mode;
             match self.step(mode, token) {
                 Done => {
                     if is_self_closing {
@@ -477,7 +478,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     token = unwrap_or_return!(more_tokens.pop(), ());
                 }
                 Reprocess(m, t) => {
-                    mode = m;
+                    self.mode = m;
                     token = t;
                 }
                 Split(k, buf) => {
@@ -1253,8 +1254,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
         };
 
         self.ignore_lf = false;
-        let mode = self.mode;
-        self.process_to_completion(mode, token);
+        self.process_to_completion(token);
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
