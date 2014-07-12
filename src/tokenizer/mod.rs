@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The HTML5 tokenizer.
+
 pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -46,27 +48,27 @@ fn option_push_char(opt_str: &mut Option<String>, c: char) {
     }
 }
 
-/// Tokenizer options, with an impl for Default.
+/// Tokenizer options, with an impl for `Default`.
 #[deriving(Clone)]
 pub struct TokenizerOpts {
     /// Report all parse errors described in the spec, at some
     /// performance penalty?  Default: false
     pub exact_errors: bool,
 
-    /// Discard a U+FEFF BYTE ORDER MARK if we see one at the beginning
+    /// Discard a `U+FEFF BYTE ORDER MARK` if we see one at the beginning
     /// of the stream?  Default: true
     pub discard_bom: bool,
 
     /// Keep a record of how long we spent in each state?  Printed
-    /// when end() is called.  Default: false
+    /// when `end()` is called.  Default: false
     pub profile: bool,
 
     /// Initial state override.  Only the test runner should use
-    /// a non-None value!
+    /// a non-`None` value!
     pub initial_state: Option<states::State>,
 
     /// Last start tag.  Only the test runner should use a
-    /// non-None value!
+    /// non-`None` value!
     pub last_start_tag_name: Option<String>,
 }
 
@@ -82,6 +84,7 @@ impl Default for TokenizerOpts {
     }
 }
 
+/// The HTML tokenizer.
 pub struct Tokenizer<'sink, Sink> {
     /// Options controlling the behavior of the tokenizer.
     opts: TokenizerOpts,
@@ -156,6 +159,7 @@ pub struct Tokenizer<'sink, Sink> {
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
+    /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
         let start_tag_name = opts.last_start_tag_name.take();
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
@@ -186,6 +190,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
+    /// Feed an input string into the tokenizer.
     pub fn feed(&mut self, input: String) {
         if input.len() == 0 {
             return;
@@ -1072,6 +1077,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
+    /// Indicate that we have reached the end of the input.
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.

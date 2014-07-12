@@ -11,6 +11,7 @@ use std::string::String;
 use util::atom::Atom;
 use tokenizer::states;
 
+/// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
 #[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Doctype {
@@ -51,6 +52,7 @@ impl Str for AttrName {
     }
 }
 
+/// A tag attribute.
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct Attribute {
     pub name: AttrName,
@@ -63,6 +65,7 @@ pub enum TagKind {
     EndTag,
 }
 
+/// A tag token.
 #[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Tag {
     pub kind: TagKind,
@@ -99,12 +102,14 @@ pub enum Token {
     ParseError(String),
 }
 
+/// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
     /// Process a token.
     fn process_token(&mut self, token: Token);
 
     /// The tokenizer will call this after emitting any start tag.
     /// This allows the tree builder to change the tokenizer's state.
+    /// By default no state changes occur.
     fn query_state_change(&mut self) -> Option<states::State> {
         None
     }
