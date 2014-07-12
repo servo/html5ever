@@ -493,7 +493,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                             false => NotWhitespace,
                         }, b.to_string()));
 
-                    token = it.next().expect("Empty Runs iterator");
+                    token = unwrap_or_return!(it.next(), ());
 
                     // Push additional tokens in reverse order, so the next one
                     // is first to be popped.
