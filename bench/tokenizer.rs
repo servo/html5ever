@@ -43,7 +43,7 @@ impl Bench {
         let file_input = file.read_to_str().ok().expect("can't read file");
 
         let input = match size {
-            None => file_input.into_string(),
+            None => file_input,
             Some(size) => {
                 // Replicate the input in memory up to the desired size.
                 let mut input = String::with_capacity(size);

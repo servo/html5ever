@@ -32,6 +32,6 @@ fn main() {
     tests.push_all_move(tokenizer::tests(src_dir));
     // more to follow
 
-    let args: Vec<String> = os::args().move_iter().map(|x| x.into_string()).collect();
+    let args: Vec<String> = os::args().move_iter().collect();
     test_main(args.as_slice(), tests);
 }
