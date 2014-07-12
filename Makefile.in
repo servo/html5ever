@@ -28,10 +28,10 @@ MACROS_TOP_SRC := $(VPATH)/macros/lib.rs
 MACROS_ALL_SRC := $(shell find $(VPATH)/macros -type f -name '*.rs')
 $(eval MACROS := $(call crate_name,$(MACROS_TOP_SRC)))
 
-EXT_TEST_TOP_SRC := $(VPATH)/test/lib.rs
+EXT_TEST_TOP_SRC := $(VPATH)/test/bin.rs
 EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
 
-EXT_BENCH_TOP_SRC := $(VPATH)/bench/lib.rs
+EXT_BENCH_TOP_SRC := $(VPATH)/bench/bin.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
 LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
