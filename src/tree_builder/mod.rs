@@ -278,8 +278,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.current_node()
     }
 
-    fn adoption_agency(&mut self, _subject: Atom) {
-        // FIXME
+    fn adoption_agency(&mut self, subject: Atom) {
+        // FIXME: this is not right
+        if self.current_node_named(subject) {
+            self.pop();
+        }
     }
 
     fn push(&mut self, elem: &Handle) {
