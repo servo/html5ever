@@ -561,6 +561,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <html> => {
                     self.create_root(tag.attrs);
+                    self.mode = states::BeforeHead;
                     Done
                 }
 
