@@ -24,6 +24,8 @@ use util::str::{is_ascii_whitespace, Runs};
 use std::default::Default;
 use std::mem::replace;
 use std::ascii::StrAsciiExt;
+use std::iter::{Rev, Enumerate};
+use std::slice;
 
 mod interface;
 mod states;
@@ -73,6 +75,19 @@ impl Default for TreeBuilderOpts {
 enum FormatEntry<Handle> {
     Element(Handle, Tag),
     Marker,
+}
+
+struct ActiveFormattingIter<'a, Handle> {
+    iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
+}
+
+impl<'a, Handle> Iterator<(uint, &'a Handle, &'a Tag)> for ActiveFormattingIter<'a, Handle> {
+    fn next(&mut self) -> Option<(uint, &'a Handle, &'a Tag)> {
+        match self.iter.next() {
+            None | Some((_, &Marker)) => None,
+            Some((i, &Element(ref h, ref t))) => Some((i, h, t)),
+        }
+    }
 }
 
 /// The HTML tree builder.
@@ -218,6 +233,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             next_tokenizer_state: None,
             frameset_ok: true,
             ignore_lf: false,
+        }
+    }
+
+    /// Iterate over the active formatting elements (with index in the list) from the end
+    /// to the last marker, or the beginning if there are no markers.
+    fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle> {
+        ActiveFormattingIter {
+            iter: self.active_formatting.iter().enumerate().rev(),
         }
     }
 
@@ -431,14 +454,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         // FIXME: This really wants unit tests.
         let mut first_match = None;
         let mut matches = 0u;
-        for (i, entry) in self.active_formatting.iter().enumerate().rev() {
-            match *entry {
-                Element(_, ref old_tag) if tag.equiv_modulo_attr_order(old_tag) => {
-                    first_match = Some(i);
-                    matches += 1;
-                }
-                Element(..) => (),
-                Marker => break,
+        for (i, _, old_tag) in self.active_formatting_end_to_marker() {
+            if tag.equiv_modulo_attr_order(old_tag) {
+                first_match = Some(i);
+                matches += 1;
             }
         }
 
