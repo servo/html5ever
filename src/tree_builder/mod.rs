@@ -944,7 +944,31 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                <a> => fail!("FIXME: <a> not implemented"),
+                tag @ <a> => {
+                    let mut to_remove = vec!();
+                    for (i, handle, _) in self.active_formatting_end_to_marker() {
+                        if self.html_elem_named(handle.clone(), atom!(a)) {
+                            to_remove.push((i, handle.clone()));
+                        }
+                    }
+
+                    if !to_remove.is_empty() {
+                        unexpected!(tag);
+                        self.adoption_agency(atom!(a));
+                        // FIXME: quadratic time
+                        for (i, handle) in to_remove.move_iter() {
+                            self.remove_from_stack(&handle);
+                            self.active_formatting.remove(i);
+                            // We iterated backwards from the end above, so
+                            // we don't need to adjust the indices after each
+                            // removal.
+                        }
+                    }
+
+                    self.reconstruct_formatting();
+                    self.create_formatting_element_for(tag);
+                    Done
+                }
 
                 tag @ <b> <big> <code> <em> <font> <i> <s> <small> <strike> <strong> <tt> <u> => {
                     self.reconstruct_formatting();
