@@ -834,8 +834,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                <li> => fail!("FIXME"),
-                <dd> <dt> => fail!("FIXME"),
+                <li> => fail!("FIXME: <li> not implemented"),
+                <dd> <dt> => fail!("FIXME: <dd> <dt> not implemented"),
 
                 tag @ <plaintext> => {
                     self.close_p_element_in_button_scope();
@@ -925,7 +925,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                <a> => fail!("FIXME"),
+                <a> => fail!("FIXME: <a> not implemented"),
 
                 tag @ <b> <big> <code> <em> <font> <i> <s> <small> <strike> <strong> <tt> <u> => {
                     self.reconstruct_formatting();
@@ -1026,7 +1026,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }))
                 }
 
-                <isindex> => fail!("FIXME"),
+                <isindex> => fail!("FIXME: <isindex> not implemented"),
 
                 tag @ <textarea> => {
                     self.insert_element_for(tag);
@@ -1147,7 +1147,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 // FIXME: This should be unreachable, but match_token! requires a
                 // catch-all case.
-                _ => fail!("not implemented"),
+                _ => fail!("impossible case in InBody mode"),
             }),
 
             states::Text => match_token!(token {
@@ -1173,7 +1173,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 // The spec doesn't say what to do here.
                 // Other tokens are impossible?
-                _ => fail!("not implemented"),
+                _ => fail!("impossible case in Text mode"),
             }),
 
               states::InTable
@@ -1186,7 +1186,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             | states::InSelect
             | states::InSelectInTable
             | states::InTemplate
-                => fail!("not implemented"),
+                => fail!("FIXME: {} not implemented", mode),
 
             states::AfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
@@ -1217,7 +1217,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
               states::InFrameset
             | states::AfterFrameset
-                => fail!("not implemented"),
+                => fail!("FIXME: {} not implemented", mode),
 
             states::AfterAfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
@@ -1237,7 +1237,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-            states::AfterAfterFrameset => fail!("not implemented"),
+            states::AfterAfterFrameset
+                => fail!("FIXME: {} not implemented", mode),
         }
     }
 }
