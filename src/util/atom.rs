@@ -10,6 +10,7 @@
 use phf::PhfMap;
 
 use std::mem::replace;
+use std::fmt::{Show, Formatter, FormatError};
 
 static static_atom_map: PhfMap<uint> = static_atom_map!();
 static static_atom_array: &'static [&'static str] = static_atom_array!();
@@ -19,7 +20,7 @@ static static_atom_array: &'static [&'static str] = static_atom_array!();
 /// Interned string.
 ///
 /// Don't pattern-match this directly! Use the `atom!()` pattern macro.
-#[deriving(Clone, Show, PartialEq, Eq)]
+#[deriving(Clone, PartialEq, Eq)]
 pub enum Atom {
     Static(uint),
     // dynamic interning goes here
@@ -116,6 +117,14 @@ impl Ord for Atom {
             Some(true) => Equal,
             _ => self.as_slice().cmp(&other.as_slice()),
         }
+    }
+}
+
+impl Show for Atom {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatError> {
+        try!("atom!(".fmt(fmt));
+        try!(self.as_slice().fmt(fmt));
+        ")".fmt(fmt)
     }
 }
 
