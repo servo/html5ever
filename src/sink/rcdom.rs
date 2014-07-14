@@ -138,6 +138,19 @@ impl TreeSink<Handle> for RcDom {
     }
 
     fn append_text(&mut self, parent: Handle, text: String) {
+        // Append to an existing Text node if we have one.
+        match parent.borrow().children.last() {
+            Some(h) => match h.borrow_mut().deref_mut().node {
+                Text(ref mut existing) => {
+                    existing.push_str(text.as_slice());
+                    return;
+                },
+                _ => (),
+            },
+            _ => (),
+        }
+
+        // Otherwise, append a Text node.
         append(&parent, new_node(Text(text)));
     }
 
