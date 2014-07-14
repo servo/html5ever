@@ -9,6 +9,13 @@
 
 use std::string::String;
 use std::str::CharEq;
+use std::fmt::Show;
+
+pub fn to_escaped_string<T: Show>(x: &T) -> String {
+    // FIXME: don't allocate twice
+    // FIXME: use std::to_str after Rust upgrade
+    (format!("{}", x)).escape_default()
+}
 
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.

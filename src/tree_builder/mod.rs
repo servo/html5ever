@@ -19,7 +19,7 @@ use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData, Plaintext
 
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
-use util::str::{is_ascii_whitespace, Runs};
+use util::str::{is_ascii_whitespace, Runs, to_escaped_string};
 
 use std::default::Default;
 use std::mem::replace;
@@ -536,11 +536,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         // $thing may be either a Token or a Tag
         macro_rules! unexpected ( ($thing:expr) => ({
             self.sink.parse_error(format!("Unexpected token {} in insertion mode {}",
-                $thing, mode));
+                to_escaped_string(&$thing), mode));
             Done
         }))
 
-        debug!("processing {} in insertion mode {:?}", token, mode);
+        debug!("processing {} in insertion mode {:?}", to_escaped_string(&token), mode);
 
         match mode {
             states::Initial => match_token!(token {
