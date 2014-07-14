@@ -1150,8 +1150,33 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("not implemented"),
             }),
 
-              states::Text
-            | states::InTable
+            states::Text => match_token!(token {
+                CharacterTokens(_, text) => append_text!(self.target(), text),
+
+                EOFToken => {
+                    unexpected!(token);
+                    if self.current_node_named(atom!(script)) {
+                        let current = self.current_node();
+                        self.sink.mark_script_already_started(current);
+                    }
+                    self.pop();
+                    Reprocess(self.orig_mode.take_unwrap(), token)
+                }
+
+                </script> => fail!("FIXME: </script> not implemented (!)"),
+
+                </_> => {
+                    self.pop();
+                    self.mode = self.orig_mode.take_unwrap();
+                    Done
+                }
+
+                // The spec doesn't say what to do here.
+                // Other tokens are impossible?
+                _ => fail!("not implemented"),
+            }),
+
+              states::InTable
             | states::InTableText
             | states::InCaption
             | states::InColumnGroup
