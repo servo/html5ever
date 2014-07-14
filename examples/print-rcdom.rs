@@ -53,4 +53,11 @@ fn main() {
     let input = io::stdin().read_to_str().unwrap();
     let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
+
+    if !dom.errors.is_empty() {
+        println!("\nParse errors:");
+        for err in dom.errors.move_iter() {
+            println!("    {}", err);
+        }
+    }
 }
