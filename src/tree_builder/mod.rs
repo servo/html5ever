@@ -9,6 +9,8 @@
 
 //! The HTML5 tree builder.
 
+#![warn(warnings)]
+
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
@@ -305,11 +307,93 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.current_node()
     }
 
-    fn adoption_agency(&mut self, subject: Atom) {
-        // FIXME: this is not right
-        if self.current_node_named(subject) {
+    // The adoption agency algorithm.  Return false if we abort and should
+    // instead act as in the "any other end tag" case.
+    fn adoption_agency(&mut self, subject: Atom) -> bool {
+        let current = self.current_node();
+        if self.html_elem_named(current.clone(), subject.clone())
+            && !self.active_formatting.iter().any(|f| match *f {
+                Marker => false,
+                Element(ref h, _) => self.sink.same_node(h.clone(), current.clone()),
+            }) {
+
             self.pop();
+            return true;
         }
+
+        // The "outer loop".
+        for _ in range(0, 8u) {
+            // Find "formatting element".
+            let (idx_in_formatting, formatting_element) = {
+                let search_result = self.active_formatting_end_to_marker()
+                    .find(|&(_, h, _)| self.html_elem_named(h.clone(), subject.clone()));
+
+                // "If there is no such element, then abort these steps and instead
+                // act as described in the "any other end tag" entry above."
+                match search_result {
+                    None => return false,
+                    Some((i, f, _)) => (i, f.clone()),
+                }
+            };
+
+            // "If formatting element is not in the stack of open elements..."
+            let idx_in_open = {
+                let search_result = self.open_elems.iter().enumerate()
+                    .find(|&(_, h)| self.sink.same_node(h.clone(), formatting_element.clone()));
+                match search_result {
+                    None => {
+                        self.sink.parse_error(
+                            format!("Last active {} element is not open", subject));
+                        self.active_formatting.remove(idx_in_formatting);
+                        return true;
+                    }
+                    Some((i, _)) => i,
+                }
+            };
+
+            // "If formatting element is in the stack of open elements,
+            // but the element is not in scope..."
+            // FIXME: combine this with the previous traversal
+            if !self.node_in_scope(default_scope, &formatting_element) {
+                self.sink.parse_error(
+                    format!("Last active {} element is not in scope", subject));
+                return true;
+            }
+
+            // "If formatting element is not the current node..."
+            if !self.sink.same_node(self.current_node(), formatting_element.clone()) {
+                self.sink.parse_error(
+                    format!("Last active {} element is not current", subject));
+            }
+
+            // "Let furthest block be..."
+            let furthest_block = {
+                let search_result = self.open_elems.slice_from(idx_in_open).iter()
+                    .find(|&h| self.elem_in(h.clone(), special_tag))
+                    .map(|h| h.clone());  // clone here to un-borrow
+                match search_result {
+                    // "If there is no furthest block..."
+                    None => {
+                        loop {
+                            let h = self.pop();
+                            if self.sink.same_node(h, formatting_element.clone()) {
+                                break;
+                            }
+                        }
+                        self.active_formatting.remove(idx_in_formatting);
+                        return true;
+                    }
+                    Some(h) => h,
+                }
+            };
+
+            let common_ancestor = self.open_elems.get(idx_in_open-1).clone();
+            let mut bookmark = idx_in_formatting; // NB: update when we modify the list!
+
+
+        }
+
+        true // FIXME
     }
 
     fn push(&mut self, elem: &Handle) {
@@ -399,6 +483,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     fn in_scope_named(&self, scope: TagSet, name: Atom) -> bool {
         self.in_scope(scope, |elem|
             self.html_elem_named(elem, name.clone()))
+    }
+
+    fn node_in_scope(&self, scope: TagSet, node: &Handle) -> bool {
+        self.in_scope(scope, |n|
+            self.sink.same_node(n.clone(), node.clone()))
     }
 
     fn generate_implied_end(&mut self, set: TagSet) {
@@ -924,8 +1013,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.sink.parse_error("Null form element pointer on </form>".to_string());
                         Done
                     });
-                    if !self.in_scope(default_scope,
-                        |n| self.sink.same_node(node.clone(), n)) {
+                    if !self.node_in_scope(default_scope, &node) {
                         self.sink.parse_error("Form element not in scope on </form>".to_string());
                         return Done;
                     }
