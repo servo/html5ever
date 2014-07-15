@@ -28,8 +28,34 @@ use std::iter::{Rev, Enumerate};
 use std::slice;
 
 mod interface;
-mod states;
 mod data;
+
+#[deriving(PartialEq, Eq, Clone, Show)]
+pub enum InsertionMode {
+    Initial,
+    BeforeHtml,
+    BeforeHead,
+    InHead,
+    InHeadNoscript,
+    AfterHead,
+    InBody,
+    Text,
+    InTable,
+    InTableText,
+    InCaption,
+    InColumnGroup,
+    InTableBody,
+    InRow,
+    InCell,
+    InSelect,
+    InSelectInTable,
+    InTemplate,
+    AfterBody,
+    InFrameset,
+    AfterFrameset,
+    AfterAfterBody,
+    AfterAfterFrameset,
+}
 
 #[deriving(PartialEq, Eq, Clone, Show)]
 enum SplitStatus {
@@ -99,10 +125,10 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     sink: &'sink mut Sink,
 
     /// Insertion mode.
-    mode: states::InsertionMode,
+    mode: InsertionMode,
 
     /// Original insertion mode, used by Text and InTableText modes.
-    orig_mode: Option<states::InsertionMode>,
+    orig_mode: Option<InsertionMode>,
 
     /// Quirks mode as set by the parser.
     /// FIXME: can scripts etc. change this?
@@ -142,7 +168,7 @@ enum ProcessResult {
     Done,
     DoneAckSelfClosing,
     Split(SplitKind, String),
-    Reprocess(states::InsertionMode, Token),
+    Reprocess(InsertionMode, Token),
 }
 
 enum PushFlag {
@@ -222,7 +248,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         TreeBuilder {
             opts: opts,
             sink: sink,
-            mode: states::Initial,
+            mode: Initial,
             orig_mode: None,
             quirks_mode: NoQuirks,
             doc_handle: doc_handle,
@@ -262,7 +288,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         assert!(self.next_tokenizer_state.is_none());
         self.next_tokenizer_state = Some(RawData(k));
         self.orig_mode = Some(self.mode);
-        self.mode = states::Text;
+        self.mode = Text;
     }
 
     fn current_node(&self) -> Handle {
@@ -536,7 +562,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
-    fn step(&mut self, mode: states::InsertionMode, token: Token) -> ProcessResult {
+    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
         // $thing may be either a Token or a Tag
         macro_rules! unexpected ( ($thing:expr) => ({
             self.sink.parse_error(format!("Unexpected token {} in insertion mode {}",
@@ -547,7 +573,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         debug!("processing {} in insertion mode {:?}", to_escaped_string(&token), mode);
 
         match mode {
-            states::Initial => match_token!(token {
+            Initial => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
@@ -555,17 +581,17 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         unexpected!(token);
                         self.set_quirks_mode(Quirks);
                     }
-                    Reprocess(states::BeforeHtml, token)
+                    Reprocess(BeforeHtml, token)
                 }
             }),
 
-            states::BeforeHtml => match_token!(token {
+            BeforeHtml => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
                 tag @ <html> => {
                     self.create_root(tag.attrs);
-                    self.mode = states::BeforeHead;
+                    self.mode = BeforeHead;
                     Done
                 }
 
@@ -575,19 +601,19 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => {
                     self.create_root(vec!());
-                    Reprocess(states::BeforeHead, token)
+                    Reprocess(BeforeHead, token)
                 }
             }),
 
-            states::BeforeHead => match_token!(token {
+            BeforeHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 tag @ <head> => {
                     self.head_elem = Some(self.insert_element_for(tag));
-                    self.mode = states::InHead;
+                    self.mode = InHead;
                     Done
                 }
 
@@ -597,16 +623,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => {
                     self.head_elem = Some(self.insert_element(Push, atom!(head), vec!()));
-                    Reprocess(states::InHead, token)
+                    Reprocess(InHead, token)
                 }
             }),
 
-            states::InHead => match_token!(token {
+            InHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 tag @ <base> <basefont> <bgsound> <link> <meta> => {
                     // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
@@ -623,7 +649,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ <noframes> <style> <noscript> => {
                     if (!self.opts.scripting_enabled) && (tag.name == atom!(noscript)) {
                         self.insert_element_for(tag);
-                        self.mode = states::InHeadNoscript;
+                        self.mode = InHeadNoscript;
                     } else {
                         self.parse_raw_data(Rawtext);
                         self.insert_element_for(tag);
@@ -645,7 +671,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 </head> => {
                     self.pop();
-                    self.mode = states::AfterHead;
+                    self.mode = AfterHead;
                     Done
                 }
 
@@ -659,26 +685,26 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => {
                     self.pop();
-                    Reprocess(states::AfterHead, token)
+                    Reprocess(AfterHead, token)
                 }
             }),
 
-            states::InHeadNoscript => match_token!(token {
-                <html> => self.step(states::InBody, token),
+            InHeadNoscript => match_token!(token {
+                <html> => self.step(InBody, token),
 
                 </noscript> => {
                     self.pop();
-                    self.mode = states::InHead;
+                    self.mode = InHead;
                     Done
                 },
 
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, _) => self.step(states::InHead, token),
+                CharacterTokens(Whitespace, _) => self.step(InHead, token),
 
-                CommentToken(_) => self.step(states::InHead, token),
+                CommentToken(_) => self.step(InHead, token),
 
                 <basefont> <bgsound> <link> <meta> <noframes> <style>
-                    => self.step(states::InHead, token),
+                    => self.step(InHead, token),
 
                 </br> => else,
 
@@ -688,27 +714,27 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => {
                     unexpected!(token);
                     self.pop();
-                    Reprocess(states::InHead, token)
+                    Reprocess(InHead, token)
                 },
             }),
 
-            states::AfterHead => match_token!(token {
+            AfterHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 tag @ <body> => {
                     self.insert_element_for(tag);
                     self.frameset_ok = false;
-                    self.mode = states::InBody;
+                    self.mode = InBody;
                     Done
                 }
 
                 tag @ <frameset> => {
                     self.insert_element_for(tag);
-                    self.mode = states::InFrameset;
+                    self.mode = InFrameset;
                     Done
                 }
 
@@ -717,12 +743,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     unexpected!(token);
                     let head = self.head_elem.as_ref().expect("no head element").clone();
                     self.push(&head);
-                    let result = self.step(states::InHead, token);
+                    let result = self.step(InHead, token);
                     self.remove_from_stack(&head);
                     result
                 }
 
-                </template> => self.step(states::InHead, token),
+                </template> => self.step(InHead, token),
 
                 </body> </html> </br> => else,
 
@@ -731,11 +757,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => {
                     self.insert_element(Push, atom!(body), vec!());
-                    Reprocess(states::InBody, token)
+                    Reprocess(InBody, token)
                 }
             }),
 
-            states::InBody => match_token!(token {
+            InBody => match_token!(token {
                 NullCharacterToken => unexpected!(token),
 
                 CharacterTokens(_, text) => {
@@ -761,7 +787,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 <base> <basefont> <bgsound> <link> <meta> <noframes>
                   <script> <style> <template> <title> </template> => {
-                    self.step(states::InHead, token)
+                    self.step(InHead, token)
                 }
 
                 tag @ <body> => {
@@ -788,7 +814,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     // What to do with the first element then?
                     self.open_elems.truncate(1);
                     self.insert_element_for(tag);
-                    self.mode = states::InFrameset;
+                    self.mode = InFrameset;
                     Done
                 }
 
@@ -801,7 +827,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 </body> => {
                     if self.in_scope_named(default_scope, atom!(body)) {
                         self.check_body_end();
-                        self.mode = states::AfterBody;
+                        self.mode = AfterBody;
                     } else {
                         self.sink.parse_error("</body> with no <body> in scope".to_string());
                     }
@@ -811,7 +837,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 </html> => {
                     if self.in_scope_named(default_scope, atom!(body)) {
                         self.check_body_end();
-                        Reprocess(states::AfterBody, token)
+                        Reprocess(AfterBody, token)
                     } else {
                         self.sink.parse_error("</html> with no <body> in scope".to_string());
                         Done
@@ -1022,13 +1048,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }
                     self.insert_element_for(tag);
                     self.frameset_ok = false;
-                    self.mode = states::InTable;
+                    self.mode = InTable;
                     Done
                 }
 
                 tag @ </br> => {
                     unexpected!(tag);
-                    self.step(states::InBody, TagToken(Tag {
+                    self.step(InBody, TagToken(Tag {
                         kind: StartTag,
                         attrs: vec!(),
                         ..tag
@@ -1067,7 +1093,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <image> => {
                     unexpected!(tag);
-                    self.step(states::InBody, TagToken(Tag {
+                    self.step(InBody, TagToken(Tag {
                         name: atom!(img),
                         ..tag
                     }))
@@ -1111,9 +1137,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     // NB: mode == InBody but possibly self.mode != mode, if
                     // we're processing "as in the rules for InBody".
                     self.mode = match self.mode {
-                        states::InTable | states::InCaption | states::InTableBody
-                            | states::InRow | states::InCell => states::InSelectInTable,
-                        _ => states::InSelect,
+                        InTable | InCaption | InTableBody
+                            | InRow | InCell => InSelectInTable,
+                        _ => InSelect,
                     };
                     Done
                 }
@@ -1197,7 +1223,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("impossible case in InBody mode"),
             }),
 
-            states::Text => match_token!(token {
+            Text => match_token!(token {
                 CharacterTokens(_, text) => append_text!(self.target(), text),
 
                 EOFToken => {
@@ -1223,32 +1249,32 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("impossible case in Text mode"),
             }),
 
-              states::InTable
-            | states::InTableText
-            | states::InCaption
-            | states::InColumnGroup
-            | states::InTableBody
-            | states::InRow
-            | states::InCell
-            | states::InSelect
-            | states::InSelectInTable
+              InTable
+            | InTableText
+            | InCaption
+            | InColumnGroup
+            | InTableBody
+            | InRow
+            | InCell
+            | InSelect
+            | InSelectInTable
                 => fail!("FIXME: table mode {} not implemented", mode),
 
-            states::InTemplate
+            InTemplate
                 => fail!("FIXME: <template> not implemented"),
 
-            states::AfterBody => match_token!(token {
+            AfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.html_elem(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 </html> => {
                     if self.opts.fragment {
                         unexpected!(token);
                     } else {
-                        self.mode = states::AfterAfterBody;
+                        self.mode = AfterAfterBody;
                     }
                     Done
                 }
@@ -1257,16 +1283,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => {
                     unexpected!(token);
-                    Reprocess(states::InBody, token)
+                    Reprocess(InBody, token)
                 }
             }),
 
-            states::InFrameset => match_token!(token {
+            InFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 tag @ <frameset> => {
                     self.insert_element_for(tag);
@@ -1279,7 +1305,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     } else {
                         self.pop();
                         if !self.opts.fragment && !self.current_node_named(atom!(frameset)) {
-                            self.mode = states::AfterFrameset;
+                            self.mode = AfterFrameset;
                         }
                     }
                     Done
@@ -1290,7 +1316,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     DoneAckSelfClosing
                 }
 
-                <noframes> => self.step(states::InHead, token),
+                <noframes> => self.step(InHead, token),
 
                 EOFToken => {
                     if self.open_elems.len() != 1 {
@@ -1302,50 +1328,50 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => unexpected!(token),
             }),
 
-            states::AfterFrameset => match_token!(token {
+            AfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 </html> => {
-                    self.mode = states::AfterAfterFrameset;
+                    self.mode = AfterAfterFrameset;
                     Done
                 }
 
-                <noframes> => self.step(states::InHead, token),
+                <noframes> => self.step(InHead, token),
 
                 EOFToken => self.stop_parsing(),
 
                 token => unexpected!(token),
             }),
 
-            states::AfterAfterBody => match_token!(token {
+            AfterAfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 EOFToken => self.stop_parsing(),
 
                 token => {
                     unexpected!(token);
-                    Reprocess(states::InBody, token)
+                    Reprocess(InBody, token)
                 }
             }),
 
-            states::AfterAfterFrameset => match_token!(token {
+            AfterAfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
-                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
-                <html> => self.step(states::InBody, token),
+                <html> => self.step(InBody, token),
 
                 EOFToken => self.stop_parsing(),
 
-                <noframes> => self.step(states::InHead, token),
+                <noframes> => self.step(InHead, token),
 
                 token => unexpected!(token),
             }),
@@ -1362,7 +1388,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                 return;
             }
 
-            tokenizer::DoctypeToken(dt) => if self.mode == states::Initial {
+            tokenizer::DoctypeToken(dt) => if self.mode == Initial {
                 let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
                 if err {
                     self.sink.parse_error(format!("Bad DOCTYPE: {}", dt));
@@ -1375,7 +1401,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                 );
                 self.set_quirks_mode(quirk);
 
-                self.mode = states::BeforeHtml;
+                self.mode = BeforeHtml;
                 return;
             } else {
                 self.sink.parse_error(format!("DOCTYPE in insertion mode {:?}", self.mode));
