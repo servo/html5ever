@@ -249,8 +249,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.sink.set_quirks_mode(mode);
     }
 
-    fn stop_parsing(&mut self) {
+    fn stop_parsing(&mut self) -> ProcessResult {
         error!("stop_parsing not implemented, full speed ahead!");
+        Done
     }
 
     // Switch to `Text` insertion mode, save the old mode, and
@@ -794,8 +795,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 EOFToken => {
                     // FIXME: <template>
                     self.check_body_end();
-                    self.stop_parsing();
-                    Done
+                    self.stop_parsing()
                 }
 
                 </body> => {
@@ -1232,8 +1232,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             | states::InCell
             | states::InSelect
             | states::InSelectInTable
-            | states::InTemplate
-                => fail!("FIXME: {} not implemented", mode),
+                => fail!("FIXME: table mode {} not implemented", mode),
+
+            states::InTemplate
+                => fail!("FIXME: <template> not implemented"),
 
             states::AfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
@@ -1251,10 +1253,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                EOFToken => {
-                    self.stop_parsing();
-                    Done
-                }
+                EOFToken => self.stop_parsing(),
 
                 token => {
                     unexpected!(token);
@@ -1262,9 +1261,65 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-              states::InFrameset
-            | states::AfterFrameset
-                => fail!("FIXME: {} not implemented", mode),
+            states::InFrameset => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                tag @ <frameset> => {
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                </frameset> => {
+                    if self.open_elems.len() == 1 {
+                        unexpected!(token);
+                    } else {
+                        self.pop();
+                        if !self.opts.fragment && !self.current_node_named(atom!(frameset)) {
+                            self.mode = states::AfterFrameset;
+                        }
+                    }
+                    Done
+                }
+
+                tag @ <frame> => {
+                    self.insert_and_pop_element_for(tag);
+                    DoneAckSelfClosing
+                }
+
+                <noframes> => self.step(states::InHead, token),
+
+                EOFToken => {
+                    if self.open_elems.len() != 1 {
+                        unexpected!(token);
+                    }
+                    self.stop_parsing()
+                }
+
+                token => unexpected!(token),
+            }),
+
+            states::AfterFrameset => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                </html> => {
+                    self.mode = states::AfterAfterFrameset;
+                    Done
+                }
+
+                <noframes> => self.step(states::InHead, token),
+
+                EOFToken => self.stop_parsing(),
+
+                token => unexpected!(token),
+            }),
 
             states::AfterAfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
@@ -1273,10 +1328,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 <html> => self.step(states::InBody, token),
 
-                EOFToken => {
-                    self.stop_parsing();
-                    Done
-                }
+                EOFToken => self.stop_parsing(),
 
                 token => {
                     unexpected!(token);
@@ -1284,8 +1336,19 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-            states::AfterAfterFrameset
-                => fail!("FIXME: {} not implemented", mode),
+            states::AfterAfterFrameset => match_token!(token {
+                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(Whitespace, _) => self.step(states::InBody, token),
+                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+
+                <html> => self.step(states::InBody, token),
+
+                EOFToken => self.stop_parsing(),
+
+                <noframes> => self.step(states::InHead, token),
+
+                token => unexpected!(token),
+            }),
         }
     }
 }
