@@ -98,9 +98,6 @@ pub struct RcDom {
     /// The `Document` itself.
     pub document: Handle,
 
-    /// The root `<html>` node.
-    pub root: Option<Handle>,
-
     /// Errors that occurred during parsing.
     pub errors: Vec<String>,
 
@@ -204,7 +201,6 @@ impl Default for RcDom {
     fn default() -> RcDom {
         RcDom {
             document: new_node(Document),
-            root: None,
             errors: vec!(),
             quirks_mode: NoQuirks,
         }
