@@ -21,6 +21,7 @@ use std::from_str::FromStr;
 use test::test_main;
 
 mod tokenizer;
+mod util;
 
 fn main() {
     let src_dir: Path = FromStr::from_str(
