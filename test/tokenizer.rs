@@ -314,7 +314,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find(&"input".to_string()).unwrap().get_str();
     let mut expect = js.find(&"output".to_string()).unwrap().clone();
-    let desc = format!("{:s}: {:s}",
+    let desc = format!("tok: {:s}: {:s}",
         path_str, js.find(&"description".to_string()).unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
