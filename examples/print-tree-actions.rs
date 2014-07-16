@@ -55,11 +55,11 @@ impl TreeSink<uint> for Sink {
     }
 
     fn append_text(&mut self, parent: uint, text: String) {
-        println!("Append text to {:u}: {:s}", parent, text);
+        println!("Append text to {:u}: \"{:s}\"", parent, text.escape_default());
     }
 
     fn append_comment(&mut self, parent: uint, text: String) {
-        println!("Append comment to {:u}: {:s}", parent, text);
+        println!("Append comment to {:u}: \"{:s}\"", parent, text.escape_default());
     }
 
     fn append_element(&mut self, parent: uint, child: uint) {

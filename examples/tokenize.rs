@@ -26,8 +26,8 @@ struct TokenPrinter {
 impl TokenPrinter {
     fn is_char(&mut self, is_char: bool) {
         match (self.in_char_run, is_char) {
-            (false, true ) => print!("CHAR : "),
-            (true,  false) => println!(""),
+            (false, true ) => print!("CHAR : \""),
+            (true,  false) => println!("\""),
             _ => (),
         }
         self.in_char_run = is_char;
@@ -69,7 +69,7 @@ impl TokenSink for TokenPrinter {
             }
             _ => {
                 self.is_char(false);
-                println!("OTHER: {:?}", token);
+                println!("OTHER: {}", token);
             }
         }
     }
