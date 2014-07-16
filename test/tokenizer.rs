@@ -7,7 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{io, num, char};
+use util::foreach_html5lib_test;
+
+use std::{num, char};
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
@@ -375,14 +377,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
 pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
-    let test_dir_path = src_dir.join("html5lib-tests/tokenizer");
-    let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");
-
-    for path in test_files.move_iter() {
-        let path_str = path.filename_str().unwrap();
-        if !path_str.ends_with(".test") { continue; }
-
-        let mut file = io::File::open(&path).ok().expect("can't open file");
+    foreach_html5lib_test(src_dir, "tokenizer", ".test", |path_str, mut file| {
         let js = json::from_reader(&mut file as &mut Reader)
             .ok().expect("json parse error");
 
@@ -396,7 +391,7 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
             // xmlViolation.test doesn't follow this format.
             _ => (),
         }
-    }
+    });
 
     tests
 }
