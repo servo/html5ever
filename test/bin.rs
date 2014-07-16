@@ -33,8 +33,13 @@ fn main() {
 
     let mut tests = vec!();
 
-    tests.push_all_move(tokenizer::tests(src_dir.clone()));
-    tests.push_all_move(tree_builder::tests(src_dir));
+    if os::getenv("HTML5_NO_TOK_TEST").is_none() {
+        tests.push_all_move(tokenizer::tests(src_dir.clone()));
+    }
+
+    if os::getenv("HTM5_NO_TB_TEST").is_none() {
+        tests.push_all_move(tree_builder::tests(src_dir));
+    }
 
     let args: Vec<String> = os::args().move_iter().collect();
     test_main(args.as_slice(), tests);
