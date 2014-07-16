@@ -159,15 +159,10 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     ignore_lf: bool,
 }
 
-enum SplitKind {
-    DropWhitespace,
-    KeepWhitespace,
-}
-
 enum ProcessResult {
     Done,
     DoneAckSelfClosing,
-    Split(SplitKind, String),
+    SplitWhitespace(String),
     Reprocess(InsertionMode, Token),
 }
 
@@ -536,13 +531,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     self.mode = m;
                     token = t;
                 }
-                Split(k, buf) => {
-                    let keep = match k {
-                        KeepWhitespace => true,
-                        _ => false,
-                    };
+                SplitWhitespace(buf) => {
                     let mut it = Runs::new(is_ascii_whitespace, buf.as_slice())
-                        .filter(|&(m, _)| keep || !m)
                         .map(|(m, b)| CharacterTokens(match m {
                             true => Whitespace,
                             false => NotWhitespace,
@@ -574,7 +564,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
         match mode {
             Initial => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
+                CharacterTokens(Whitespace, _) => Done,
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
                 token => {
                     if !self.opts.iframe_srcdoc {
@@ -586,7 +577,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             BeforeHtml => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
+                CharacterTokens(Whitespace, _) => Done,
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
                 tag @ <html> => {
@@ -606,7 +598,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             BeforeHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(DropWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
+                CharacterTokens(Whitespace, _) => Done,
                 CommentToken(text) => append_comment!(self.target(), text),
 
                 <html> => self.step(InBody, token),
@@ -628,7 +621,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             InHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
@@ -698,7 +691,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 },
 
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InHead, token),
 
                 CommentToken(_) => self.step(InHead, token),
@@ -719,7 +712,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             AfterHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
@@ -1264,7 +1257,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 => fail!("FIXME: <template> not implemented"),
 
             AfterBody => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.html_elem(), text),
 
@@ -1288,7 +1281,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             InFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
@@ -1329,7 +1322,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             AfterFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
                 CommentToken(text) => append_comment!(self.target(), text),
 
@@ -1348,7 +1341,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             AfterAfterBody => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
@@ -1363,7 +1356,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }),
 
             AfterAfterFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => Split(KeepWhitespace, text),
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
                 CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
 
