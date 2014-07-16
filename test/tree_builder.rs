@@ -133,7 +133,7 @@ fn make_test(
     let expected = get_field("document");
     tests.push(TestDescAndFn {
         desc: TestDesc {
-            name: DynTestName(format!("{}-{}", path_str, idx)),
+            name: DynTestName(format!("tb: {}-{}", path_str, idx)),
             ignore: false,
             should_fail: false,
         },
