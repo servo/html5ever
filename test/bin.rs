@@ -10,6 +10,8 @@
 #![crate_name="html5-external-test"]
 #![crate_type="bin"]
 
+#![feature(macro_rules)]
+
 extern crate test;
 extern crate serialize;
 extern crate debug;
@@ -21,6 +23,7 @@ use std::from_str::FromStr;
 use test::test_main;
 
 mod tokenizer;
+mod tree_builder;
 mod util;
 
 fn main() {
@@ -30,8 +33,8 @@ fn main() {
 
     let mut tests = vec!();
 
-    tests.push_all_move(tokenizer::tests(src_dir));
-    // more to follow
+    tests.push_all_move(tokenizer::tests(src_dir.clone()));
+    tests.push_all_move(tree_builder::tests(src_dir));
 
     let args: Vec<String> = os::args().move_iter().collect();
     test_main(args.as_slice(), tests);
