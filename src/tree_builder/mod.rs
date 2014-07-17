@@ -1377,6 +1377,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'sink, Handle, Sink> {
     fn process_token(&mut self, token: tokenizer::Token) {
+        let ignore_lf = replace(&mut self.ignore_lf, false);
+
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
             tokenizer::ParseError(e) => {
@@ -1410,14 +1412,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
             tokenizer::EOFToken => EOFToken,
 
             tokenizer::CharacterTokens(mut x) => {
-                if self.ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
+                if ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
                     x.shift_char();
+                }
+                if x.is_empty() {
+                    return;
                 }
                 CharacterTokens(NotSplit, x)
             }
         };
 
-        self.ignore_lf = false;
         self.process_to_completion(token);
     }
 
