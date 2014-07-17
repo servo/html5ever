@@ -1136,6 +1136,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::EndTagOpen
                 => go!(error_eof; emit '<'; emit '/'; to Data),
 
+            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped))
+                => go!(to RawData ScriptDataEscaped DoubleEscaped),
+
             states::RawLessThanSign(kind)
                 => go!(emit '<'; to RawData kind),
 
