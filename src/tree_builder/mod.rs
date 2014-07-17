@@ -279,11 +279,17 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     // switch the tokenizer to a raw-data state.
     // The latter only takes effect after the current / next
     // `process_token` of a start tag returns!
-    fn parse_raw_data(&mut self, k: RawKind) {
+    fn to_raw_text_mode(&mut self, k: RawKind) {
         assert!(self.next_tokenizer_state.is_none());
         self.next_tokenizer_state = Some(RawData(k));
         self.orig_mode = Some(self.mode);
         self.mode = Text;
+    }
+
+    // The generic raw text / RCDATA parsing algorithm.
+    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) {
+        self.insert_element_for(tag);
+        self.to_raw_text_mode(k);
     }
 
     fn current_node(&self) -> Handle {
@@ -634,8 +640,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
 
                 tag @ <title> => {
-                    self.parse_raw_data(Rcdata);
-                    self.insert_element_for(tag);
+                    self.parse_raw_data(tag, Rcdata);
                     Done
                 }
 
@@ -644,8 +649,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         self.insert_element_for(tag);
                         self.mode = InHeadNoscript;
                     } else {
-                        self.parse_raw_data(Rawtext);
-                        self.insert_element_for(tag);
+                        self.parse_raw_data(tag, Rawtext);
                     }
                     Done
                 }
@@ -658,7 +662,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     }
                     self.push(&elem);
                     self.sink.append_element(target, elem);
-                    self.parse_raw_data(ScriptData);
+                    self.to_raw_text_mode(ScriptData);
                     Done
                 }
 
@@ -1095,29 +1099,28 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <isindex> => fail!("FIXME: <isindex> not implemented"),
 
                 tag @ <textarea> => {
-                    self.insert_element_for(tag);
                     self.ignore_lf = true;
                     self.frameset_ok = false;
-                    self.parse_raw_data(Rcdata);
+                    self.parse_raw_data(tag, Rcdata);
                     Done
                 }
 
-                <xmp> => {
+                tag @ <xmp> => {
                     self.close_p_element_in_button_scope();
                     self.reconstruct_formatting();
                     self.frameset_ok = false;
-                    self.parse_raw_data(Rawtext);
+                    self.parse_raw_data(tag, Rawtext);
                     Done
                 }
 
-                <iframe> => {
+                tag @ <iframe> => {
                     self.frameset_ok = false;
-                    self.parse_raw_data(Rawtext);
+                    self.parse_raw_data(tag, Rawtext);
                     Done
                 }
 
-                <noembed> => {
-                    self.parse_raw_data(Rawtext);
+                tag @ <noembed> => {
+                    self.parse_raw_data(tag, Rawtext);
                     Done
                 }
 
@@ -1168,7 +1171,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <_> => {
                     if self.opts.scripting_enabled && tag.name == atom!(noscript) {
-                        self.parse_raw_data(Rawtext);
+                        self.parse_raw_data(tag, Rawtext);
                     } else {
                         self.reconstruct_formatting();
                         self.insert_element_for(tag);
