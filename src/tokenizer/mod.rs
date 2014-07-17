@@ -680,7 +680,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => loop { match get_char!() {
-                '/' => go!(clear_temp; to RawEndTagOpen ScriptDataEscaped DoubleEscaped),
+                '/' => go!(clear_temp; emit '/'; to ScriptDataDoubleEscapeEnd),
                 _   => go!(reconsume RawData ScriptDataEscaped DoubleEscaped),
             }},
 
