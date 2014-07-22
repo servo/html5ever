@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2014 The HTML5 for Rust Project Developers. See the
+# Copyright 2014 The html5ever Project Developers. See the
 # COPYRIGHT file at the top-level directory of this distribution.
 #
 # Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or

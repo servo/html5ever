@@ -1,4 +1,4 @@
-# HTML5 parser for Rust
+# html5ever
 
 [![Build Status](https://travis-ci.org/kmcallister/html5.svg?branch=master)](https://travis-ci.org/kmcallister/html5)
 
