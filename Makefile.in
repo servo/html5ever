@@ -1,4 +1,4 @@
-# Copyright 2014 The HTML5 for Rust Project Developers. See the
+# Copyright 2014 The html5ever Project Developers. See the
 # COPYRIGHT file at the top-level directory of this distribution.
 #
 # Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -69,36 +69,36 @@ $(foreach example,$(EXAMPLES),\
 $(eval $(call DEF_EXAMPLE,$(example))))
 
 # Run #[test] functions
-html5-test: $(LIB_DEPS)
+html5ever-test: $(LIB_DEPS)
 	$(RUSTC_CMD) -o $@ --test $(LIB_TOP_SRC)
 
 # Run external tests loaded from JSON
-html5-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
+html5ever-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
 	$(RUSTC_CMD) $(EXT_TEST_TOP_SRC)
 
 # Run benchmarks
-html5-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
+html5ever-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
 	$(RUSTC_CMD) $(EXT_BENCH_TOP_SRC)
 
 .PHONY: check
 check: check-build check-internal check-external
 
 .PHONY: check-build
-check-build: all html5-test html5-external-test html5-external-bench
+check-build: all html5ever-test html5ever-external-test html5ever-external-bench
 
 .PHONY: check-internal
-check-internal: html5-test
-	./html5-test
+check-internal: html5ever-test
+	./html5ever-test
 
 .PHONY: check-external
-check-external: html5-external-test
-	HTML5_SRC_DIR=$(VPATH) ./html5-external-test
+check-external: html5ever-external-test
+	HTML5EVER_SRC_DIR=$(VPATH) ./html5ever-external-test
 
 METRICS ?= metrics.json
 
 .PHONY: bench
-bench: html5-external-bench
-	./html5-external-bench --bench --save-metrics $(METRICS)
+bench: html5ever-external-bench
+	./html5ever-external-bench --bench --save-metrics $(METRICS)
 
 .PHONY: clean
 clean:
@@ -106,13 +106,13 @@ clean:
 	(cd $(VPATH)/rust-phf && make clean)
 
 .PHONY: docs
-docs: doc doc/html5-macros/index.html doc/html5/index.html
+docs: doc doc/html5ever-macros/index.html doc/html5ever/index.html
 
 doc:
 	mkdir doc
 
-doc/html5-macros/index.html: $(MACROS_TOP_SRC)
+doc/html5ever-macros/index.html: $(MACROS_TOP_SRC)
 	rustdoc $(RUST_DIRS) $(VPATH)/macros/lib.rs
 
-doc/html5/index.html: $(LIB_DEPS)
+doc/html5ever/index.html: $(LIB_DEPS)
 	rustdoc $(RUST_DIRS) $(VPATH)/src/lib.rs

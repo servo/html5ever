@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -9,16 +9,16 @@
 
 extern crate debug;
 
-extern crate html5;
+extern crate html5ever;
 
 use std::io;
 use std::default::Default;
 use std::string::String;
 use std::collections::hashmap::HashMap;
 
-use html5::{Namespace, Atom, parse_to, one_input};
-use html5::tokenizer::Attribute;
-use html5::tree_builder::{TreeSink, QuirksMode};
+use html5ever::{Namespace, Atom, parse_to, one_input};
+use html5ever::tokenizer::Attribute;
+use html5ever::tree_builder::{TreeSink, QuirksMode};
 
 struct Sink {
     next_id: uint,

@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -9,15 +9,15 @@
 
 extern crate debug;
 
-extern crate html5;
+extern crate html5ever;
 
 use std::io;
 use std::char;
 use std::default::Default;
 
-use html5::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
-use html5::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
-use html5::driver::{tokenize_to, one_input};
+use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
+use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
+use html5ever::driver::{tokenize_to, one_input};
 
 struct TokenPrinter {
     in_char_run: bool,

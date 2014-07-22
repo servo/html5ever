@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -10,15 +10,15 @@
 // Run a single benchmark once.  For use with profiling tools.
 
 extern crate test;
-extern crate html5;
+extern crate html5ever;
 
 use std::{io, os};
 use std::default::Default;
 
 use test::black_box;
 
-use html5::tokenizer::{TokenSink, Token};
-use html5::driver::{tokenize_to, one_input};
+use html5ever::tokenizer::{TokenSink, Token};
+use html5ever::driver::{tokenize_to, one_input};
 
 struct Sink;
 

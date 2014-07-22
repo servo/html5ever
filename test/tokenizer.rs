@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -18,12 +18,12 @@ use serialize::json;
 use serialize::json::Json;
 use std::collections::treemap::TreeMap;
 
-use html5::Atom;
-use html5::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
-use html5::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
-use html5::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-use html5::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
-use html5::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+use html5ever::Atom;
+use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
+use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
+use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
+use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.

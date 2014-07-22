@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -13,7 +13,7 @@ use std::default::Default;
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 
-use html5::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
 struct Sink;
 

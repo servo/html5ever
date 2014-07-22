@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,12 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="html5-external-bench"]
+#![crate_name="html5ever-external-bench"]
 #![crate_type="bin"]
 
 extern crate test;
 
-extern crate html5;
+extern crate html5ever;
 
 use std::os;
 use test::test_main;

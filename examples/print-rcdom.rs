@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,14 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate html5;
+extern crate html5ever;
 
 use std::io;
 use std::default::Default;
 use std::string::String;
 
-use html5::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
-use html5::{parse, one_input};
+use html5ever::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
+use html5ever::{parse, one_input};
 
 // This is not proper HTML serialization, of course.
 

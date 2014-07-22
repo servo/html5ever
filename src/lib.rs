@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="html5"]
+#![crate_name="html5ever"]
 #![crate_type="dylib"]
 
 #![feature(macro_rules, phase, globs)]
@@ -22,7 +22,7 @@ extern crate debug;
 extern crate phf_mac;
 
 #[phase(plugin)]
-extern crate macros = "html5-macros";
+extern crate macros = "html5ever-macros";
 
 extern crate phf;
 extern crate time;

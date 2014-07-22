@@ -1,4 +1,4 @@
-// Copyright 2014 The HTML5 for Rust Project Developers. See the
+// Copyright 2014 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -16,8 +16,8 @@ use std::path::Path;
 use std::collections::hashmap::HashMap;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 
-use html5::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
-use html5::{parse, one_input};
+use html5ever::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
+use html5ever::{parse, one_input};
 
 fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
