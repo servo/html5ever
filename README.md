@@ -2,7 +2,7 @@
 
 Very much a work in progress!  Don't use this just yet.
 
-[![Build Status](https://travis-ci.org/kmcallister/html5.svg?branch=master)](https://travis-ci.org/kmcallister/html5)
+[![Build Status](https://travis-ci.org/kmcallister/html5ever.svg?branch=master)](https://travis-ci.org/kmcallister/html5ever)
 
 html5ever is an HTML5 parser developed as part of the [Servo](https://github.com/servo/servo) project.
 
