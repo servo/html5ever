@@ -31,6 +31,7 @@ pub use util::atom::Atom;
 pub use util::namespace::Namespace;
 
 pub use driver::{one_input, ParseOpts, parse_to, parse};
+pub use serialize::serialize;
 
 mod util {
     pub mod str;
@@ -40,6 +41,7 @@ mod util {
 
 pub mod tokenizer;
 pub mod tree_builder;
+pub mod serialize;
 
 /// Consumers of the parser API.
 pub mod sink {

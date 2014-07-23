@@ -16,11 +16,13 @@ use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NoQuirks};
+use serialize::{Serializable, Serializer};
 use driver::ParseResult;
 
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::default::Default;
+use std::io::IoResult;
 
 /// The different kinds of nodes in the DOM.
 #[deriving(Show)]
@@ -210,5 +212,43 @@ impl Default for RcDom {
 impl ParseResult<RcDom> for RcDom {
     fn get_result(sink: RcDom) -> RcDom {
         sink
+    }
+}
+
+impl Serializable for Handle {
+    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>, incl_self: bool) -> IoResult<()> {
+        let node = self.borrow();
+        match (incl_self, &node.node) {
+            (_, &Element(ref name, ref attrs)) => {
+                if incl_self {
+                    try!(serializer.start_elem(HTML, name.clone(),
+                        attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
+                }
+
+                for handle in node.children.iter() {
+                    try!(handle.clone().serialize(serializer, true));
+                }
+
+                if incl_self {
+                    try!(serializer.end_elem(HTML, name.clone()));
+                }
+                Ok(())
+            }
+
+            (false, &Document) => {
+                for handle in node.children.iter() {
+                    try!(handle.clone().serialize(serializer, true));
+                }
+                Ok(())
+            }
+
+            (false, _) => Ok(()),
+
+            (true, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
+            (true, &Text(ref text)) => serializer.write_text(text.as_slice()),
+            (true, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
+
+            (true, &Document) => fail!("Can't serialize Document node itself"),
+        }
     }
 }
