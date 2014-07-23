@@ -255,7 +255,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         let d = self.input_buffers.pop_data();
-        debug!("got data {:?}", d);
+        debug!("got data {}", d);
         match d {
             Some(OneChar(c)) => self.get_preprocessed_char(c).map(|x| OneChar(x)),
 
