@@ -688,7 +688,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             states::RawLessThanSign(kind) => loop { match get_char!() {
                 '/' => go!(clear_temp; to RawEndTagOpen kind),
                 '!' if kind == ScriptData => go!(emit '<'; emit '!'; to ScriptDataEscapeStart Escaped),
-                _   => go!(emit '<'; reconsume RawData Rcdata),
+                _   => go!(emit '<'; reconsume RawData kind),
             }},
 
             states::RawEndTagOpen(kind) => loop {
