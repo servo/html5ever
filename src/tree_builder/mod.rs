@@ -417,7 +417,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn generate_implied_end_except(&mut self, except: Atom) {
         self.generate_implied_end(|p| match p {
-            (HTML, ref name) if *name == except => true,
+            (HTML, ref name) if *name == except => false,
             _ => cursory_implied_end(p),
         });
     }
@@ -1205,10 +1205,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         Done
                     });
 
-                    self.generate_implied_end(|p| match p {
-                        (HTML, ref name) if *name == tag.name => false,
-                        _ => cursory_implied_end(p),
-                    });
+                    self.generate_implied_end_except(tag.name.clone());
 
                     if match_idx != self.open_elems.len() - 1 {
                         // mis-nested tags
