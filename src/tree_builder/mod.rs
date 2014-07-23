@@ -1236,9 +1236,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Reprocess(self.orig_mode.take_unwrap(), token)
                 }
 
-                </script> => fail!("FIXME: </script> not implemented (!)"),
+                tag @ </_> => {
+                    if tag.name == atom!(script) {
+                        error!("FIXME: </script> not implemented");
+                    }
 
-                </_> => {
                     self.pop();
                     self.mode = self.orig_mode.take_unwrap();
                     Done
