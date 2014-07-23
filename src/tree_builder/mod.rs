@@ -134,6 +134,9 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     /// Original insertion mode, used by Text and InTableText modes.
     orig_mode: Option<InsertionMode>,
 
+    /// Pending table character tokens.
+    pending_table_text: Vec<String>,
+
     /// Quirks mode as set by the parser.
     /// FIXME: can scripts etc. change this?
     quirks_mode: QuirksMode,
@@ -161,6 +164,9 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
 
     /// Ignore a following U+000A LINE FEED?
     ignore_lf: bool,
+
+    /// Is foster parenting enabled?
+    foster_parenting: bool,
 }
 
 enum ProcessResult {
@@ -224,7 +230,6 @@ fn unused_tag_sets() {
     // FIXME: Some tag sets are unused until we implement <template> or other stuff.
     // Suppress the warning here.
     select_scope((HTML, atom!(p)));
-    table_scope((HTML, atom!(p)));
     thorough_implied_end((HTML, atom!(p)));
 }
 
@@ -249,6 +254,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             sink: sink,
             mode: Initial,
             orig_mode: None,
+            pending_table_text: vec!(),
             quirks_mode: NoQuirks,
             doc_handle: doc_handle,
             open_elems: vec!(),
@@ -258,6 +264,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             next_tokenizer_state: None,
             frameset_ok: true,
             ignore_lf: false,
+            foster_parenting: false,
         }
     }
 
@@ -422,6 +429,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         });
     }
 
+    // Pop elements until the current element is in the set.
+    fn pop_until_current(&mut self, pred: TagSet) {
+        loop {
+            if self.current_node_in(|x| pred(x)) {
+                break;
+            }
+            self.open_elems.pop();
+        }
+    }
+
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until(&mut self, pred: TagSet) -> uint {
@@ -436,10 +453,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         n
     }
 
+    fn pop_until_named(&mut self, name: Atom) -> uint {
+        self.pop_until(|p| p == (HTML, name.clone()))
+    }
+
     // Pop elements until one with the specified name has been popped.
     // Signal an error if it was not the first one.
     fn expect_to_close(&mut self, name: Atom) {
-        if self.pop_until(|p| p == (HTML, name.clone())) != 1 {
+        if self.pop_until_named(name.clone()) != 1 {
             self.sink.parse_error(
                 format!("Unexpected open element while closing {}", name));
         }
@@ -455,6 +476,40 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         if self.in_scope_named(button_scope, atom!(p)) {
             self.close_p_element();
         }
+    }
+
+    // Check <input> tags for type=hidden
+    fn is_type_hidden(&self, tag: &Tag) -> bool {
+        match tag.attrs.iter().find(|&at| at.name.name == atom!("type")) {
+            None => false,
+            Some(at) => at.value.as_slice().eq_ignore_ascii_case("hidden"),
+        }
+    }
+
+    fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
+        self.foster_parenting = true;
+        let res = self.step(InBody, token);
+        // FIXME: what if res is Reprocess?
+        self.foster_parenting = false;
+        res
+    }
+
+    fn process_chars_in_table(&mut self, token: Token) -> ProcessResult {
+        declare_tag_set!(table_outer = empty_set + table tbody tfoot thead tr)
+        if self.current_node_in(table_outer) {
+            self.pending_table_text = vec!();
+            self.orig_mode = Some(self.mode);
+            Reprocess(InTableText, token)
+        } else {
+            self.sink.parse_error(format!("Unexpected chars {} in table",
+                to_escaped_string(&token)));
+            self.foster_parent_in_body(token)
+        }
+    }
+
+    fn reset_insertion_mode(&mut self) -> InsertionMode {
+        // FIXME: this is wrong
+        InBody
     }
 
     fn create_root(&mut self, attrs: Vec<Attribute>) {
@@ -933,7 +988,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     if self.in_scope_named(default_scope, atom!(button)) {
                         self.sink.parse_error("nested buttons".to_string());
                         self.generate_implied_end(cursory_implied_end);
-                        self.pop_until(|p| p == (HTML, atom!(button)));
+                        self.pop_until_named(atom!(button));
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
@@ -1099,12 +1154,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 tag @ <area> <br> <embed> <img> <keygen> <wbr> <input> => {
                     let keep_frameset_ok = match tag.name {
-                        atom!(input) => {
-                            match tag.attrs.iter().find(|&at| at.name.name == atom!("type")) {
-                                None => false,
-                                Some(at) => at.value.as_slice().eq_ignore_ascii_case("hidden"),
-                            }
-                        }
+                        atom!(input) => self.is_type_hidden(&tag),
                         _ => false,
                     };
                     self.reconstruct_formatting();
@@ -1283,8 +1333,103 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("impossible case in Text mode"),
             }),
 
-              InTable
-            | InTableText
+            InTable => match_token!(token {
+                // FIXME: hack, should implement pat | pat for match_token!() instead
+                NullCharacterToken => self.process_chars_in_table(token),
+
+                CharacterTokens(..) => self.process_chars_in_table(token),
+
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                tag @ <caption> => {
+                    self.pop_until_current(table_scope);
+                    self.active_formatting.push(Marker);
+                    self.insert_element_for(tag);
+                    self.mode = InCaption;
+                    Done
+                }
+
+                tag @ <colgroup> => {
+                    self.pop_until_current(table_scope);
+                    self.insert_element_for(tag);
+                    self.mode = InColumnGroup;
+                    Done
+                }
+
+                <col> => {
+                    self.pop_until_current(table_scope);
+                    self.insert_element(Push, atom!(colgroup), vec!());
+                    Reprocess(InColumnGroup, token)
+                }
+
+                tag @ <tbody> <tfoot> <thead> => {
+                    self.pop_until_current(table_scope);
+                    self.insert_element_for(tag);
+                    self.mode = InTableBody;
+                    Done
+                }
+
+                <td> <th> <tr> => {
+                    self.pop_until_current(table_scope);
+                    self.insert_element(Push, atom!(tbody), vec!());
+                    Reprocess(InTableBody, token)
+                }
+
+                <table> => {
+                    unexpected!(token);
+                    if self.in_scope_named(table_scope, atom!(table)) {
+                        self.pop_until_named(atom!(table));
+                        Reprocess(self.reset_insertion_mode(), token)
+                    } else {
+                        Done
+                    }
+                }
+
+                </table> => {
+                    if self.in_scope_named(table_scope, atom!(table)) {
+                        self.pop_until_named(atom!(table));
+                        self.mode = self.reset_insertion_mode();
+                    } else {
+                        unexpected!(token);
+                    }
+                    Done
+                }
+
+                </body> </caption> </col> </colgroup> </html>
+                  </tbody> </td> </tfoot> </th> </thead> </tr> =>
+                    unexpected!(token),
+
+                <style> <script> <template> </template>
+                    => self.step(InHead, token),
+
+                tag @ <input> => {
+                    unexpected!(tag);
+                    if self.is_type_hidden(&tag) {
+                        self.insert_and_pop_element_for(tag);
+                        DoneAckSelfClosing
+                    } else {
+                        self.foster_parent_in_body(TagToken(tag))
+                    }
+                }
+
+                tag @ <form> => {
+                    unexpected!(tag);
+                    // FIXME: <template>
+                    if self.form_elem.is_none() {
+                        self.form_elem = Some(self.insert_and_pop_element_for(tag));
+                    }
+                    Done
+                }
+
+                EOFToken => self.step(InBody, token),
+
+                token => {
+                    unexpected!(token);
+                    self.foster_parent_in_body(token)
+                }
+            }),
+
+              InTableText
             | InCaption
             | InColumnGroup
             | InTableBody
