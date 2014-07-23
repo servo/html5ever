@@ -86,6 +86,9 @@ pub struct TreeBuilderOpts {
 
     /// Are we parsing a HTML fragment?
     pub fragment: bool,
+
+    /// Should we drop the DOCTYPE (if any) from the tree?
+    pub drop_doctype: bool,
 }
 
 impl Default for TreeBuilderOpts {
@@ -94,6 +97,7 @@ impl Default for TreeBuilderOpts {
             scripting_enabled: true,
             iframe_srcdoc: false,
             fragment: false,
+            drop_doctype: false,
         }
     }
 }
@@ -1392,11 +1396,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                     self.sink.parse_error(format!("Bad DOCTYPE: {}", dt));
                 }
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
-                self.sink.append_doctype_to_document(
-                    name.unwrap_or(String::new()),
-                    public_id.unwrap_or(String::new()),
-                    system_id.unwrap_or(String::new())
-                );
+                if !self.opts.drop_doctype {
+                    self.sink.append_doctype_to_document(
+                        name.unwrap_or(String::new()),
+                        public_id.unwrap_or(String::new()),
+                        system_id.unwrap_or(String::new())
+                    );
+                }
                 self.set_quirks_mode(quirk);
 
                 self.mode = BeforeHtml;
