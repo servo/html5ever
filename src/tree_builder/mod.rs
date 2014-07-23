@@ -884,8 +884,43 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     Done
                 }
 
-                <li> => fail!("FIXME: <li> not implemented"),
-                <dd> <dt> => fail!("FIXME: <dd> <dt> not implemented"),
+                tag @ <li> <dd> <dt> => {
+                    declare_tag_set!(close_list = empty_set + li)
+                    declare_tag_set!(close_defn = empty_set + dd dt)
+                    declare_tag_set!(extra_special = special_tag - address div p)
+                    let can_close = match tag.name {
+                        atom!(li) => close_list,
+                        atom!(dd) | atom!(dt) => close_defn,
+                        _ => unreachable!(),
+                    };
+
+                    self.frameset_ok = false;
+
+                    let mut to_close = None;
+                    for node in self.open_elems.iter().rev() {
+                        let nsname = self.sink.elem_name(node.clone());
+                        if can_close(nsname.clone()) {
+                            let (_, name) = nsname;
+                            to_close = Some(name);
+                            break;
+                        }
+                        if extra_special(nsname.clone()) {
+                            break;
+                        }
+                    }
+
+                    match to_close {
+                        Some(name) => {
+                            self.generate_implied_end_except(name.clone());
+                            self.expect_to_close(name);
+                        }
+                        None => (),
+                    }
+
+                    self.close_p_element_in_button_scope();
+                    self.insert_element_for(tag);
+                    Done
+                }
 
                 tag @ <plaintext> => {
                     self.close_p_element_in_button_scope();
