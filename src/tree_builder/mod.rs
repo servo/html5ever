@@ -221,6 +221,7 @@ declare_tag_set!(select_scope = full_set - optgroup option)
 
 declare_tag_set!(table_body_context = tbody tfoot thead template html)
 declare_tag_set!(table_row_context = tr template html)
+declare_tag_set!(td_th = td th)
 
 declare_tag_set!(cursory_implied_end = dd dt li option optgroup p rp rt)
 
@@ -522,6 +523,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         // FIXME: this is wrong
         InBody
+    }
+
+    fn close_the_cell(&mut self) {
+        self.generate_implied_end(cursory_implied_end);
+        if self.pop_until(td_th) != 1 {
+            self.sink.parse_error("expected to close <td> or <th> with cell".to_string());
+        }
     }
 
     fn create_root(&mut self, attrs: Vec<Attribute>) {
@@ -1638,8 +1646,44 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InTable, token),
             }),
 
-              InCell
-            | InSelect
+            InCell => match_token!(token {
+                tag @ </td> </th> => {
+                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                        self.generate_implied_end(cursory_implied_end);
+                        self.expect_to_close(tag.name);
+                        self.clear_active_formatting_to_marker();
+                        self.mode = InRow;
+                    } else {
+                        unexpected!(tag);
+                    }
+                    Done
+                }
+
+                <caption> <col> <colgroup> <tbody> <td> <tfoot> <th> <thead> <tr> => {
+                    if self.in_scope(table_scope, |n| self.elem_in(n.clone(), td_th)) {
+                        self.close_the_cell();
+                        Reprocess(InRow, token)
+                    } else {
+                        unexpected!(token)
+                    }
+                }
+
+                </body> </caption> </col> </colgroup> </html>
+                    => unexpected!(token),
+
+                tag @ </table> </tbody> </tfoot> </thead> </tr> => {
+                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                        self.close_the_cell();
+                        Reprocess(InRow, TagToken(tag))
+                    } else {
+                        unexpected!(tag)
+                    }
+                }
+
+                token => self.step(InBody, token),
+            }),
+
+              InSelect
             | InSelectInTable
                 => fail!("FIXME: table mode {} not implemented", mode),
 
