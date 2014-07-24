@@ -1493,8 +1493,45 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InBody, token),
             }),
 
-              InColumnGroup
-            | InTableBody
+            InColumnGroup => match_token!(token {
+                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
+                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.html_elem(), text),
+
+                <html> => self.step(InBody, token),
+
+                tag @ <col> => {
+                    self.insert_and_pop_element_for(tag);
+                    DoneAckSelfClosing
+                }
+
+                </colgroup> => {
+                    if self.current_node_named(atom!(colgroup)) {
+                        self.pop();
+                        self.mode = InTable;
+                    } else {
+                        unexpected!(token);
+                    }
+                    Done
+                }
+
+                </col> => unexpected!(token),
+
+                <template> </template> => self.step(InHead, token),
+
+                EOFToken => self.step(InBody, token),
+
+                token => {
+                    if self.current_node_named(atom!(colgroup)) {
+                        self.pop();
+                    } else {
+                        unexpected!(token);
+                    }
+                    Reprocess(InTable, token)
+                }
+            }),
+
+              InTableBody
             | InRow
             | InCell
             | InSelect
