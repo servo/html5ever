@@ -13,7 +13,7 @@ pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::TreeSink;
 
 use tokenizer;
-use tokenizer::{Doctype, Attribute, Tag, StartTag};
+use tokenizer::{Doctype, Attribute, Tag, StartTag, EndTag};
 use tokenizer::TokenSink;
 use tokenizer::states::{RawData, RawKind, Rcdata, Rawtext, ScriptData, Plaintext};
 
@@ -1467,8 +1467,33 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-              InCaption
-            | InColumnGroup
+            InCaption => match_token!(token {
+                tag @ <caption> <col> <colgroup> <tbody> <td> <tfoot>
+                  <th> <thead> <tr> </table> </caption> => {
+                    if self.in_scope_named(table_scope, atom!(caption)) {
+                        self.generate_implied_end(cursory_implied_end);
+                        self.expect_to_close(atom!(caption));
+                        self.clear_active_formatting_to_marker();
+                        match tag {
+                            Tag { kind: EndTag, name: atom!(caption), .. } => {
+                                self.mode = InTable;
+                                Done
+                            }
+                            _ => Reprocess(InTable, TagToken(tag))
+                        }
+                    } else {
+                        unexpected!(tag);
+                        Done
+                    }
+                }
+
+                </body> </col> </colgroup> </html> </tbody>
+                  </td> </tfoot> </th> </thead> </tr> => unexpected!(token),
+
+                token => self.step(InBody, token),
+            }),
+
+              InColumnGroup
             | InTableBody
             | InRow
             | InCell
