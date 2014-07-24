@@ -545,6 +545,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.insert_element(NoPush, tag.name, tag.attrs)
     }
 
+    fn insert_phantom(&mut self, name: Atom) -> Handle {
+        self.insert_element(Push, name, vec!())
+    }
+
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
         // FIXME: This really wants unit tests.
         let mut first_match = None;
@@ -685,7 +689,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </_> => unexpected!(tag),
 
                 token => {
-                    self.head_elem = Some(self.insert_element(Push, atom!(head), vec!()));
+                    self.head_elem = Some(self.insert_phantom(atom!(head)));
                     Reprocess(InHead, token)
                 }
             }),
@@ -817,7 +821,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 tag @ </_> => unexpected!(tag),
 
                 token => {
-                    self.insert_element(Push, atom!(body), vec!());
+                    self.insert_phantom(atom!(body));
                     Reprocess(InBody, token)
                 }
             }),
@@ -1034,7 +1038,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 </p> => {
                     if !self.in_scope_named(button_scope, atom!(p)) {
                         self.sink.parse_error("No <p> tag to close".to_string());
-                        self.insert_element(Push, atom!(p), vec!());
+                        self.insert_phantom(atom!(p));
                     }
                     self.close_p_element();
                     Done
@@ -1360,7 +1364,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 <col> => {
                     self.pop_until_current(table_scope);
-                    self.insert_element(Push, atom!(colgroup), vec!());
+                    self.insert_phantom(atom!(colgroup));
                     Reprocess(InColumnGroup, token)
                 }
 
@@ -1373,7 +1377,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 <td> <th> <tr> => {
                     self.pop_until_current(table_scope);
-                    self.insert_element(Push, atom!(tbody), vec!());
+                    self.insert_phantom(atom!(tbody));
                     Reprocess(InTableBody, token)
                 }
 
