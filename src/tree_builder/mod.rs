@@ -457,11 +457,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     fn pop_until(&mut self, pred: TagSet) -> uint {
         let mut n = 0;
         loop {
+            n += 1;
             match self.open_elems.pop() {
                 None => break,
                 Some(elem) => if pred(self.sink.elem_name(elem)) { break; },
             }
-            n += 1;
         }
         n
     }
