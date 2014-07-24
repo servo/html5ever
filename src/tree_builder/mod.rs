@@ -135,7 +135,7 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     orig_mode: Option<InsertionMode>,
 
     /// Pending table character tokens.
-    pending_table_text: Vec<String>,
+    pending_table_text: Vec<(SplitStatus, String)>,
 
     /// Quirks mode as set by the parser.
     /// FIXME: can scripts etc. change this?
@@ -174,6 +174,11 @@ enum ProcessResult {
     DoneAckSelfClosing,
     SplitWhitespace(String),
     Reprocess(InsertionMode, Token),
+}
+
+fn any_not_whitespace(x: &String) -> bool {
+    // FIXME: this might be much faster as a byte scan
+    x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
 }
 
 enum PushFlag {
@@ -497,7 +502,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     fn process_chars_in_table(&mut self, token: Token) -> ProcessResult {
         declare_tag_set!(table_outer = empty_set + table tbody tfoot thead tr)
         if self.current_node_in(table_outer) {
-            self.pending_table_text = vec!();
+            assert!(self.pending_table_text.is_empty());
             self.orig_mode = Some(self.mode);
             Reprocess(InTableText, token)
         } else {
@@ -822,13 +827,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 CharacterTokens(_, text) => {
                     self.reconstruct_formatting();
-                    // FIXME: this might be much faster as a byte scan
-                    let unset_frameset_ok = text.as_slice().chars().any(|c| !is_ascii_whitespace(c));
-                    append_text!(self.target(), text);
-                    if unset_frameset_ok {
+                    if any_not_whitespace(&text) {
                         self.frameset_ok = false;
                     }
-                    Done
+                    append_text!(self.target(), text)
                 }
 
                 CommentToken(text) => append_comment!(self.target(), text),
@@ -1429,8 +1431,43 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-              InTableText
-            | InCaption
+            InTableText => match_token!(token {
+                NullCharacterToken => unexpected!(token),
+
+                CharacterTokens(split, text) => {
+                    self.pending_table_text.push((split, text));
+                    Done
+                }
+
+                token => {
+                    let pending = replace(&mut self.pending_table_text, vec!());
+                    let contains_nonspace = pending.iter().any(|&(split, ref text)| {
+                        match split {
+                            Whitespace => false,
+                            NotWhitespace => true,
+                            NotSplit => any_not_whitespace(text),
+                        }
+                    });
+
+                    if contains_nonspace {
+                        self.sink.parse_error("Non-space table text".to_string());
+                        for (split, text) in pending.move_iter() {
+                            match self.step(InBody, CharacterTokens(split, text)) {
+                                Done => (),
+                                _ => fail!("not prepared to handle this!"),
+                            }
+                        }
+                    } else {
+                        for (_, text) in pending.move_iter() {
+                            append_text!(self.target(), text);
+                        }
+                    }
+
+                    Reprocess(self.orig_mode.take_unwrap(), token)
+                }
+            }),
+
+              InCaption
             | InColumnGroup
             | InTableBody
             | InRow
