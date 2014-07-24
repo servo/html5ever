@@ -220,6 +220,7 @@ declare_tag_set!(table_scope = html table template)
 declare_tag_set!(select_scope = full_set - optgroup option)
 
 declare_tag_set!(table_body_context = tbody tfoot thead template html)
+declare_tag_set!(table_row_context = tr template html)
 
 declare_tag_set!(cursory_implied_end = dd dt li option optgroup p rp rt)
 
@@ -1584,8 +1585,60 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InTable, token),
             }),
 
-              InRow
-            | InCell
+            InRow => match_token!(token {
+                tag @ <th> <td> => {
+                    self.pop_until_current(table_row_context);
+                    self.insert_element_for(tag);
+                    self.mode = InCell;
+                    self.active_formatting.push(Marker);
+                    Done
+                }
+
+                </tr> => {
+                    if self.in_scope_named(table_scope, atom!(tr)) {
+                        self.pop_until_current(table_row_context);
+                        let node = self.pop();
+                        assert!(self.html_elem_named(node, atom!(tr)));
+                        self.mode = InTableBody;
+                    } else {
+                        unexpected!(token);
+                    }
+                    Done
+                }
+
+                <caption> <col> <colgroup> <tbody> <tfoot> <thead> <tr> </table> => {
+                    if self.in_scope_named(table_scope, atom!(tr)) {
+                        self.pop_until_current(table_row_context);
+                        let node = self.pop();
+                        assert!(self.html_elem_named(node, atom!(tr)));
+                        Reprocess(InTableBody, token)
+                    } else {
+                        unexpected!(token)
+                    }
+                }
+
+                tag @ </tbody> </tfoot> </thead> => {
+                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                        if self.in_scope_named(table_scope, atom!(tr)) {
+                            self.pop_until_current(table_row_context);
+                            let node = self.pop();
+                            assert!(self.html_elem_named(node, atom!(tr)));
+                            Reprocess(InTableBody, TagToken(tag))
+                        } else {
+                            Done
+                        }
+                    } else {
+                        unexpected!(tag)
+                    }
+                }
+
+                </body> </caption> </col> </colgroup> </html> </td> </th>
+                    => unexpected!(token),
+
+                token => self.step(InTable, token),
+            }),
+
+              InCell
             | InSelect
             | InSelectInTable
                 => fail!("FIXME: table mode {} not implemented", mode),
