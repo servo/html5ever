@@ -281,6 +281,21 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
+    // Debug helper
+    #[allow(dead_code)]
+    fn dump_state(&self, label: String) {
+        println!("dump_state on {}", label);
+        print!("    open_elems:");
+        for node in self.open_elems.iter() {
+            let (ns, name) = self.sink.elem_name(node.clone());
+            match ns {
+                HTML => print!(" {}", name),
+                _ => fail!(),
+            }
+        }
+        println!("");
+    }
+
     /// Iterate over the active formatting elements (with index in the list) from the end
     /// to the last marker, or the beginning if there are no markers.
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle> {
