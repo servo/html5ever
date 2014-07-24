@@ -242,7 +242,6 @@ declare_tag_set!(special_tag =
 fn unused_tag_sets() {
     // FIXME: Some tag sets are unused until we implement <template> or other stuff.
     // Suppress the warning here.
-    select_scope((HTML, atom!(p)));
     thorough_implied_end((HTML, atom!(p)));
 }
 
@@ -1698,9 +1697,106 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InBody, token),
             }),
 
-              InSelect
-            | InSelectInTable
-                => fail!("FIXME: table mode {} not implemented", mode),
+            InSelect => match_token!(token {
+                NullCharacterToken => unexpected!(token),
+                CharacterTokens(_, text) => append_text!(self.target(), text),
+                CommentToken(text) => append_comment!(self.target(), text),
+
+                <html> => self.step(InBody, token),
+
+                tag @ <option> => {
+                    if self.current_node_named(atom!(option)) {
+                        self.pop();
+                    }
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <optgroup> => {
+                    if self.current_node_named(atom!(option)) {
+                        self.pop();
+                    }
+                    if self.current_node_named(atom!(optgroup)) {
+                        self.pop();
+                    }
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                </optgroup> => {
+                    if self.open_elems.len() >= 2
+                        && self.current_node_named(atom!(option))
+                        && self.html_elem_named(self.open_elems.get(1).clone(),
+                            atom!(optgroup)) {
+                        self.pop();
+                    }
+                    if self.current_node_named(atom!(optgroup)) {
+                        self.pop();
+                    } else {
+                        unexpected!(token);
+                    }
+                    Done
+                }
+
+                </option> => {
+                    if self.current_node_named(atom!(option)) {
+                        self.pop();
+                    } else {
+                        unexpected!(token);
+                    }
+                    Done
+                }
+
+                tag @ <select> </select> => {
+                    let in_scope = self.in_scope_named(select_scope, atom!(select));
+
+                    if !in_scope || tag.kind == StartTag {
+                        unexpected!(tag);
+                    }
+
+                    if in_scope {
+                        self.pop_until_named(atom!(select));
+                        self.mode = self.reset_insertion_mode();
+                    }
+                    Done
+                }
+
+                <input> <keygen> <textarea> => {
+                    unexpected!(token);
+                    if self.in_scope_named(select_scope, atom!(select)) {
+                        self.pop_until_named(atom!(select));
+                        Reprocess(self.reset_insertion_mode(), token)
+                    } else {
+                        Done
+                    }
+                }
+
+                <script> <template> </template> => self.step(InHead, token),
+
+                EOFToken => self.step(InBody, token),
+
+                token => unexpected!(token),
+            }),
+
+            InSelectInTable => match_token!(token {
+                <caption> <table> <tbody> <tfoot> <thead> <tr> <td> <th> => {
+                    unexpected!(token);
+                    self.pop_until_named(atom!(select));
+                    Reprocess(self.reset_insertion_mode(), token)
+                }
+
+                tag @ </caption> </table> </tbody> </tfoot> </thead> </tr> </td> </th> => {
+                    unexpected!(tag);
+                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                        self.pop_until_named(atom!(select));
+                        Reprocess(self.reset_insertion_mode(), TagToken(tag))
+                    } else {
+                        Done
+                    }
+                }
+
+                token => self.step(InSelect, token),
+            }),
 
             InTemplate
                 => fail!("FIXME: <template> not implemented"),
