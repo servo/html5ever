@@ -214,6 +214,8 @@ declare_tag_set!(button_scope = default_scope + button)
 declare_tag_set!(table_scope = empty_set + html table template)
 declare_tag_set!(select_scope = full_set - optgroup option)
 
+declare_tag_set!(table_body_context = empty_set + tbody tfoot thead template html)
+
 declare_tag_set!(cursory_implied_end = empty_set
     + dd dt li option optgroup p rp rt)
 
@@ -1535,8 +1537,50 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
-              InTableBody
-            | InRow
+            InTableBody => match_token!(token {
+                tag @ <tr> => {
+                    self.pop_until_current(table_body_context);
+                    self.insert_element_for(tag);
+                    self.mode = InRow;
+                    Done
+                }
+
+                <th> <td> => {
+                    unexpected!(token);
+                    self.pop_until_current(table_body_context);
+                    self.insert_phantom(atom!(tbody));
+                    Reprocess(InRow, token)
+                }
+
+                tag @ </tbody> </tfoot> </thead> => {
+                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                        self.pop_until_current(table_body_context);
+                        self.pop();
+                        self.mode = InTable;
+                    } else {
+                        unexpected!(tag);
+                    }
+                    Done
+                }
+
+                <caption> <col> <colgroup> <tbody> <tfoot> <thead> </table> => {
+                    declare_tag_set!(table_outer = empty_set + table tbody tfoot)
+                    if self.in_scope(table_scope, |e| self.elem_in(e, table_outer)) {
+                        self.pop_until_current(table_body_context);
+                        self.pop();
+                        Reprocess(InTable, token)
+                    } else {
+                        unexpected!(token)
+                    }
+                }
+
+                </body> </caption> </col> </colgroup> </html> </td> </th> </tr>
+                    => unexpected!(token),
+
+                token => self.step(InTable, token),
+            }),
+
+              InRow
             | InCell
             | InSelect
             | InSelectInTable
