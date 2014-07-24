@@ -514,6 +514,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
+        error!("foster parenting not implemented");
         self.foster_parenting = true;
         let res = self.step(InBody, token);
         // FIXME: what if res is Reprocess?
@@ -536,6 +537,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         // FIXME: this is wrong
+        error!("reset_insertion_mode not implemented");
         InBody
     }
 
