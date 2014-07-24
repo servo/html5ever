@@ -186,19 +186,25 @@ enum PushFlag {
     NoPush,
 }
 
-macro_rules! tag_op_to_bool (
-    (+) => (true);
-    (-) => (false);
-)
-
-macro_rules! declare_tag_set ( ($name:ident = $supr:ident $op:tt $($tag:ident)+) => (
+macro_rules! declare_tag_set_impl ( ($name:ident $b:expr $supr:ident $($tag:ident)+) => (
     fn $name(p: (Namespace, Atom)) -> bool {
         match p {
-            $( (HTML, atom!($tag)) => tag_op_to_bool!($op), )+
+            $( (HTML, atom!($tag)) => $b, )+
             p => $supr(p),
         }
     }
 ))
+
+macro_rules! declare_tag_set (
+    ($name:ident = $supr:ident - $($tag:ident)+)
+        => ( declare_tag_set_impl!($name false $supr $($tag)+) );
+
+    ($name:ident = $supr:ident + $($tag:ident)+)
+        => ( declare_tag_set_impl!($name true $supr $($tag)+) );
+
+    ($name:ident = $($tag:ident)+)
+        => ( declare_tag_set_impl!($name true empty_set $($tag)+) );
+)
 
 type TagSet<'a> = |(Namespace, Atom)|: 'a -> bool;
 
@@ -206,25 +212,23 @@ type TagSet<'a> = |(Namespace, Atom)|: 'a -> bool;
 #[inline(always)] fn full_set(_: (Namespace, Atom)) -> bool { true }
 
 // FIXME: MathML, SVG
-declare_tag_set!(default_scope = empty_set
-    + applet caption html table td th marquee object template)
+declare_tag_set!(default_scope = applet caption html table td th marquee object template)
 
 declare_tag_set!(list_item_scope = default_scope + ol ul)
 declare_tag_set!(button_scope = default_scope + button)
-declare_tag_set!(table_scope = empty_set + html table template)
+declare_tag_set!(table_scope = html table template)
 declare_tag_set!(select_scope = full_set - optgroup option)
 
-declare_tag_set!(table_body_context = empty_set + tbody tfoot thead template html)
+declare_tag_set!(table_body_context = tbody tfoot thead template html)
 
-declare_tag_set!(cursory_implied_end = empty_set
-    + dd dt li option optgroup p rp rt)
+declare_tag_set!(cursory_implied_end = dd dt li option optgroup p rp rt)
 
 declare_tag_set!(thorough_implied_end = cursory_implied_end
     + caption colgroup tbody td tfoot th thead tr)
 
-declare_tag_set!(heading_tag = empty_set + h1 h2 h3 h4 h5 h6)
+declare_tag_set!(heading_tag = h1 h2 h3 h4 h5 h6)
 
-declare_tag_set!(special_tag = empty_set +
+declare_tag_set!(special_tag =
     address applet area article aside base basefont bgsound blockquote body br button caption
     center col colgroup dd details dir div dl dt embed fieldset figcaption figure footer form
     frame frameset h1 h2 h3 h4 h5 h6 head header hgroup hr html iframe img input isindex li
@@ -372,9 +376,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     /// Signal an error depending on the state of the stack of open elements at
     /// the end of the body.
     fn check_body_end(&mut self) {
-        declare_tag_set!(body_end_ok = empty_set
-            + dd dt li optgroup option p rp rt tbody td tfoot th
-              thead tr body html)
+        declare_tag_set!(body_end_ok =
+            dd dt li optgroup option p rp rt tbody td tfoot th
+            thead tr body html)
 
         for elem in self.open_elems.iter() {
             let name = self.sink.elem_name(elem.clone());
@@ -502,7 +506,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn process_chars_in_table(&mut self, token: Token) -> ProcessResult {
-        declare_tag_set!(table_outer = empty_set + table tbody tfoot thead tr)
+        declare_tag_set!(table_outer = table tbody tfoot thead tr)
         if self.current_node_in(table_outer) {
             assert!(self.pending_table_text.is_empty());
             self.orig_mode = Some(self.mode);
@@ -948,8 +952,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
 
                 tag @ <li> <dd> <dt> => {
-                    declare_tag_set!(close_list = empty_set + li)
-                    declare_tag_set!(close_defn = empty_set + dd dt)
+                    declare_tag_set!(close_list = li)
+                    declare_tag_set!(close_defn = dd dt)
                     declare_tag_set!(extra_special = special_tag - address div p)
                     let can_close = match tag.name {
                         atom!(li) => close_list,
@@ -1564,7 +1568,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
 
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> </table> => {
-                    declare_tag_set!(table_outer = empty_set + table tbody tfoot)
+                    declare_tag_set!(table_outer = table tbody tfoot)
                     if self.in_scope(table_scope, |e| self.elem_in(e, table_outer)) {
                         self.pop_until_current(table_body_context);
                         self.pop();
