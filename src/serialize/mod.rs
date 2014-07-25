@@ -14,6 +14,7 @@ use util::atom::Atom;
 use std::io::{Writer, IoResult};
 use std::default::Default;
 
+//§ serializing-html-fragments
 pub trait Serializable {
     fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>, incl_self: bool) -> IoResult<()>;
 }

@@ -15,6 +15,7 @@ use std::string::String;
 
 mod data;
 
+//§ tokenizing-character-references
 pub struct CharRef {
     /// The resulting character(s)
     pub chars: [char, ..2],

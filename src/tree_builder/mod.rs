@@ -150,11 +150,13 @@ pub struct TreeBuilder<'sink, Handle, Sink> {
     /// List of active formatting elements.
     active_formatting: Vec<FormatEntry<Handle>>,
 
+    //§ the-element-pointers
     /// Head element pointer.
     head_elem: Option<Handle>,
 
     /// Form element pointer.
     form_elem: Option<Handle>,
+    //§ END
 
     /// Next state change for the tokenizer, if any.
     next_tokenizer_state: Option<tokenizer::states::State>,
@@ -186,6 +188,7 @@ enum PushFlag {
     NoPush,
 }
 
+//§ the-stack-of-open-elements
 macro_rules! declare_tag_set_impl ( ($name:ident $b:expr $supr:ident $($tag:ident)+) => (
     fn $name(p: (Namespace, Atom)) -> bool {
         match p {
@@ -244,6 +247,7 @@ fn unused_tag_sets() {
     // Suppress the warning here.
     thorough_implied_end((HTML, atom!(p)));
 }
+//§ END
 
 macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
     // two steps to avoid double borrow
@@ -313,6 +317,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         Done
     }
 
+    //§ parsing-elements-that-contain-only-text
     // Switch to `Text` insertion mode, save the old mode, and
     // switch the tokenizer to a raw-data state.
     // The latter only takes effect after the current / next
@@ -329,6 +334,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         self.insert_element_for(tag);
         self.to_raw_text_mode(k);
     }
+    //§ END
 
     fn current_node(&self) -> Handle {
         self.open_elems.last().expect("no current element").clone()
@@ -440,6 +446,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             self.html_elem_named(elem, name.clone()))
     }
 
+    //§ closing-elements-that-have-implied-end-tags
     fn generate_implied_end(&mut self, set: TagSet) {
         loop {
             let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
@@ -455,6 +462,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             _ => cursory_implied_end(p),
         });
     }
+    //§ END
 
     // Pop elements until the current element is in the set.
     fn pop_until_current(&mut self, pred: TagSet) {
@@ -548,6 +556,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         }
     }
 
+    //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = self.sink.create_element(HTML, atom!(html), attrs);
         self.push(&elem);
@@ -579,6 +588,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     fn insert_phantom(&mut self, name: Atom) -> Handle {
         self.insert_element(Push, name, vec!())
     }
+    //§ END
 
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
         // FIXME: This really wants unit tests.
@@ -668,6 +678,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
         debug!("processing {} in insertion mode {:?}", to_escaped_string(&token), mode);
 
         match mode {
+            //§ the-initial-insertion-mode
             Initial => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
@@ -681,6 +692,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ the-before-html-insertion-mode
             BeforeHtml => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
@@ -702,6 +714,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ the-before-head-insertion-mode
             BeforeHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
@@ -725,6 +738,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-inhead
             InHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
@@ -785,6 +799,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-inheadnoscript
             InHeadNoscript => match_token!(token {
                 <html> => self.step(InBody, token),
 
@@ -814,6 +829,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 },
             }),
 
+            //§ the-after-head-insertion-mode
             AfterHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
@@ -857,6 +873,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-inbody
             InBody => match_token!(token {
                 NullCharacterToken => unexpected!(token),
 
@@ -1342,6 +1359,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("impossible case in InBody mode"),
             }),
 
+            //§ parsing-main-incdata
             Text => match_token!(token {
                 CharacterTokens(_, text) => append_text!(self.target(), text),
 
@@ -1370,6 +1388,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 _ => fail!("impossible case in Text mode"),
             }),
 
+            //§ parsing-main-intable
             InTable => match_token!(token {
                 // FIXME: hack, should implement pat | pat for match_token!() instead
                 NullCharacterToken => self.process_chars_in_table(token),
@@ -1466,6 +1485,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-intabletext
             InTableText => match_token!(token {
                 NullCharacterToken => unexpected!(token),
 
@@ -1502,6 +1522,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-incaption
             InCaption => match_token!(token {
                 tag @ <caption> <col> <colgroup> <tbody> <td> <tfoot>
                   <th> <thead> <tr> </table> </caption> => {
@@ -1528,6 +1549,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InBody, token),
             }),
 
+            //§ parsing-main-incolgroup
             InColumnGroup => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
@@ -1566,6 +1588,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-intbody
             InTableBody => match_token!(token {
                 tag @ <tr> => {
                     self.pop_until_current(table_body_context);
@@ -1609,6 +1632,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InTable, token),
             }),
 
+            //§ parsing-main-intr
             InRow => match_token!(token {
                 tag @ <th> <td> => {
                     self.pop_until_current(table_row_context);
@@ -1662,6 +1686,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InTable, token),
             }),
 
+            //§ parsing-main-intd
             InCell => match_token!(token {
                 tag @ </td> </th> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
@@ -1699,6 +1724,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InBody, token),
             }),
 
+            //§ parsing-main-inselect
             InSelect => match_token!(token {
                 NullCharacterToken => unexpected!(token),
                 CharacterTokens(_, text) => append_text!(self.target(), text),
@@ -1780,6 +1806,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => unexpected!(token),
             }),
 
+            //§ parsing-main-inselectintable
             InSelectInTable => match_token!(token {
                 <caption> <table> <tbody> <tfoot> <thead> <tr> <td> <th> => {
                     unexpected!(token);
@@ -1800,9 +1827,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => self.step(InSelect, token),
             }),
 
+            //§ parsing-main-intemplate
             InTemplate
                 => fail!("FIXME: <template> not implemented"),
 
+            //§ parsing-main-afterbody
             AfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
@@ -1827,6 +1856,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ parsing-main-inframeset
             InFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
@@ -1868,6 +1898,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => unexpected!(token),
             }),
 
+            //§ parsing-main-afterframeset
             AfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
@@ -1887,6 +1918,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 token => unexpected!(token),
             }),
 
+            //§ the-after-after-body-insertion-mode
             AfterAfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
@@ -1902,6 +1934,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 }
             }),
 
+            //§ the-after-after-frameset-insertion-mode
             AfterAfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
@@ -1915,6 +1948,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                 token => unexpected!(token),
             }),
+            //§ END
         }
     }
 }
