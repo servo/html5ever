@@ -544,8 +544,36 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn reset_insertion_mode(&mut self) -> InsertionMode {
-        // FIXME: this is wrong
-        error!("reset_insertion_mode not implemented");
+        for (i, node) in self.open_elems.iter().enumerate().rev() {
+            let name = match self.sink.elem_name(node.clone()) {
+                (HTML, name) => name,
+                _ => continue,
+            };
+            let last = i == 0u;
+            // FIXME: fragment case context element
+            match name {
+                // FIXME: <select> sub-steps
+                atom!(select) => return InSelect,
+
+                atom!(td) | atom!(th) => if !last { return InCell; },
+                atom!(tr) => return InRow,
+                atom!(tbody) | atom!(thead) | atom!(tfoot) => return InTableBody,
+                atom!(caption) => return InCaption,
+                atom!(colgroup) => return InColumnGroup,
+                atom!(table) => return InTable,
+                atom!(head) => if !last { return InHead },
+                atom!(body) => return InBody,
+                atom!(frameset) => return InFrameset,
+                atom!(html) => match self.head_elem {
+                    None => return BeforeHead,
+                    Some(_) => return AfterHead,
+                },
+
+                atom!(template) => fail!("FIXME: <template> not implemented"),
+
+                _ => (),
+            }
+        }
         InBody
     }
 
