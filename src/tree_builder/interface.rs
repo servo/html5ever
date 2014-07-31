@@ -7,6 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The interface for consumers of the tree builder (and thus the
+//! parser overall).
+
 use util::atom::Atom;
 use util::namespace::Namespace;
 use tokenizer::Attribute;

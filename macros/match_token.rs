@@ -278,7 +278,7 @@ fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
         Some(name) => fields.push_all_move(quote_tokens!(&mut *cx, name: atom!($name),)),
     }
     quote_tokens!(&mut *cx,
-        ::tree_builder::TagToken($binding ::tokenizer::Tag { $fields ..})
+        ::tree_builder::types::TagToken($binding ::tokenizer::Tag { $fields ..})
     )
 }
 
