@@ -1600,7 +1600,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                 <th> <td> => {
                     unexpected!(token);
                     self.pop_until_current(table_body_context);
-                    self.insert_phantom(atom!(tbody));
+                    self.insert_phantom(atom!(tr));
                     Reprocess(InRow, token)
                 }
 
