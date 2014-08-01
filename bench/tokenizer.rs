@@ -123,7 +123,7 @@ pub fn tests() -> Vec<TestDescAndFn> {
 
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
-            for &file in ["webapps.html", "sina.com.cn.html", "wikipedia.html"].iter() {
+            for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
                 let name = "uncommitted/".to_string().append(file);
                 tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
