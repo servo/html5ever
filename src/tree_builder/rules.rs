@@ -887,7 +887,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if contains_nonspace {
                         self.sink.parse_error("Non-space table text".to_string());
                         for (split, text) in pending.move_iter() {
-                            match self.step(InBody, CharacterTokens(split, text)) {
+                            match self.foster_parent_in_body(CharacterTokens(split, text)) {
                                 Done => (),
                                 _ => fail!("not prepared to handle this!"),
                             }
