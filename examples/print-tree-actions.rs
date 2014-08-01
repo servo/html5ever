@@ -18,11 +18,19 @@ use std::collections::hashmap::HashMap;
 
 use html5ever::{Namespace, Atom, parse_to, one_input};
 use html5ever::tokenizer::Attribute;
-use html5ever::tree_builder::{TreeSink, QuirksMode};
+use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 
 struct Sink {
     next_id: uint,
     names: HashMap<uint, (Namespace, Atom)>,
+}
+
+impl Sink {
+    fn get_id(&mut self) -> uint {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
 }
 
 impl TreeSink<uint> for Sink {
@@ -47,23 +55,23 @@ impl TreeSink<uint> for Sink {
     }
 
     fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
-        let id = self.next_id;
-        self.next_id += 1;
+        let id = self.get_id();
         println!("Created {:?}:{:s} as {:u}", ns, name, id);
         self.names.insert(id, (ns, name));
         id
     }
 
-    fn append_text(&mut self, parent: uint, text: String) {
-        println!("Append text to {:u}: \"{:s}\"", parent, text.escape_default());
+    fn create_comment(&mut self, text: String) -> uint {
+        let id = self.get_id();
+        println!("Created comment \"{:s}\" as {:u}", text.escape_default(), id);
+        id
     }
 
-    fn append_comment(&mut self, parent: uint, text: String) {
-        println!("Append comment to {:u}: \"{:s}\"", parent, text.escape_default());
-    }
-
-    fn append_element(&mut self, parent: uint, child: uint) {
-        println!("Append element {:u} to {:u}", child, parent);
+    fn append(&mut self, parent: uint, child: NodeOrText<uint>) {
+        match child {
+            AppendNode(n) => println!("Append node {:u} to {:u}", n, parent),
+            AppendText(t) => println!("Append text to {:u}: \"{:s}\"", parent, t.escape_default()),
+        }
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {

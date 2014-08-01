@@ -10,6 +10,7 @@
 //! The HTML5 tree builder.
 
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use self::interface::{NodeOrText, AppendNode, AppendText};
 pub use self::interface::TreeSink;
 
 use self::types::*;

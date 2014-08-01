@@ -14,7 +14,7 @@
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::interface::{TreeSink, QuirksMode};
+use tree_builder::interface::{TreeSink, QuirksMode, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
 use tokenizer::{Attribute, Tag};
@@ -51,6 +51,10 @@ pub enum PushFlag {
 pub trait TreeBuilderActions<Handle> {
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
+    fn append_text(&mut self, text: String) -> ProcessResult;
+    fn append_comment(&mut self, text: String) -> ProcessResult;
+    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
+    fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
@@ -381,11 +385,38 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
         }
     }
 
+    fn append_text(&mut self, text: String) -> ProcessResult {
+        let target = self.target();
+        self.sink.append(target, AppendText(text));
+        Done
+    }
+
+    fn append_comment(&mut self, text: String) -> ProcessResult {
+        let target = self.target();
+        let comment = self.sink.create_comment(text);
+        self.sink.append(target, AppendNode(comment));
+        Done
+    }
+
+    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult {
+        let target = self.doc_handle.clone();
+        let comment = self.sink.create_comment(text);
+        self.sink.append(target, AppendNode(comment));
+        Done
+    }
+
+    fn append_comment_to_html(&mut self, text: String) -> ProcessResult {
+        let target = self.html_elem();
+        let comment = self.sink.create_comment(text);
+        self.sink.append(target, AppendNode(comment));
+        Done
+    }
+
     //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = self.sink.create_element(HTML, atom!(html), attrs);
         self.push(&elem);
-        self.sink.append_element(self.doc_handle.clone(), elem);
+        self.sink.append(self.doc_handle.clone(), AppendNode(elem));
         // FIXME: application cache selection algorithm
     }
 
@@ -397,7 +428,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             Push => self.push(&elem),
             NoPush => (),
         }
-        self.sink.append_element(target, elem.clone());
+        self.sink.append(target, AppendNode(elem.clone()));
         // FIXME: Remove from the stack if we can't append?
         elem
     }

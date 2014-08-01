@@ -18,11 +18,19 @@ use std::collections::hashmap::HashMap;
 
 use html5ever::{Namespace, Atom, parse_to, one_input};
 use html5ever::tokenizer::Attribute;
-use html5ever::tree_builder::{TreeSink, QuirksMode};
+use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 
 struct Sink {
     next_id: uint,
     names: HashMap<uint, (Namespace, Atom)>,
+}
+
+impl Sink {
+    fn get_id(&mut self) -> uint {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
 }
 
 impl TreeSink<uint> for Sink {
@@ -39,17 +47,18 @@ impl TreeSink<uint> for Sink {
     }
 
     fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
-        let id = self.next_id;
-        self.next_id += 1;
+        let id = self.get_id();
         self.names.insert(id, (ns, name));
         id
     }
 
+    fn create_comment(&mut self, _text: String) -> uint {
+        self.get_id()
+    }
+
     fn parse_error(&mut self, _msg: String) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
-    fn append_text(&mut self, _parent: uint, _text: String) { }
-    fn append_comment(&mut self, _parent: uint, _text: String) { }
-    fn append_element(&mut self, _parent: uint, _child: uint) { }
+    fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
     fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
     fn add_attrs_if_missing(&mut self, _target: uint, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: uint) { }

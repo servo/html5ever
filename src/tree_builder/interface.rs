@@ -22,6 +22,15 @@ pub enum QuirksMode {
     NoQuirks,
 }
 
+/// Something which can be inserted into the DOM.
+///
+/// Adjacent sibling text nodes are merged into a single node, so
+/// the sink may not want to allocate a `Handle` for each.
+pub enum NodeOrText<Handle> {
+    AppendNode(Handle),
+    AppendText(String),
+}
+
 /// Types which can process tree modifications from the tree builder.
 ///
 /// `Handle` is a reference to a DOM node.  The tree builder requires
@@ -49,17 +58,15 @@ pub trait TreeSink<Handle> {
     /// Create an element.
     fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
 
-    /// If the last child of the given element is a text node, append text
-    /// to it, otherwise create a new Text node there.
-    fn append_text(&mut self, parent: Handle, text: String);
+    /// Create a comment node.
+    fn create_comment(&mut self, text: String) -> Handle;
 
-    /// Append a comment as the last child of the given element.
-    fn append_comment(&mut self, parent: Handle, text: String);
-
-    /// Append an element as the last child of the given element.
+    /// Append a node as the last child of the given node.  If this would
+    /// produce adjacent sibling text nodes, it should concatenate the text
+    /// instead.
     ///
-    /// The child element will not already have a parent.
-    fn append_element(&mut self, parent: Handle, child: Handle);
+    /// The child node will not already have a parent.
+    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>);
 
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);

@@ -12,7 +12,7 @@
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::TreeBuilderActions;
-use tree_builder::interface::{TreeSink, Quirks};
+use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
@@ -27,16 +27,6 @@ fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan
     x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
 }
-
-macro_rules! append_with ( ( $fun:ident, $target:expr, $($args:expr),* ) => ({
-    // two steps to avoid double borrow
-    let target = $target;
-    self.sink.$fun(target, $($args),*);
-    Done
-}))
-
-macro_rules! append_text    ( ($target:expr, $text:expr) => ( append_with!(append_text,    $target, $text) ))
-macro_rules! append_comment ( ($target:expr, $text:expr) => ( append_with!(append_comment, $target, $text) ))
 
 // This goes in a trait so that we can control visibility.
 pub trait TreeBuilderStep<Handle> {
@@ -62,7 +52,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             Initial => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+                CommentToken(text) => self.append_comment_to_doc(text),
                 token => {
                     if !self.opts.iframe_srcdoc {
                         unexpected!(token);
@@ -76,7 +66,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             BeforeHtml => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+                CommentToken(text) => self.append_comment_to_doc(text),
 
                 tag @ <html> => {
                     self.create_root(tag.attrs);
@@ -98,7 +88,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             BeforeHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => append_comment!(self.target(), text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -121,8 +111,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ parsing-main-inhead
             InHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
+                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -154,7 +144,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.sink.mark_script_already_started(elem.clone());
                     }
                     self.push(&elem);
-                    self.sink.append_element(target, elem);
+                    self.sink.append(target, AppendNode(elem));
                     self.to_raw_text_mode(ScriptData);
                     Done
                 }
@@ -212,8 +202,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ the-after-head-insertion-mode
             AfterHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
+                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -262,10 +252,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if any_not_whitespace(&text) {
                         self.frameset_ok = false;
                     }
-                    append_text!(self.target(), text)
+                    self.append_text(text)
                 }
 
-                CommentToken(text) => append_comment!(self.target(), text),
+                CommentToken(text) => self.append_comment(text),
 
                 tag @ <html> => {
                     unexpected!(tag);
@@ -741,7 +731,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
             //§ parsing-main-incdata
             Text => match_token!(token {
-                CharacterTokens(_, text) => append_text!(self.target(), text),
+                CharacterTokens(_, text) => self.append_text(text),
 
                 EOFToken => {
                     unexpected!(token);
@@ -775,7 +765,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 CharacterTokens(..) => self.process_chars_in_table(token),
 
-                CommentToken(text) => append_comment!(self.target(), text),
+                CommentToken(text) => self.append_comment(text),
 
                 tag @ <caption> => {
                     self.pop_until_current(table_scope);
@@ -894,7 +884,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         }
                     } else {
                         for (_, text) in pending.move_iter() {
-                            append_text!(self.target(), text);
+                            self.append_text(text);
                         }
                     }
 
@@ -932,8 +922,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ parsing-main-incolgroup
             InColumnGroup => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.html_elem(), text),
+                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment_to_html(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1107,8 +1097,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ parsing-main-inselect
             InSelect => match_token!(token {
                 NullCharacterToken => unexpected!(token),
-                CharacterTokens(_, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
+                CharacterTokens(_, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1215,7 +1205,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             AfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => append_comment!(self.html_elem(), text),
+                CommentToken(text) => self.append_comment_to_html(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1239,8 +1229,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ parsing-main-inframeset
             InFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
+                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1281,8 +1271,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             //§ parsing-main-afterframeset
             AfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => append_text!(self.target(), text),
-                CommentToken(text) => append_comment!(self.target(), text),
+                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1302,7 +1292,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             AfterAfterBody => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+                CommentToken(text) => self.append_comment_to_doc(text),
 
                 <html> => self.step(InBody, token),
 
@@ -1318,7 +1308,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             AfterAfterFrameset => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => append_comment!(self.doc_handle.clone(), text),
+                CommentToken(text) => self.append_comment_to_doc(text),
 
                 <html> => self.step(InBody, token),
 

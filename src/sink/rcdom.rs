@@ -15,7 +15,8 @@
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use tokenizer::Attribute;
-use tree_builder::{TreeSink, QuirksMode, NoQuirks};
+use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use tree_builder;
 use serialize::{Serializable, Serializer};
 use driver::ParseResult;
 
@@ -136,29 +137,30 @@ impl TreeSink<Handle> for RcDom {
         new_node(Element(name, attrs))
     }
 
-    fn append_text(&mut self, parent: Handle, text: String) {
+    fn create_comment(&mut self, text: String) -> Handle {
+        new_node(Comment(text))
+    }
+
+    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
-        match parent.borrow().children.last() {
-            Some(h) => match h.borrow_mut().deref_mut().node {
-                Text(ref mut existing) => {
-                    existing.push_str(text.as_slice());
-                    return;
+        match child {
+            AppendText(ref text) => match parent.borrow().children.last() {
+                Some(h) => match h.borrow_mut().deref_mut().node {
+                    Text(ref mut existing) => {
+                        existing.push_str(text.as_slice());
+                        return;
+                    },
+                    _ => (),
                 },
                 _ => (),
             },
             _ => (),
         }
 
-        // Otherwise, append a Text node.
-        append(&parent, new_node(Text(text)));
-    }
-
-    fn append_comment(&mut self, parent: Handle, text: String) {
-        append(&parent, new_node(Comment(text)));
-    }
-
-    fn append_element(&mut self, parent: Handle, child: Handle) {
-        append(&parent, child);
+        append(&parent, match child {
+            AppendText(text) => new_node(Text(text)),
+            AppendNode(node) => node
+        });
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
@@ -204,7 +206,7 @@ impl Default for RcDom {
         RcDom {
             document: new_node(Document),
             errors: vec!(),
-            quirks_mode: NoQuirks,
+            quirks_mode: tree_builder::NoQuirks,
         }
     }
 }
