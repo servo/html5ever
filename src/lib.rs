@@ -34,9 +34,12 @@ pub use driver::{one_input, ParseOpts, parse_to, parse};
 pub use serialize::serialize;
 
 mod util {
+    #![macro_escape]
+
     pub mod str;
     pub mod atom;
     pub mod namespace;
+    pub mod bitset;
 }
 
 pub mod tokenizer;

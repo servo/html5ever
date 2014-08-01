@@ -22,10 +22,11 @@ use self::states::{DoctypeIdKind, Public, System};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
 
-use self::buffer_queue::{BufferQueue, DataRunOrChar, DataRun, OneChar};
+use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::atom::Atom;
+use util::bitset::Bitset64;
 
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
@@ -249,20 +250,23 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    // In a data state, get a run of characters to process as data, or a single
-    // character.
-    fn get_data(&mut self) -> Option<DataRunOrChar> {
+    fn pop_except_from(&mut self, set: Bitset64) -> Option<SetResult> {
+        // Bail to the slow path for various corner cases.
+        // This means that `FromSet` can contain characters not in the set!
+        // It shouldn't matter because the fallback `FromSet` case should
+        // always do the same thing as the `NotFromSet` case.
         if self.opts.exact_errors || self.reconsume || self.ignore_lf {
-            return self.get_char().map(|x| OneChar(x));
+            return self.get_char().map(|x| FromSet(x));
         }
 
-        let d = self.input_buffers.pop_data();
-        debug!("got data {}", d);
+        let d = self.input_buffers.pop_except_from(set);
+        debug!("got characters {}", d);
         match d {
-            Some(OneChar(c)) => self.get_preprocessed_char(c).map(|x| OneChar(x)),
+            Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
 
-            // NB: We don't set self.current_char for a DataRun.  It shouldn't matter
-            // for the codepaths that use this.
+            // NB: We don't set self.current_char for a run of characters not
+            // in the set.  It shouldn't matter for the codepaths that use
+            // this.
             _ => d
         }
     }
@@ -581,8 +585,8 @@ macro_rules! get_char ( () => (
     unwrap_or_return!(self.get_char(), false)
 ))
 
-macro_rules! get_data ( () => (
-    unwrap_or_return!(self.get_data(), false)
+macro_rules! pop_except_from ( ($set:expr) => (
+    unwrap_or_return!(self.pop_except_from($set), false)
 ))
 
 // NB: if you use this after get_char!() then the first char is still
@@ -620,32 +624,77 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         debug!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
-            states::Data => loop { match get_data!() {
-                DataRun(b)    => self.emit_chars(b),
-                OneChar('&')  => go!(consume_char_ref),
-                OneChar('<')  => go!(to TagOpen),
-                OneChar('\0') => go!(error; emit '\0'),
-                OneChar(c)    => go!(emit c),
-            }},
+            states::Data => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '&', '<')) {
+                    FromSet('\0') => go!(error; emit '\0'),
+                    FromSet('&')  => go!(consume_char_ref),
+                    FromSet('<')  => go!(to TagOpen),
+                    FromSet(c)    => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
 
-            //§ rcdata-state rawtext-state script-data-state script-data-escaped-state script-data-double-escaped-state
-            // RCDATA, RAWTEXT, script, or script escaped
-            states::RawData(kind) => loop { match (get_data!(), kind) {
-                (DataRun(b), _) => self.emit_chars(b),
-                (OneChar('&'), Rcdata) => go!(consume_char_ref),
-                (OneChar('-'), ScriptDataEscaped(esc_kind)) => go!(emit '-'; to ScriptDataEscapedDash esc_kind),
-                (OneChar('<'), ScriptDataEscaped(DoubleEscaped)) => go!(emit '<'; to RawLessThanSign kind),
-                (OneChar('<'), _) => go!(to RawLessThanSign kind),
-                (OneChar('\0'), _) => go!(error; emit '\ufffd'),
-                (OneChar(c), _) => go!(emit c),
-            }},
+            //§ rcdata-state
+            states::RawData(Rcdata) => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '&', '<')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet('&') => go!(consume_char_ref),
+                    FromSet('<') => go!(to RawLessThanSign Rcdata),
+                    FromSet(c) => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
+
+            //§ rawtext-state
+            states::RawData(Rawtext) => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '<')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet('<') => go!(to RawLessThanSign Rawtext),
+                    FromSet(c) => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
+
+            //§ script-data-state
+            states::RawData(ScriptData) => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '<')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet('<') => go!(to RawLessThanSign ScriptData),
+                    FromSet(c) => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
+
+            //§ script-data-escaped-state
+            states::RawData(ScriptDataEscaped(Escaped)) => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '-', '<')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet('-') => go!(emit '-'; to ScriptDataEscapedDash Escaped),
+                    FromSet('<') => go!(to RawLessThanSign ScriptDataEscaped Escaped),
+                    FromSet(c) => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
+
+            //§ script-data-double-escaped-state
+            states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
+                match pop_except_from!(bitset64!('\r', '\0', '-', '<')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet('-') => go!(emit '-'; to ScriptDataEscapedDash DoubleEscaped),
+                    FromSet('<') => go!(emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
+                    FromSet(c) => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
 
             //§ plaintext-state
-            states::Plaintext => loop { match get_data!() {
-                DataRun(b)    => self.emit_chars(b),
-                OneChar('\0') => go!(error; emit '\ufffd'),
-                OneChar(c)    => go!(emit c),
-            }},
+            states::Plaintext => loop {
+                match pop_except_from!(bitset64!('\r', '\0')) {
+                    FromSet('\0') => go!(error; emit '\ufffd'),
+                    FromSet(c)    => go!(emit c),
+                    NotFromSet(b) => self.emit_chars(b),
+                }
+            },
 
             //§ tag-open-state
             states::TagOpen => loop { match get_char!() {
