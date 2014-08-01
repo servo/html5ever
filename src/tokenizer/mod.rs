@@ -49,6 +49,14 @@ fn option_push_char(opt_str: &mut Option<String>, c: char) {
     }
 }
 
+fn append_strings(lhs: &mut String, rhs: String) {
+    if lhs.is_empty() {
+        *lhs = rhs;
+    } else {
+        lhs.push_str(rhs.as_slice());
+    }
+}
+
 /// Tokenizer options, with an impl for `Default`.
 #[deriving(Clone)]
 pub struct TokenizerOpts {
@@ -508,6 +516,7 @@ macro_rules! shorthand (
     ( create_attr $c:expr             ) => ( self.create_attribute($c);                            );
     ( push_name $c:expr               ) => ( self.current_attr_name.push_char($c);                 );
     ( push_value $c:expr              ) => ( self.current_attr_value.push_char($c);                );
+    ( append_value $c:expr            ) => ( append_strings(&mut self.current_attr_value, $c);     );
     ( push_comment $c:expr            ) => ( self.current_comment.push_char($c);                   );
     ( append_comment $c:expr          ) => ( self.current_comment.push_str($c);                    );
     ( emit_comment                    ) => ( self.emit_current_comment();                          );
@@ -911,34 +920,43 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             //§ attribute-value-(double-quoted)-state
-            states::AttributeValue(DoubleQuoted) => loop { match get_char!() {
-                '"'  => go!(to AfterAttributeValueQuoted),
-                '&'  => go!(consume_char_ref '"'),
-                '\0' => go!(error; push_value '\ufffd'),
-                c    => go!(push_value c),
-            }},
+            states::AttributeValue(DoubleQuoted) => loop {
+                match pop_except_from!(bitset64!('\r', '"', '&', '\0')) {
+                    FromSet('"')  => go!(to AfterAttributeValueQuoted),
+                    FromSet('&')  => go!(consume_char_ref '"'),
+                    FromSet('\0') => go!(error; push_value '\ufffd'),
+                    FromSet(c)    => go!(push_value c),
+                    NotFromSet(b) => go!(append_value b),
+                }
+            },
 
             //§ attribute-value-(single-quoted)-state
-            states::AttributeValue(SingleQuoted) => loop { match get_char!() {
-                '\'' => go!(to AfterAttributeValueQuoted),
-                '&'  => go!(consume_char_ref '\''),
-                '\0' => go!(error; push_value '\ufffd'),
-                c    => go!(push_value c),
-            }},
+            states::AttributeValue(SingleQuoted) => loop {
+                match pop_except_from!(bitset64!('\r', '\'', '&', '\0')) {
+                    FromSet('\'') => go!(to AfterAttributeValueQuoted),
+                    FromSet('&')  => go!(consume_char_ref '\''),
+                    FromSet('\0') => go!(error; push_value '\ufffd'),
+                    FromSet(c)    => go!(push_value c),
+                    NotFromSet(b) => go!(append_value b),
+                }
+            },
 
             //§ attribute-value-(unquoted)-state
-            states::AttributeValue(Unquoted) => loop { match get_char!() {
-                '\t' | '\n' | '\x0C' | ' '
+            states::AttributeValue(Unquoted) => loop {
+                match pop_except_from!(bitset64!('\r', '\t', '\n', '\x0C', ' ', '&', '>', '\0')) {
+                    FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ')
                      => go!(to BeforeAttributeName),
-                '&'  => go!(consume_char_ref '>'),
-                '>'  => go!(emit_tag Data),
-                '\0' => go!(error; push_value '\ufffd'),
-                c    => {
-                    go_match!(c,
-                        '"' | '\'' | '<' | '=' | '`' => error);
-                    go!(push_value c);
+                    FromSet('&')  => go!(consume_char_ref '>'),
+                    FromSet('>')  => go!(emit_tag Data),
+                    FromSet('\0') => go!(error; push_value '\ufffd'),
+                    FromSet(c) => {
+                        go_match!(c,
+                            '"' | '\'' | '<' | '=' | '`' => error);
+                        go!(push_value c);
+                    }
+                    NotFromSet(b) => go!(append_value b),
                 }
-            }},
+            },
 
             //§ after-attribute-value-(quoted)-state
             states::AfterAttributeValueQuoted => loop { match get_char!() {
@@ -1288,7 +1306,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
-    use super::{option_push_char}; // private items
+    use super::{option_push_char, append_strings}; // private items
 
     #[test]
     fn push_to_None_gives_singleton() {
@@ -1309,5 +1327,25 @@ mod test {
         let mut s: Option<String> = Some("y".to_string());
         option_push_char(&mut s, 'x');
         assert_eq!(s, Some("yx".to_string()));
+    }
+
+    #[test]
+    fn append_appends() {
+        let mut s = "foo".to_string();
+        append_strings(&mut s, "bar".to_string());
+        assert_eq!(s, "foobar".to_string());
+    }
+
+    #[test]
+    fn append_to_empty_does_not_copy() {
+        let mut lhs: String = "".to_string();
+        let rhs: Vec<u8> = Vec::from_slice(b"foo");
+        let ptr_old = rhs.get(0) as *const u8;
+
+        append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
+        assert_eq!(lhs, "foo".to_string());
+
+        let ptr_new = lhs.into_bytes().get(0) as *const u8;
+        assert_eq!(ptr_old, ptr_new);
     }
 }
