@@ -158,7 +158,7 @@ pub struct Tokenizer<'sink, Sink> {
     current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    last_start_tag_name: Option<String>,
+    last_start_tag_name: Option<Atom>,
 
     /// The "temporary buffer" mentioned in the spec.
     temp_buf: String,
@@ -170,7 +170,7 @@ pub struct Tokenizer<'sink, Sink> {
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
-        let start_tag_name = opts.last_start_tag_name.take();
+        let start_tag_name = opts.last_start_tag_name.take().map(|s| Atom::from_buf(s));
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
@@ -354,9 +354,11 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
+        let name = Atom::take_from_buf(&mut self.current_tag_name);
+
         match self.current_tag_kind {
             StartTag => {
-                self.last_start_tag_name = Some(self.current_tag_name.clone());
+                self.last_start_tag_name = Some(name.clone());
             }
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
@@ -370,7 +372,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         self.sink.process_token(TagToken(Tag {
             kind: self.current_tag_kind,
-            name: Atom::take_from_buf(&mut self.current_tag_name),
+            name: name,
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         }));
