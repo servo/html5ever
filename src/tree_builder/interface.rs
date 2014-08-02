@@ -68,6 +68,19 @@ pub trait TreeSink<Handle> {
     /// The child node will not already have a parent.
     fn append(&mut self, parent: Handle, child: NodeOrText<Handle>);
 
+    /// Append a node as the sibling immediately before the given node.  If that node
+    /// has no parent, do nothing and return Err(new_node).
+    ///
+    /// The tree builder promises that `sibling` is not a text node.  However its
+    /// old previous sibling, which would become the new node's previous sibling,
+    /// could be a text node.  If the new node is also a text node, the two should
+    /// be merged, as in the behavior of `append`.
+    ///
+    /// NB: `new_node` may have an old parent, from which it should be removed.
+    fn append_before_sibling(&mut self,
+        sibling: Handle,
+        new_node: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>>;
+
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);
 

@@ -56,9 +56,18 @@ impl TreeSink<uint> for Sink {
         self.get_id()
     }
 
+    fn append_before_sibling(&mut self,
+            _sibling: uint,
+            _new_node: NodeOrText<uint>) -> Result<(), NodeOrText<uint>> {
+        // `sibling` will have a parent unless a script moved it, and we're
+        // not running scripts.  Therefore we can aways return `Ok(())`.
+        Ok(())
+    }
+
     fn parse_error(&mut self, _msg: String) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
+
     fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
     fn add_attrs_if_missing(&mut self, _target: uint, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: uint) { }

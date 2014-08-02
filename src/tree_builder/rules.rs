@@ -138,13 +138,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <script> => {
-                    let target = self.target();
                     let elem = self.sink.create_element(HTML, atom!(script), tag.attrs);
                     if self.opts.fragment {
                         self.sink.mark_script_already_started(elem.clone());
                     }
-                    self.push(&elem);
-                    self.sink.append(target, AppendNode(elem));
+                    self.insert_appropriately(AppendNode(elem.clone()));
+                    self.open_elems.push(elem);
                     self.to_raw_text_mode(ScriptData);
                     Done
                 }

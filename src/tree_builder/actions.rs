@@ -14,7 +14,7 @@
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::interface::{TreeSink, QuirksMode, AppendNode, AppendText};
+use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
 use tokenizer::{Attribute, Tag};
@@ -55,6 +55,7 @@ pub trait TreeBuilderActions<Handle> {
     fn append_comment(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
@@ -86,7 +87,6 @@ pub trait TreeBuilderActions<Handle> {
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
     fn adoption_agency(&mut self, subject: Atom);
-    fn target(&self) -> Handle;
     fn current_node_in(&self, set: TagSet) -> bool;
     fn current_node(&self) -> Handle;
     fn parse_raw_data(&mut self, tag: Tag, k: RawKind);
@@ -145,10 +145,42 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
         set(self.sink.elem_name(self.current_node()))
     }
 
-    // The "appropriate place for inserting a node".
-    fn target(&self) -> Handle {
-        // FIXME: foster parenting, templates, other nonsense
-        self.current_node()
+    // Insert at the "appropriate place for inserting a node".
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
+        declare_tag_set!(foster_target = table tbody tfoot thead tr)
+        let target = self.current_node();
+        if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
+            // No foster parenting (the common case).
+            return self.sink.append(target, child);
+        }
+
+        // Foster parenting
+        // FIXME: <template>
+        let last_table = self.open_elems.iter()
+            .enumerate()
+            .rev()
+            .filter(|&(_, e)| self.html_elem_named(e.clone(), atom!(table)))
+            .next();
+
+        match last_table {
+            None => {
+                let html_elem = self.html_elem();
+                self.sink.append(html_elem, child);
+            }
+            Some((idx, last_table)) => {
+                // Try inserting "inside last table's parent node, immediately before last table"
+                match self.sink.append_before_sibling(last_table.clone(), child) {
+                    Ok(()) => (),
+
+                    // If last_table has no parent, we regain ownership of the child.
+                    // Insert "inside previous element, after its last child (if any)"
+                    Err(child) => {
+                        let previous_element = self.open_elems.get(idx-1).clone();
+                        self.sink.append(previous_element, child);
+                    }
+                }
+            }
+        }
     }
 
     fn adoption_agency(&mut self, subject: Atom) {
@@ -386,15 +418,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn append_text(&mut self, text: String) -> ProcessResult {
-        let target = self.target();
-        self.sink.append(target, AppendText(text));
+        self.insert_appropriately(AppendText(text));
         Done
     }
 
     fn append_comment(&mut self, text: String) -> ProcessResult {
-        let target = self.target();
         let comment = self.sink.create_comment(text);
-        self.sink.append(target, AppendNode(comment));
+        self.insert_appropriately(AppendNode(comment));
         Done
     }
 
@@ -422,13 +452,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
     fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
             -> Handle {
-        let target = self.target();
         let elem = self.sink.create_element(HTML, name, attrs);
+        self.insert_appropriately(AppendNode(elem.clone()));
         match push {
             Push => self.push(&elem),
             NoPush => (),
         }
-        self.sink.append(target, AppendNode(elem.clone()));
         // FIXME: Remove from the stack if we can't append?
         elem
     }

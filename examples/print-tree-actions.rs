@@ -69,9 +69,26 @@ impl TreeSink<uint> for Sink {
 
     fn append(&mut self, parent: uint, child: NodeOrText<uint>) {
         match child {
-            AppendNode(n) => println!("Append node {:u} to {:u}", n, parent),
-            AppendText(t) => println!("Append text to {:u}: \"{:s}\"", parent, t.escape_default()),
+            AppendNode(n)
+                => println!("Append node {:u} to {:u}", n, parent),
+            AppendText(t)
+                => println!("Append text to {:u}: \"{:s}\"", parent, t.escape_default()),
         }
+    }
+
+    fn append_before_sibling(&mut self,
+            sibling: uint,
+            new_node: NodeOrText<uint>) -> Result<(), NodeOrText<uint>> {
+        match new_node {
+            AppendNode(n)
+                => println!("Append node {:u} before {:u}", n, sibling),
+            AppendText(t)
+                => println!("Append text before {:u}: \"{:s}\"", sibling, t.escape_default()),
+        }
+
+        // `sibling` will have a parent unless a script moved it, and we're
+        // not running scripts.  Therefore we can aways return `Ok(())`.
+        Ok(())
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {

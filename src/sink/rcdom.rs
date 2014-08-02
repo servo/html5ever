@@ -96,6 +96,36 @@ fn append(new_parent: &Handle, child: Handle) {
     *parent = Some(new_parent.downgrade());
 }
 
+fn get_parent_and_index(target: &Handle) -> Option<(Handle, uint)> {
+    let child = target.borrow();
+    let parent = child.parent();
+    match parent.borrow_mut().children.iter().enumerate()
+                .find(|&(_, n)| same_node(n, target)) {
+        Some((i, _)) => Some((parent, i)),
+        None => None,
+    }
+}
+
+fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
+    match prev.borrow_mut().deref_mut().node {
+        Text(ref mut existing) => {
+            existing.push_str(text);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn remove_from_parent(target: &Handle) {
+    {
+        let (parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
+        parent.borrow_mut().children.remove(i).expect("not found!");
+    }
+
+    let mut child = target.borrow_mut();
+    (*child).parent = None;
+}
+
 /// The DOM itself; the result of parsing.
 pub struct RcDom {
     /// The `Document` itself.
@@ -145,13 +175,7 @@ impl TreeSink<Handle> for RcDom {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.borrow().children.last() {
-                Some(h) => match h.borrow_mut().deref_mut().node {
-                    Text(ref mut existing) => {
-                        existing.push_str(text.as_slice());
-                        return;
-                    },
-                    _ => (),
-                },
+                Some(h) => if append_to_existing_text(h, text.as_slice()) { return; },
                 _ => (),
             },
             _ => (),
@@ -161,6 +185,41 @@ impl TreeSink<Handle> for RcDom {
             AppendText(text) => new_node(Text(text)),
             AppendNode(node) => node
         });
+    }
+
+    fn append_before_sibling(&mut self,
+            sibling: Handle,
+            child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
+        let (parent, i) = unwrap_or_return!(get_parent_and_index(&sibling), Err(child));
+
+        let child = match (child, i) {
+            // No previous node.
+            (AppendText(text), 0) => new_node(Text(text)),
+
+            // Look for a text node before the insertion point.
+            (AppendText(text), i) => {
+                let parent = parent.borrow();
+                let prev = parent.children.get(i-1);
+                if append_to_existing_text(prev, text.as_slice()) {
+                    return Ok(());
+                }
+                new_node(Text(text))
+            }
+
+            // The tree builder promises we won't have a text node after
+            // the insertion point.
+
+            // Any other kind of node.
+            (AppendNode(node), _) => node,
+        };
+
+        if child.borrow().parent.is_some() {
+            remove_from_parent(&child);
+        }
+
+        child.borrow_mut().parent = Some(parent.clone().downgrade());
+        parent.borrow_mut().children.insert(i, child);
+        Ok(())
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
@@ -182,18 +241,7 @@ impl TreeSink<Handle> for RcDom {
     }
 
     fn remove_from_parent(&mut self, target: Handle) {
-        {
-            let child = target.borrow();
-            let parent = child.parent();
-            let mut parent = parent.borrow_mut();
-            let (i, _) = parent.children.iter().enumerate()
-                .find(|&(_, n)| same_node(n, &target))
-                .expect("not found!");
-            parent.children.remove(i).expect("not found!");
-        }
-
-        let mut child = target.borrow_mut();
-        (*child).parent = None;
+        remove_from_parent(&target);
     }
 
     fn mark_script_already_started(&mut self, node: Handle) {
