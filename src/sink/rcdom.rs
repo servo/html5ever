@@ -48,11 +48,6 @@ impl Node {
             script_already_started: false,
         }
     }
-
-    fn parent(&self) -> Handle {
-        self.parent.as_ref().expect("no parent!")
-            .upgrade().expect("dangling weak pointer!")
-    }
 }
 
 /// Reference to a DOM node.
@@ -79,11 +74,12 @@ fn append(new_parent: &Handle, child: Handle) {
 
 fn get_parent_and_index(target: &Handle) -> Option<(Handle, uint)> {
     let child = target.borrow();
-    let parent = child.parent();
+    let parent = unwrap_or_return!(child.parent.as_ref(), None)
+        .upgrade().expect("dangling weak pointer");
     match parent.borrow_mut().children.iter().enumerate()
                 .find(|&(_, n)| same_node(n, target)) {
         Some((i, _)) => Some((parent, i)),
-        None => None,
+        None => fail!("have parent but couldn't find in parent's children!"),
     }
 }
 
