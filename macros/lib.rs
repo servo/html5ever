@@ -21,18 +21,15 @@ use rustc::plugin::Registry;
 
 // Internal macros for use in defining other macros.
 
-#[macro_escape]
 macro_rules! bail ( ($cx:expr, $sp:expr, $msg:expr) => ({
     $cx.span_err($sp, $msg);
     return ::syntax::ext::base::DummyResult::any($sp);
 }))
 
-#[macro_escape]
 macro_rules! bail_if ( ($e:expr, $cx:expr, $sp:expr, $msg:expr) => (
     if $e { bail!($cx, $sp, $msg) }
 ))
 
-#[macro_escape]
 macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
     match $e {
         Some(x) => x,
