@@ -16,7 +16,8 @@ use std::path::Path;
 use std::collections::hashmap::HashMap;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 
-use html5ever::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
+use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, one_input};
 
 fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, String>> {

@@ -12,6 +12,8 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
+use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use tokenizer::Attribute;
@@ -24,27 +26,6 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::default::Default;
 use std::io::IoResult;
-
-/// The different kinds of nodes in the DOM.
-#[deriving(Show)]
-pub enum NodeEnum {
-    /// The `Document` itself.
-    Document,
-
-    /// A `DOCTYPE` with name, public id, and system id.
-    Doctype(String, String, String),
-
-    /// A text node.
-    Text(String),
-
-    /// A comment.
-    Comment(String),
-
-    /// An element with attributes.
-    ///
-    /// FIXME: HTML namespace only for now.
-    Element(Atom, Vec<Attribute>),
-}
 
 /// A DOM node.
 pub struct Node {

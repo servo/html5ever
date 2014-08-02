@@ -48,6 +48,7 @@ pub mod serialize;
 
 /// Consumers of the parser API.
 pub mod sink {
+    pub mod common;
     pub mod rcdom;
 }
 

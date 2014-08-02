@@ -13,7 +13,8 @@ use std::io;
 use std::default::Default;
 use std::string::String;
 
-use html5ever::sink::rcdom::{RcDom, Handle, Document, Doctype, Text, Comment, Element};
+use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, one_input};
 
 // This is not proper HTML serialization, of course.
