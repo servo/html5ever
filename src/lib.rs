@@ -50,6 +50,7 @@ pub mod serialize;
 pub mod sink {
     pub mod common;
     pub mod rcdom;
+    pub mod owned_dom;
 }
 
 pub mod driver;
