@@ -744,7 +744,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 tag @ </_> => {
                     if tag.name == atom!(script) {
-                        error!("FIXME: </script> not implemented");
+                        warn!("FIXME: </script> not implemented");
                     }
 
                     self.pop();

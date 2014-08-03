@@ -114,7 +114,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn stop_parsing(&mut self) -> ProcessResult {
-        error!("stop_parsing not implemented, full speed ahead!");
+        warn!("stop_parsing not implemented, full speed ahead!");
         Done
     }
 
@@ -355,7 +355,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
-        error!("foster parenting not implemented");
+        warn!("foster parenting not implemented");
         self.foster_parenting = true;
         let res = self.step(InBody, token);
         // FIXME: what if res is Reprocess?
