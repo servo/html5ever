@@ -28,6 +28,7 @@ use std::mem::replace;
 use std::ascii::StrAsciiExt;
 use std::iter::{Rev, Enumerate};
 use std::slice;
+use std::str::Slice;
 
 pub struct ActiveFormattingIter<'a, Handle> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
@@ -238,8 +239,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
         for elem in self.open_elems.iter() {
             let name = self.sink.elem_name(elem.clone());
             if !body_end_ok(name.clone()) {
-                self.sink.parse_error(
-                    format!("Unexpected open tag {} at end of body", name));
+                self.sink.parse_error(format_if!(self.opts.exact_errors,
+                    "Unexpected open tag at end of body",
+                    "Unexpected open tag {} at end of body", name));
                 // FIXME: Do we keep checking after finding one bad tag?
                 // The spec suggests not.
                 return;
@@ -329,8 +331,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     // Signal an error if it was not the first one.
     fn expect_to_close(&mut self, name: Atom) {
         if self.pop_until_named(name.clone()) != 1 {
-            self.sink.parse_error(
-                format!("Unexpected open element while closing {}", name));
+            self.sink.parse_error(format_if!(self.opts.exact_errors,
+                "Unexpected open element",
+                "Unexpected open element while closing {}", name));
         }
     }
 
@@ -370,8 +373,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             self.orig_mode = Some(self.mode);
             Reprocess(InTableText, token)
         } else {
-            self.sink.parse_error(format!("Unexpected chars {} in table",
-                to_escaped_string(&token)));
+            self.sink.parse_error(format_if!(self.opts.exact_errors,
+                "Unexpected characters in table",
+                "Unexpected characters {} in table", to_escaped_string(&token)));
             self.foster_parent_in_body(token)
         }
     }
@@ -413,7 +417,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     fn close_the_cell(&mut self) {
         self.generate_implied_end(cursory_implied_end);
         if self.pop_until(td_th) != 1 {
-            self.sink.parse_error("expected to close <td> or <th> with cell".to_string());
+            self.sink.parse_error(Slice("expected to close <td> or <th> with cell"));
         }
     }
 

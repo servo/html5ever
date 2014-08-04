@@ -15,6 +15,7 @@ use std::io;
 use std::default::Default;
 use std::string::String;
 use std::collections::hashmap::HashMap;
+use std::str::MaybeOwned;
 
 use html5ever::{Namespace, Atom, parse_to, one_input};
 use html5ever::tokenizer::Attribute;
@@ -64,7 +65,7 @@ impl TreeSink<uint> for Sink {
         Ok(())
     }
 
-    fn parse_error(&mut self, _msg: String) { }
+    fn parse_error(&mut self, _msg: MaybeOwned<'static>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
 

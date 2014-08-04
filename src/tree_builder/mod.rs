@@ -26,6 +26,7 @@ use util::str::{is_ascii_whitespace, Runs};
 
 use std::default::Default;
 use std::mem::replace;
+use std::str::Slice;
 
 mod interface;
 mod tag_sets;
@@ -37,6 +38,10 @@ mod rules;
 /// Tree builder options, with an impl for Default.
 #[deriving(Clone)]
 pub struct TreeBuilderOpts {
+    /// Report all parse errors described in the spec, at some
+    /// performance penalty?  Default: false
+    pub exact_errors: bool,
+
     /// Is scripting enabled?
     pub scripting_enabled: bool,
 
@@ -53,6 +58,7 @@ pub struct TreeBuilderOpts {
 impl Default for TreeBuilderOpts {
     fn default() -> TreeBuilderOpts {
         TreeBuilderOpts {
+            exact_errors: false,
             scripting_enabled: true,
             iframe_srcdoc: false,
             fragment: false,
@@ -168,7 +174,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             match self.step(mode, token) {
                 Done => {
                     if is_self_closing {
-                        self.sink.parse_error("Unacknowledged self-closing tag".to_string());
+                        self.sink.parse_error(Slice("Unacknowledged self-closing tag"));
                     }
                     token = unwrap_or_return!(more_tokens.pop(), ());
                 }
@@ -215,7 +221,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
             tokenizer::DoctypeToken(dt) => if self.mode == Initial {
                 let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
                 if err {
-                    self.sink.parse_error(format!("Bad DOCTYPE: {}", dt));
+                    self.sink.parse_error(format_if!(
+                        self.opts.exact_errors,
+                        "Bad DOCTYPE",
+                        "Bad DOCTYPE: {}", dt));
                 }
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 if !self.opts.drop_doctype {
@@ -230,7 +239,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'si
                 self.mode = BeforeHtml;
                 return;
             } else {
-                self.sink.parse_error(format!("DOCTYPE in insertion mode {:?}", self.mode));
+                self.sink.parse_error(format_if!(
+                    self.opts.exact_errors,
+                    "DOCTYPE in body",
+                    "DOCTYPE in insertion mode {:?}", self.mode));
                 return;
             },
 

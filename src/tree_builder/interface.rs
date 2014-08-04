@@ -14,6 +14,8 @@ use util::atom::Atom;
 use util::namespace::Namespace;
 use tokenizer::Attribute;
 
+use std::str::MaybeOwned;
+
 /// A document's quirks mode.
 #[deriving(PartialEq, Eq, Clone, Hash, Show)]
 pub enum QuirksMode {
@@ -38,7 +40,7 @@ pub enum NodeOrText<Handle> {
 /// the same node.
 pub trait TreeSink<Handle> {
     /// Signal a parse error.
-    fn parse_error(&mut self, msg: String);
+    fn parse_error(&mut self, msg: MaybeOwned<'static>);
 
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Handle;

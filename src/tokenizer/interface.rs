@@ -7,9 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::string::String;
 use util::atom::Atom;
 use tokenizer::states;
+
+use std::string::String;
+use std::str::MaybeOwned;
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
@@ -99,7 +101,7 @@ pub enum Token {
     CharacterTokens(String),
     NullCharacterToken,
     EOFToken,
-    ParseError(String),
+    ParseError(MaybeOwned<'static>),
 }
 
 /// Types which can receive tokens from the tokenizer.

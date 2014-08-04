@@ -26,6 +26,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::default::Default;
 use std::io::IoResult;
+use std::str::MaybeOwned;
 
 /// A DOM node.
 pub struct Node {
@@ -109,14 +110,14 @@ pub struct RcDom {
     pub document: Handle,
 
     /// Errors that occurred during parsing.
-    pub errors: Vec<String>,
+    pub errors: Vec<MaybeOwned<'static>>,
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
 }
 
 impl TreeSink<Handle> for RcDom {
-    fn parse_error(&mut self, msg: String) {
+    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
         self.errors.push(msg);
     }
 

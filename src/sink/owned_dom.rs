@@ -31,6 +31,7 @@ use std::mem::transmute;
 use std::kinds::marker;
 use std::collections::HashSet;
 use std::mem;
+use std::str::MaybeOwned;
 
 /// The internal type we use for nodes during parsing.
 struct SquishyNode {
@@ -139,7 +140,7 @@ fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
 pub struct Sink {
     nodes: Vec<Box<Unsafe<SquishyNode>>>,
     document: Handle,
-    errors: Vec<String>,
+    errors: Vec<MaybeOwned<'static>>,
     quirks_mode: QuirksMode,
 }
 
@@ -165,7 +166,7 @@ impl Sink {
 }
 
 impl TreeSink<Handle> for Sink {
-    fn parse_error(&mut self, msg: String) {
+    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
         self.errors.push(msg);
     }
 
@@ -280,7 +281,7 @@ pub struct Node {
 
 pub struct OwnedDom {
     pub document: Box<Node>,
-    pub errors: Vec<String>,
+    pub errors: Vec<MaybeOwned<'static>>,
     pub quirks_mode: QuirksMode,
 }
 

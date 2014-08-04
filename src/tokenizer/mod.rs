@@ -32,6 +32,7 @@ use std::ascii::StrAsciiExt;
 use std::mem::replace;
 use std::iter::AdditiveIterator;
 use std::default::Default;
+use std::str::{MaybeOwned, Slice, Owned};
 
 use time::precise_time_ns;
 
@@ -237,7 +238,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             n if (n & 0xFFFE) == 0xFFFE => true,
             _ => false,
         } {
-            let msg = format!("Bad character {:?}", c);
+            let msg = Owned(format!("Bad character {:?}", c));
             self.emit_error(msg);
         }
 
@@ -330,12 +331,18 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn bad_char_error(&mut self) {
-        let msg = format!("Saw {:?} in state {:?}", self.current_char, self.state);
+        let msg = format_if!(
+            self.opts.exact_errors,
+            "Bad character",
+            "Saw {:?} in state {:?}", self.current_char, self.state);
         self.emit_error(msg);
     }
 
     fn bad_eof_error(&mut self) {
-        let msg = format!("Saw EOF in state {:?}", self.state);
+        let msg = format_if!(
+            self.opts.exact_errors,
+            "Unexpected EOF",
+            "Saw EOF in state {:?}", self.state);
         self.emit_error(msg);
     }
 
@@ -362,10 +369,10 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error("Attributes on an end tag".to_string());
+                    self.emit_error(Slice("Attributes on an end tag"));
                 }
                 if self.current_tag_self_closing {
-                    self.emit_error("Self-closing end tag".to_string());
+                    self.emit_error(Slice("Self-closing end tag"));
                 }
             }
         }
@@ -442,7 +449,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         };
 
         if dup {
-            self.emit_error("Duplicate attribute".to_string());
+            self.emit_error(Slice("Duplicate attribute"));
             self.current_attr_name.truncate(0);
             self.current_attr_value.truncate(0);
         } else {
@@ -500,7 +507,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         self.input_buffers.push_front(buf);
     }
 
-    fn emit_error(&mut self, error: String) {
+    fn emit_error(&mut self, error: MaybeOwned<'static>) {
         self.sink.process_token(ParseError(error));
     }
 }

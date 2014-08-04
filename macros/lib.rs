@@ -70,6 +70,15 @@ macro_rules! addrs_of ( ($obj:expr : $($field:ident),+) => (
     )
 ))
 
+#[macro_export]
+macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
+    if $pred {
+        ::std::str::Owned(format!($msg_fmt, $($arg),*))
+    } else {
+        ::std::str::Slice($msg_static)
+    }
+))
+
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {

@@ -17,6 +17,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use serialize::json;
 use serialize::json::Json;
 use std::collections::treemap::TreeMap;
+use std::str::Slice;
 
 use html5ever::Atom;
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
@@ -95,7 +96,7 @@ impl TokenSink for TokenLogger {
             }
 
             ParseError(_) => if self.exact_errors {
-                self.push(ParseError("".to_string()));
+                self.push(ParseError(Slice("")));
             },
 
             TagToken(mut t) => {
@@ -236,7 +237,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             json::String(ref s)
-                if s.as_slice() == "ParseError" => sink.process_token(ParseError("".to_string())),
+                if s.as_slice() == "ParseError" => sink.process_token(ParseError(Slice(""))),
             _ => sink.process_token(json_to_token(tok)),
         }
     }

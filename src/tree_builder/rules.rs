@@ -22,6 +22,7 @@ use util::namespace::{Namespace, HTML};
 use util::str::{is_ascii_whitespace, to_escaped_string};
 
 use std::mem::replace;
+use std::str::Slice;
 
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan
@@ -40,8 +41,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
         // $thing may be either a Token or a Tag
         macro_rules! unexpected ( ($thing:expr) => ({
-            self.sink.parse_error(format!("Unexpected token {} in insertion mode {}",
-                to_escaped_string(&$thing), mode));
+            self.sink.parse_error(format_if!(
+                self.opts.exact_errors,
+                "Unexpected token",
+                "Unexpected token {} in insertion mode {}", to_escaped_string(&$thing), mode));
             Done
         }))
 
@@ -308,7 +311,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.check_body_end();
                         self.mode = AfterBody;
                     } else {
-                        self.sink.parse_error("</body> with no <body> in scope".to_string());
+                        self.sink.parse_error(Slice("</body> with no <body> in scope"));
                     }
                     Done
                 }
@@ -318,7 +321,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.check_body_end();
                         Reprocess(AfterBody, token)
                     } else {
-                        self.sink.parse_error("</html> with no <body> in scope".to_string());
+                        self.sink.parse_error(Slice("</html> with no <body> in scope"));
                         Done
                     }
                 }
@@ -334,7 +337,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 tag @ <h1> <h2> <h3> <h4> <h5> <h6> => {
                     self.close_p_element_in_button_scope();
                     if self.current_node_in(heading_tag) {
-                        self.sink.parse_error("nested heading tags".to_string());
+                        self.sink.parse_error(Slice("nested heading tags"));
                         self.pop();
                     }
                     self.insert_element_for(tag);
@@ -352,7 +355,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 tag @ <form> => {
                     // FIXME: <template>
                     if self.form_elem.is_some() {
-                        self.sink.parse_error("nested forms".to_string());
+                        self.sink.parse_error(Slice("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
@@ -409,7 +412,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 tag @ <button> => {
                     if self.in_scope_named(default_scope, atom!(button)) {
-                        self.sink.parse_error("nested buttons".to_string());
+                        self.sink.parse_error(Slice("nested buttons"));
                         self.generate_implied_end(cursory_implied_end);
                         self.pop_until_named(atom!(button));
                     }
@@ -435,26 +438,26 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 </form> => {
                     // FIXME: <template>
                     let node = unwrap_or_return!(self.form_elem.take(), {
-                        self.sink.parse_error("Null form element pointer on </form>".to_string());
+                        self.sink.parse_error(Slice("Null form element pointer on </form>"));
                         Done
                     });
                     if !self.in_scope(default_scope,
                         |n| self.sink.same_node(node.clone(), n)) {
-                        self.sink.parse_error("Form element not in scope on </form>".to_string());
+                        self.sink.parse_error(Slice("Form element not in scope on </form>"));
                         return Done;
                     }
                     self.generate_implied_end(cursory_implied_end);
                     let current = self.current_node();
                     self.remove_from_stack(&node);
                     if !self.sink.same_node(current, node) {
-                        self.sink.parse_error("Bad open element on </form>".to_string());
+                        self.sink.parse_error(Slice("Bad open element on </form>"));
                     }
                     Done
                 }
 
                 </p> => {
                     if !self.in_scope_named(button_scope, atom!(p)) {
-                        self.sink.parse_error("No <p> tag to close".to_string());
+                        self.sink.parse_error(Slice("No <p> tag to close"));
                         self.insert_phantom(atom!(p));
                     }
                     self.close_p_element();
@@ -470,7 +473,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.generate_implied_end_except(tag.name.clone());
                         self.expect_to_close(tag.name);
                     } else {
-                        self.sink.parse_error(format!("No {} tag to close", tag.name));
+                        self.sink.parse_error(format_if!(
+                            self.opts.exact_errors,
+                            "No tag to close",
+                            "No {} tag to close", tag.name));
                     }
                     Done
                 }
@@ -479,11 +485,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.in_scope(default_scope, |n| self.elem_in(n.clone(), heading_tag)) {
                         self.generate_implied_end(cursory_implied_end);
                         if !self.current_node_named(tag.name) {
-                            self.sink.parse_error("Closing wrong heading tag".to_string());
+                            self.sink.parse_error(Slice("Closing wrong heading tag"));
                         }
                         self.pop_until(heading_tag);
                     } else {
-                        self.sink.parse_error("No heading tag to close".to_string());
+                        self.sink.parse_error(Slice("No heading tag to close"));
                     }
                     Done
                 }
@@ -523,7 +529,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 tag @ <nobr> => {
                     self.reconstruct_formatting();
                     if self.in_scope_named(default_scope, atom!(nobr)) {
-                        self.sink.parse_error("Nested <nobr>".to_string());
+                        self.sink.parse_error(Slice("Nested <nobr>"));
                         self.adoption_agency(atom!(nobr));
                         self.reconstruct_formatting();
                     }
@@ -874,7 +880,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     });
 
                     if contains_nonspace {
-                        self.sink.parse_error("Non-space table text".to_string());
+                        self.sink.parse_error(Slice("Non-space table text"));
                         for (split, text) in pending.move_iter() {
                             match self.foster_parent_in_body(CharacterTokens(split, text)) {
                                 Done => (),
