@@ -11,6 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(macro_rules, phase, globs)]
+#![allow(unnecessary_parens)]
 
 #[phase(plugin, link)]
 extern crate log;

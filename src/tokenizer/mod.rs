@@ -34,8 +34,6 @@ use std::iter::AdditiveIterator;
 use std::default::Default;
 use std::str::{MaybeOwned, Slice, Owned};
 
-use time::precise_time_ns;
-
 use std::collections::hashmap::HashMap;
 
 pub mod states;
@@ -166,6 +164,9 @@ pub struct Tokenizer<'sink, Sink> {
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     state_profile: HashMap<states::State, u64>,
+
+    /// Record of how many ns we spent in the token sink.
+    time_in_sink: u64,
 }
 
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
@@ -197,6 +198,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             last_start_tag_name: start_tag_name,
             temp_buf: empty_str(),
             state_profile: HashMap::new(),
+            time_in_sink: 0,
         }
     }
 
@@ -215,6 +217,15 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         self.input_buffers.push_back(input, pos);
         self.run();
+    }
+
+    fn process_token(&mut self, token: Token) {
+        if self.opts.profile {
+            let (_, dt) = time!(self.sink.process_token(token));
+            self.time_in_sink += dt;
+        } else {
+            self.sink.process_token(token);
+        }
     }
 
     //§ preprocessing-the-input-stream
@@ -316,13 +327,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     // Run the state machine for as long as we can.
     fn run(&mut self) {
         if self.opts.profile {
-            let mut run = true;
-            while run {
+            loop {
                 let state = self.state;
-                let t0 = precise_time_ns();
-                run = self.step();
-                let dt = precise_time_ns() - t0;
+                let old_sink = self.time_in_sink;
+                let (run, mut dt) = time!(self.step());
+                dt -= (self.time_in_sink - old_sink);
                 self.state_profile.insert_or_update_with(state, dt, |_, x| *x += dt);
+                if !run { break; }
             }
         } else {
             while self.step() {
@@ -347,7 +358,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.sink.process_token(match c {
+        self.process_token(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(String::from_char(1, c)),
         });
@@ -355,7 +366,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: String) {
-        self.sink.process_token(CharacterTokens(b));
+        self.process_token(CharacterTokens(b));
     }
 
     fn emit_current_tag(&mut self) {
@@ -377,12 +388,12 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }
         }
 
-        self.sink.process_token(TagToken(Tag {
-            kind: self.current_tag_kind,
+        let token = TagToken(Tag { kind: self.current_tag_kind,
             name: name,
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
-        }));
+        });
+        self.process_token(token);
 
         if self.current_tag_kind == StartTag {
             match self.sink.query_state_change() {
@@ -404,8 +415,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_current_comment(&mut self) {
-        self.sink.process_token(CommentToken(
-            replace(&mut self.current_comment, empty_str())));
+        let comment = replace(&mut self.current_comment, empty_str());
+        self.process_token(CommentToken(comment));
     }
 
     fn discard_tag(&mut self) {
@@ -461,8 +472,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_current_doctype(&mut self) {
-        self.sink.process_token(DoctypeToken(
-            replace(&mut self.current_doctype, Doctype::new())));
+        let doctype = replace(&mut self.current_doctype, Doctype::new());
+        self.process_token(DoctypeToken(doctype));
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<String> {
@@ -487,7 +498,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_eof(&mut self) {
-        self.sink.process_token(EOFToken);
+        self.process_token(EOFToken);
     }
 
     fn peek(&mut self) -> Option<char> {
@@ -508,7 +519,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     }
 
     fn emit_error(&mut self, error: MaybeOwned<'static>) {
-        self.sink.process_token(ParseError(error));
+        self.process_token(ParseError(error));
     }
 }
 //§ END
@@ -1232,7 +1243,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             let total = results.iter().map(|&(_, t)| t).sum();
             println!("\nTokenizer profile, in nanoseconds");
-            println!("\n{:12u}         total", total);
+            println!("\n{:12u}         total in token sink", self.time_in_sink);
+            println!("\n{:12u}         total in tokenizer", total);
 
             for (k, v) in results.move_iter() {
                 let pct = 100.0 * (v as f64) / (total as f64);

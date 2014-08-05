@@ -46,3 +46,10 @@ macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:ex
     }
 ))
 
+#[macro_export]
+macro_rules! time ( ($e:expr) => ({
+    let t0 = ::time::precise_time_ns();
+    let result = $e;
+    let dt = ::time::precise_time_ns() - t0;
+    (result, dt)
+}))
