@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::bitset::Bitset64;
+use util::smallcharset::SmallCharSet;
 
 use std::str::CharRange;
 use std::string::String;
@@ -20,21 +20,6 @@ struct Buffer {
     /// The buffer.
     pub buf: String,
 }
-
-/// Count the number of bytes of characters not in `set`.
-/// See `pop_except_from`.
-fn count_bytes_not_in(set: Bitset64, s: &str) -> uint {
-    let mut n = 0;
-    for b in s.bytes() {
-        if b >= 64 || !set.contains(b) {
-            n += 1;
-        } else {
-            break;
-        }
-    }
-    n
-}
-
 
 /// Result from `pop_except_from`.
 #[deriving(PartialEq, Eq, Show)]
@@ -114,10 +99,10 @@ impl BufferQueue {
     /// a `String` of characters none of which are in the set.  The set
     /// is represented as a bitmask and so can only contain the first 64
     /// ASCII characters.
-    pub fn pop_except_from(&mut self, set: Bitset64) -> Option<SetResult> {
+    pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             Some(&Buffer { ref mut pos, ref buf }) => {
-                let n = count_bytes_not_in(set, buf.as_slice().slice_from(*pos));
+                let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
                 if n > 0 {
                     let new_pos = *pos + n;
                     let out = buf.as_slice().slice(*pos, new_pos).to_string();
@@ -179,7 +164,6 @@ impl Iterator<char> for BufferQueue {
 #[allow(non_snake_case_functions)]
 mod test {
     use super::*; // public items
-    use super::count_bytes_not_in;
 
     #[test]
     fn smoke_test() {
@@ -234,7 +218,7 @@ mod test {
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
         bq.push_back("abc&def".to_string(), 0);
-        let pop = || bq.pop_except_from(bitset64!('&'));
+        let pop = || bq.pop_except_from(small_char_set!('&'));
         assert_eq!(pop(), Some(NotFromSet("abc".to_string())));
         assert_eq!(pop(), Some(FromSet('&')));
         assert_eq!(pop(), Some(NotFromSet("def".to_string())));
@@ -248,20 +232,5 @@ mod test {
         assert_eq!(bq.next(), Some('b'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
-    }
-
-    #[test]
-    fn count_bytes_test() {
-        for &c in ['&', '\0'].iter() {
-            for x in range(0, 48u) {
-                for y in range(0, 48u) {
-                    let mut s = String::from_char(x, 'x');
-                    s.push_char(c);
-                    s.grow(y, 'x');
-
-                    assert_eq!(x, count_bytes_not_in(bitset64!('&', '\0'), s.as_slice()));
-                }
-            }
-        }
     }
 }

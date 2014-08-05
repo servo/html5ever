@@ -26,7 +26,7 @@ use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::atom::Atom;
-use util::bitset::Bitset64;
+use util::smallcharset::SmallCharSet;
 
 use std::ascii::StrAsciiExt;
 use std::mem::replace;
@@ -270,7 +270,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
     }
 
-    fn pop_except_from(&mut self, set: Bitset64) -> Option<SetResult> {
+    fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
@@ -654,7 +654,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         match self.state {
             //§ data-state
             states::Data => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '&', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '&' '<')) {
                     FromSet('\0') => go!(error; emit '\0'),
                     FromSet('&')  => go!(consume_char_ref),
                     FromSet('<')  => go!(to TagOpen),
@@ -665,7 +665,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ rcdata-state
             states::RawData(Rcdata) => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '&', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '&' '<')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet('&') => go!(consume_char_ref),
                     FromSet('<') => go!(to RawLessThanSign Rcdata),
@@ -676,7 +676,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ rawtext-state
             states::RawData(Rawtext) => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '<')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet('<') => go!(to RawLessThanSign Rawtext),
                     FromSet(c) => go!(emit c),
@@ -686,7 +686,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ script-data-state
             states::RawData(ScriptData) => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '<')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet('<') => go!(to RawLessThanSign ScriptData),
                     FromSet(c) => go!(emit c),
@@ -696,7 +696,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ script-data-escaped-state
             states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '-', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '-' '<')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet('-') => go!(emit '-'; to ScriptDataEscapedDash Escaped),
                     FromSet('<') => go!(to RawLessThanSign ScriptDataEscaped Escaped),
@@ -707,7 +707,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(bitset64!('\r', '\0', '-', '<')) {
+                match pop_except_from!(small_char_set!('\r' '\0' '-' '<')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet('-') => go!(emit '-'; to ScriptDataEscapedDash DoubleEscaped),
                     FromSet('<') => go!(emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
@@ -718,7 +718,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ plaintext-state
             states::Plaintext => loop {
-                match pop_except_from!(bitset64!('\r', '\0')) {
+                match pop_except_from!(small_char_set!('\r' '\0')) {
                     FromSet('\0') => go!(error; emit '\ufffd'),
                     FromSet(c)    => go!(emit c),
                     NotFromSet(b) => self.emit_chars(b),
@@ -941,7 +941,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ attribute-value-(double-quoted)-state
             states::AttributeValue(DoubleQuoted) => loop {
-                match pop_except_from!(bitset64!('\r', '"', '&', '\0')) {
+                match pop_except_from!(small_char_set!('\r' '"' '&' '\0')) {
                     FromSet('"')  => go!(to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(consume_char_ref '"'),
                     FromSet('\0') => go!(error; push_value '\ufffd'),
@@ -952,7 +952,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ attribute-value-(single-quoted)-state
             states::AttributeValue(SingleQuoted) => loop {
-                match pop_except_from!(bitset64!('\r', '\'', '&', '\0')) {
+                match pop_except_from!(small_char_set!('\r' '\'' '&' '\0')) {
                     FromSet('\'') => go!(to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(consume_char_ref '\''),
                     FromSet('\0') => go!(error; push_value '\ufffd'),
@@ -963,7 +963,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
             //§ attribute-value-(unquoted)-state
             states::AttributeValue(Unquoted) => loop {
-                match pop_except_from!(bitset64!('\r', '\t', '\n', '\x0C', ' ', '&', '>', '\0')) {
+                match pop_except_from!(small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')) {
                     FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ')
                      => go!(to BeforeAttributeName),
                     FromSet('&')  => go!(consume_char_ref '>'),

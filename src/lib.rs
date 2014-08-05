@@ -40,7 +40,7 @@ mod util {
     pub mod str;
     pub mod atom;
     pub mod namespace;
-    pub mod bitset;
+    pub mod smallcharset;
 }
 
 pub mod tokenizer;
