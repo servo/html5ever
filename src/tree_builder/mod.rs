@@ -22,11 +22,12 @@ use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
 
 use util::namespace::HTML;
-use util::str::{is_ascii_whitespace, Runs};
+use util::str::{is_ascii_whitespace, char_run};
 
 use std::default::Default;
 use std::mem::replace;
 use std::str::Slice;
+use std::collections::{Deque, RingBuf};
 
 mod interface;
 mod tag_sets;
@@ -159,11 +160,9 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
-        // Additional tokens yet to be processed. First to be processed is on
-        // the *end*, because that's where Vec supports O(1) push/pop.
-        // This stays empty (and hence non-allocating) in the common case
-        // where we don't split whitespace.
-        let mut more_tokens = vec!();
+        // Queue of additional tokens yet to be processed.
+        // This stays empty in the common case where we don't split whitespace.
+        let mut more_tokens = RingBuf::new();
 
         loop {
             let is_self_closing = match token {
@@ -176,30 +175,28 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                     if is_self_closing {
                         self.sink.parse_error(Slice("Unacknowledged self-closing tag"));
                     }
-                    token = unwrap_or_return!(more_tokens.pop(), ());
+                    token = unwrap_or_return!(more_tokens.pop_front(), ());
                 }
                 DoneAckSelfClosing => {
-                    token = unwrap_or_return!(more_tokens.pop(), ());
+                    token = unwrap_or_return!(more_tokens.pop_front(), ());
                 }
                 Reprocess(m, t) => {
                     self.mode = m;
                     token = t;
                 }
                 SplitWhitespace(buf) => {
-                    let mut it = Runs::new(is_ascii_whitespace, buf.as_slice())
-                        .map(|(m, b)| CharacterTokens(match m {
-                            true => Whitespace,
-                            false => NotWhitespace,
-                        }, b.to_string()));
+                    let buf = buf.as_slice();
 
-                    token = unwrap_or_return!(it.next(), ());
+                    let (len, is_ws) = unwrap_or_return!(
+                        char_run(is_ascii_whitespace, buf), ());
 
-                    // Push additional tokens in reverse order, so the next one
-                    // is first to be popped.
-                    // FIXME: copy/allocate less
-                    let rest: Vec<Token> = it.collect();
-                    for t in rest.move_iter().rev() {
-                        more_tokens.push(t);
+                    token = CharacterTokens(
+                        if is_ws { Whitespace } else { NotWhitespace },
+                        buf.slice_to(len).to_string());
+
+                    if len < buf.len() {
+                        more_tokens.push_back(
+                            CharacterTokens(NotSplit, buf.slice_from(len).to_string()));
                     }
                 }
             }

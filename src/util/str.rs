@@ -49,37 +49,22 @@ pub fn is_ascii_whitespace(c: char) -> bool {
     }
 }
 
-/// Split a string into runs of characters that
-/// do and don't match a predicate.
-pub struct Runs<'t, Pred> {
-    pred: Pred,
-    buf: &'t str,
-}
+/// Count how many bytes at the beginning of the string
+/// either all match or all don't match the predicate,
+/// and also return whether they match.
+///
+/// Returns `None` on an empty string.
+pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)> {
+    let (first, rest) = buf.slice_shift_char();
+    let first = unwrap_or_return!(first, None);
+    let matches = pred.matches(first);
 
-impl<'t, Pred: CharEq> Runs<'t, Pred> {
-    pub fn new(pred: Pred, buf: &'t str) -> Runs<'t, Pred> {
-        Runs {
-            pred: pred,
-            buf: buf,
+    for (idx, ch) in rest.char_indices() {
+        if matches != pred.matches(ch) {
+            return Some((idx + first.len_utf8_bytes(), matches));
         }
     }
-}
-
-impl<'t, Pred: CharEq> Iterator<(bool, &'t str)> for Runs<'t, Pred> {
-    fn next(&mut self) -> Option<(bool, &'t str)> {
-        let (first, rest) = self.buf.slice_shift_char();
-        let first = unwrap_or_return!(first, None);
-
-        let matches = self.pred.matches(first);
-        let len = match rest.find(|c| self.pred.matches(c) != matches) {
-            Some(i) => i+1,
-            None => self.buf.len(),
-        };
-
-        let run = self.buf.slice_to(len);
-        self.buf = self.buf.slice_from(len);
-        Some((matches, run))
-    }
+    Some((buf.len(), matches))
 }
 
 #[cfg(test)]
@@ -103,22 +88,21 @@ mod test {
     test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false)
     test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\ua66e'), false)
 
-    macro_rules! test_runs ( ($name:ident, $input:expr, $expect:expr) => (
-        #[test]
-        fn $name() {
-            let mut runs = Runs::new(is_ascii_whitespace, $input);
-            let result: Vec<(bool, &'static str)> = runs.collect();
-            assert_eq!($expect.as_slice(), result.as_slice());
-        }
+    macro_rules! test_char_run ( ($name:ident, $input:expr, $expect:expr) => (
+        test_eq!($name, char_run(is_ascii_whitespace, $input), $expect)
     ))
 
-    test_runs!(runs_empty, "", [])
-    test_runs!(runs_one_t, " ", [(true, " ")])
-    test_runs!(runs_one_f, "x", [(false, "x")])
-    test_runs!(runs_t, "  \t  \n", [(true, "  \t  \n")])
-    test_runs!(runs_f, "xyzzy", [(false, "xyzzy")])
-    test_runs!(runs_tf, "   xyzzy", [(true, "   "), (false, "xyzzy")])
-    test_runs!(runs_ft, "xyzzy   ", [(false, "xyzzy"), (true, "   ")])
-    test_runs!(runs_tft, "   xyzzy  ", [(true, "   "), (false, "xyzzy"), (true, "  ")])
-    test_runs!(runs_ftf, "xyzzy   hi", [(false, "xyzzy"), (true, "   "), (false, "hi")])
+    test_char_run!(run_empty, "", None)
+    test_char_run!(run_one_t, " ", Some((1, true)))
+    test_char_run!(run_one_f, "x", Some((1, false)))
+    test_char_run!(run_t, "  \t  \n", Some((6, true)))
+    test_char_run!(run_f, "xyzzy", Some((5, false)))
+    test_char_run!(run_tf, "   xyzzy", Some((3, true)))
+    test_char_run!(run_ft, "xyzzy   ", Some((5, false)))
+    test_char_run!(run_tft, "   xyzzy  ", Some((3, true)))
+    test_char_run!(run_ftf, "xyzzy   hi", Some((5, false)))
+    test_char_run!(run_multibyte_0, "中 ", Some((3, false)))
+    test_char_run!(run_multibyte_1, " 中 ", Some((1, true)))
+    test_char_run!(run_multibyte_2, "  中 ", Some((2, true)))
+    test_char_run!(run_multibyte_3, "   中 ", Some((3, true)))
 }
