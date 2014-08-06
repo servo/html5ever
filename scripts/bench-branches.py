@@ -29,7 +29,7 @@ for branch in branches_run:
     subprocess.check_call(
         '''../configure &&
          git checkout {0:s} &&
-         BENCH_UNCOMMITTED=1 make RUSTFLAGS="-O" METRICS=metrics.{0:s}.json clean bench \
+         BENCH_UNCOMMITTED=1 make RUSTFLAGS="-O --cfg use_arch_byte_scan" METRICS=metrics.{0:s}.json clean bench \
             | tee bench.{0:s}'''
         .format(branch), shell=True)
 

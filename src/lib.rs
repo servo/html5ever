@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, phase, globs)]
+#![feature(macro_rules, phase, globs, asm)]
 #![allow(unnecessary_parens)]
 
 #[phase(plugin, link)]

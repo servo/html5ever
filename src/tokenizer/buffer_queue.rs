@@ -102,7 +102,7 @@ impl BufferQueue {
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             Some(&Buffer { ref mut pos, ref buf }) => {
-                let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
+                let n = set.nonmember_prefix_len(buf.as_bytes().slice_from(*pos));
                 if n > 0 {
                     let new_pos = *pos + n;
                     let out = buf.as_slice().slice(*pos, new_pos).to_string();
@@ -218,7 +218,7 @@ mod test {
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
         bq.push_back("abc&def".to_string(), 0);
-        let pop = || bq.pop_except_from(small_char_set!('&'));
+        let pop = || bq.pop_except_from(small_char_set!('\0' '&'));
         assert_eq!(pop(), Some(NotFromSet("abc".to_string())));
         assert_eq!(pop(), Some(FromSet('&')));
         assert_eq!(pop(), Some(NotFromSet("def".to_string())));

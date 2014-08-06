@@ -29,6 +29,7 @@ pub mod exported;
 pub mod named_entities;
 pub mod atom;
 pub mod match_token;
+pub mod small_char_set;
 
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
@@ -38,4 +39,6 @@ pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("static_atom_array", atom::expand_static_atom_array);
     reg.register_macro("atom", atom::expand_atom);
     reg.register_macro("match_token", match_token::expand);
+
+    small_char_set::register(reg);
 }
