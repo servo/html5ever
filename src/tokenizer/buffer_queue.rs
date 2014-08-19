@@ -74,7 +74,7 @@ impl BufferQueue {
     }
 
     /// Do we have at least n characters available?
-    pub fn has(&mut self, n: uint) -> bool {
+    pub fn has(&self, n: uint) -> bool {
         self.available >= n
     }
 

@@ -79,7 +79,12 @@ impl CharRefTokenizer {
         self.result.expect("get_result called before done")
     }
 
-    fn name_buf<'t>(&'t mut self) -> &'t mut String {
+    fn name_buf<'t>(&'t self) -> &'t String {
+        self.name_buf_opt.as_ref()
+            .expect("name_buf missing in named character reference")
+    }
+
+    fn name_buf_mut<'t>(&'t mut self) -> &'t mut String {
         self.name_buf_opt.as_mut()
             .expect("name_buf missing in named character reference")
     }
@@ -236,7 +241,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
     fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf().push_char(c);
+        self.name_buf_mut().push_char(c);
         match data::named_entities.find_equiv(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
@@ -350,7 +355,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
     fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf().push_char(c);
+        self.name_buf_mut().push_char(c);
         match c {
             _ if is_ascii_alnum(c) => return Progress,
             ';' => self.emit_name_error(tokenizer),
