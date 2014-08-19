@@ -1068,17 +1068,19 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             //§ after-doctype-name-state
-            states::AfterDoctypeName => loop { match () {
-                _ if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("public"))
-                    => go!(self: to AfterDoctypeKeyword Public),
-                _ if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("system"))
-                    => go!(self: to AfterDoctypeKeyword System),
-                _ => match get_char!(self) {
-                    '\t' | '\n' | '\x0C' | ' ' => (),
-                    '>' => go!(self: emit_doctype; to Data),
-                    _   => go!(self: error; force_quirks; to BogusDoctype),
-                },
-            }},
+            states::AfterDoctypeName => loop {
+                if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("public")) {
+                    go!(self: to AfterDoctypeKeyword Public);
+                } else if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("system")) {
+                    go!(self: to AfterDoctypeKeyword System);
+                } else {
+                    match get_char!(self) {
+                        '\t' | '\n' | '\x0C' | ' ' => (),
+                        '>' => go!(self: emit_doctype; to Data),
+                        _   => go!(self: error; force_quirks; to BogusDoctype),
+                    }
+                }
+            },
 
             //§ after-doctype-public-keyword-state after-doctype-system-keyword-state
             states::AfterDoctypeKeyword(kind) => loop { match get_char!(self) {
@@ -1155,15 +1157,17 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             }},
 
             //§ markup-declaration-open-state
-            states::MarkupDeclarationOpen => loop { match () {
-                _ if lookahead_and_consume!(self, 2, |s| s == "--")
-                    => go!(self: clear_comment; to CommentStart),
-                _ if lookahead_and_consume!(self, 7, |s| s.eq_ignore_ascii_case("doctype"))
-                    => go!(self: to Doctype),
-                // FIXME: CDATA, requires "adjusted current node" from tree builder
-                // FIXME: 'error' gives wrong message
-                _ => go!(self: error; to BogusComment),
-            }},
+            states::MarkupDeclarationOpen => loop {
+                if lookahead_and_consume!(self, 2, |s| s == "--") {
+                    go!(self: clear_comment; to CommentStart);
+                } else if lookahead_and_consume!(self, 7, |s| s.eq_ignore_ascii_case("doctype")) {
+                    go!(self: to Doctype);
+                } else {
+                    // FIXME: CDATA, requires "adjusted current node" from tree builder
+                    // FIXME: 'error' gives wrong message
+                    go!(self: error; to BogusComment);
+                }
+            },
 
             //§ cdata-section-state
             states::CdataSection
