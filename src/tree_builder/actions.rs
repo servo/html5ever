@@ -52,6 +52,7 @@ pub enum PushFlag {
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: Show>(&mut self, thing: &T) -> ProcessResult;
+    fn assert_named(&mut self, node: Handle, name: Atom);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
     fn append_text(&mut self, text: String) -> ProcessResult;
@@ -109,6 +110,10 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             "Unexpected token",
             "Unexpected token {} in insertion mode {}", to_escaped_string(thing), self.mode));
         Done
+    }
+
+    fn assert_named(&mut self, node: Handle, name: Atom) {
+        assert!(self.html_elem_named(node, name));
     }
 
     /// Iterate over the active formatting elements (with index in the list) from the end

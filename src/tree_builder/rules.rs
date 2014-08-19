@@ -280,7 +280,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     self.unexpected(&tag);
                     if !self.frameset_ok { return Done; }
 
-                    let body = unwrap_or_return!(self.body_elem(), Done);
+                    // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+                    let body = match self.body_elem() {
+                        None => return Done,
+                        Some(x) => x,
+                    };
                     self.sink.remove_from_parent(body);
 
                     // FIXME: can we get here in the fragment case?
@@ -428,10 +432,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </form> => {
                     // FIXME: <template>
-                    let node = unwrap_or_return!(self.form_elem.take(), {
-                        self.sink.parse_error(Slice("Null form element pointer on </form>"));
-                        Done
-                    });
+                    // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+                    let node = match self.form_elem.take() {
+                        None => {
+                            self.sink.parse_error(Slice("Null form element pointer on </form>"));
+                            return Done;
+                        }
+                        Some(x) => x,
+                    };
                     if !self.in_scope(default_scope,
                         |n| self.sink.same_node(node.clone(), n)) {
                         self.sink.parse_error(Slice("Form element not in scope on </form>"));
@@ -464,10 +472,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.generate_implied_end_except(tag.name.clone());
                         self.expect_to_close(tag.name);
                     } else {
-                        self.sink.parse_error(format_if!(
-                            self.opts.exact_errors,
-                            "No tag to close",
-                            "No {} tag to close", tag.name));
+                        self.sink.parse_error(Slice("No matching tag to close"));
                     }
                     Done
                 }
@@ -703,12 +708,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         }
                     }
 
-                    let match_idx = unwrap_or_return!(match_idx, {
-                        // I believe this is impossible, because the root
-                        // <html> element is in special_tag.
-                        self.unexpected(&tag);
-                        Done
-                    });
+                    // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+                    let match_idx = match match_idx {
+                        None => {
+                            // I believe this is impossible, because the root
+                            // <html> element is in special_tag.
+                            self.unexpected(&tag);
+                            return Done;
+                        }
+                        Some(x) => x,
+                    };
 
                     self.generate_implied_end_except(tag.name.clone());
 
@@ -1012,7 +1021,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.in_scope_named(table_scope, atom!(tr)) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        assert!(self.html_elem_named(node, atom!(tr)));
+                        self.assert_named(node, atom!(tr));
                         self.mode = InTableBody;
                     } else {
                         self.unexpected(&token);
@@ -1024,7 +1033,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.in_scope_named(table_scope, atom!(tr)) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        assert!(self.html_elem_named(node, atom!(tr)));
+                        self.assert_named(node, atom!(tr));
                         Reprocess(InTableBody, token)
                     } else {
                         self.unexpected(&token)
@@ -1036,7 +1045,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         if self.in_scope_named(table_scope, atom!(tr)) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
-                            assert!(self.html_elem_named(node, atom!(tr)));
+                            self.assert_named(node, atom!(tr));
                             Reprocess(InTableBody, TagToken(tag))
                         } else {
                             Done
