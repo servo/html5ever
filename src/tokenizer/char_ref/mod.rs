@@ -237,7 +237,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf().push_char(c);
-        match data::named_entities.find(&self.name_buf().as_slice()) {
+        match data::named_entities.find_equiv(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
                 if m[0] != 0 {

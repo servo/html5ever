@@ -12,7 +12,7 @@ use phf::PhfMap;
 use std::mem::replace;
 use std::fmt::{Show, Formatter, FormatError};
 
-static static_atom_map: PhfMap<uint> = static_atom_map!();
+static static_atom_map: PhfMap<&'static str, uint> = static_atom_map!();
 static static_atom_array: &'static [&'static str] = static_atom_array!();
 
 // Assume that a string which can be interned always is.
@@ -29,14 +29,14 @@ pub enum Atom {
 
 impl Atom {
     pub fn from_str(s: &str) -> Atom {
-        match static_atom_map.find(&s) {
+        match static_atom_map.find_equiv(&s) {
             Some(&k) => Static(k),
             None => Owned(s.to_string()),
         }
     }
 
     pub fn from_buf(s: String) -> Atom {
-        match static_atom_map.find(&s.as_slice()) {
+        match static_atom_map.find_equiv(&s.as_slice()) {
             Some(&k) => Static(k),
             None => Owned(s),
         }
@@ -46,7 +46,7 @@ impl Atom {
     /// allocating a new `String` when the string is interned --
     /// just truncates the old one.
     pub fn take_from_buf(s: &mut String) -> Atom {
-        match static_atom_map.find(&s.as_slice()) {
+        match static_atom_map.find_equiv(&s.as_slice()) {
             Some(&k) => {
                 s.truncate(0);
                 Static(k)
