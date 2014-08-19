@@ -40,7 +40,7 @@ impl Bench {
         path.push("../data/bench/");
         path.push(name);
         let mut file = io::File::open(&path).ok().expect("can't open file");
-        let file_input = file.read_to_str().ok().expect("can't read file");
+        let file_input = file.read_to_string().ok().expect("can't read file");
 
         let input = match size {
             None => file_input,

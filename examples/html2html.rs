@@ -26,7 +26,7 @@ use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
 
 fn main() {
-    let input = io::stdin().read_to_str().unwrap();
+    let input = io::stdin().read_to_string().unwrap();
     let dom: RcDom = parse(one_input(input), ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,

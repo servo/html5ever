@@ -195,7 +195,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
                         buf.slice_to(len).to_string());
 
                     if len < buf.len() {
-                        more_tokens.push_back(
+                        more_tokens.push(
                             CharacterTokens(NotSplit, buf.slice_from(len).to_string()));
                     }
                 }

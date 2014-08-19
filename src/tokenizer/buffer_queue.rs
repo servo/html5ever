@@ -67,7 +67,7 @@ impl BufferQueue {
             return;
         }
         self.account_new(buf.as_slice());
-        self.buffers.push_back(Buffer {
+        self.buffers.push(Buffer {
             pos: pos,
             buf: buf,
         });

@@ -81,6 +81,6 @@ fn main() {
         names: HashMap::new(),
     };
 
-    let input = io::stdin().read_to_str().unwrap();
+    let input = io::stdin().read_to_string().unwrap();
     parse_to(&mut sink, one_input(input), Default::default());
 }

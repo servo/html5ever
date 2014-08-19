@@ -225,8 +225,8 @@ impl TreeSink<Handle> for Sink {
 
             // Look for a text node before the insertion point.
             (AppendText(text), i) => {
-                let prev = parent.children.get(i-1);
-                if append_to_existing_text(*prev, text.as_slice()) {
+                let prev = parent.children[i-1];
+                if append_to_existing_text(prev, text.as_slice()) {
                     return Ok(());
                 }
                 self.new_node(Text(text))

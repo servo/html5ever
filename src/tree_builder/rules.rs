@@ -703,7 +703,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         }
 
                         if self.elem_in(elem.clone(), special_tag) {
-                            self.unexpected(&tag);
+                            self.sink.parse_error(Slice("Found special tag while closing generic tag"));
                             return Done;
                         }
                     }

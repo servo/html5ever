@@ -51,7 +51,7 @@ fn walk(indent: uint, handle: Handle) {
 }
 
 fn main() {
-    let input = io::stdin().read_to_str().unwrap();
+    let input = io::stdin().read_to_string().unwrap();
     let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 

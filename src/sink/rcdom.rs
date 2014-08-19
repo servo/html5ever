@@ -177,7 +177,7 @@ impl TreeSink<Handle> for RcDom {
             // Look for a text node before the insertion point.
             (AppendText(text), i) => {
                 let parent = parent.borrow();
-                let prev = parent.children.get(i-1);
+                let prev = &parent.children[i-1];
                 if append_to_existing_text(prev, text.as_slice()) {
                     return Ok(());
                 }

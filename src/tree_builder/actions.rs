@@ -191,7 +191,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     // If last_table has no parent, we regain ownership of the child.
                     // Insert "inside previous element, after its last child (if any)"
                     Err(child) => {
-                        let previous_element = self.open_elems.get(idx-1).clone();
+                        let previous_element = self.open_elems[idx-1].clone();
                         self.sink.append(previous_element, child);
                     }
                 }
@@ -227,7 +227,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
     /// Get the first element on the stack, which will be the <html> element.
     fn html_elem(&self) -> Handle {
-         self.open_elems.get(0).clone()
+         self.open_elems[0].clone()
     }
 
     /// Get the second element on the stack, if it's a HTML body element.
@@ -236,7 +236,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             return None;
         }
 
-        let node = self.open_elems.get(1).clone();
+        let node = self.open_elems[1].clone();
         if self.html_elem_named(node.clone(), atom!(body)) {
             Some(node)
         } else {

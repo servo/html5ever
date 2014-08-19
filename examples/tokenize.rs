@@ -79,7 +79,7 @@ fn main() {
     let mut sink = TokenPrinter {
         in_char_run: false,
     };
-    let input = io::stdin().read_to_str().unwrap();
+    let input = io::stdin().read_to_string().unwrap();
     tokenize_to(&mut sink, one_input(input), TokenizerOpts {
         profile: true,
         .. Default::default()
