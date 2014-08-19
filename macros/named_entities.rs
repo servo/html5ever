@@ -77,7 +77,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
-        [TTTok(_, LIT_STR(s))] => get_ident(s).get().to_string(),
+        [TTTok(_, LIT_STR(s))] => s.as_str().to_string(),
         _ => bail!(cx, sp, usage),
     };
 

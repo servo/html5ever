@@ -87,13 +87,6 @@ impl StrAllocating for Atom {
         }
     }
 
-    fn to_string(&self) -> String {
-        match *self {
-            Static(i) => get_static(i).to_string(),
-            Owned(ref s) => s.clone(),
-        }
-    }
-
     fn into_owned(self) -> String {
         match self {
             Static(i) => get_static(i).to_string(),

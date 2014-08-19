@@ -416,7 +416,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
         (None, Tags(_), _) => bail!(cx, lhs.span, "the last arm cannot have tag patterns"),
         (None, _, Else) => bail!(cx, rhs.span, "the last arm cannot use 'else'"),
         (None, Pat(p), Expr(e)) => match p.node {
-            ast::PatWild | ast::PatIdent(..) => (p, e),
+            ast::PatWild(ast::PatWildSingle) | ast::PatIdent(..) => (p, e),
             _ => bail!(cx, lhs.span, "the last arm must have a wildcard or ident pattern"),
         },
     };

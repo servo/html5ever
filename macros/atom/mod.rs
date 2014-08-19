@@ -16,7 +16,7 @@ use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::parse::token::{get_ident, InternedString, LIT_STR, IDENT};
 
 use std::iter::Chain;
-use std::slice::Items;
+use std::slice::{Items, Found, NotFound};
 use std::gc::Gc;
 
 mod data;
@@ -48,7 +48,7 @@ pub fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) ->
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     Some(get_ident(match *t {
         TTTok(_, IDENT(s, _)) => s,
-        TTTok(_, LIT_STR(s)) => s,
+        TTTok(_, LIT_STR(s)) => s.ident(),
         _ => return None,
     }))
 }
@@ -56,8 +56,13 @@ fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
 fn find_atom(name: InternedString) -> Option<uint> {
     // Use bsearch instead of bsearch_elem because of type mismatch
     // between &'t str and &'static str.
-    data::fast_set_atoms.bsearch(|&x| x.cmp(&name.get())).or_else(||
-        data::other_atoms.bsearch(|&x| x.cmp(&name.get())).map(|i| i+64))
+    match data::fast_set_atoms.binary_search(|&x| x.cmp(&name.get())) {
+        Found(i) => Some(i),
+        NotFound(_) => match data::other_atoms.binary_search(|&x| x.cmp(&name.get())) {
+            Found(i) => Some(i+64),
+            NotFound(_) => None,
+        },
+    }
 }
 
 struct AtomResult {

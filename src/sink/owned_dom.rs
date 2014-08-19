@@ -53,7 +53,7 @@ impl SquishyNode {
 struct Handle {
     ptr: *const Unsafe<SquishyNode>,
     no_send: marker::NoSend,
-    no_share: marker::NoShare,
+    no_sync: marker::NoSync,
 }
 
 impl Handle {
@@ -61,7 +61,7 @@ impl Handle {
         Handle {
             ptr: ptr,
             no_send: marker::NoSend,
-            no_share: marker::NoShare,
+            no_sync: marker::NoSync,
         }
     }
 
