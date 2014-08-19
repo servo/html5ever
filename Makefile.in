@@ -10,15 +10,12 @@
 VPATH := %VPATH%
 
 RUSTC ?= rustc
-RUST_DIRS := -L . -L $(VPATH)/rust-phf/build
+RUST_DIRS := -L . -L $(VPATH)/rust-phf/phf/target -L $(VPATH)/rust-phf/phf_mac/target
 
 RUSTC_CMD := $(RUSTC) -D warnings $(RUST_DIRS) $(RUSTFLAGS)
 
 # Hack to make sure the build fails if rustc --print-file-name does
 crate_name = $$(shell $$(RUSTC) --print-file-name $(1) || echo rustc_crate_name_failed)
-
-PHF_DUMMY := rust-phf.dummy
-PHF_ALL_SRC := $(shell find $(VPATH)/rust-phf -type f -name '*.rs')
 
 LIB_TOP_SRC := $(VPATH)/src/lib.rs
 LIB_ALL_SRC := $(shell find $(VPATH)/src -type f -name '*.rs')
@@ -34,7 +31,7 @@ EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
 EXT_BENCH_TOP_SRC := $(VPATH)/bench/bin.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
-LIB_DEPS := $(PHF_DUMMY) $(MACROS) $(LIB_ALL_SRC)
+LIB_DEPS := $(MACROS) $(LIB_ALL_SRC)
 
 EXAMPLES := tokenize noop-tokenize print-tree-actions \
     print-rcdom html2html noop-tree-builder
@@ -46,16 +43,7 @@ all: $(LIB) $(EXAMPLES) docs
 submodules:
 	(cd $(VPATH) && git submodule update --init)
 
-$(VPATH)/rust-phf/Makefile.in: submodules
-
-$(VPATH)/rust-phf/Makefile: $(VPATH)/rust-phf/Makefile.in
-	(cd $(VPATH)/rust-phf && ./configure)
-
-$(PHF_DUMMY): $(VPATH)/rust-phf/Makefile $(PHF_ALL_SRC)
-	make -C $(VPATH)/rust-phf
-	touch $(PHF_DUMMY)
-
-$(MACROS): $(MACROS_ALL_SRC) $(PHF_DUMMY)
+$(MACROS): $(MACROS_ALL_SRC)
 	$(RUSTC_CMD) $(MACROS_TOP_SRC)
 
 $(LIB): $(LIB_DEPS)
@@ -104,7 +92,6 @@ bench: html5ever-external-bench
 .PHONY: clean
 clean:
 	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench $(EXAMPLES)
-	(cd $(VPATH)/rust-phf && make clean)
 
 .PHONY: docs
 docs: doc doc/html5ever-macros/index.html doc/html5ever/index.html
