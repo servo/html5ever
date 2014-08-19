@@ -39,15 +39,6 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     TreeBuilderStep<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
 
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
-        // $thing may be either a Token or a Tag
-        macro_rules! unexpected ( ($thing:expr) => ({
-            self.sink.parse_error(format_if!(
-                self.opts.exact_errors,
-                "Unexpected token",
-                "Unexpected token {} in insertion mode {}", to_escaped_string(&$thing), mode));
-            Done
-        }))
-
         debug!("processing {} in insertion mode {:?}", to_escaped_string(&token), mode);
 
         match mode {
@@ -58,7 +49,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 CommentToken(text) => self.append_comment_to_doc(text),
                 token => {
                     if !self.opts.iframe_srcdoc {
-                        unexpected!(token);
+                        self.unexpected(&token);
                         self.set_quirks_mode(Quirks);
                     }
                     Reprocess(BeforeHtml, token)
@@ -79,7 +70,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => unexpected!(tag),
+                tag @ </_> => self.unexpected(&tag),
 
                 token => {
                     self.create_root(vec!());
@@ -103,7 +94,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </head> </body> </html> </br> => else,
 
-                tag @ </_> => unexpected!(tag),
+                tag @ </_> => self.unexpected(&tag),
 
                 token => {
                     self.head_elem = Some(self.insert_phantom(atom!(head)));
@@ -162,8 +153,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 <template> => fail!("FIXME: <template> not implemented"),
                 </template> => fail!("FIXME: <template> not implemented"),
 
-                <head> => unexpected!(token),
-                tag @ </_> => unexpected!(tag),
+                <head> => self.unexpected(&token),
+                tag @ </_> => self.unexpected(&tag),
 
                 token => {
                     self.pop();
@@ -191,11 +182,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </br> => else,
 
-                <head> <noscript> => unexpected!(token),
-                tag @ </_> => unexpected!(tag),
+                <head> <noscript> => self.unexpected(&token),
+                tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     self.pop();
                     Reprocess(InHead, token)
                 },
@@ -224,7 +215,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 <base> <basefont> <bgsound> <link> <meta>
                       <noframes> <script> <style> <template> <title> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     let head = self.head_elem.as_ref().expect("no head element").clone();
                     self.push(&head);
                     let result = self.step(InHead, token);
@@ -236,8 +227,8 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </body> </html> </br> => else,
 
-                <head> => unexpected!(token),
-                tag @ </_> => unexpected!(tag),
+                <head> => self.unexpected(&token),
+                tag @ </_> => self.unexpected(&tag),
 
                 token => {
                     self.insert_phantom(atom!(body));
@@ -247,7 +238,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
             //§ parsing-main-inbody
             InBody => match_token!(token {
-                NullCharacterToken => unexpected!(token),
+                NullCharacterToken => self.unexpected(&token),
 
                 CharacterTokens(_, text) => {
                     self.reconstruct_formatting();
@@ -260,7 +251,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 CommentToken(text) => self.append_comment(text),
 
                 tag @ <html> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     // FIXME: <template>
                     let top = self.html_elem();
                     self.sink.add_attrs_if_missing(top, tag.attrs);
@@ -273,7 +264,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <body> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     // FIXME: <template>
                     match self.body_elem() {
                         None => (),
@@ -286,7 +277,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <frameset> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     if !self.frameset_ok { return Done; }
 
                     let body = unwrap_or_return!(self.body_elem(), Done);
@@ -427,7 +418,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                   </figure> </footer> </header> </hgroup> </listing> </main> </menu>
                   </nav> </ol> </pre> </section> </summary> </ul> => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(cursory_implied_end);
                         self.expect_to_close(tag.name);
@@ -503,7 +494,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     }
 
                     if !to_remove.is_empty() {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                         self.adoption_agency(atom!(a));
                         // FIXME: quadratic time
                         for (i, handle) in to_remove.move_iter() {
@@ -553,7 +544,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 tag @ </applet> </marquee> </object> => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(cursory_implied_end);
                         self.expect_to_close(tag.name);
@@ -573,7 +564,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ </br> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     self.step(InBody, TagToken(Tag {
                         kind: StartTag,
                         attrs: vec!(),
@@ -607,7 +598,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <image> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     self.step(InBody, TagToken(Tag {
                         name: atom!(img),
                         ..tag
@@ -672,7 +663,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.generate_implied_end(cursory_implied_end);
                     }
                     if !self.current_node_named(atom!(ruby)) {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
                     Done
@@ -683,7 +674,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 <caption> <col> <colgroup> <frame> <head>
                   <tbody> <td> <tfoot> <th> <thead> <tr> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     Done
                 }
 
@@ -707,7 +698,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         }
 
                         if self.elem_in(elem.clone(), special_tag) {
-                            unexpected!(tag);
+                            self.unexpected(&tag);
                             return Done;
                         }
                     }
@@ -715,7 +706,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     let match_idx = unwrap_or_return!(match_idx, {
                         // I believe this is impossible, because the root
                         // <html> element is in special_tag.
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                         Done
                     });
 
@@ -723,7 +714,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                     if match_idx != self.open_elems.len() - 1 {
                         // mis-nested tags
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     }
                     self.open_elems.truncate(match_idx);
                     Done
@@ -739,7 +730,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 CharacterTokens(_, text) => self.append_text(text),
 
                 EOFToken => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     if self.current_node_named(atom!(script)) {
                         let current = self.current_node();
                         self.sink.mark_script_already_started(current);
@@ -807,7 +798,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 <table> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     if self.in_scope_named(table_scope, atom!(table)) {
                         self.pop_until_named(atom!(table));
                         Reprocess(self.reset_insertion_mode(), token)
@@ -821,20 +812,20 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.pop_until_named(atom!(table));
                         self.mode = self.reset_insertion_mode();
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Done
                 }
 
                 </body> </caption> </col> </colgroup> </html>
                   </tbody> </td> </tfoot> </th> </thead> </tr> =>
-                    unexpected!(token),
+                    self.unexpected(&token),
 
                 <style> <script> <template> </template>
                     => self.step(InHead, token),
 
                 tag @ <input> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     if self.is_type_hidden(&tag) {
                         self.insert_and_pop_element_for(tag);
                         DoneAckSelfClosing
@@ -844,7 +835,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <form> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     // FIXME: <template>
                     if self.form_elem.is_none() {
                         self.form_elem = Some(self.insert_and_pop_element_for(tag));
@@ -855,14 +846,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 EOFToken => self.step(InBody, token),
 
                 token => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     self.foster_parent_in_body(token)
                 }
             }),
 
             //§ parsing-main-intabletext
             InTableText => match_token!(token {
-                NullCharacterToken => unexpected!(token),
+                NullCharacterToken => self.unexpected(&token),
 
                 CharacterTokens(split, text) => {
                     self.pending_table_text.push((split, text));
@@ -913,13 +904,13 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                             _ => Reprocess(InTable, TagToken(tag))
                         }
                     } else {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                         Done
                     }
                 }
 
                 </body> </col> </colgroup> </html> </tbody>
-                  </td> </tfoot> </th> </thead> </tr> => unexpected!(token),
+                  </td> </tfoot> </th> </thead> </tr> => self.unexpected(&token),
 
                 token => self.step(InBody, token),
             }),
@@ -942,12 +933,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.pop();
                         self.mode = InTable;
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Done
                 }
 
-                </col> => unexpected!(token),
+                </col> => self.unexpected(&token),
 
                 <template> </template> => self.step(InHead, token),
 
@@ -957,7 +948,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.current_node_named(atom!(colgroup)) {
                         self.pop();
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Reprocess(InTable, token)
                 }
@@ -973,7 +964,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 <th> <td> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     self.pop_until_current(table_body_context);
                     self.insert_phantom(atom!(tr));
                     Reprocess(InRow, token)
@@ -985,7 +976,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.pop();
                         self.mode = InTable;
                     } else {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     }
                     Done
                 }
@@ -997,12 +988,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.pop();
                         Reprocess(InTable, token)
                     } else {
-                        unexpected!(token)
+                        self.unexpected(&token)
                     }
                 }
 
                 </body> </caption> </col> </colgroup> </html> </td> </th> </tr>
-                    => unexpected!(token),
+                    => self.unexpected(&token),
 
                 token => self.step(InTable, token),
             }),
@@ -1024,7 +1015,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         assert!(self.html_elem_named(node, atom!(tr)));
                         self.mode = InTableBody;
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Done
                 }
@@ -1036,7 +1027,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         assert!(self.html_elem_named(node, atom!(tr)));
                         Reprocess(InTableBody, token)
                     } else {
-                        unexpected!(token)
+                        self.unexpected(&token)
                     }
                 }
 
@@ -1051,12 +1042,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                             Done
                         }
                     } else {
-                        unexpected!(tag)
+                        self.unexpected(&tag)
                     }
                 }
 
                 </body> </caption> </col> </colgroup> </html> </td> </th>
-                    => unexpected!(token),
+                    => self.unexpected(&token),
 
                 token => self.step(InTable, token),
             }),
@@ -1070,7 +1061,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.clear_active_formatting_to_marker();
                         self.mode = InRow;
                     } else {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     }
                     Done
                 }
@@ -1080,19 +1071,19 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.close_the_cell();
                         Reprocess(InRow, token)
                     } else {
-                        unexpected!(token)
+                        self.unexpected(&token)
                     }
                 }
 
                 </body> </caption> </col> </colgroup> </html>
-                    => unexpected!(token),
+                    => self.unexpected(&token),
 
                 tag @ </table> </tbody> </tfoot> </thead> </tr> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.close_the_cell();
                         Reprocess(InRow, TagToken(tag))
                     } else {
-                        unexpected!(tag)
+                        self.unexpected(&tag)
                     }
                 }
 
@@ -1101,7 +1092,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
             //§ parsing-main-inselect
             InSelect => match_token!(token {
-                NullCharacterToken => unexpected!(token),
+                NullCharacterToken => self.unexpected(&token),
                 CharacterTokens(_, text) => self.append_text(text),
                 CommentToken(text) => self.append_comment(text),
 
@@ -1136,7 +1127,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.current_node_named(atom!(optgroup)) {
                         self.pop();
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Done
                 }
@@ -1145,7 +1136,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     if self.current_node_named(atom!(option)) {
                         self.pop();
                     } else {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     Done
                 }
@@ -1154,7 +1145,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     let in_scope = self.in_scope_named(select_scope, atom!(select));
 
                     if !in_scope || tag.kind == StartTag {
-                        unexpected!(tag);
+                        self.unexpected(&tag);
                     }
 
                     if in_scope {
@@ -1165,7 +1156,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 <input> <keygen> <textarea> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     if self.in_scope_named(select_scope, atom!(select)) {
                         self.pop_until_named(atom!(select));
                         Reprocess(self.reset_insertion_mode(), token)
@@ -1178,19 +1169,19 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 EOFToken => self.step(InBody, token),
 
-                token => unexpected!(token),
+                token => self.unexpected(&token),
             }),
 
             //§ parsing-main-inselectintable
             InSelectInTable => match_token!(token {
                 <caption> <table> <tbody> <tfoot> <thead> <tr> <td> <th> => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     self.pop_until_named(atom!(select));
                     Reprocess(self.reset_insertion_mode(), token)
                 }
 
                 tag @ </caption> </table> </tbody> </tfoot> </thead> </tr> </td> </th> => {
-                    unexpected!(tag);
+                    self.unexpected(&tag);
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_named(atom!(select));
                         Reprocess(self.reset_insertion_mode(), TagToken(tag))
@@ -1216,7 +1207,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </html> => {
                     if self.opts.fragment {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     } else {
                         self.mode = AfterAfterBody;
                     }
@@ -1226,7 +1217,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 EOFToken => self.stop_parsing(),
 
                 token => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     Reprocess(InBody, token)
                 }
             }),
@@ -1246,7 +1237,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </frameset> => {
                     if self.open_elems.len() == 1 {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     } else {
                         self.pop();
                         if !self.opts.fragment && !self.current_node_named(atom!(frameset)) {
@@ -1265,12 +1256,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 EOFToken => {
                     if self.open_elems.len() != 1 {
-                        unexpected!(token);
+                        self.unexpected(&token);
                     }
                     self.stop_parsing()
                 }
 
-                token => unexpected!(token),
+                token => self.unexpected(&token),
             }),
 
             //§ parsing-main-afterframeset
@@ -1290,7 +1281,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 EOFToken => self.stop_parsing(),
 
-                token => unexpected!(token),
+                token => self.unexpected(&token),
             }),
 
             //§ the-after-after-body-insertion-mode
@@ -1304,7 +1295,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 EOFToken => self.stop_parsing(),
 
                 token => {
-                    unexpected!(token);
+                    self.unexpected(&token);
                     Reprocess(InBody, token)
                 }
             }),
@@ -1321,7 +1312,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 <noframes> => self.step(InHead, token),
 
-                token => unexpected!(token),
+                token => self.unexpected(&token),
             }),
             //§ END
         }

@@ -29,6 +29,7 @@ use std::ascii::StrAsciiExt;
 use std::iter::{Rev, Enumerate};
 use std::slice;
 use std::str::Slice;
+use std::fmt::Show;
 
 pub struct ActiveFormattingIter<'a, Handle> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
@@ -50,6 +51,7 @@ pub enum PushFlag {
 
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
+    fn unexpected<T: Show>(&mut self, thing: &T) -> ProcessResult;
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
     fn append_text(&mut self, text: String) -> ProcessResult;
@@ -100,6 +102,14 @@ pub trait TreeBuilderActions<Handle> {
 #[doc(hidden)]
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     TreeBuilderActions<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
+
+    fn unexpected<T: Show>(&mut self, thing: &T) -> ProcessResult {
+        self.sink.parse_error(format_if!(
+            self.opts.exact_errors,
+            "Unexpected token",
+            "Unexpected token {} in insertion mode {}", to_escaped_string(thing), self.mode));
+        Done
+    }
 
     /// Iterate over the active formatting elements (with index in the list) from the end
     /// to the last marker, or the beginning if there are no markers.
