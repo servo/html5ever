@@ -12,7 +12,7 @@ VPATH := %VPATH%
 RUSTC ?= rustc
 RUST_DIRS := -L . -L $(VPATH)/rust-phf/phf/target -L $(VPATH)/rust-phf/phf_mac/target
 
-RUSTC_CMD := $(RUSTC) -D warnings $(RUST_DIRS) $(RUSTFLAGS)
+RUSTC_CMD := $(RUSTC) -D warnings -C rpath $(RUST_DIRS) $(RUSTFLAGS)
 
 # Hack to make sure the build fails if rustc --print-file-name does
 crate_name = $$(shell $$(RUSTC) --print-file-name $(1) || echo rustc_crate_name_failed)
