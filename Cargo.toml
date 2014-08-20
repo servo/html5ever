@@ -1,0 +1,4 @@
+[package]
+name = "html5ever"
+version = "0.0.1"
+authors = ["Keegan McAllister <mcallister.keegan@gmail.com>"]
