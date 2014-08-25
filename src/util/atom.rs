@@ -124,7 +124,7 @@ impl Show for Atom {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
-    use super::*; // public items
+    use super::{Atom, Static, Owned}; // public items
     use super::{get_static}; // private items
 
     #[test]
@@ -159,9 +159,9 @@ mod test {
 
     #[test]
     fn to_string() {
-        assert_eq!(Atom::from_str("").to_string(), "".to_string());
-        assert_eq!(Atom::from_str("body").to_string(), "body".to_string());
-        assert_eq!(Atom::from_str("asdfghjk").to_string(), "asdfghjk".to_string());
+        assert_eq!(Atom::from_str("").to_string(), "atom!()".to_string());
+        assert_eq!(Atom::from_str("body").to_string(), "atom!(body)".to_string());
+        assert_eq!(Atom::from_str("asdfghjk").to_string(), "atom!(asdfghjk)".to_string());
     }
 
     #[test]

@@ -163,7 +163,7 @@ impl Iterator<char> for BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
-    use super::*; // public items
+    use super::{BufferQueue, NotFromSet, FromSet}; // public items
 
     #[test]
     fn smoke_test() {
