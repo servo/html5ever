@@ -115,9 +115,7 @@ impl Ord for Atom {
 
 impl Show for Atom {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatError> {
-        try!("atom!(".fmt(fmt));
-        try!(self.as_slice().fmt(fmt));
-        ")".fmt(fmt)
+        self.as_slice().fmt(fmt)
     }
 }
 
