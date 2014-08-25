@@ -1,2 +1,4 @@
 /build
 /data/bench/uncommitted
+/target
+/Cargo.lock

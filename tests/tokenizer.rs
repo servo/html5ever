@@ -188,7 +188,7 @@ fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts.slice_from(1).iter().collect();
-    match (parts.get(0).get_str().as_slice(), args.as_slice()) {
+    match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
             name: name.get_nullable_str(),
             public_id: public_id.get_nullable_str(),
@@ -251,7 +251,10 @@ fn unescape(s: &str) -> Option<String> {
     loop {
         match it.next() {
             None => return Some(out),
-            Some('\\') if it.peek() == Some(&'u') => {
+            Some('\\') => {
+                if it.peek() != Some(&'u') {
+                    fail!("can't understand escape")
+                }
                 drop(it.next());
                 let hex: String = it.by_ref().take(4).collect();
                 match num::from_str_radix(hex.as_slice(), 16)
@@ -264,7 +267,6 @@ fn unescape(s: &str) -> Option<String> {
                     Some(c) => out.push_char(c),
                 }
             }
-            Some('\\') => fail!("can't understand escape"),
             Some(c) => out.push_char(c),
         }
     }

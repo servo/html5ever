@@ -1,0 +1,16 @@
+[package]
+
+name = "html5ever"
+version = "0.1.0"
+authors = [ "TODO?" ]
+
+[dependencies.phf]
+git = "https://github.com/sfackler/rust-phf"
+[dependencies.phf_mac]
+git = "https://github.com/sfackler/rust-phf"
+
+[dependencies.html5ever-macros]
+path = "macros"
+
+[[test]]
+name = "html5ever-external-test"
