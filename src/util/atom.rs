@@ -124,8 +124,7 @@ impl Show for Atom {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
-    use super::*; // public items
-    use super::{get_static}; // private items
+    use super::{Atom, get_static, Static, Owned};
 
     #[test]
     fn interned() {

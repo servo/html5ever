@@ -70,7 +70,7 @@ pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)>
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
-    use super::*;
+    use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
     test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'))
