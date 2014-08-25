@@ -1,0 +1,10 @@
+[package]
+
+name = "html5ever-macros"
+version = "0.1.0"
+authors = ["TODO??"]
+
+[lib]
+
+name = "html5ever-macros"
+plugin = true

@@ -21,12 +21,12 @@ LIB_TOP_SRC := $(VPATH)/src/lib.rs
 LIB_ALL_SRC := $(shell find $(VPATH)/src -type f -name '*.rs')
 $(eval LIB := $(call crate_name,$(LIB_TOP_SRC)))
 
-MACROS_TOP_SRC := $(VPATH)/macros/lib.rs
+MACROS_TOP_SRC := $(VPATH)/macros/src/lib.rs
 MACROS_ALL_SRC := $(shell find $(VPATH)/macros -type f -name '*.rs')
 $(eval MACROS := $(call crate_name,$(MACROS_TOP_SRC)))
 
-EXT_TEST_TOP_SRC := $(VPATH)/test/bin.rs
-EXT_TEST_ALL_SRC := $(shell find $(VPATH)/test -type f -name '*.rs')
+EXT_TEST_TOP_SRC := $(VPATH)/tests/html5ever-external-test.rs
+EXT_TEST_ALL_SRC := $(shell find $(VPATH)/tests -type f -name '*.rs')
 
 EXT_BENCH_TOP_SRC := $(VPATH)/bench/bin.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
