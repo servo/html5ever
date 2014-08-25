@@ -10,20 +10,12 @@
 VPATH := %VPATH%
 
 RUSTC ?= rustc
-RUST_DIRS := -L . -L $(VPATH)/rust-phf/phf/target -L $(VPATH)/rust-phf/phf_mac/target
+RUST_DIRS := -L $(VPATH)/target -L $(VPATH)/target/deps
 
 RUSTC_CMD := $(RUSTC) -D warnings -C rpath $(RUST_DIRS) $(RUSTFLAGS)
 
-# Hack to make sure the build fails if rustc --print-file-name does
-crate_name = $$(shell $$(RUSTC) --print-file-name $(1) || echo rustc_crate_name_failed)
-
-LIB_TOP_SRC := $(VPATH)/src/lib.rs
-LIB_ALL_SRC := $(shell find $(VPATH)/src -type f -name '*.rs')
-$(eval LIB := $(call crate_name,$(LIB_TOP_SRC)))
-
-MACROS_TOP_SRC := $(VPATH)/macros/src/lib.rs
-MACROS_ALL_SRC := $(shell find $(VPATH)/macros -type f -name '*.rs')
-$(eval MACROS := $(call crate_name,$(MACROS_TOP_SRC)))
+# We build the library itself using Cargo.
+CARGO_SOURCES := $(shell find $(VPATH)/src $(VPATH)/macros/src -type f -name '*.rs')
 
 EXT_TEST_TOP_SRC := $(VPATH)/tests/html5ever-external-test.rs
 EXT_TEST_ALL_SRC := $(shell find $(VPATH)/tests -type f -name '*.rs')
@@ -31,23 +23,20 @@ EXT_TEST_ALL_SRC := $(shell find $(VPATH)/tests -type f -name '*.rs')
 EXT_BENCH_TOP_SRC := $(VPATH)/bench/bin.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
-LIB_DEPS := $(MACROS) $(LIB_ALL_SRC)
+LIB := libhtml5ever.dummy
 
 EXAMPLES := tokenize noop-tokenize print-tree-actions \
     print-rcdom html2html noop-tree-builder
 
 .PHONY: all
-all: $(LIB) $(EXAMPLES) docs
+all: $(LIB)
 
-.PHONY: submodules
-submodules:
-	(cd $(VPATH) && git submodule update --init)
+.PHONY: examples
+examples: $(EXAMPLES)
 
-$(MACROS): $(MACROS_ALL_SRC)
-	$(RUSTC_CMD) $(MACROS_TOP_SRC)
-
-$(LIB): $(LIB_DEPS)
-	$(RUSTC_CMD) $(LIB_TOP_SRC)
+$(LIB): $(CARGO_SOURCES)
+	(cd $(VPATH) && cargo build)
+	touch $(LIB)
 
 define DEF_EXAMPLE
 $(1): $$(VPATH)/examples/$(1).rs $$(LIB)
@@ -58,8 +47,8 @@ $(foreach example,$(EXAMPLES),\
 $(eval $(call DEF_EXAMPLE,$(example))))
 
 # Run #[test] functions
-html5ever-test: $(LIB_DEPS)
-	$(RUSTC_CMD) -o $@ --test $(LIB_TOP_SRC)
+html5ever-test: $(LIB)
+	$(RUSTC_CMD) -o $@ --test $(VPATH)/src/lib.rs
 
 # Run external tests loaded from JSON
 html5ever-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
@@ -73,7 +62,7 @@ html5ever-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
 check: check-build check-internal check-external
 
 .PHONY: check-build
-check-build: all html5ever-test html5ever-external-test html5ever-external-bench
+check-build: all examples html5ever-test html5ever-external-test html5ever-external-bench
 
 .PHONY: check-internal
 check-internal: html5ever-test
@@ -91,16 +80,9 @@ bench: html5ever-external-bench
 
 .PHONY: clean
 clean:
+	(cd $(VPATH) && cargo clean)
 	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench $(EXAMPLES)
 
 .PHONY: docs
-docs: doc doc/html5ever-macros/index.html doc/html5ever/index.html
-
-doc:
-	mkdir doc
-
-doc/html5ever-macros/index.html: $(MACROS_TOP_SRC)
-	rustdoc $(RUST_DIRS) $(VPATH)/macros/lib.rs
-
-doc/html5ever/index.html: $(LIB_DEPS)
-	rustdoc $(RUST_DIRS) $(VPATH)/src/lib.rs
+docs:
+	(cd $(VPATH) && cargo doc)
