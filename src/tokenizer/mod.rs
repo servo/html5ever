@@ -1365,12 +1365,12 @@ mod test {
     fn append_to_empty_does_not_copy() {
         let mut lhs: String = "".to_string();
         let rhs: Vec<u8> = Vec::from_slice(b"foo");
-        let ptr_old = rhs.get(0) as *const u8;
+        let ptr_old = rhs[0] as *const u8;
 
         append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
         assert_eq!(lhs, "foo".to_string());
 
-        let ptr_new = lhs.into_bytes().get(0) as *const u8;
+        let ptr_new = lhs.into_bytes()[0] as *const u8;
         assert_eq!(ptr_old, ptr_new);
     }
 }
