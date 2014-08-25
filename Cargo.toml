@@ -1,8 +1,8 @@
 [package]
 
 name = "html5ever"
-version = "0.1.0"
-authors = [ "TODO?" ]
+version = "0.0.0"
+authors = [ "The html5ever Project Developers" ]
 
 [dependencies.phf]
 git = "https://github.com/sfackler/rust-phf"
