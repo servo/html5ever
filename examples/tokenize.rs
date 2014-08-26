@@ -52,11 +52,12 @@ impl TokenSink for TokenPrinter {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
-                    StartTag => print!("TAG  : <\x1b[32m{:s}\x1b[0m", tag.name),
-                    EndTag   => print!("TAG  : <\x1b[31m/{:s}\x1b[0m", tag.name),
+                    StartTag => print!("TAG  : <\x1b[32m{:s}\x1b[0m", tag.name.as_slice()),
+                    EndTag   => print!("TAG  : <\x1b[31m/{:s}\x1b[0m", tag.name.as_slice()),
                 }
                 for attr in tag.attrs.iter() {
-                    print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'", attr.name, attr.value);
+                    print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'",
+                        attr.name.name.as_slice(), attr.value);
                 }
                 if tag.self_closing {
                     print!(" \x1b[31m/\x1b[0m");

@@ -19,12 +19,13 @@ use serialize::json::Json;
 use std::collections::treemap::TreeMap;
 use std::str::Slice;
 
-use html5ever::Atom;
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+
+use string_cache::Atom;
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -198,10 +199,10 @@ fn json_to_token(js: &Json) -> Token {
 
         ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from_buf(name.get_str()),
+            name: Atom::from_slice(name.get_str().as_slice()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: AttrName::new(Atom::from_buf(k.to_string())),
+                    name: AttrName::new(Atom::from_slice(k.as_slice())),
                     value: v.get_str()
                 }
             }).collect(),
@@ -213,7 +214,7 @@ fn json_to_token(js: &Json) -> Token {
 
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from_buf(name.get_str()),
+            name: Atom::from_slice(name.get_str().as_slice()),
             attrs: vec!(),
             self_closing: false
         }),

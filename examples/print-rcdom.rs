@@ -39,7 +39,7 @@ fn walk(indent: uint, handle: Handle) {
         Element(ref name, ref attrs) => {
             print!("<{:s}", name.as_slice());
             for attr in attrs.iter() {
-                print!(" {:s}=\"{:s}\"", attr.name.name, attr.value);
+                print!(" {:s}=\"{:s}\"", attr.name.name.as_slice(), attr.value);
             }
             println!(">");
         }

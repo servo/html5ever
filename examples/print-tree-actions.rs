@@ -8,6 +8,7 @@
 // except according to those terms.
 
 extern crate debug;
+extern crate string_cache;
 
 extern crate html5ever;
 
@@ -16,8 +17,9 @@ use std::default::Default;
 use std::string::String;
 use std::collections::hashmap::HashMap;
 use std::str::MaybeOwned;
+use string_cache::Atom;
 
-use html5ever::{Namespace, Atom, parse_to, one_input};
+use html5ever::{Namespace, parse_to, one_input};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 
@@ -57,7 +59,7 @@ impl TreeSink<uint> for Sink {
 
     fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
         let id = self.get_id();
-        println!("Created {:?}:{:s} as {:u}", ns, name, id);
+        println!("Created {:?}:{:s} as {:u}", ns, name.as_slice(), id);
         self.names.insert(id, (ns, name));
         id
     }

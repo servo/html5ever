@@ -18,7 +18,6 @@ use core::prelude::*;
 
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
-use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
@@ -38,6 +37,8 @@ use collections::string::String;
 use collections::str::MaybeOwned;
 use std::io::{Writer, IoResult};
 use std::collections::HashSet;
+
+use string_cache::Atom;
 
 /// The internal type we use for nodes during parsing.
 struct SquishyNode {

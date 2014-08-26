@@ -15,6 +15,7 @@
 extern crate test;
 extern crate serialize;
 extern crate debug;
+extern crate string_cache;
 
 extern crate html5ever;
 

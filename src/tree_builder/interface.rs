@@ -12,13 +12,14 @@
 
 use core::prelude::*;
 
-use util::atom::Atom;
 use util::namespace::Namespace;
 use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;
+
+use string_cache::Atom;
 
 /// A document's quirks mode.
 #[deriving(PartialEq, Eq, Clone, Hash, Show)]

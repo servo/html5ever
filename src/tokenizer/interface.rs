@@ -9,12 +9,13 @@
 
 use core::prelude::*;
 
-use util::atom::Atom;
 use tokenizer::states;
 
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;
+
+use string_cache::Atom;
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM

@@ -11,8 +11,9 @@
 
 #![macro_escape]
 
-use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
+
+use string_cache::Atom;
 
 //§ the-stack-of-open-elements
 pub type TagSet<'a> = |(Namespace, Atom)|: 'a -> bool;

@@ -11,12 +11,13 @@ use core::prelude::*;
 
 use tokenizer::AttrName;
 use util::namespace::{Namespace, HTML};
-use util::atom::Atom;
 
 use std::io::{Writer, IoResult};
 use core::default::Default;
 use collections::MutableSeq;
 use collections::vec::Vec;
+
+use string_cache::Atom;
 
 //§ serializing-html-fragments
 pub trait Serializable {

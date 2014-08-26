@@ -27,7 +27,6 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 use util::str::{lower_ascii, lower_ascii_letter, empty_str, AsciiExt};
-use util::atom::Atom;
 use util::smallcharset::SmallCharSet;
 
 use core::mem::replace;
@@ -38,6 +37,8 @@ use collections::vec::Vec;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
 use collections::treemap::TreeMap;
+
+use string_cache::Atom;
 
 pub mod states;
 mod interface;
@@ -179,7 +180,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             fail!("Can't profile tokenizer when built as a C library");
         }
 
-        let start_tag_name = opts.last_start_tag_name.take().map(|s| Atom::from_buf(s));
+        let start_tag_name = opts.last_start_tag_name.take()
+            .map(|s| Atom::from_slice(s.as_slice()));
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
@@ -391,7 +393,8 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
-        let name = Atom::take_from_buf(&mut self.current_tag_name);
+        let name = replace(&mut self.current_tag_name, String::new());
+        let name = Atom::from_slice(name.as_slice());
 
         match self.current_tag_kind {
             StartTag => {
@@ -483,8 +486,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             self.current_attr_name.truncate(0);
             self.current_attr_value.truncate(0);
         } else {
+            let name = replace(&mut self.current_attr_name, String::new());
             self.current_tag_attrs.push(Attribute {
-                name: AttrName::new(Atom::take_from_buf(&mut self.current_attr_name)),
+                name: AttrName::new(Atom::from_slice(name.as_slice())),
                 value: replace(&mut self.current_attr_value, empty_str()),
             });
         }

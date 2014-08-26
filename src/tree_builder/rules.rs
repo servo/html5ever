@@ -19,7 +19,6 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
-use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use util::str::is_ascii_whitespace;
 
@@ -27,6 +26,8 @@ use core::mem::replace;
 use collections::MutableSeq;
 use collections::string::String;
 use collections::str::Slice;
+
+use string_cache::Atom;
 
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan

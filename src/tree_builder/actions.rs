@@ -22,7 +22,6 @@ use tree_builder::rules::TreeBuilderStep;
 use tokenizer::{Attribute, Tag};
 use tokenizer::states::{RawData, RawKind};
 
-use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use util::str::AsciiExt;
 
@@ -37,6 +36,8 @@ use collections::MutableSeq;
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::Slice;
+
+use string_cache::Atom;
 
 pub struct ActiveFormattingIter<'a, Handle> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
