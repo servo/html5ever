@@ -24,14 +24,14 @@ use tree_builder;
 use serialize::{Serializable, Serializer};
 use driver::ParseResult;
 
-use std::ty::Unsafe;
-use std::default::Default;
+use core::ty::Unsafe;
+use core::default::Default;
+use core::mem::transmute;
+use core::kinds::marker;
+use core::mem;
+use collections::str::MaybeOwned;
 use std::io::IoResult;
-use std::mem::transmute;
-use std::kinds::marker;
 use std::collections::HashSet;
-use std::mem;
-use std::str::MaybeOwned;
 
 /// The internal type we use for nodes during parsing.
 struct SquishyNode {

@@ -12,7 +12,7 @@ use util::namespace::{Namespace, HTML};
 use util::atom::Atom;
 
 use std::io::{Writer, IoResult};
-use std::default::Default;
+use core::default::Default;
 
 //§ serializing-html-fragments
 pub trait Serializable {

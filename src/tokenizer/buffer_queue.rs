@@ -9,10 +9,10 @@
 
 use util::smallcharset::SmallCharSet;
 
-use std::str::CharRange;
-use std::string::String;
-use std::collections::Deque;
-use std::collections::dlist::DList;
+use core::str::CharRange;
+use collections::string::String;
+use collections::Deque;
+use collections::dlist::DList;
 
 struct Buffer {
     /// Byte position within the buffer.

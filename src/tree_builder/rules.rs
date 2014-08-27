@@ -21,8 +21,8 @@ use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use util::str::{is_ascii_whitespace, to_escaped_string};
 
-use std::mem::replace;
-use std::str::Slice;
+use core::mem::replace;
+use collections::str::Slice;
 
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan

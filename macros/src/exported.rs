@@ -31,7 +31,7 @@ macro_rules! addrs_of ( ($obj:expr : $($field:ident),+) => (
     ( // make a tuple
         $(
             unsafe {
-                ::std::mem::transmute::<_, uint>(&$obj.$field)
+                ::core::mem::transmute::<_, uint>(&$obj.$field)
             }
         ),+
     )
@@ -40,9 +40,9 @@ macro_rules! addrs_of ( ($obj:expr : $($field:ident),+) => (
 #[macro_export]
 macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
     if $pred {
-        ::std::str::Owned(format!($msg_fmt, $($arg),*))
+        ::collections::str::Owned(format!($msg_fmt, $($arg),*))
     } else {
-        ::std::str::Slice($msg_static)
+        ::collections::str::Slice($msg_static)
     }
 ))
 

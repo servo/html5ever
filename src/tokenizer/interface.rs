@@ -10,8 +10,8 @@
 use util::atom::Atom;
 use tokenizer::states;
 
-use std::string::String;
-use std::str::MaybeOwned;
+use collections::str::MaybeOwned;
+use collections::string::String;
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM

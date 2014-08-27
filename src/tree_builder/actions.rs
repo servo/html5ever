@@ -24,12 +24,12 @@ use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
 use util::str::to_escaped_string;
 
-use std::mem::replace;
+use core::mem::replace;
+use core::iter::{Rev, Enumerate};
+use core::slice;
+use core::fmt::Show;
+use collections::str::Slice;
 use std::ascii::StrAsciiExt;
-use std::iter::{Rev, Enumerate};
-use std::slice;
-use std::str::Slice;
-use std::fmt::Show;
 
 pub struct ActiveFormattingIter<'a, Handle> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,

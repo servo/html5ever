@@ -10,9 +10,10 @@
 use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
-use std::char::{to_digit, from_u32};
-use std::string::String;
-use std::str::Slice;
+
+use core::char::{to_digit, from_u32};
+use collections::str::Slice;
+use collections::string::String;
 
 mod data;
 

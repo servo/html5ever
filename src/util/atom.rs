@@ -9,8 +9,8 @@
 
 use phf::PhfMap;
 
-use std::mem::replace;
-use std::fmt::{Show, Formatter, FormatError};
+use core::mem::replace;
+use core::fmt::{Show, Formatter, FormatError};
 
 static static_atom_map: PhfMap<&'static str, uint> = static_atom_map!();
 static static_atom_array: &'static [&'static str] = static_atom_array!();

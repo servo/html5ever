@@ -12,8 +12,8 @@
 use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
-use std::default::Default;
-use std::option;
+use core::default::Default;
+use core::option;
 
 /// Convenience function to turn a single `String` into an iterator.
 pub fn one_input(x: String) -> option::Item<String> {

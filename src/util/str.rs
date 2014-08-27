@@ -7,9 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::string::String;
-use std::str::CharEq;
-use std::fmt::Show;
+use core::str::CharEq;
+use core::fmt::Show;
+use collections::string::String;
 
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
     // FIXME: don't allocate twice

@@ -22,11 +22,11 @@ use tree_builder;
 use serialize::{Serializable, Serializer};
 use driver::ParseResult;
 
-use std::rc::{Rc, Weak};
-use std::cell::RefCell;
-use std::default::Default;
+use core::cell::RefCell;
+use core::default::Default;
+use alloc::rc::{Rc, Weak};
+use collections::str::MaybeOwned;
 use std::io::IoResult;
-use std::str::MaybeOwned;
 
 /// A DOM node.
 pub struct Node {

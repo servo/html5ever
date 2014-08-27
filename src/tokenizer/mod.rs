@@ -28,13 +28,12 @@ use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::atom::Atom;
 use util::smallcharset::SmallCharSet;
 
-use std::ascii::StrAsciiExt;
-use std::mem::replace;
-use std::iter::AdditiveIterator;
-use std::default::Default;
-use std::str::{MaybeOwned, Slice, Owned};
-
+use core::mem::replace;
+use core::iter::AdditiveIterator;
+use core::default::Default;
+use collections::str::{MaybeOwned, Slice, Owned};
 use std::collections::hashmap::HashMap;
+use std::ascii::StrAsciiExt;
 
 pub mod states;
 mod interface;

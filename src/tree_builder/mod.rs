@@ -24,10 +24,10 @@ use tokenizer::TokenSink;
 use util::namespace::HTML;
 use util::str::{is_ascii_whitespace, char_run};
 
-use std::default::Default;
-use std::mem::replace;
-use std::str::Slice;
-use std::collections::{Deque, RingBuf};
+use core::default::Default;
+use core::mem::replace;
+use collections::str::Slice;
+use collections::{Deque, RingBuf};
 
 mod interface;
 mod tag_sets;
