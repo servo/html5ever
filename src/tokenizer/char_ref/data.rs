@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use phf::PhfMap;
 
 /// The spec replaces most characters in the ISO-2022 C1 control code range

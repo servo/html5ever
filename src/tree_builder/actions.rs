@@ -12,6 +12,8 @@
 //! Many of these are named within the spec, e.g. "reset the insertion
 //! mode appropriately".
 
+use core::prelude::*;
+
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
@@ -28,6 +30,9 @@ use core::mem::replace;
 use core::iter::{Rev, Enumerate};
 use core::slice;
 use core::fmt::Show;
+use collections::MutableSeq;
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::Slice;
 use std::ascii::StrAsciiExt;
 

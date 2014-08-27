@@ -9,6 +9,8 @@
 
 //! The tree builder rules, as a single, enormous nested match expression.
 
+use core::prelude::*;
+
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::TreeBuilderActions;
@@ -22,6 +24,8 @@ use util::namespace::{Namespace, HTML};
 use util::str::{is_ascii_whitespace, to_escaped_string};
 
 use core::mem::replace;
+use collections::MutableSeq;
+use collections::string::String;
 use collections::str::Slice;
 
 fn any_not_whitespace(x: &String) -> bool {

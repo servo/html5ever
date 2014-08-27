@@ -9,6 +9,8 @@
 
 //! The HTML5 tokenizer.
 
+use core::prelude::*;
+
 pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -31,6 +33,10 @@ use util::smallcharset::SmallCharSet;
 use core::mem::replace;
 use core::iter::AdditiveIterator;
 use core::default::Default;
+use alloc::boxed::Box;
+use collections::MutableSeq;
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::{MaybeOwned, Slice, Owned};
 use std::collections::hashmap::HashMap;
 use std::ascii::StrAsciiExt;
@@ -1330,44 +1336,47 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
+    use core::prelude::*;
+    use collections::vec::Vec;
+    use collections::string::String;
     use super::{option_push_char, append_strings}; // private items
 
     #[test]
     fn push_to_None_gives_singleton() {
         let mut s: Option<String> = None;
         option_push_char(&mut s, 'x');
-        assert_eq!(s, Some("x".to_string()));
+        assert_eq!(s, Some(String::from_str("x")));
     }
 
     #[test]
     fn push_to_empty_appends() {
         let mut s: Option<String> = Some(String::new());
         option_push_char(&mut s, 'x');
-        assert_eq!(s, Some("x".to_string()));
+        assert_eq!(s, Some(String::from_str("x")));
     }
 
     #[test]
     fn push_to_nonempty_appends() {
-        let mut s: Option<String> = Some("y".to_string());
+        let mut s: Option<String> = Some(String::from_str("y"));
         option_push_char(&mut s, 'x');
-        assert_eq!(s, Some("yx".to_string()));
+        assert_eq!(s, Some(String::from_str("yx")));
     }
 
     #[test]
     fn append_appends() {
-        let mut s = "foo".to_string();
-        append_strings(&mut s, "bar".to_string());
-        assert_eq!(s, "foobar".to_string());
+        let mut s = String::from_str("foo");
+        append_strings(&mut s, String::from_str("bar"));
+        assert_eq!(s, String::from_str("foobar"));
     }
 
     #[test]
     fn append_to_empty_does_not_copy() {
-        let mut lhs: String = "".to_string();
+        let mut lhs: String = String::from_str("");
         let rhs: Vec<u8> = Vec::from_slice(b"foo");
         let ptr_old = rhs[0] as *const u8;
 
         append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
-        assert_eq!(lhs, "foo".to_string());
+        assert_eq!(lhs, String::from_str("foo"));
 
         let ptr_new = lhs.into_bytes()[0] as *const u8;
         assert_eq!(ptr_old, ptr_new);

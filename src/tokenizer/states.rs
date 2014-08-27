@@ -12,6 +12,8 @@
 //! This is public for use by the tokenizer tests.  Other library
 //! users should not have to care about this.
 
+use core::prelude::*;
+
 #[deriving(PartialEq, Eq, Clone, Hash)]
 pub enum ScriptEscapeKind {
     Escaped,

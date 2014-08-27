@@ -7,10 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use phf::PhfMap;
 
 use core::mem::replace;
 use core::fmt::{Show, Formatter, FormatError};
+use collections::str::StrAllocating;
+use collections::string::String;
 
 static static_atom_map: PhfMap<&'static str, uint> = static_atom_map!();
 static static_atom_array: &'static [&'static str] = static_atom_array!();
@@ -31,7 +35,7 @@ impl Atom {
     pub fn from_str(s: &str) -> Atom {
         match static_atom_map.find_equiv(&s) {
             Some(&k) => Static(k),
-            None => Owned(s.to_string()),
+            None => Owned(String::from_str(s)),
         }
     }
 
@@ -82,14 +86,14 @@ impl Str for Atom {
 impl StrAllocating for Atom {
     fn into_string(self) -> String {
         match self {
-            Static(i) => get_static(i).to_string(),
+            Static(i) => String::from_str(get_static(i)),
             Owned(s) => s.into_string(),
         }
     }
 
     fn into_owned(self) -> String {
         match self {
-            Static(i) => get_static(i).to_string(),
+            Static(i) => String::from_str(get_static(i)),
             Owned(s) => s,
         }
     }
@@ -122,6 +126,9 @@ impl Show for Atom {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
+    use core::prelude::*;
+    use collections::str::StrAllocating;
+    use collections::string::String;
     use super::{Atom, get_static, Static, Owned};
 
     #[test]
@@ -149,21 +156,14 @@ mod test {
 
     #[test]
     fn into_string() {
-        assert_eq!(Atom::from_str("").into_string(), "".to_string());
-        assert_eq!(Atom::from_str("body").into_string(), "body".to_string());
-        assert_eq!(Atom::from_str("asdfghjk").into_string(), "asdfghjk".to_string());
-    }
-
-    #[test]
-    fn to_string() {
-        assert_eq!(Atom::from_str("").to_string(), "".to_string());
-        assert_eq!(Atom::from_str("body").to_string(), "body".to_string());
-        assert_eq!(Atom::from_str("asdfghjk").to_string(), "asdfghjk".to_string());
+        assert_eq!(Atom::from_str("").into_string(), String::from_str(""));
+        assert_eq!(Atom::from_str("body").into_string(), String::from_str("body"));
+        assert_eq!(Atom::from_str("asdfghjk").into_string(), String::from_str("asdfghjk"));
     }
 
     #[test]
     fn take_from_buf_interned() {
-        let mut b = "body".to_string();
+        let mut b = String::from_str("body");
         let a = Atom::take_from_buf(&mut b);
         assert_eq!(a, Atom::from_str("body"));
         assert_eq!(b, String::new());
@@ -171,7 +171,7 @@ mod test {
 
     #[test]
     fn take_from_buf_not_interned() {
-        let mut b = "asdfghjk".to_string();
+        let mut b = String::from_str("asdfghjk");
         let a = Atom::take_from_buf(&mut b);
         assert_eq!(a, Atom::from_str("asdfghjk"));
         assert_eq!(b, String::new());

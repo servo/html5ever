@@ -14,6 +14,8 @@
 //! This is believed to be memory safe, but if you want to be extra
 //! careful you can use `RcDom` instead.
 
+use core::prelude::*;
+
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
 use util::atom::Atom;
@@ -29,8 +31,12 @@ use core::default::Default;
 use core::mem::transmute;
 use core::kinds::marker;
 use core::mem;
+use alloc::boxed::Box;
+use collections::{MutableSeq, Set, MutableSet};
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::MaybeOwned;
-use std::io::IoResult;
+use std::io::{Writer, IoResult};
 use std::collections::HashSet;
 
 /// The internal type we use for nodes during parsing.

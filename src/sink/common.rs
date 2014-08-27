@@ -10,6 +10,9 @@
 use util::atom::Atom;
 use tokenizer::Attribute;
 
+use collections::vec::Vec;
+use collections::string::String;
+
 /// The different kinds of nodes in the DOM.
 #[deriving(Show)]
 pub enum NodeEnum {

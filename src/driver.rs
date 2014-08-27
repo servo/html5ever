@@ -9,11 +9,14 @@
 
 //! High-level interface to the parser.
 
+use core::prelude::*;
+
 use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use core::default::Default;
 use core::option;
+use collections::string::String;
 
 /// Convenience function to turn a single `String` into an iterator.
 pub fn one_input(x: String) -> option::Item<String> {

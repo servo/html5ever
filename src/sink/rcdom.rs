@@ -12,6 +12,8 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
+use core::prelude::*;
+
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
 use util::atom::Atom;
@@ -25,8 +27,11 @@ use driver::ParseResult;
 use core::cell::RefCell;
 use core::default::Default;
 use alloc::rc::{Rc, Weak};
+use collections::MutableSeq;
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::MaybeOwned;
-use std::io::IoResult;
+use std::io::{Writer, IoResult};
 
 /// A DOM node.
 pub struct Node {

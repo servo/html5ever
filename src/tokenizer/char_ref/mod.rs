@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
@@ -196,7 +198,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
-        let mut unconsume = "#".to_string();
+        let mut unconsume = String::from_char(1, '#');
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
             None => (),
@@ -342,8 +344,8 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(self.name_buf().as_slice()
-                        .slice_from(name_len).to_string());
+                    tokenizer.unconsume(String::from_str(
+                        self.name_buf().as_slice().slice_from(name_len)));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -387,7 +389,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume("#".to_string());
+                    tokenizer.unconsume(String::from_char(1, '#'));
                     tokenizer.emit_error(Slice("EOF after '#' in character reference"));
                     self.finish_none();
                 }

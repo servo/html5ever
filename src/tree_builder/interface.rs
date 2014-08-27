@@ -10,10 +10,14 @@
 //! The interface for consumers of the tree builder (and thus the
 //! parser overall).
 
+use core::prelude::*;
+
 use util::atom::Atom;
 use util::namespace::Namespace;
 use tokenizer::Attribute;
 
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::MaybeOwned;
 
 /// A document's quirks mode.

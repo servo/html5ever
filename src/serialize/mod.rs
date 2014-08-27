@@ -7,12 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use tokenizer::AttrName;
 use util::namespace::{Namespace, HTML};
 use util::atom::Atom;
 
 use std::io::{Writer, IoResult};
 use core::default::Default;
+use collections::MutableSeq;
+use collections::vec::Vec;
 
 //§ serializing-html-fragments
 pub trait Serializable {

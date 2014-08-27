@@ -13,9 +13,16 @@
 #![feature(macro_rules, phase, globs)]
 #![allow(unnecessary_parens)]
 
+// Don't implicitly pull in things from std::*
+// This helps us make a C-friendly library.
+#![no_std]
+
 extern crate core;
 extern crate alloc;
 extern crate collections;
+
+#[phase(plugin, link)]
+extern crate std;
 
 #[phase(plugin, link)]
 extern crate log;
@@ -28,6 +35,10 @@ extern crate phf_mac;
 
 #[phase(plugin)]
 extern crate macros = "html5ever-macros";
+
+// Need #[start] for the test runner.
+#[cfg(test)]
+extern crate native;
 
 extern crate phf;
 extern crate time;

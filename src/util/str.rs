@@ -7,9 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use core::str::CharEq;
 use core::fmt::Show;
+use collections::str::StrAllocating;
 use collections::string::String;
+use std::ascii::AsciiCast;
 
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
     // FIXME: don't allocate twice
@@ -70,6 +74,7 @@ pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)>
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
+    use core::prelude::*;
     use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))

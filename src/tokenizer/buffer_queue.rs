@@ -7,11 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use util::smallcharset::SmallCharSet;
 
 use core::str::CharRange;
 use collections::string::String;
-use collections::Deque;
+use collections::{MutableSeq, Deque};
 use collections::dlist::DList;
 
 struct Buffer {
@@ -105,7 +107,7 @@ impl BufferQueue {
                 let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
                 if n > 0 {
                     let new_pos = *pos + n;
-                    let out = buf.as_slice().slice(*pos, new_pos).to_string();
+                    let out = String::from_str(buf.as_slice().slice(*pos, new_pos));
                     *pos = new_pos;
                     self.available -= n;
                     (Some(NotFromSet(out)), new_pos >= buf.len())
@@ -163,6 +165,8 @@ impl Iterator<char> for BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case_functions)]
 mod test {
+    use core::prelude::*;
+    use collections::string::String;
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]
@@ -172,7 +176,7 @@ mod test {
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
-        bq.push_back("abc".to_string(), 0);
+        bq.push_back(String::from_str("abc"), 0);
         assert_eq!(bq.has(1), true);
         assert_eq!(bq.has(3), true);
         assert_eq!(bq.has(4), false);
@@ -191,9 +195,9 @@ mod test {
     #[test]
     fn can_pop_front() {
         let mut bq = BufferQueue::new();
-        bq.push_back("abc".to_string(), 0);
+        bq.push_back(String::from_str("abc"), 0);
 
-        assert_eq!(bq.pop_front(2), Some("ab".to_string()));
+        assert_eq!(bq.pop_front(2), Some(String::from_str("ab")));
         assert_eq!(bq.peek(), Some('c'));
         assert_eq!(bq.pop_front(2), None);
         assert_eq!(bq.next(), Some('c'));
@@ -203,10 +207,10 @@ mod test {
     #[test]
     fn can_unconsume() {
         let mut bq = BufferQueue::new();
-        bq.push_back("abc".to_string(), 0);
+        bq.push_back(String::from_str("abc"), 0);
         assert_eq!(bq.next(), Some('a'));
 
-        bq.push_front("xy".to_string());
+        bq.push_front(String::from_str("xy"));
         assert_eq!(bq.next(), Some('x'));
         assert_eq!(bq.next(), Some('y'));
         assert_eq!(bq.next(), Some('b'));
@@ -217,18 +221,18 @@ mod test {
     #[test]
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
-        bq.push_back("abc&def".to_string(), 0);
+        bq.push_back(String::from_str("abc&def"), 0);
         let pop = || bq.pop_except_from(small_char_set!('&'));
-        assert_eq!(pop(), Some(NotFromSet("abc".to_string())));
+        assert_eq!(pop(), Some(NotFromSet(String::from_str("abc"))));
         assert_eq!(pop(), Some(FromSet('&')));
-        assert_eq!(pop(), Some(NotFromSet("def".to_string())));
+        assert_eq!(pop(), Some(NotFromSet(String::from_str("def"))));
         assert_eq!(pop(), None);
     }
 
     #[test]
     fn can_push_truncated() {
         let mut bq = BufferQueue::new();
-        bq.push_back("abc".to_string(), 1);
+        bq.push_back(String::from_str("abc"), 1);
         assert_eq!(bq.next(), Some('b'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);

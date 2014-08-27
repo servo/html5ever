@@ -9,6 +9,8 @@
 
 #![macro_escape]
 
+use core::prelude::*;
+
 /// Represents a set of "small characters", those with Unicode scalar
 /// values less than 64.
 pub struct SmallCharSet {
@@ -45,6 +47,9 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
 
 #[cfg(test)]
 mod test {
+    use core::prelude::*;
+    use collections::string::String;
+
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {

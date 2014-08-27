@@ -7,9 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use tokenizer::Doctype;
 use tree_builder::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 
+use collections::string::String;
 use std::ascii::StrAsciiExt;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.

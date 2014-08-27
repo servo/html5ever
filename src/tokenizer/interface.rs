@@ -7,11 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use util::atom::Atom;
 use tokenizer::states;
 
-use collections::str::MaybeOwned;
+use collections::vec::Vec;
 use collections::string::String;
+use collections::str::MaybeOwned;
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM

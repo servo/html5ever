@@ -9,6 +9,8 @@
 
 //! The HTML5 tree builder.
 
+use core::prelude::*;
+
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::{NodeOrText, AppendNode, AppendText};
 pub use self::interface::TreeSink;
@@ -26,8 +28,10 @@ use util::str::{is_ascii_whitespace, char_run};
 
 use core::default::Default;
 use core::mem::replace;
+use collections::vec::Vec;
+use collections::string::String;
 use collections::str::Slice;
-use collections::{Deque, RingBuf};
+use collections::{MutableSeq, Deque, RingBuf};
 
 mod interface;
 mod tag_sets;
@@ -192,11 +196,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
-                        buf.slice_to(len).to_string());
+                        String::from_str(buf.slice_to(len)));
 
                     if len < buf.len() {
                         more_tokens.push(
-                            CharacterTokens(NotSplit, buf.slice_from(len).to_string()));
+                            CharacterTokens(NotSplit, String::from_str(buf.slice_from(len))));
                     }
                 }
             }
