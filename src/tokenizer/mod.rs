@@ -26,7 +26,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
-use util::str::{lower_ascii, lower_ascii_letter, empty_str};
+use util::str::{lower_ascii, lower_ascii_letter, empty_str, AsciiExt};
 use util::atom::Atom;
 use util::smallcharset::SmallCharSet;
 
@@ -39,7 +39,6 @@ use collections::vec::Vec;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice, Owned};
 use std::collections::hashmap::HashMap;
-use std::ascii::StrAsciiExt;
 
 pub mod states;
 mod interface;

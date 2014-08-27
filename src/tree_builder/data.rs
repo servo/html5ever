@@ -11,9 +11,9 @@ use core::prelude::*;
 
 use tokenizer::Doctype;
 use tree_builder::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+use util::str::AsciiExt;
 
 use collections::string::String;
-use std::ascii::StrAsciiExt;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
 static quirky_public_prefixes: &'static [&'static str] = &[

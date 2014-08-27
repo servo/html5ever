@@ -24,7 +24,7 @@ use tokenizer::states::{RawData, RawKind};
 
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
-use util::str::to_escaped_string;
+use util::str::{to_escaped_string, AsciiExt};
 
 use core::mem::replace;
 use core::iter::{Rev, Enumerate};
@@ -34,7 +34,6 @@ use collections::MutableSeq;
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::Slice;
-use std::ascii::StrAsciiExt;
 
 pub struct ActiveFormattingIter<'a, Handle> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
