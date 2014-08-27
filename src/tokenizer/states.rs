@@ -14,19 +14,19 @@
 
 use core::prelude::*;
 
-#[deriving(PartialEq, Eq, Clone, Hash)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum ScriptEscapeKind {
     Escaped,
     DoubleEscaped,
 }
 
-#[deriving(PartialEq, Eq, Clone, Hash)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum DoctypeIdKind {
     Public,
     System,
 }
 
-#[deriving(PartialEq, Eq, Clone, Hash)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
@@ -34,14 +34,14 @@ pub enum RawKind {
     ScriptDataEscaped(ScriptEscapeKind),
 }
 
-#[deriving(PartialEq, Eq, Clone, Hash)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum AttrValueKind {
     Unquoted,
     SingleQuoted,
     DoubleQuoted,
 }
 
-#[deriving(PartialEq, Eq, Clone, Hash)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum State {
     Data,
     Plaintext,

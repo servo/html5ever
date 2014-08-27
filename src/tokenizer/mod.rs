@@ -34,11 +34,11 @@ use core::mem::replace;
 use core::iter::AdditiveIterator;
 use core::default::Default;
 use alloc::boxed::Box;
-use collections::MutableSeq;
+use collections::{MutableSeq, MutableMap};
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice, Owned};
-use std::collections::hashmap::HashMap;
+use collections::treemap::TreeMap;
 
 pub mod states;
 mod interface;
@@ -167,7 +167,7 @@ pub struct Tokenizer<'sink, Sink> {
     temp_buf: String,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
-    state_profile: HashMap<states::State, u64>,
+    state_profile: TreeMap<states::State, u64>,
 
     /// Record of how many ns we spent in the token sink.
     time_in_sink: u64,
@@ -201,7 +201,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             current_doctype: Doctype::new(),
             last_start_tag_name: start_tag_name,
             temp_buf: empty_str(),
-            state_profile: HashMap::new(),
+            state_profile: TreeMap::new(),
             time_in_sink: 0,
         }
     }
@@ -336,7 +336,17 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
                 let old_sink = self.time_in_sink;
                 let (run, mut dt) = time!(self.step());
                 dt -= (self.time_in_sink - old_sink);
-                self.state_profile.insert_or_update_with(state, dt, |_, x| *x += dt);
+                let new = match self.state_profile.find_mut(&state) {
+                    Some(x) => {
+                        *x += dt;
+                        false
+                    }
+                    None => true,
+                };
+                if new {
+                    // do this here because of borrow shenanigans
+                    self.state_profile.insert(state, dt);
+                }
                 if !run { break; }
             }
         } else {
