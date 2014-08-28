@@ -26,6 +26,9 @@ extern crate core;
 #[phase(plugin, link)]
 extern crate std;
 
+#[cfg(for_c)]
+extern crate libc;
+
 #[phase(plugin, link)]
 extern crate collections;
 
@@ -83,6 +86,12 @@ pub mod sink {
 }
 
 pub mod driver;
+
+#[cfg(for_c)]
+pub mod for_c {
+    pub mod common;
+    pub mod tokenizer;
+}
 
 /// A fake `std` module so that `deriving` and other macros will work.
 /// See rust-lang/rust#16803.

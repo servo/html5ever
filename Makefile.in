@@ -38,6 +38,12 @@ $(LIB): $(CARGO_SOURCES)
 	(cd $(VPATH) && cargo build)
 	touch $(LIB)
 
+.PHONY: for_c
+for_c: libhtml5ever_for_c.a
+
+libhtml5ever_for_c.a: $(LIB) $(CARGO_SOURCES)
+	$(RUSTC_CMD) -o $@ --cfg for_c --crate-type staticlib $(VPATH)/src/lib.rs
+
 define DEF_EXAMPLE
 $(1): $$(VPATH)/examples/$(1).rs $$(LIB)
 	$$(RUSTC_CMD) $$<
