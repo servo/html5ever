@@ -25,19 +25,19 @@ use libc::{c_void, c_int, size_t};
 
 #[repr(C)]
 pub struct h5e_token_ops {
-    do_doctype: extern "C" fn(user: *mut c_void, name: h5e_buf,
-        public: h5e_buf, system: h5e_buf, force_quirks: c_int),
+    do_doctype: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
+        public: h5e_buf, system: h5e_buf, force_quirks: c_int)>,
 
-    do_start_tag: extern "C" fn(user: *mut c_void, name: h5e_buf,
-        self_closing: c_int, num_attrs: size_t),
+    do_start_tag: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
+        self_closing: c_int, num_attrs: size_t)>,
 
-    do_tag_attr:      extern "C" fn(user: *mut c_void, name: h5e_buf, value: h5e_buf),
-    do_end_tag:       extern "C" fn(user: *mut c_void, name: h5e_buf),
-    do_comment:       extern "C" fn(user: *mut c_void, text: h5e_buf),
-    do_chars:         extern "C" fn(user: *mut c_void, text: h5e_buf),
-    do_null_char:     extern "C" fn(user: *mut c_void),
-    do_eof:           extern "C" fn(user: *mut c_void),
-    do_error:         extern "C" fn(user: *mut c_void, message: h5e_buf),
+    do_tag_attr:      Option<extern "C" fn(user: *mut c_void, name: h5e_buf, value: h5e_buf)>,
+    do_end_tag:       Option<extern "C" fn(user: *mut c_void, name: h5e_buf)>,
+    do_comment:       Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
+    do_chars:         Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
+    do_null_char:     Option<extern "C" fn(user: *mut c_void)>,
+    do_eof:           Option<extern "C" fn(user: *mut c_void)>,
+    do_error:         Option<extern "C" fn(user: *mut c_void, message: h5e_buf)>,
 }
 
 #[repr(C)]
@@ -50,8 +50,9 @@ impl TokenSink for h5e_token_sink {
     fn process_token(&mut self, token: Token) {
         macro_rules! call ( ($name:ident $(, $arg:expr)*) => (
             unsafe {
-                if !((*self.ops).$name as *const ()).is_null() {
-                    ((*(self.ops)).$name)(self.user $(, $arg)*);
+                match (*self.ops).$name {
+                    None => (),
+                    Some(f) => f(self.user $(, $arg)*),
                 }
             }
         ))
