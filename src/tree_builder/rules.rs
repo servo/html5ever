@@ -21,7 +21,7 @@ use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
-use util::str::{is_ascii_whitespace, to_escaped_string};
+use util::str::is_ascii_whitespace;
 
 use core::mem::replace;
 use collections::MutableSeq;
@@ -43,7 +43,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     TreeBuilderStep<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
 
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
-        debug!("processing {} in insertion mode {:?}", to_escaped_string(&token), mode);
+        self.debug_step(mode, &token);
 
         match mode {
             //§ the-initial-insertion-mode
@@ -764,7 +764,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 tag @ </_> => {
                     if tag.name == atom!(script) {
-                        warn!("FIXME: </script> not implemented");
+                        h5e_warn!("FIXME: </script> not implemented");
                     }
 
                     self.pop();

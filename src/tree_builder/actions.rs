@@ -24,7 +24,10 @@ use tokenizer::states::{RawData, RawKind};
 
 use util::atom::Atom;
 use util::namespace::{Namespace, HTML};
-use util::str::{to_escaped_string, AsciiExt};
+use util::str::AsciiExt;
+
+#[cfg(not(for_c))]
+use util::str::to_escaped_string;
 
 use core::mem::replace;
 use core::iter::{Rev, Enumerate};
@@ -108,11 +111,11 @@ pub trait TreeBuilderActions<Handle> {
 impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     TreeBuilderActions<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
 
-    fn unexpected<T: Show>(&mut self, thing: &T) -> ProcessResult {
+    fn unexpected<T: Show>(&mut self, _thing: &T) -> ProcessResult {
         self.sink.parse_error(format_if!(
             self.opts.exact_errors,
             "Unexpected token",
-            "Unexpected token {} in insertion mode {}", to_escaped_string(thing), self.mode));
+            "Unexpected token {} in insertion mode {}", to_escaped_string(_thing), self.mode));
         Done
     }
 
@@ -134,7 +137,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn stop_parsing(&mut self) -> ProcessResult {
-        warn!("stop_parsing not implemented, full speed ahead!");
+        h5e_warn!("stop_parsing not implemented, full speed ahead!");
         Done
     }
 
@@ -377,7 +380,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
-        warn!("foster parenting not implemented");
+        h5e_warn!("foster parenting not implemented");
         self.foster_parenting = true;
         let res = self.step(InBody, token);
         // FIXME: what if res is Reprocess?

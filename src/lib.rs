@@ -17,13 +17,19 @@
 // This helps us make a C-friendly library.
 #![no_std]
 
-extern crate core;
 extern crate alloc;
-extern crate collections;
 
+#[phase(plugin, link)]
+extern crate core;
+
+#[cfg(not(for_c))]
 #[phase(plugin, link)]
 extern crate std;
 
+#[phase(plugin, link)]
+extern crate collections;
+
+#[cfg(not(for_c))]
 #[phase(plugin, link)]
 extern crate log;
 
@@ -47,7 +53,11 @@ pub use util::atom::Atom;
 pub use util::namespace::Namespace;
 
 pub use driver::{one_input, ParseOpts, parse_to, parse};
+
+#[cfg(not(for_c))]
 pub use serialize::serialize;
+
+mod macros;
 
 mod util {
     #![macro_escape]
@@ -60,9 +70,12 @@ mod util {
 
 pub mod tokenizer;
 pub mod tree_builder;
+
+#[cfg(not(for_c))]
 pub mod serialize;
 
 /// Consumers of the parser API.
+#[cfg(not(for_c))]
 pub mod sink {
     pub mod common;
     pub mod rcdom;
@@ -70,3 +83,11 @@ pub mod sink {
 }
 
 pub mod driver;
+
+/// A fake `std` module so that `deriving` and other macros will work.
+/// See rust-lang/rust#16803.
+#[cfg(for_c)]
+mod std {
+    pub use core::{clone, cmp, default, fmt, option, str};
+    pub use collections::hash;
+}

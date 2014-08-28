@@ -31,13 +31,12 @@ use util::atom::Atom;
 use util::smallcharset::SmallCharSet;
 
 use core::mem::replace;
-use core::iter::AdditiveIterator;
 use core::default::Default;
 use alloc::boxed::Box;
 use collections::{MutableSeq, MutableMap};
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::{MaybeOwned, Slice, Owned};
+use collections::str::{MaybeOwned, Slice};
 use collections::treemap::TreeMap;
 
 pub mod states;
@@ -176,6 +175,10 @@ pub struct Tokenizer<'sink, Sink> {
 impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
+        if opts.profile && cfg!(for_c) {
+            fail!("Can't profile tokenizer when built as a C library");
+        }
+
         let start_tag_name = opts.last_start_tag_name.take().map(|s| Atom::from_buf(s));
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
@@ -253,11 +256,13 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             n if (n & 0xFFFE) == 0xFFFE => true,
             _ => false,
         } {
-            let msg = Owned(format!("Bad character {:?}", c));
+            // format_if!(true) will still use the static error when built for C.
+            let msg = format_if!(true, "Bad character",
+                "Bad character {:?}", c);
             self.emit_error(msg);
         }
 
-        debug!("got character {:?}", c);
+        h5e_debug!("got character {:?}", c);
         self.current_char = c;
         Some(c)
     }
@@ -284,7 +289,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         let d = self.input_buffers.pop_except_from(set);
-        debug!("got characters {}", d);
+        h5e_debug!("got characters {}", d);
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
 
@@ -306,21 +311,21 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
         match self.input_buffers.pop_front(n) {
             None if self.at_eof => {
-                debug!("lookahead: requested {:u} characters not available and never will be", n);
+                h5e_debug!("lookahead: requested {:u} characters not available and never will be", n);
                 Some(false)
             }
             None => {
-                debug!("lookahead: requested {:u} characters not available", n);
+                h5e_debug!("lookahead: requested {:u} characters not available", n);
                 self.wait_for = Some(n);
                 None
             }
             Some(s) => {
                 if p(s.as_slice()) {
-                    debug!("lookahead: condition satisfied by {:?}", s);
+                    h5e_debug!("lookahead: condition satisfied by {:?}", s);
                     // FIXME: set current input character?
                     Some(true)
                 } else {
-                    debug!("lookahead: condition not satisfied by {:?}", s);
+                    h5e_debug!("lookahead: condition not satisfied by {:?}", s);
                     self.unconsume(s);
                     Some(false)
                 }
@@ -569,7 +574,7 @@ macro_rules! shorthand (
 // so it's behind a cfg flag.
 #[cfg(trace_tokenizer)]
 macro_rules! sh_trace ( ( $me:expr : $($cmds:tt)* ) => ({
-    debug!("  {:s}", stringify!($($cmds)*));
+    h5e_debug!("  {:s}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }))
 
@@ -654,17 +659,17 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
         match self.wait_for {
             Some(n) if !self.input_buffers.has(n) => {
-                debug!("lookahead: requested {:u} characters still not available", n);
+                h5e_debug!("lookahead: requested {:u} characters still not available", n);
                 return false;
             }
-            Some(n) => {
-                debug!("lookahead: requested {:u} characters become available", n);
+            Some(_n) => {
+                h5e_debug!("lookahead: requested {:u} characters become available", _n);
                 self.wait_for = None;
             }
             None => (),
         }
 
-        debug!("processing in state {:?}", self.state);
+        h5e_debug!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
             states::Data => loop {
@@ -1255,24 +1260,36 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         }
 
         if self.opts.profile {
-            let mut results: Vec<(states::State, u64)>
-                = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
-            results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+            self.dump_profile();
+        }
+    }
 
-            let total = results.iter().map(|&(_, t)| t).sum();
-            println!("\nTokenizer profile, in nanoseconds");
-            println!("\n{:12u}         total in token sink", self.time_in_sink);
-            println!("\n{:12u}         total in tokenizer", total);
+    #[cfg(for_c)]
+    fn dump_profile(&self) {
+        unreachable!();
+    }
 
-            for (k, v) in results.move_iter() {
-                let pct = 100.0 * (v as f64) / (total as f64);
-                println!("{:12u}  {:4.1f}%  {:?}", v, pct, k);
-            }
+    #[cfg(not(for_c))]
+    fn dump_profile(&self) {
+        use core::iter::AdditiveIterator;
+
+        let mut results: Vec<(states::State, u64)>
+            = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
+        results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+
+        let total = results.iter().map(|&(_, t)| t).sum();
+        println!("\nTokenizer profile, in nanoseconds");
+        println!("\n{:12u}         total in token sink", self.time_in_sink);
+        println!("\n{:12u}         total in tokenizer", total);
+
+        for (k, v) in results.move_iter() {
+            let pct = 100.0 * (v as f64) / (total as f64);
+            println!("{:12u}  {:4.1f}%  {:?}", v, pct, k);
         }
     }
 
     fn eof_step(&mut self) -> bool {
-        debug!("processing EOF in state {:?}", self.state);
+        h5e_debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
             | states::RawData(ScriptData) | states::Plaintext

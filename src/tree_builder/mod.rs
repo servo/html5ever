@@ -23,7 +23,6 @@ use tokenizer;
 use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
 
-use util::namespace::HTML;
 use util::str::{is_ascii_whitespace, char_run};
 
 use core::default::Default;
@@ -149,8 +148,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 
     // Debug helper
+    #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
+        use util::namespace::HTML;
+
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
@@ -161,6 +163,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             }
         }
         println!("");
+    }
+
+    #[cfg(for_c)]
+    fn debug_step(&self, _mode: InsertionMode, _token: &Token) {
+    }
+
+    #[cfg(not(for_c))]
+    fn debug_step(&self, mode: InsertionMode, token: &Token) {
+        use util::str::to_escaped_string;
+        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {

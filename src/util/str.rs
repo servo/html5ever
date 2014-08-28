@@ -10,16 +10,20 @@
 use core::prelude::*;
 
 use core::str::CharEq;
-use core::fmt::Show;
-use collections::str::StrAllocating;
 use collections::vec::Vec;
 use collections::string;
 use collections::string::String;
 
+#[cfg(not(for_c))]
+use core::fmt::Show;
+
+#[cfg(not(for_c))]
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
+    use std::to_string::ToString;
+    use collections::str::StrAllocating;
+
     // FIXME: don't allocate twice
-    // FIXME: use std::to_str after Rust upgrade
-    (format!("{}", x)).escape_default()
+    x.to_string().escape_default()
 }
 
 // FIXME: The ASCII stuff is largely copied from std::ascii

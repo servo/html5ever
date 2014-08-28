@@ -22,9 +22,6 @@ use rustc::plugin::Registry;
 // Internal macros for use in defining other macros.
 mod internal;
 
-// Exported non-procedural macros.
-pub mod exported;
-
 // Make these public so that rustdoc will generate documentation for them.
 pub mod named_entities;
 pub mod atom;
