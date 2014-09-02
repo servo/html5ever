@@ -72,7 +72,7 @@ impl Default for TreeBuilderOpts {
 }
 
 /// The HTML tree builder.
-pub struct TreeBuilder<'sink, Handle, Sink> {
+pub struct TreeBuilder<'sink, Handle, Sink:'sink> {
     /// Options controlling the behavior of the tree builder.
     opts: TreeBuilderOpts,
 

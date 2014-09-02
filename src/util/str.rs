@@ -152,9 +152,10 @@ impl<'a> AsciiExt<String> for &'a str {
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
-    c.to_ascii_opt()
-        .filtered(|a| a.is_alphabetic())
-        .map(|a| a.to_lowercase().to_char())
+    match c.to_ascii_opt() {
+        Some(a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
+        _ => None,
+    }
 }
 
 /// Map ASCII uppercase to lowercase; preserve other characters.
@@ -200,7 +201,7 @@ pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)>
 }
 
 #[cfg(test)]
-#[allow(non_snake_case_functions)]
+#[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
     use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};

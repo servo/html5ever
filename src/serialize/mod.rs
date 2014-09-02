@@ -52,7 +52,7 @@ struct ElemInfo {
 
 pub type AttrRef<'a> = (&'a AttrName, &'a str);
 
-pub struct Serializer<'wr, Wr> {
+pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
     opts: SerializeOpts,
     stack: Vec<ElemInfo>,

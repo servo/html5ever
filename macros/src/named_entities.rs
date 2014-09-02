@@ -71,7 +71,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
 }
 
 // Expand named_entities!("path/to/entities.json") into an invocation of phf_map!().
-pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult> {
+pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     let usage = "Usage: named_entities!(\"path/to/entities.json\")";
 
     // Argument to the macro should be a single literal string: a path to

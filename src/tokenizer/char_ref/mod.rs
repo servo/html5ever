@@ -270,7 +270,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
-        tokenizer.unconsume(self.name_buf_opt.take_unwrap());
+        tokenizer.unconsume(self.name_buf_opt.take().unwrap());
     }
 
     fn finish_named(&mut self,

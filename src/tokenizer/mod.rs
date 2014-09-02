@@ -97,7 +97,7 @@ impl Default for TokenizerOpts {
 }
 
 /// The HTML tokenizer.
-pub struct Tokenizer<'sink, Sink> {
+pub struct Tokenizer<'sink, Sink:'sink> {
     /// Options controlling the behavior of the tokenizer.
     opts: TokenizerOpts,
 
@@ -1202,7 +1202,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn step_char_ref_tokenizer(&mut self) -> bool {
         // FIXME HACK: Take and replace the tokenizer so we don't
         // double-mut-borrow self.  This is why it's boxed.
-        let mut tok = self.char_ref_tokenizer.take_unwrap();
+        let mut tok = self.char_ref_tokenizer.take().unwrap();
         let outcome = tok.step(self);
 
         let progress = match outcome {
@@ -1364,7 +1364,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case_functions)]
+#[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
     use collections::vec::Vec;

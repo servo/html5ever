@@ -283,7 +283,7 @@ fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
 }
 
 /// Expand the `match_token!` macro.
-pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacResult> {
+pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacResult+'static> {
     let Match { discriminant, mut arms } = parse(cx, tts);
 
     // Handle the last arm specially at the end.

@@ -163,7 +163,7 @@ impl Iterator<char> for BufferQueue {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case_functions)]
+#[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
     use collections::string::String;
