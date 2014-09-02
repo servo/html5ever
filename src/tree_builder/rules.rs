@@ -378,25 +378,15 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     self.frameset_ok = false;
 
                     let mut to_close = None;
-                    // FIXME: using a 'for' loop here ICEs the compiler
-                    // (rust-lang/rust#16643)
-                    {
-                        let mut iter = self.open_elems.iter().rev();
-                        loop {
-                            match iter.next() {
-                                None => break,
-                                Some(node) => {
-                                    let nsname = self.sink.elem_name(node.clone());
-                                    if can_close(nsname.clone()) {
-                                        let (_, name) = nsname;
-                                        to_close = Some(name);
-                                        break;
-                                    }
-                                    if extra_special(nsname.clone()) {
-                                        break;
-                                    }
-                                }
-                            }
+                    for node in self.open_elems.iter().rev() {
+                        let nsname = self.sink.elem_name(node.clone());
+                        if can_close(nsname.clone()) {
+                            let (_, name) = nsname;
+                            to_close = Some(name);
+                            break;
+                        }
+                        if extra_special(nsname.clone()) {
+                            break;
                         }
                     }
 
