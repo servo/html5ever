@@ -19,13 +19,13 @@ use std::collections::hashmap::HashMap;
 use std::str::MaybeOwned;
 use string_cache::Atom;
 
-use html5ever::{Namespace, parse_to, one_input};
+use html5ever::{parse_to, one_input};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 
 struct Sink {
     next_id: uint,
-    names: HashMap<uint, (Namespace, Atom)>,
+    names: HashMap<uint, (Atom, Atom)>,
 }
 
 impl Sink {
@@ -45,11 +45,11 @@ impl TreeSink<uint> for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: uint) -> (Namespace, Atom) {
+    fn elem_name(&self, target: uint) -> (Atom, Atom) {
         self.names.find(&target).expect("not an element").clone()
     }
 
-    fn create_element(&mut self, ns: Namespace, name: Atom, _attrs: Vec<Attribute>) -> uint {
+    fn create_element(&mut self, ns: Atom, name: Atom, _attrs: Vec<Attribute>) -> uint {
         let id = self.get_id();
         self.names.insert(id, (ns, name));
         id

@@ -18,7 +18,6 @@ use core::prelude::*;
 
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
-use util::namespace::{Namespace, HTML};
 use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder;
@@ -189,15 +188,15 @@ impl TreeSink<Handle> for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: Handle) -> (Namespace, Atom) {
+    fn elem_name(&self, target: Handle) -> (Atom, Atom) {
         match target.node {
-            Element(ref name, _) => (HTML, name.clone()),
+            Element(ref name, _) => (ns!(HTML), name.clone()),
             _ => fail!("not an element!"),
         }
     }
 
-    fn create_element(&mut self, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle {
-        assert!(ns == HTML);
+    fn create_element(&mut self, ns: Atom, name: Atom, attrs: Vec<Attribute>) -> Handle {
+        assert!(ns == ns!(HTML));
         self.new_node(Element(name, attrs))
     }
 
@@ -344,7 +343,7 @@ impl Serializable for Node {
         match (incl_self, &self.node) {
             (_, &Element(ref name, ref attrs)) => {
                 if incl_self {
-                    try!(serializer.start_elem(HTML, name.clone(),
+                    try!(serializer.start_elem(ns!(HTML), name.clone(),
                         attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
                 }
 
@@ -353,7 +352,7 @@ impl Serializable for Node {
                 }
 
                 if incl_self {
-                    try!(serializer.end_elem(HTML, name.clone()));
+                    try!(serializer.end_elem(ns!(HTML), name.clone()));
                 }
                 Ok(())
             }

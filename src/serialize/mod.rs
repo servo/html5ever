@@ -10,7 +10,6 @@
 use core::prelude::*;
 
 use tokenizer::AttrName;
-use util::namespace::{Namespace, HTML};
 
 use std::io::{Writer, IoResult};
 use core::default::Default;
@@ -91,12 +90,12 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
 
     pub fn start_elem<'a, AttrIter: Iterator<AttrRef<'a>>>(
         &mut self,
-        ns: Namespace,
+        ns: Atom,
         name: Atom,
         mut attrs: AttrIter) -> IoResult<()> {
 
         let html_name = match ns {
-            HTML => Some(name.clone()),
+            ns!(HTML) => Some(name.clone()),
             _ => fail!("FIXME: Handle qualified tag names"),
         };
 
@@ -121,7 +120,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         }
         try!(self.writer.write_char('>'));
 
-        let ignore_children = ns == HTML && match name {
+        let ignore_children = ns == ns!(HTML) && match name {
             atom!(area) | atom!(base) | atom!(basefont) | atom!(bgsound) | atom!(br)
             | atom!(col) | atom!(embed) | atom!(frame) | atom!(hr) | atom!(img)
             | atom!(input) | atom!(keygen) | atom!(link) | atom!(menuitem)
@@ -141,7 +140,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         Ok(())
     }
 
-    pub fn end_elem(&mut self, _ns: Namespace, name: Atom) -> IoResult<()> {
+    pub fn end_elem(&mut self, _ns: Atom, name: Atom) -> IoResult<()> {
         let info = self.stack.pop().expect("no ElemInfo");
         if info.ignore_children {
             return Ok(());

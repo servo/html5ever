@@ -19,7 +19,6 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
-use util::namespace::{Namespace, HTML};
 use util::str::is_ascii_whitespace;
 
 use core::mem::replace;
@@ -137,7 +136,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <script> => {
-                    let elem = self.sink.create_element(HTML, atom!(script), tag.attrs);
+                    let elem = self.sink.create_element(ns!(HTML), atom!(script), tag.attrs);
                     if self.opts.fragment {
                         self.sink.mark_script_already_started(elem.clone());
                     }

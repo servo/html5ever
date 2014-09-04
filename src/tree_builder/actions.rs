@@ -22,7 +22,6 @@ use tree_builder::rules::TreeBuilderStep;
 use tokenizer::{Attribute, Tag};
 use tokenizer::states::{RawData, RawKind};
 
-use util::namespace::{Namespace, HTML};
 use util::str::AsciiExt;
 
 #[cfg(not(for_c))]
@@ -292,7 +291,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
-        self.sink.elem_name(elem) == (HTML, name)
+        self.sink.elem_name(elem) == (ns!(HTML), name)
     }
 
     fn current_node_named(&self, name: Atom) -> bool {
@@ -316,7 +315,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
     fn generate_implied_end_except(&mut self, except: Atom) {
         self.generate_implied_end(|p| match p {
-            (HTML, ref name) if *name == except => false,
+            (ns!(HTML), ref name) if *name == except => false,
             _ => cursory_implied_end(p),
         });
     }
@@ -347,7 +346,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn pop_until_named(&mut self, name: Atom) -> uint {
-        self.pop_until(|p| p == (HTML, name.clone()))
+        self.pop_until(|p| p == (ns!(HTML), name.clone()))
     }
 
     // Pop elements until one with the specified name has been popped.
@@ -406,7 +405,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         for (i, node) in self.open_elems.iter().enumerate().rev() {
             let name = match self.sink.elem_name(node.clone()) {
-                (HTML, name) => name,
+                (ns!(HTML), name) => name,
                 _ => continue,
             };
             let last = i == 0u;
@@ -471,7 +470,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
     //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
-        let elem = self.sink.create_element(HTML, atom!(html), attrs);
+        let elem = self.sink.create_element(ns!(HTML), atom!(html), attrs);
         self.push(&elem);
         self.sink.append(self.doc_handle.clone(), AppendNode(elem));
         // FIXME: application cache selection algorithm
@@ -479,7 +478,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
     fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
             -> Handle {
-        let elem = self.sink.create_element(HTML, name, attrs);
+        let elem = self.sink.create_element(ns!(HTML), name, attrs);
         self.insert_appropriately(AppendNode(elem.clone()));
         match push {
             Push => self.push(&elem),

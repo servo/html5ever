@@ -56,8 +56,6 @@ extern crate native;
 extern crate phf;
 extern crate time;
 
-pub use util::namespace::Namespace;
-
 pub use driver::{one_input, ParseOpts, parse_to, parse};
 
 #[cfg(not(for_c))]
@@ -69,7 +67,6 @@ mod util {
     #![macro_escape]
 
     pub mod str;
-    pub mod namespace;
     pub mod smallcharset;
 }
 

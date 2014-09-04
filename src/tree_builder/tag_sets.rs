@@ -11,16 +11,14 @@
 
 #![macro_escape]
 
-use util::namespace::{Namespace, HTML};
-
 use string_cache::Atom;
 
 //§ the-stack-of-open-elements
-pub type TagSet<'a> = |(Namespace, Atom)|: 'a -> bool;
+pub type TagSet<'a> = |(Atom, Atom)|: 'a -> bool;
 
 macro_rules! declare_tag_set_impl ( ($param:ident $b:expr $supr:ident $($tag:ident)+) => (
     match $param {
-        $( (HTML, atom!($tag)) => $b, )+
+        $( (ns!(HTML), atom!($tag)) => $b, )+
         p => $supr(p),
     }
 ))
@@ -38,20 +36,20 @@ macro_rules! declare_tag_set_body (
 
 macro_rules! declare_tag_set (
     (pub $name:ident = $($toks:tt)+) => (
-        pub fn $name(p: (Namespace, Atom)) -> bool {
+        pub fn $name(p: (Atom, Atom)) -> bool {
             declare_tag_set_body!(p $($toks)+)
         }
     );
 
     ($name:ident = $($toks:tt)+) => (
-        fn $name(p: (Namespace, Atom)) -> bool {
+        fn $name(p: (Atom, Atom)) -> bool {
             declare_tag_set_body!(p $($toks)+)
         }
     );
 )
 
-#[inline(always)] pub fn empty_set(_: (Namespace, Atom)) -> bool { false }
-#[inline(always)] pub fn full_set(_: (Namespace, Atom)) -> bool { true }
+#[inline(always)] pub fn empty_set(_: (Atom, Atom)) -> bool { false }
+#[inline(always)] pub fn full_set(_: (Atom, Atom)) -> bool { true }
 
 // FIXME: MathML, SVG
 declare_tag_set!(pub default_scope = applet caption html table td th marquee object template)
@@ -84,6 +82,6 @@ declare_tag_set!(pub special_tag =
 fn unused_tag_sets() {
     // FIXME: Some tag sets are unused until we implement <template> or other stuff.
     // Suppress the warning here.
-    thorough_implied_end((HTML, atom!(p)));
+    thorough_implied_end((ns!(HTML), atom!(p)));
 }
 //§ END
