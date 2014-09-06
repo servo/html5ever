@@ -12,8 +12,12 @@ use core::prelude::*;
 use core::slice::raw::buf_as_slice;
 use core::str::raw::from_utf8;
 use core::kinds::marker::ContravariantLifetime;
+use collections::str::MaybeOwned;
+use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
+
+use string_cache::Atom;
 
 #[repr(C)]
 pub struct h5e_buf {
@@ -41,8 +45,7 @@ pub struct LifetimeBuf<'a> {
 }
 
 impl<'a> LifetimeBuf<'a> {
-    pub fn from_str<T: Str>(x: &'a T) -> LifetimeBuf<'a> {
-        let x = x.as_slice();
+    pub fn from_str(x: &'a str) -> LifetimeBuf<'a> {
         LifetimeBuf {
             buf: h5e_buf {
                 data: x.as_bytes().as_ptr(),
@@ -62,6 +65,30 @@ impl<'a> LifetimeBuf<'a> {
     #[inline]
     pub fn get(self) -> h5e_buf {
         self.buf
+    }
+}
+
+// Or we could just make `LifetimeBuf::from_str` generic over <T: Str>;
+// see rust-lang/rust#16738.
+pub trait AsLifetimeBuf {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a>;
+}
+
+impl AsLifetimeBuf for String {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
+        LifetimeBuf::from_str(self.as_slice())
+    }
+}
+
+impl AsLifetimeBuf for Atom {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
+        LifetimeBuf::from_str(self.as_slice())
+    }
+}
+
+impl<'b> AsLifetimeBuf for MaybeOwned<'b> {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
+        LifetimeBuf::from_str(self.as_slice())
     }
 }
 

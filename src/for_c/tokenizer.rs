@@ -11,7 +11,7 @@
 
 use core::prelude::*;
 
-use for_c::common::{LifetimeBuf, h5e_buf, c_bool};
+use for_c::common::{LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
 
 use tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
 use tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
@@ -60,7 +60,7 @@ impl TokenSink for h5e_token_sink {
         fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
             match *s {
                 None => LifetimeBuf::null(),
-                Some(ref s) => LifetimeBuf::from_str(s),
+                Some(ref s) => s.as_lifetime_buf(),
             }
         }
 
@@ -74,14 +74,14 @@ impl TokenSink for h5e_token_sink {
             }
 
             TagToken(Tag { kind, name, self_closing, attrs }) => {
-                let name = LifetimeBuf::from_str(&name);
+                let name = name.as_lifetime_buf();
                 match kind {
                     StartTag => {
                         call!(do_start_tag, name.get(), c_bool(self_closing),
                             attrs.len() as size_t);
                         for attr in attrs.move_iter() {
-                            let name = LifetimeBuf::from_str(&attr.name);
-                            let value = LifetimeBuf::from_str(&attr.value);
+                            let name = attr.name.name.as_lifetime_buf();
+                            let value = attr.value.as_lifetime_buf();
                             call!(do_tag_attr, name.get(), value.get());
                         }
                     }
@@ -90,12 +90,12 @@ impl TokenSink for h5e_token_sink {
             }
 
             CommentToken(text) => {
-                let text = LifetimeBuf::from_str(&text);
+                let text = text.as_lifetime_buf();
                 call!(do_comment, text.get());
             }
 
             CharacterTokens(text) => {
-                let text = LifetimeBuf::from_str(&text);
+                let text = text.as_lifetime_buf();
                 call!(do_chars, text.get());
             }
 
@@ -104,7 +104,7 @@ impl TokenSink for h5e_token_sink {
             EOFToken => call!(do_eof),
 
             ParseError(msg) => {
-                let msg = LifetimeBuf::from_str(&msg);
+                let msg = msg.as_lifetime_buf();
                 call!(do_error, msg.get());
             }
         }
