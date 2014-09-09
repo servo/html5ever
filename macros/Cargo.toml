@@ -1,10 +1,10 @@
 [package]
 
-name = "html5ever-macros"
+name = "html5ever_macros"
 version = "0.0.0"
 authors = [ "The html5ever Project Developers" ]
 
 [lib]
 
-name = "html5ever-macros"
+name = "html5ever_macros"
 plugin = true

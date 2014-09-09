@@ -47,7 +47,7 @@ extern crate string_cache_macros;
 extern crate string_cache;
 
 #[phase(plugin)]
-extern crate macros = "html5ever-macros";
+extern crate html5ever_macros;
 
 // Need #[start] for the test runner.
 #[cfg(test)]

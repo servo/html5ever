@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="html5ever-macros"]
+#![crate_name="html5ever_macros"]
 #![crate_type="dylib"]
 
 #![feature(macro_rules, plugin_registrar, quote, managed_boxes)]

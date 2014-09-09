@@ -16,7 +16,7 @@ rev = "dev"
 git = "https://github.com/kmcallister/string-cache"
 rev = "dev"
 
-[dependencies.html5ever-macros]
+[dependencies.html5ever_macros]
 path = "macros"
 
 [[test]]
