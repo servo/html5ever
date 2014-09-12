@@ -197,7 +197,7 @@ fn json_to_token(js: &Json) -> Token {
             force_quirks: !correct.get_bool(),
         }),
 
-        ("StartTag", [name, attrs, ..rest]) => TagToken(Tag {
+        ("StartTag", [name, attrs, rest..]) => TagToken(Tag {
             kind: StartTag,
             name: Atom::from_slice(name.get_str().as_slice()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
