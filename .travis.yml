@@ -1,6 +1,5 @@
 language: rust
 script:
-  - ./scripts/travis-fixups
   - mkdir build
   - cd build
   - ../configure

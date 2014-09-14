@@ -1,5 +1,0 @@
-#!/bin/bash -e
-
-# I don't know why, but Cargo on Travis wants different revspecs.
-
-sed -i 's!rev = "dev"!rev = "origin/dev"!' Cargo.toml
