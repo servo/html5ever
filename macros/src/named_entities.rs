@@ -85,7 +85,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     // This would be a lot nicer if @-patterns were still supported.
     let mod_filename = expect!(cx, sp, match expand_file(cx, sp, &[]).make_expr() {
         Some(e) => match e.node {
-            ExprLit(s) => match s.node {
+            ExprLit(ref s) => match s.node {
                 LitStr(ref s, _) => Some(s.get().to_string()),
                 _ => None,
             },

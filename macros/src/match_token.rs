@@ -97,9 +97,9 @@ matching, by enforcing the following restrictions on its input:
 
 #![allow(unused_imports)]  // for quotes
 
-use std::gc::Gc;
 use std::collections::hashmap::{HashSet, HashMap};
 
+use syntax::ptr::P;
 use syntax::codemap::{Span, Spanned, spanned};
 use syntax::ast;
 use syntax::parse::parser::Parser;
@@ -139,14 +139,14 @@ struct Tag {
 
 /// Left-hand side of a pattern-match arm.
 enum LHS {
-    Pat(Gc<ast::Pat>),
+    Pat(P<ast::Pat>),
     Tags(Vec<Spanned<Tag>>),
 }
 
 /// Right-hand side of a pattern-match arm.
 enum RHS {
     Else,
-    Expr(Gc<ast::Expr>),
+    Expr(P<ast::Expr>),
 }
 
 /// A whole arm, including optional outer `name @` binding.
@@ -158,7 +158,7 @@ struct Arm {
 
 /// A parsed `match_token!` invocation.
 struct Match {
-    discriminant: Gc<ast::Expr>,
+    discriminant: P<ast::Expr>,
     arms: Vec<Arm>,
 }
 
@@ -195,7 +195,7 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
         Vec::from_slice(tts));
 
     let discriminant = parser.parse_expr_res(parser::RESTRICT_NO_STRUCT_LITERAL);
-    parser.commit_expr_expecting(discriminant, token::LBRACE);
+    parser.commit_expr_expecting(&*discriminant, token::LBRACE);
 
     let mut arms: Vec<Arm> = Vec::new();
     while parser.token != token::RBRACE {
@@ -231,11 +231,11 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
-                !classify::expr_is_simple_block(expr)
+                !classify::expr_is_simple_block(&*expr)
                 && parser.token != token::RBRACE;
 
             if require_comma {
-                parser.commit_expr(expr, &[token::COMMA], &[token::RBRACE]);
+                parser.commit_expr(&*expr, &[token::COMMA], &[token::RBRACE]);
             } else {
                 parser.eat(&token::COMMA);
             }
@@ -267,7 +267,7 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
 struct WildcardArm {
     binding: Tokens,
     kind: TagKind,
-    expr: Gc<ast::Expr>,
+    expr: P<ast::Expr>,
 }
 
 fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
@@ -369,7 +369,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                             wildcards.push(WildcardArm {
                                 binding: binding.clone(),
                                 kind: tag.kind,
-                                expr: expr
+                                expr: expr.clone(),
                             });
                         }
                     }
