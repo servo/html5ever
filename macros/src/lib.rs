@@ -11,6 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(macro_rules, plugin_registrar, quote, managed_boxes)]
+#![deny(warnings)]
 
 extern crate syntax;
 extern crate rustc;

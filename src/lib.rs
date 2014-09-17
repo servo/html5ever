@@ -11,6 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(macro_rules, phase, globs)]
+#![deny(warnings)]
 #![allow(unnecessary_parens)]
 
 // Don't implicitly pull in things from std::*
