@@ -100,7 +100,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
             attrs.sort_by(|x, y| x.name.name.cmp(&y.name.name));
             // FIXME: sort by UTF-16 code unit
 
-            for attr in attrs.move_iter() {
+            for attr in attrs.into_iter() {
                 buf.push_str("|");
                 buf.grow(indent+2, ' ');
                 buf.push_str(format!("{}=\"{}\"\n",
@@ -169,7 +169,7 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
             .map(|res| res.ok().expect("couldn't read"));
         let data = parse_tests(lines);
 
-        for (i, test) in data.move_iter().enumerate() {
+        for (i, test) in data.into_iter().enumerate() {
             make_test(&mut tests, path_str, i, test);
         }
     });

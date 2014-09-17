@@ -1286,7 +1286,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         println!("\n{:12u}         total in token sink", self.time_in_sink);
         println!("\n{:12u}         total in tokenizer", total);
 
-        for (k, v) in results.move_iter() {
+        for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
             println!("{:12u}  {:4.1f}%  {:?}", v, pct, k);
         }

@@ -39,9 +39,9 @@ fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
 
     // do this with iterators?
     let mut out = vec!();
-    for p in points.move_iter() {
+    for p in points.into_iter() {
         let y = s.slice_from(p);
-        for mut x in splits(s.slice_to(p), n-1).move_iter() {
+        for mut x in splits(s.slice_to(p), n-1).into_iter() {
             x.push(y.to_string());
             out.push(x);
         }
@@ -125,7 +125,7 @@ fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
     let mut sink = TokenLogger::new(opts.exact_errors);
     {
         let mut tok = Tokenizer::new(&mut sink, opts);
-        for chunk in input.move_iter() {
+        for chunk in input.into_iter() {
             tok.feed(chunk);
         }
         tok.end();
@@ -299,7 +299,7 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
             should_fail: false,
         },
         testfn: DynTestFn(proc() {
-            for input in insplits.move_iter() {
+            for input in insplits.into_iter() {
                 // Clone 'input' so we have it for the failure message.
                 // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
@@ -351,7 +351,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     };
 
     // Build the tests.
-    for state in state_overrides.move_iter() {
+    for state in state_overrides.into_iter() {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {

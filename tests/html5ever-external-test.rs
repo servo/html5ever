@@ -42,6 +42,6 @@ fn main() {
         tests.push_all_move(tree_builder::tests(src_dir));
     }
 
-    let args: Vec<String> = os::args().move_iter().collect();
+    let args: Vec<String> = os::args().into_iter().collect();
     test_main(args.as_slice(), tests);
 }

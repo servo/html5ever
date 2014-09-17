@@ -71,7 +71,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
     }
 
     fn parent<'a>(&'a mut self) -> &'a mut ElemInfo {
-        self.stack.mut_last().expect("no parent ElemInfo")
+        self.stack.last_mut().expect("no parent ElemInfo")
     }
 
     fn write_escaped(&mut self, text: &str, attr_mode: bool) -> IoResult<()> {

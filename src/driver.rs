@@ -20,7 +20,7 @@ use collections::string::String;
 
 /// Convenience function to turn a single `String` into an iterator.
 pub fn one_input(x: String) -> option::Item<String> {
-    Some(x).move_iter()
+    Some(x).into_iter()
 }
 
 /// Tokenize and send results to a `TokenSink`.

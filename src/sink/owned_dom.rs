@@ -307,7 +307,7 @@ impl ParseResult<Sink> for OwnedDom {
         // Forget about the nodes in the final tree; they will be owned by
         // their parent.  In the process of iterating we drop all nodes that
         // aren't in the tree.
-        for node in sink.nodes.move_iter() {
+        for node in sink.nodes.into_iter() {
             let ptr: *const Unsafe<SquishyNode> = &*node;
             if live.contains(&(ptr as uint)) {
                 unsafe {

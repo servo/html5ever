@@ -506,7 +506,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                         self.unexpected(&tag);
                         self.adoption_agency(atom!(a));
                         // FIXME: quadratic time
-                        for (i, handle) in to_remove.move_iter() {
+                        for (i, handle) in to_remove.into_iter() {
                             self.remove_from_stack(&handle);
                             self.active_formatting.remove(i);
                             // We iterated backwards from the end above, so
@@ -885,14 +885,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                     if contains_nonspace {
                         self.sink.parse_error(Slice("Non-space table text"));
-                        for (split, text) in pending.move_iter() {
+                        for (split, text) in pending.into_iter() {
                             match self.foster_parent_in_body(CharacterTokens(split, text)) {
                                 Done => (),
                                 _ => fail!("not prepared to handle this!"),
                             }
                         }
                     } else {
-                        for (_, text) in pending.move_iter() {
+                        for (_, text) in pending.into_iter() {
                             self.append_text(text);
                         }
                     }

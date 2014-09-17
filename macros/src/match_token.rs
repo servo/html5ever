@@ -305,7 +305,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
     // Tags excluded (by an 'else' RHS) from wildcard matching.
     let mut wild_excluded: HashMap<TagKind, Vec<Tag>> = HashMap::new();
 
-    for Arm { binding, lhs, rhs } in arms.move_iter() {
+    for Arm { binding, lhs, rhs } in arms.into_iter() {
         // Build Rust syntax for the `name @` binding, if any.
         let binding = match binding {
             Some(i) => quote_tokens!(&mut *cx, $i @),
@@ -325,7 +325,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
             // <tag> <tag> ... => else
             (Tags(tags), Else) => {
-                for Spanned { span, node: tag } in tags.move_iter() {
+                for Spanned { span, node: tag } in tags.into_iter() {
                     bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
                     bail_if!(tag.name.is_none(), cx, rhs.span,
                         "'else' may not appear with a wildcard tag");
@@ -340,7 +340,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                 // Is this arm a tag wildcard?
                 // `None` if we haven't processed the first tag yet.
                 let mut wildcard = None;
-                for Spanned { span, node: tag } in tags.move_iter() {
+                for Spanned { span, node: tag } in tags.into_iter() {
                     bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
 
                     match tag.name {
@@ -427,8 +427,8 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
     // Code for the `false` arms inside `let enable_wildcards = ...`.
     let mut enable_wildcards_code = vec!();
-    for (_, tags) in wild_excluded.move_iter() {
-        for tag in tags.move_iter() {
+    for (_, tags) in wild_excluded.into_iter() {
+        for tag in tags.into_iter() {
             enable_wildcards_code.push_all_move(make_tag_pattern(cx, vec!(), tag));
             enable_wildcards_code.push_all_move(quote_tokens!(&mut *cx, => false,));
         }
@@ -436,7 +436,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
     // Code for the wildcard actions.
     let mut wildcard_code = vec!();
-    for WildcardArm { binding, kind, expr } in wildcards.move_iter() {
+    for WildcardArm { binding, kind, expr } in wildcards.into_iter() {
         let pat = make_tag_pattern(cx, binding, Tag { kind: kind, name: None });
         wildcard_code.push_all_move(quote_tokens!(&mut *cx,
             (true, $pat) => $expr,

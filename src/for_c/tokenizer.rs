@@ -79,7 +79,7 @@ impl TokenSink for h5e_token_sink {
                     StartTag => {
                         call!(do_start_tag, name.get(), c_bool(self_closing),
                             attrs.len() as size_t);
-                        for attr in attrs.move_iter() {
+                        for attr in attrs.into_iter() {
                             let name = attr.name.name.as_lifetime_buf();
                             let value = attr.value.as_lifetime_buf();
                             call!(do_tag_attr, name.get(), value.get());

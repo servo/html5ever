@@ -57,7 +57,7 @@ fn main() {
 
     if !dom.errors.is_empty() {
         println!("\nParse errors:");
-        for err in dom.errors.move_iter() {
+        for err in dom.errors.into_iter() {
             println!("    {}", err);
         }
     }

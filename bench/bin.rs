@@ -25,6 +25,5 @@ fn main() {
     tests.push_all_move(tokenizer::tests());
     // more to follow
 
-    let args: Vec<String> = os::args().move_iter().collect();
-    test_main(args.as_slice(), tests);
+    test_main(os::args().as_slice(), tests);
 }

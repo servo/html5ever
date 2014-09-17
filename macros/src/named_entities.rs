@@ -39,14 +39,14 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     };
 
     // Add every named entity to the map.
-    for (k,v) in json_map.move_iter() {
+    for (k,v) in json_map.into_iter() {
         let mut decoder = json::Decoder::new(v);
         let CharRef { codepoints }: CharRef
             = Decodable::decode(&mut decoder).ok().expect("bad CharRef");
 
         assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
         let mut codepoint_pair = [0, 0];
-        for (i,n) in codepoints.move_iter().enumerate() {
+        for (i,n) in codepoints.into_iter().enumerate() {
             codepoint_pair[i] = n;
         }
 
@@ -58,7 +58,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     // Add every missing prefix of those keys, mapping to NULL characters.
     map.insert("".to_string(), [0, 0]);
     let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
-    for k in keys.move_iter() {
+    for k in keys.into_iter() {
         for n in range(1, k.len()) {
             let pfx = k.as_slice().slice_to(n).to_string();
             if !map.contains_key(&pfx) {
@@ -111,7 +111,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     //
     //     phf_map!(k => v, k => v, ...)
     let mut tts: Vec<TokenTree> = vec!();
-    for (k, c) in map.move_iter() {
+    for (k, c) in map.into_iter() {
         let k = k.as_slice();
         let c0 = c[0];
         let c1 = c[1];

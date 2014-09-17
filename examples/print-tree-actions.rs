@@ -100,7 +100,7 @@ impl TreeSink<uint> for Sink {
 
     fn add_attrs_if_missing(&mut self, target: uint, attrs: Vec<Attribute>) {
         println!("Add missing attributes to {:u}:", target);
-        for attr in attrs.move_iter() {
+        for attr in attrs.into_iter() {
             println!("    {} = {}", attr.name, attr.value);
         }
     }
