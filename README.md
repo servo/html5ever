@@ -8,6 +8,8 @@ For now it's mostly of interest as a way to parse HTML from [Rust](http://www.ru
 
 html5ever is very much a work in progress, but if you're ready to dive in, look at `examples/print-rcdom.rs`.
 
+See [`STRUCTURE.md`](STRUCTURE.md) for information about how code is organized in the project.
+
 ## Building it
 
 The library itself builds using [Cargo](http://crates.io/), so you just run `cargo build` in the top directory.
