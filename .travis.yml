@@ -1,6 +1,12 @@
+env:
+  global:
+      - secure: ONY+Bnbox9d5fHcSbYd4/G2cx6IprfyH6GP6BWd6zazFTdmYc4X754FUUM1Po0Rj+2JX97Mvj5oBKahT7r+SyxiixqAjHHHqNWni3RKVodA7lhtXudHW03K05lkyHwtW7ayJbWxPG28xPYkAwNrUHHuJng483iNiG78YTeKrpN0=
 language: rust
 script:
   - mkdir build
   - cd build
   - ../configure
   - make check docs for_c
+after_script:
+  - cd /home/travis/build/kmcallister/html5ever/target
+  - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
