@@ -162,6 +162,10 @@ struct Match {
     arms: Vec<Arm>,
 }
 
+fn push_all<T>(lhs: &mut Vec<T>, rhs: Vec<T>) {
+    lhs.extend(rhs.into_iter());
+}
+
 fn parse_spanned_ident(parser: &mut Parser) -> ast::SpannedIdent {
     let lo = parser.span.lo;
     let ident = parser.parse_ident();
@@ -191,10 +195,9 @@ fn parse_tag(parser: &mut Parser) -> Spanned<Tag> {
 
 /// Parse a `match_token!` invocation into the little AST defined above.
 fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
-    let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(),
-        Vec::from_slice(tts));
+    let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts.to_vec());
 
-    let discriminant = parser.parse_expr_res(parser::RESTRICT_NO_STRUCT_LITERAL);
+    let discriminant = parser.parse_expr_res(parser::RestrictionNoStructLiteral);
     parser.commit_expr_expecting(&*discriminant, token::LBRACE);
 
     let mut arms: Vec<Arm> = Vec::new();
@@ -227,7 +230,7 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
             parser.expect(&token::COMMA);
             Else
         } else {
-            let expr = parser.parse_expr_res(parser::RESTRICT_STMT_EXPR);
+            let expr = parser.parse_expr_res(parser::RestrictionStmtExpr);
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
@@ -275,7 +278,7 @@ fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
     let mut fields = quote_tokens!(&mut *cx, kind: $kind,);
     match tag.name {
         None => (),
-        Some(name) => fields.push_all_move(quote_tokens!(&mut *cx, name: atom!($name),)),
+        Some(name) => push_all(&mut fields, quote_tokens!(&mut *cx, name: atom!($name),)),
     }
     quote_tokens!(&mut *cx,
         ::tree_builder::types::TagToken($binding ::tokenizer::Tag { $fields ..})
@@ -320,7 +323,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
             (Pat(pat), Expr(expr)) => {
                 bail_if!(!wildcards.is_empty(), cx, lhs.span,
                     "ordinary patterns may not appear after wildcard tags");
-                arm_code.push_all_move(quote_tokens!(&mut *cx, $binding $pat => $expr,));
+                push_all(&mut arm_code, quote_tokens!(&mut *cx, $binding $pat => $expr,));
             }
 
             // <tag> <tag> ... => else
@@ -354,9 +357,9 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
 
                             if wildcard.is_some() {
                                 // Push the delimeter `|` if it's not the first tag.
-                                arm_code.push_all_move(quote_tokens!(&mut *cx, |));
+                                push_all(&mut arm_code, quote_tokens!(&mut *cx, |));
                             }
-                            arm_code.push_all_move(make_tag_pattern(cx, binding.clone(), tag));
+                            push_all(&mut arm_code, make_tag_pattern(cx, binding.clone(), tag));
 
                             wildcard = Some(false);
                         }
@@ -378,7 +381,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                 match wildcard {
                     None => bail!(cx, lhs.span, "[internal macro error] tag arm with no tags"),
                     Some(false) => {
-                        arm_code.push_all_move(quote_tokens!(&mut *cx, => $expr,));
+                        push_all(&mut arm_code, quote_tokens!(&mut *cx, => $expr,));
                     }
                     Some(true) => () // codegen for wildcards is deferred
                 }
@@ -429,8 +432,8 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
     let mut enable_wildcards_code = vec!();
     for (_, tags) in wild_excluded.into_iter() {
         for tag in tags.into_iter() {
-            enable_wildcards_code.push_all_move(make_tag_pattern(cx, vec!(), tag));
-            enable_wildcards_code.push_all_move(quote_tokens!(&mut *cx, => false,));
+            push_all(&mut enable_wildcards_code, make_tag_pattern(cx, vec!(), tag));
+            push_all(&mut enable_wildcards_code, quote_tokens!(&mut *cx, => false,));
         }
     }
 
@@ -438,7 +441,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
     let mut wildcard_code = vec!();
     for WildcardArm { binding, kind, expr } in wildcards.into_iter() {
         let pat = make_tag_pattern(cx, binding, Tag { kind: kind, name: None });
-        wildcard_code.push_all_move(quote_tokens!(&mut *cx,
+        push_all(&mut wildcard_code, quote_tokens!(&mut *cx,
             (true, $pat) => $expr,
         ));
     }

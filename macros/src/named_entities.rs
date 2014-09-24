@@ -115,7 +115,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
         let k = k.as_slice();
         let c0 = c[0];
         let c1 = c[1];
-        tts.push_all_move(quote_tokens!(&mut *cx, $k => [$c0, $c1],));
+        tts.extend(quote_tokens!(&mut *cx, $k => [$c0, $c1],).into_iter());
     }
     MacExpr::new(quote_expr!(&mut *cx, phf_map!($tts)))
 }

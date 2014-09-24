@@ -267,7 +267,7 @@ impl TreeSink<Handle> for Sink {
         // FIXME: quadratic time
         attrs.retain(|attr|
             !existing.iter().any(|e| e.name == attr.name));
-        existing.push_all_move(attrs);
+        existing.extend(attrs.into_iter());
     }
 
     fn remove_from_parent(&mut self, mut target: Handle) {

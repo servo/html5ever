@@ -14,6 +14,7 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::hashmap::HashMap;
+use std::vec::MoveItems;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
@@ -160,7 +161,7 @@ fn make_test(
     });
 }
 
-pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
+pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tree-construction", ".dat", |path_str, file| {
@@ -174,5 +175,5 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
         }
     });
 
-    tests
+    tests.into_iter()
 }

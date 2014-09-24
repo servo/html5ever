@@ -1369,6 +1369,7 @@ mod test {
     use core::prelude::*;
     use collections::vec::Vec;
     use collections::string::String;
+    use collections::slice::CloneableVector;
     use super::{option_push_char, append_strings}; // private items
 
     #[test]
@@ -1402,7 +1403,7 @@ mod test {
     #[test]
     fn append_to_empty_does_not_copy() {
         let mut lhs: String = String::from_str("");
-        let rhs: Vec<u8> = Vec::from_slice(b"foo");
+        let rhs: Vec<u8> = b"foo".to_vec();
         let ptr_old = rhs[0] as *const u8;
 
         append_strings(&mut lhs, String::from_utf8(rhs).unwrap());

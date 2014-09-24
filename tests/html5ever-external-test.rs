@@ -35,11 +35,11 @@ fn main() {
     let mut tests = vec!();
 
     if os::getenv("HTML5EVER_NO_TOK_TEST").is_none() {
-        tests.push_all_move(tokenizer::tests(src_dir.clone()));
+        tests.extend(tokenizer::tests(src_dir.clone()));
     }
 
     if os::getenv("HTML5EVER_NO_TB_TEST").is_none() {
-        tests.push_all_move(tree_builder::tests(src_dir));
+        tests.extend(tree_builder::tests(src_dir));
     }
 
     let args: Vec<String> = os::args().into_iter().collect();

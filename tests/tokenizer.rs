@@ -18,6 +18,7 @@ use serialize::json;
 use serialize::json::Json;
 use std::collections::treemap::TreeMap;
 use std::str::Slice;
+use std::vec::MoveItems;
 
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag, AttrName};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
@@ -47,7 +48,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
         }
     }
 
-    out.push_all_move(splits(s, n-1));
+    out.extend(splits(s, n-1).into_iter());
     out
 }
 
@@ -378,7 +379,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     }
 }
 
-pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
+pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tokenizer", ".test", |path_str, mut file| {
@@ -397,5 +398,5 @@ pub fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
         }
     });
 
-    tests
+    tests.into_iter()
 }

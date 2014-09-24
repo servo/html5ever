@@ -22,7 +22,7 @@ mod tokenizer;
 fn main() {
     let mut tests = vec!();
 
-    tests.push_all_move(tokenizer::tests());
+    tests.extend(tokenizer::tests());
     // more to follow
 
     test_main(os::args().as_slice(), tests);

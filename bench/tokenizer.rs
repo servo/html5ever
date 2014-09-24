@@ -9,6 +9,7 @@
 
 use std::{io, os};
 use std::default::Default;
+use std::vec::MoveItems;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
@@ -99,7 +100,7 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
     }
 }
 
-pub fn tests() -> Vec<TestDescAndFn> {
+pub fn tests() -> MoveItems<TestDescAndFn> {
     let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = vec!(Default::default());
@@ -130,5 +131,5 @@ pub fn tests() -> Vec<TestDescAndFn> {
         }
     }
 
-    tests
+    tests.into_iter()
 }

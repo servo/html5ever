@@ -220,7 +220,7 @@ impl TreeSink<Handle> for RcDom {
         // FIXME: quadratic time
         attrs.retain(|attr|
             !existing.iter().any(|e| e.name == attr.name));
-        existing.push_all_move(attrs);
+        existing.extend(attrs.into_iter());
     }
 
     fn remove_from_parent(&mut self, target: Handle) {
