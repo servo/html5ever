@@ -62,7 +62,7 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the end of the queue.
-    /// 'pos' can be non-zero to remove that many characters
+    /// 'pos' can be non-zero to remove that many bytes
     /// from the beginning.
     pub fn push_back(&mut self, buf: String, pos: uint) {
         if pos >= buf.len() {
