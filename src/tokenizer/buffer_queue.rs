@@ -68,7 +68,7 @@ impl BufferQueue {
         if pos >= buf.len() {
             return;
         }
-        self.account_new(buf.as_slice());
+        self.account_new(buf.as_slice().slice_from(pos));
         self.buffers.push(Buffer {
             pos: pos,
             buf: buf,
