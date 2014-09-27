@@ -233,6 +233,7 @@ mod test {
     fn can_push_truncated() {
         let mut bq = BufferQueue::new();
         bq.push_back(String::from_str("abc"), 1);
+        assert!(!bq.has(3)); // regression test for #37
         assert_eq!(bq.next(), Some('b'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
