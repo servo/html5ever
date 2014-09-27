@@ -125,7 +125,7 @@ pub fn tests() -> MoveItems<TestDescAndFn> {
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
             for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
-                let name = "uncommitted/".to_string().append(file);
+                let name = format!("uncommitted/{:s}", file);
                 tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
         }

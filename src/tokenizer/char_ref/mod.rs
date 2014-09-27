@@ -200,7 +200,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let mut unconsume = String::from_char(1, '#');
         match self.hex_marker {
-            Some(c) => unconsume.push_char(c),
+            Some(c) => unconsume.push(c),
             None => (),
         }
 
@@ -244,7 +244,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
     fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push_char(c);
+        self.name_buf_mut().push(c);
         match data::named_entities.find_equiv(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
@@ -358,7 +358,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
     fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push_char(c);
+        self.name_buf_mut().push(c);
         match c {
             _ if is_ascii_alnum(c) => return Progress,
             ';' => self.emit_name_error(tokenizer),

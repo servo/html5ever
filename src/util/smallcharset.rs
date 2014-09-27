@@ -56,7 +56,7 @@ mod test {
             for x in range(0, 48u) {
                 for y in range(0, 48u) {
                     let mut s = String::from_char(x, 'x');
-                    s.push_char(c);
+                    s.push(c);
                     s.grow(y, 'x');
                     let set = small_char_set!('&' '\0');
 

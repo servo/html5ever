@@ -97,7 +97,7 @@ matching, by enforcing the following restrictions on its input:
 
 #![allow(unused_imports)]  // for quotes
 
-use std::collections::hashmap::{HashSet, HashMap};
+use std::collections::hashmap::{HashSet, HashMap, Occupied, Vacant};
 
 use syntax::ptr::P;
 use syntax::codemap::{Span, Spanned, spanned};
@@ -332,8 +332,10 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacRe
                     bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
                     bail_if!(tag.name.is_none(), cx, rhs.span,
                         "'else' may not appear with a wildcard tag");
-                    let excluded = wild_excluded.find_or_insert(tag.kind, vec!());
-                    excluded.push(tag.clone());
+                    match wild_excluded.entry(tag.kind) {
+                        Occupied(e) => { e.into_mut().push(tag.clone()); }
+                        Vacant(e)   => { e.set(vec![tag.clone()]); }
+                    }
                 }
             }
 

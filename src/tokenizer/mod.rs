@@ -45,9 +45,9 @@ mod interface;
 mod char_ref;
 mod buffer_queue;
 
-fn option_push_char(opt_str: &mut Option<String>, c: char) {
+fn option_push(opt_str: &mut Option<String>, c: char) {
     match *opt_str {
-        Some(ref mut s) => s.push_char(c),
+        Some(ref mut s) => s.push(c),
         None => *opt_str = Some(String::from_char(1, c)),
     }
 }
@@ -449,7 +449,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
         self.discard_tag();
-        self.current_tag_name.push_char(c);
+        self.current_tag_name.push(c);
         self.current_tag_kind = kind;
     }
 
@@ -465,7 +465,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
     fn create_attribute(&mut self, c: char) {
         self.finish_attribute();
 
-        self.current_attr_name.push_char(c);
+        self.current_attr_name.push(c);
     }
 
     fn finish_attribute(&mut self) {
@@ -551,22 +551,22 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
 macro_rules! shorthand (
     ( $me:expr : emit $c:expr                    ) => ( $me.emit_char($c);                                   );
     ( $me:expr : create_tag $kind:expr $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:expr : push_tag $c:expr                ) => ( $me.current_tag_name.push_char($c);                  );
+    ( $me:expr : push_tag $c:expr                ) => ( $me.current_tag_name.push($c);                       );
     ( $me:expr : discard_tag                     ) => ( $me.discard_tag();                                   );
-    ( $me:expr : push_temp $c:expr               ) => ( $me.temp_buf.push_char($c);                          );
+    ( $me:expr : push_temp $c:expr               ) => ( $me.temp_buf.push($c);                               );
     ( $me:expr : emit_temp                       ) => ( $me.emit_temp_buf();                                 );
     ( $me:expr : clear_temp                      ) => ( $me.clear_temp_buf();                                );
     ( $me:expr : create_attr $c:expr             ) => ( $me.create_attribute($c);                            );
-    ( $me:expr : push_name $c:expr               ) => ( $me.current_attr_name.push_char($c);                 );
-    ( $me:expr : push_value $c:expr              ) => ( $me.current_attr_value.push_char($c);                );
+    ( $me:expr : push_name $c:expr               ) => ( $me.current_attr_name.push($c);                      );
+    ( $me:expr : push_value $c:expr              ) => ( $me.current_attr_value.push($c);                     );
     ( $me:expr : append_value $c:expr            ) => ( append_strings(&mut $me.current_attr_value, $c);     );
-    ( $me:expr : push_comment $c:expr            ) => ( $me.current_comment.push_char($c);                   );
+    ( $me:expr : push_comment $c:expr            ) => ( $me.current_comment.push($c);                        );
     ( $me:expr : append_comment $c:expr          ) => ( $me.current_comment.push_str($c);                    );
     ( $me:expr : emit_comment                    ) => ( $me.emit_current_comment();                          );
     ( $me:expr : clear_comment                   ) => ( $me.current_comment.truncate(0);                     );
     ( $me:expr : create_doctype                  ) => ( $me.current_doctype = Doctype::new();                );
-    ( $me:expr : push_doctype_name $c:expr       ) => ( option_push_char(&mut $me.current_doctype.name, $c); );
-    ( $me:expr : push_doctype_id $k:expr $c:expr ) => ( option_push_char($me.doctype_id($k), $c);            );
+    ( $me:expr : push_doctype_name $c:expr       ) => ( option_push(&mut $me.current_doctype.name, $c);      );
+    ( $me:expr : push_doctype_id $k:expr $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
     ( $me:expr : clear_doctype_id $k:expr        ) => ( $me.clear_doctype_id($k);                            );
     ( $me:expr : force_quirks                    ) => ( $me.current_doctype.force_quirks = true;             );
     ( $me:expr : emit_doctype                    ) => ( $me.emit_current_doctype();                          );
@@ -1370,26 +1370,26 @@ mod test {
     use collections::vec::Vec;
     use collections::string::String;
     use collections::slice::CloneableVector;
-    use super::{option_push_char, append_strings}; // private items
+    use super::{option_push, append_strings}; // private items
 
     #[test]
     fn push_to_None_gives_singleton() {
         let mut s: Option<String> = None;
-        option_push_char(&mut s, 'x');
+        option_push(&mut s, 'x');
         assert_eq!(s, Some(String::from_str("x")));
     }
 
     #[test]
     fn push_to_empty_appends() {
         let mut s: Option<String> = Some(String::new());
-        option_push_char(&mut s, 'x');
+        option_push(&mut s, 'x');
         assert_eq!(s, Some(String::from_str("x")));
     }
 
     #[test]
     fn push_to_nonempty_appends() {
         let mut s: Option<String> = Some(String::from_str("y"));
-        option_push_char(&mut s, 'x');
+        option_push(&mut s, 'x');
         assert_eq!(s, Some(String::from_str("yx")));
     }
 

@@ -94,7 +94,7 @@ impl TokenSink for TokenLogger {
             }
 
             NullCharacterToken => {
-                self.current_str.push_char('\0');
+                self.current_str.push('\0');
             }
 
             ParseError(_) => if self.exact_errors {
@@ -266,10 +266,10 @@ fn unescape(s: &str) -> Option<String> {
                     // Since these can only come from script, we will catch
                     // them there.
                     None => return None,
-                    Some(c) => out.push_char(c),
+                    Some(c) => out.push(c),
                 }
             }
-            Some(c) => out.push_char(c),
+            Some(c) => out.push(c),
         }
     }
 }
