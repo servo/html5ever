@@ -9,14 +9,12 @@
 
 use core::prelude::*;
 
-use tokenizer::AttrName;
-
 use std::io::{Writer, IoResult};
 use core::default::Default;
 use collections::MutableSeq;
 use collections::vec::Vec;
 
-use string_cache::Atom;
+use string_cache::{Atom, QualName};
 
 //§ serializing-html-fragments
 pub trait Serializable {
@@ -49,7 +47,7 @@ struct ElemInfo {
     processed_first_child: bool,
 }
 
-pub type AttrRef<'a> = (&'a AttrName, &'a str);
+pub type AttrRef<'a> = (&'a QualName, &'a str);
 
 pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
@@ -90,12 +88,11 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
 
     pub fn start_elem<'a, AttrIter: Iterator<AttrRef<'a>>>(
         &mut self,
-        ns: Atom,
-        name: Atom,
+        name: QualName,
         mut attrs: AttrIter) -> IoResult<()> {
 
-        let html_name = match ns {
-            ns!(HTML) => Some(name.clone()),
+        let html_name = match name.ns {
+            ns!(HTML) => Some(name.local.clone()),
             _ => fail!("FIXME: Handle qualified tag names"),
         };
 
@@ -109,18 +106,19 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         }
 
         try!(self.writer.write_char('<'));
-        try!(self.writer.write_str(name.as_slice()));
+        try!(self.writer.write_str(name.local.as_slice()));
         for (name, value) in attrs {
             try!(self.writer.write_char(' '));
             // FIXME: qualified names
-            try!(self.writer.write_str(name.name.as_slice()));
+            assert!(name.ns == ns!(""));
+            try!(self.writer.write_str(name.local.as_slice()));
             try!(self.writer.write_str("=\""));
             try!(self.write_escaped(value, true));
             try!(self.writer.write_char('"'));
         }
         try!(self.writer.write_char('>'));
 
-        let ignore_children = ns == ns!(HTML) && match name {
+        let ignore_children = name.ns == ns!(HTML) && match name.local {
             atom!(area) | atom!(base) | atom!(basefont) | atom!(bgsound) | atom!(br)
             | atom!(col) | atom!(embed) | atom!(frame) | atom!(hr) | atom!(img)
             | atom!(input) | atom!(keygen) | atom!(link) | atom!(menuitem)
@@ -140,7 +138,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         Ok(())
     }
 
-    pub fn end_elem(&mut self, _ns: Atom, name: Atom) -> IoResult<()> {
+    pub fn end_elem(&mut self, name: QualName) -> IoResult<()> {
         let info = self.stack.pop().expect("no ElemInfo");
         if info.ignore_children {
             return Ok(());
@@ -148,7 +146,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
 
         // FIXME: Handle qualified tag names
         try!(self.writer.write_str("</"));
-        try!(self.writer.write_str(name.as_slice()));
+        try!(self.writer.write_str(name.local.as_slice()));
         self.writer.write_char('>')
     }
 

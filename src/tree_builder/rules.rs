@@ -26,8 +26,6 @@ use collections::MutableSeq;
 use collections::string::String;
 use collections::str::Slice;
 
-use string_cache::Atom;
-
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan
     x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
@@ -136,7 +134,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <script> => {
-                    let elem = self.sink.create_element(ns!(HTML), atom!(script), tag.attrs);
+                    let elem = self.sink.create_element(qualname!(HTML, script), tag.attrs);
                     if self.opts.fragment {
                         self.sink.mark_script_already_started(elem.clone());
                     }
@@ -378,13 +376,12 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                     let mut to_close = None;
                     for node in self.open_elems.iter().rev() {
-                        let nsname = self.sink.elem_name(node.clone());
-                        if can_close(nsname.clone()) {
-                            let (_, name) = nsname;
-                            to_close = Some(name);
+                        let name = self.sink.elem_name(node.clone());
+                        if can_close(name.clone()) {
+                            to_close = Some(name.local);
                             break;
                         }
-                        if extra_special(nsname.clone()) {
+                        if extra_special(name.clone()) {
                             break;
                         }
                     }

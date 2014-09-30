@@ -15,7 +15,7 @@ use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;
 
-use string_cache::Atom;
+use string_cache::{Atom, QualName};
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
@@ -38,30 +38,15 @@ impl Doctype {
     }
 }
 
-/// Attribute name; will eventually support namespaces.
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
-pub struct AttrName {
-    pub name: Atom,
-}
-
-impl AttrName {
-    pub fn new(name: Atom) -> AttrName {
-        AttrName {
-            name: name,
-        }
-    }
-}
-
-impl Str for AttrName {
-    fn as_slice<'t>(&'t self) -> &'t str {
-        self.name.as_slice()
-    }
-}
-
 /// A tag attribute.
+///
+/// The namespace on the attribute name is almost always ns!("").
+/// The tokenizer creates all attributes this way, but the tree
+/// builder will adjust certain attribute names inside foreign
+/// content (MathML, SVG).
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct Attribute {
-    pub name: AttrName,
+    pub name: QualName,
     pub value: String,
 }
 

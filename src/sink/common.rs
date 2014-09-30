@@ -11,7 +11,7 @@ use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
-use string_cache::Atom;
+use string_cache::QualName;
 
 /// The different kinds of nodes in the DOM.
 #[deriving(Show)]
@@ -29,8 +29,6 @@ pub enum NodeEnum {
     Comment(String),
 
     /// An element with attributes.
-    ///
-    /// FIXME: HTML namespace only for now.
-    Element(Atom, Vec<Attribute>),
+    Element(QualName, Vec<Attribute>),
 }
 

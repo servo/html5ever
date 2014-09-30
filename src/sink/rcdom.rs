@@ -31,7 +31,7 @@ use collections::string::String;
 use collections::str::MaybeOwned;
 use std::io::{Writer, IoResult};
 
-use string_cache::Atom;
+use string_cache::QualName;
 
 /// A DOM node.
 pub struct Node {
@@ -138,15 +138,14 @@ impl TreeSink<Handle> for RcDom {
         same_node(&x, &y)
     }
 
-    fn elem_name(&self, target: Handle) -> (Atom, Atom) {
+    fn elem_name(&self, target: Handle) -> QualName {
         match target.borrow().node {
-            Element(ref name, _) => (ns!(HTML), name.clone()),
+            Element(ref name, _) => name.clone(),
             _ => fail!("not an element!"),
         }
     }
 
-    fn create_element(&mut self, ns: Atom, name: Atom, attrs: Vec<Attribute>) -> Handle {
-        assert!(ns == ns!(HTML));
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
         new_node(Element(name, attrs))
     }
 
@@ -254,7 +253,7 @@ impl Serializable for Handle {
         match (incl_self, &node.node) {
             (_, &Element(ref name, ref attrs)) => {
                 if incl_self {
-                    try!(serializer.start_elem(ns!(HTML), name.clone(),
+                    try!(serializer.start_elem(name.clone(),
                         attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
                 }
 
@@ -263,7 +262,7 @@ impl Serializable for Handle {
                 }
 
                 if incl_self {
-                    try!(serializer.end_elem(ns!(HTML), name.clone()));
+                    try!(serializer.end_elem(name.clone()));
                 }
                 Ok(())
             }

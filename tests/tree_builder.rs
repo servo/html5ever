@@ -93,19 +93,21 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
         }
 
         Element(ref name, ref attrs) => {
+            assert!(name.ns == ns!(""));
             buf.push_str("<");
-            buf.push_str(name.as_slice());
+            buf.push_str(name.local.as_slice());
             buf.push_str(">\n");
 
             let mut attrs = attrs.clone();
-            attrs.sort_by(|x, y| x.name.name.cmp(&y.name.name));
+            attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
             for attr in attrs.into_iter() {
+                assert!(attr.name.ns == ns!(""));
                 buf.push_str("|");
                 buf.grow(indent+2, ' ');
                 buf.push_str(format!("{}=\"{}\"\n",
-                    attr.name.name.as_slice(), attr.value).as_slice());
+                    attr.name.local.as_slice(), attr.value).as_slice());
             }
         }
     }

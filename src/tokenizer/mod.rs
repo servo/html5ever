@@ -11,7 +11,7 @@
 
 use core::prelude::*;
 
-pub use self::interface::{Doctype, Attribute, AttrName, TagKind, StartTag, EndTag, Tag};
+pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 pub use self::interface::TokenSink;
@@ -38,7 +38,7 @@ use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
 use collections::treemap::TreeMap;
 
-use string_cache::Atom;
+use string_cache::{Atom, QualName};
 
 pub mod states;
 mod interface;
@@ -478,7 +478,7 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         // FIXME: linear time search, do we care?
         let dup = {
             let name = self.current_attr_name.as_slice();
-            self.current_tag_attrs.iter().any(|a| a.name.as_slice() == name)
+            self.current_tag_attrs.iter().any(|a| a.name.local.as_slice() == name)
         };
 
         if dup {
@@ -488,7 +488,9 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
         } else {
             let name = replace(&mut self.current_attr_name, String::new());
             self.current_tag_attrs.push(Attribute {
-                name: AttrName::new(Atom::from_slice(name.as_slice())),
+                // The tree builder will adjust the namespace if necessary.
+                // This only happens in foreign elements.
+                name: QualName::new(ns!(""), Atom::from_slice(name.as_slice())),
                 value: replace(&mut self.current_attr_value, empty_str()),
             });
         }

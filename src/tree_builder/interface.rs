@@ -18,7 +18,7 @@ use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;
 
-use string_cache::Atom;
+use string_cache::QualName;
 
 /// A document's quirks mode.
 #[deriving(PartialEq, Eq, Clone, Hash, Show)]
@@ -56,13 +56,13 @@ pub trait TreeSink<Handle> {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `fail!`.
-    fn elem_name(&self, target: Handle) -> (Atom, Atom);
+    fn elem_name(&self, target: Handle) -> QualName;
 
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
     /// Create an element.
-    fn create_element(&mut self, ns: Atom, name: Atom, attrs: Vec<Attribute>) -> Handle;
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle;
 
     /// Create a comment node.
     fn create_comment(&mut self, text: String) -> Handle;

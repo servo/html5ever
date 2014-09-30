@@ -151,12 +151,14 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
+        use string_cache::QualName;
+
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let (ns, name) = self.sink.elem_name(node.clone());
+            let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
-                ns!(HTML) => print!(" {}", name),
+                ns!(HTML) => print!(" {}", local),
                 _ => fail!(),
             }
         }

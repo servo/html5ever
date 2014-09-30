@@ -7,7 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![feature(phase)]
+
 extern crate html5ever;
+
+extern crate string_cache;
+#[phase(plugin)] extern crate string_cache_macros;
 
 use std::io;
 use std::default::Default;
@@ -37,9 +42,11 @@ fn walk(indent: uint, handle: Handle) {
             => println!("<!-- {:s} -->", text.escape_default()),
 
         Element(ref name, ref attrs) => {
-            print!("<{:s}", name.as_slice());
+            assert!(name.ns == ns!(""));
+            print!("<{:s}", name.local.as_slice());
             for attr in attrs.iter() {
-                print!(" {:s}=\"{:s}\"", attr.name.name.as_slice(), attr.value);
+                assert!(attr.name.ns == ns!(""));
+                print!(" {:s}=\"{:s}\"", attr.name.local.as_slice(), attr.value);
             }
             println!(">");
         }

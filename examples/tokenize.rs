@@ -57,7 +57,7 @@ impl TokenSink for TokenPrinter {
                 }
                 for attr in tag.attrs.iter() {
                     print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'",
-                        attr.name.name.as_slice(), attr.value);
+                        attr.name.local.as_slice(), attr.value);
                 }
                 if tag.self_closing {
                     print!(" \x1b[31m/\x1b[0m");
