@@ -750,11 +750,11 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ </_> => {
+                    let node = self.pop();
                     if tag.name == atom!(script) {
-                        h5e_warn!("FIXME: </script> not implemented");
+                        h5e_warn!("FIXME: </script> not fully implemented");
+                        self.sink.complete_script(node);
                     }
-
-                    self.pop();
                     self.mode = self.orig_mode.take_unwrap();
                     Done
                 }

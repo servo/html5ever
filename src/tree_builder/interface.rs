@@ -99,4 +99,7 @@ pub trait TreeSink<Handle> {
 
     /// Mark a HTML `<script>` element as "already started".
     fn mark_script_already_started(&mut self, node: Handle);
+
+    /// Indicate that a `<script>` element is complete.
+    fn complete_script(&mut self, _node: Handle) { }
 }
