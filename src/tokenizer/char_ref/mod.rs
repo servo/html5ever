@@ -216,14 +216,14 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
 
         let (c, error) = match self.num {
             n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
-            0x00 | 0xD800..0xDFFF => ('\ufffd', true),
+            0x00 | 0xD800...0xDFFF => ('\ufffd', true),
 
-            0x80..0x9F => match data::c1_replacements[(self.num - 0x80) as uint] {
+            0x80...0x9F => match data::c1_replacements[(self.num - 0x80) as uint] {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },
 
-            0x01..0x08 | 0x0B | 0x0D..0x1F | 0x7F | 0xFDD0..0xFDEF
+            0x01...0x08 | 0x0B | 0x0D...0x1F | 0x7F | 0xFDD0...0xFDEF
                 => (conv(self.num), true),
 
             n if (n & 0xFFFE) == 0xFFFE
