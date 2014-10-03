@@ -42,7 +42,7 @@ fn walk(indent: uint, handle: Handle) {
             => println!("<!-- {:s} -->", text.escape_default()),
 
         Element(ref name, ref attrs) => {
-            assert!(name.ns == ns!(""));
+            assert!(name.ns == ns!(html));
             print!("<{:s}", name.local.as_slice());
             for attr in attrs.iter() {
                 assert!(attr.name.ns == ns!(""));
