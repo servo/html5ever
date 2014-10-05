@@ -118,7 +118,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
 }
 
 // Ignore tests containing these strings; we don't support these features yet.
-static ignore_substrs: &'static [&'static str]
+static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<math", "<svg", "<template"];
 
 fn make_test(
@@ -142,7 +142,7 @@ fn make_test(
     tests.push(TestDescAndFn {
         desc: TestDesc {
             name: DynTestName(format!("tb: {}-{}", path_str, idx)),
-            ignore: ignore_substrs.iter().any(|&ig| data.as_slice().contains(ig)),
+            ignore: IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig)),
             should_fail: false,
         },
         testfn: DynTestFn(proc() {

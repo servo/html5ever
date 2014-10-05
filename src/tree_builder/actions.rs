@@ -38,7 +38,7 @@ use collections::str::Slice;
 
 use string_cache::{Atom, QualName};
 
-pub struct ActiveFormattingIter<'a, Handle> {
+pub struct ActiveFormattingIter<'a, Handle: 'a> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
 }
 

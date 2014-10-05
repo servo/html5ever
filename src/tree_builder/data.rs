@@ -16,7 +16,7 @@ use util::str::AsciiExt;
 use collections::string::String;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
-static quirky_public_prefixes: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//advasoft ltd//dtd html 3.0 aswedit + extensions//",
     "-//as//dtd html 3.0 aswedit + extensions//",
     "-//ietf//dtd html 2.0 level 1//",
@@ -73,22 +73,22 @@ static quirky_public_prefixes: &'static [&'static str] = &[
     "-//webtechs//dtd mozilla html//",
 ];
 
-static quirky_public_matches: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_MATCHES: &'static [&'static str] = &[
     "-//w3o//dtd w3 html strict 3.0//en//",
     "-/w3c/dtd html 4.0 transitional/en",
     "html",
 ];
 
-static quirky_system_matches: &'static [&'static str] = &[
+static QUIRKY_SYSTEM_MATCHES: &'static [&'static str] = &[
     "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd",
 ];
 
-static limited_quirky_public_prefixes: &'static [&'static str] = &[
+static LIMITED_QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//w3c//dtd xhtml 1.0 frameset//",
     "-//w3c//dtd xhtml 1.0 transitional//",
 ];
 
-static html4_public_prefixes: &'static [&'static str] = &[
+static HTML4_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//w3c//dtd html 4.01 frameset//",
     "-//w3c//dtd html 4.01 transitional//",
 ];
@@ -136,13 +136,13 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
 
         _ if iframe_srcdoc => NoQuirks,
 
-        (Some(ref p), _) if quirky_public_matches.contains(p) => Quirks,
-        (_, Some(ref s)) if quirky_system_matches.contains(s) => Quirks,
+        (Some(ref p), _) if QUIRKY_PUBLIC_MATCHES.contains(p) => Quirks,
+        (_, Some(ref s)) if QUIRKY_SYSTEM_MATCHES.contains(s) => Quirks,
 
-        (Some(p), _) if contains_pfx(quirky_public_prefixes, p) => Quirks,
-        (Some(p), _) if contains_pfx(limited_quirky_public_prefixes, p) => LimitedQuirks,
+        (Some(p), _) if contains_pfx(QUIRKY_PUBLIC_PREFIXES, p) => Quirks,
+        (Some(p), _) if contains_pfx(LIMITED_QUIRKY_PUBLIC_PREFIXES, p) => LimitedQuirks,
 
-        (Some(p), s) if contains_pfx(html4_public_prefixes, p) => match s {
+        (Some(p), s) if contains_pfx(HTML4_PUBLIC_PREFIXES, p) => match s {
             None => Quirks,
             Some(_) => LimitedQuirks,
         },

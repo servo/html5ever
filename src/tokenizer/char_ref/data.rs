@@ -14,7 +14,7 @@ use phf::PhfMap;
 /// The spec replaces most characters in the ISO-2022 C1 control code range
 /// (U+0080 through U+009F) with these characters, based on Windows 8-bit
 /// codepages.
-pub static c1_replacements: [Option<char>, ..32] = [
+pub static C1_REPLACEMENTS: [Option<char>, ..32] = [
     Some('\u20ac'), None,           Some('\u201a'), Some('\u0192'),
     Some('\u201e'), Some('\u2026'), Some('\u2020'), Some('\u2021'),
     Some('\u02c6'), Some('\u2030'), Some('\u0160'), Some('\u2039'),
@@ -26,5 +26,5 @@ pub static c1_replacements: [Option<char>, ..32] = [
 ];
 
 // The named_entities! macro is defined in html5/macros/named_entities.rs.
-pub static named_entities: PhfMap<&'static str, [u32, ..2]>
+pub static NAMED_ENTITIES: PhfMap<&'static str, [u32, ..2]>
     = named_entities!("../../../data/entities.json");

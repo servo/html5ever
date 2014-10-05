@@ -218,7 +218,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
             n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
             0x00 | 0xD800...0xDFFF => ('\ufffd', true),
 
-            0x80...0x9F => match data::c1_replacements[(self.num - 0x80) as uint] {
+            0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as uint] {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },
@@ -245,7 +245,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
     fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
-        match data::named_entities.find_equiv(&self.name_buf().as_slice()) {
+        match data::NAMED_ENTITIES.find_equiv(&self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
                 if m[0] != 0 {
