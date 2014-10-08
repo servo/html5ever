@@ -57,6 +57,16 @@ pub struct TreeBuilderOpts {
 
     /// Should we drop the DOCTYPE (if any) from the tree?
     pub drop_doctype: bool,
+
+    /// The `<svg>`, `<math>`, and `<template>` tags have special
+    /// parsing rules that are currently unimplemented.  By default
+    /// we `fail!()` if any of these tags is encountered.  If this
+    /// option is enabled, we will instead attempt to parse them
+    /// using the ordinary HTML parsing rules.
+    ///
+    /// **Warning**: This may produce extremely incorrect results
+    /// on some documents!
+    pub ignore_missing_rules: bool,
 }
 
 impl Default for TreeBuilderOpts {
@@ -67,6 +77,7 @@ impl Default for TreeBuilderOpts {
             iframe_srcdoc: false,
             fragment: false,
             drop_doctype: false,
+            ignore_missing_rules: false,
         }
     }
 }
@@ -84,6 +95,9 @@ pub struct TreeBuilder<'sink, Handle, Sink:'sink> {
 
     /// Original insertion mode, used by Text and InTableText modes.
     orig_mode: Option<InsertionMode>,
+
+    /// Stack of template insertion modes.
+    template_modes: Vec<InsertionMode>,
 
     /// Pending table character tokens.
     pending_table_text: Vec<(SplitStatus, String)>,
@@ -133,6 +147,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             sink: sink,
             mode: Initial,
             orig_mode: None,
+            template_modes: vec!(),
             pending_table_text: vec!(),
             quirks_mode: NoQuirks,
             doc_handle: doc_handle,

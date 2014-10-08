@@ -152,8 +152,27 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
 
                 </body> </html> </br> => else,
 
-                <template> => fail!("FIXME: <template> not implemented"),
-                </template> => fail!("FIXME: <template> not implemented"),
+                tag @ <template> => {
+                    self.insert_element_for(tag);
+                    self.active_formatting.push(Marker);
+                    self.frameset_ok = false;
+                    self.mode = InTemplate;
+                    self.template_modes.push(InTemplate);
+                    Done
+                }
+
+                tag @ </template> => {
+                    if !self.in_scope_named(default_scope, atom!(template)) {
+                        self.unexpected(&tag);
+                    } else {
+                        self.generate_implied_end(thorough_implied_end);
+                        self.expect_to_close(atom!(template));
+                        self.clear_active_formatting_to_marker();
+                        self.template_modes.pop();
+                        self.mode = self.reset_insertion_mode();
+                    }
+                    Done
+                }
 
                 <head> => self.unexpected(&token),
                 tag @ </_> => self.unexpected(&tag),
@@ -675,8 +694,16 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
                     Done
                 }
 
-                <math> => fail!("FIXME: MathML not implemented"),
-                <svg> => fail!("FIXME: SVG not implemented"),
+                tag @ <math> <svg> => {
+                    if self.opts.ignore_missing_rules {
+                        self.sink.parse_error(Slice("Ignoring unimplemented rules for <math> or <svg>"));
+                        self.reconstruct_formatting();
+                        self.insert_element_for(tag);
+                        Done
+                    } else {
+                        fail!("FIXME: MathML and SVG are not implemented");
+                    }
+                }
 
                 <caption> <col> <colgroup> <frame> <head>
                   <tbody> <td> <tfoot> <th> <thead> <tr> => {
@@ -1204,8 +1231,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
             }),
 
             //§ parsing-main-intemplate
-            InTemplate
-                => fail!("FIXME: <template> not implemented"),
+            InTemplate => {
+                // NB: Implementing <template> requires not just adding
+                // the InTemplate rules here, but also inserting various
+                // extra logic at other points noted throughout the
+                // parser.
+
+                if self.opts.ignore_missing_rules {
+                    self.step(InBody, token)
+                } else {
+                    fail!("FIXME: <template> not implemented");
+                }
+            }
 
             //§ parsing-main-afterbody
             AfterBody => match_token!(token {

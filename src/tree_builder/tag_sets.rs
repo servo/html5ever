@@ -77,11 +77,4 @@ declare_tag_set!(pub special_tag =
     link listing main marquee menu menuitem meta nav noembed noframes noscript object ol p
     param plaintext pre script section select source style summary table tbody td template
     textarea tfoot th thead title tr track ul wbr xmp)
-
-#[allow(dead_code)]
-fn unused_tag_sets() {
-    // FIXME: Some tag sets are unused until we implement <template> or other stuff.
-    // Suppress the warning here.
-    thorough_implied_end(qualname!(HTML, p));
-}
 //§ END
