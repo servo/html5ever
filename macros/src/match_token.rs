@@ -197,7 +197,7 @@ fn parse_tag(parser: &mut Parser) -> Spanned<Tag> {
 fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts.to_vec());
 
-    let discriminant = parser.parse_expr_res(parser::RestrictionNoStructLiteral);
+    let discriminant = parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL);
     parser.commit_expr_expecting(&*discriminant, token::LBRACE);
 
     let mut arms: Vec<Arm> = Vec::new();
@@ -230,7 +230,7 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
             parser.expect(&token::COMMA);
             Else
         } else {
-            let expr = parser.parse_expr_res(parser::RestrictionStmtExpr);
+            let expr = parser.parse_expr_res(parser::RESTRICTION_STMT_EXPR);
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
