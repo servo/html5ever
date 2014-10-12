@@ -103,3 +103,10 @@ pub trait TreeSink<Handle> {
     /// Indicate that a `<script>` element is complete.
     fn complete_script(&mut self, _node: Handle) { }
 }
+
+/// Trace hooks for a garbage-collected DOM.
+pub trait Tracer<Handle> {
+    /// Upon a call to `trace_handles`, the tree builder will call this method
+    /// for each handle in its internal state.
+    fn trace_handle(&self, node: Handle);
+}

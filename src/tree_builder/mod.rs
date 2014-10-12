@@ -13,7 +13,7 @@ use core::prelude::*;
 
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::{NodeOrText, AppendNode, AppendText};
-pub use self::interface::TreeSink;
+pub use self::interface::{TreeSink, Tracer};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;
@@ -134,6 +134,12 @@ pub struct TreeBuilder<Handle, Sink> {
 
     /// Is foster parenting enabled?
     foster_parenting: bool,
+
+    // WARNING: If you add new fields that contain Handles, you
+    // must add them to trace_handles() below to preserve memory
+    // safety!
+    //
+    // FIXME: Auto-generate the trace hooks like Servo does.
 }
 
 impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
@@ -172,6 +178,23 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
 
     pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
         &mut self.sink
+    }
+
+    /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
+    /// internal state.  This is intended to support garbage-collected DOMs.
+    pub fn trace_handles(&self, tracer: &Tracer<Handle>) {
+        tracer.trace_handle(self.doc_handle.clone());
+        for e in self.open_elems.iter() {
+            tracer.trace_handle(e.clone());
+        }
+        for e in self.active_formatting.iter() {
+            match e {
+                &Element(ref h, _) => tracer.trace_handle(h.clone()),
+                _ => (),
+            }
+        }
+        self.head_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
+        self.form_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
     }
 
     // Debug helper
