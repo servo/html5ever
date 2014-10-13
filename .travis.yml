@@ -4,7 +4,7 @@ branches:
 
 env:
   global:
-      - secure: ONY+Bnbox9d5fHcSbYd4/G2cx6IprfyH6GP6BWd6zazFTdmYc4X754FUUM1Po0Rj+2JX97Mvj5oBKahT7r+SyxiixqAjHHHqNWni3RKVodA7lhtXudHW03K05lkyHwtW7ayJbWxPG28xPYkAwNrUHHuJng483iNiG78YTeKrpN0=
+      - secure: uytPp0Fs+LT3QDEhDM3LJWiLvT2AHbdWnXrPEs+bYshQwt9wST+KQnYLyRfBuGg2ux3pkZwsRUFexvN8pQ3ab4aU2P21Xo98TzdXRwXurNYePgk/3tykEH+JrL52DfjCWB1VsjzzFrP02XU0XtB30qWC/n+fxeMWT7JT2GVh/OE=
 language: rust
 script:
   - mkdir build
