@@ -12,5 +12,5 @@ script:
   - ../configure
   - make check docs for_c
 after_script:
-  - cd /home/travis/build/kmcallister/html5ever/target
+  - cd /home/travis/build/servo/html5ever/target
   - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
