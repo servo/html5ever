@@ -1,3 +1,7 @@
+branches:
+  except:
+      - servo
+
 env:
   global:
       - secure: ONY+Bnbox9d5fHcSbYd4/G2cx6IprfyH6GP6BWd6zazFTdmYc4X754FUUM1Po0Rj+2JX97Mvj5oBKahT7r+SyxiixqAjHHHqNWni3RKVodA7lhtXudHW03K05lkyHwtW7ayJbWxPG28xPYkAwNrUHHuJng483iNiG78YTeKrpN0=
