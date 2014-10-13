@@ -97,12 +97,12 @@ impl Default for TokenizerOpts {
 }
 
 /// The HTML tokenizer.
-pub struct Tokenizer<'sink, Sink:'sink> {
+pub struct Tokenizer<Sink> {
     /// Options controlling the behavior of the tokenizer.
     opts: TokenizerOpts,
 
     /// Destination for tokens we emit.
-    sink: &'sink mut Sink,
+    sink: Sink,
 
     /// The abstract machine state as described in the spec.
     state: states::State,
@@ -173,9 +173,9 @@ pub struct Tokenizer<'sink, Sink:'sink> {
     time_in_sink: u64,
 }
 
-impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
+impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
-    pub fn new(sink: &'sink mut Sink, mut opts: TokenizerOpts) -> Tokenizer<'sink, Sink> {
+    pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
         if opts.profile && cfg!(for_c) {
             fail!("Can't profile tokenizer when built as a C library");
         }
@@ -209,6 +209,18 @@ impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
             state_profile: TreeMap::new(),
             time_in_sink: 0,
         }
+    }
+
+    pub fn unwrap(self) -> Sink {
+        self.sink
+    }
+
+    pub fn sink<'a>(&'a self) -> &'a Sink {
+        &self.sink
+    }
+
+    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
+        &mut self.sink
     }
 
     /// Feed an input string into the tokenizer.
@@ -654,7 +666,7 @@ macro_rules! lookahead_and_consume ( ($me:expr, $n:expr, $pred:expr) => (
     }
 ))
 
-impl<'sink, Sink: TokenSink> Tokenizer<'sink, Sink> {
+impl<Sink: TokenSink> Tokenizer<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).

@@ -108,8 +108,8 @@ pub trait TreeBuilderActions<Handle> {
 }
 
 #[doc(hidden)]
-impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
-    TreeBuilderActions<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
+impl<Handle: Clone, Sink: TreeSink<Handle>>
+    TreeBuilderActions<Handle> for super::TreeBuilder<Handle, Sink> {
 
     fn unexpected<T: Show>(&mut self, _thing: &T) -> ProcessResult {
         self.sink.parse_error(format_if!(

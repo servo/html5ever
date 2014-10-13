@@ -109,8 +109,8 @@ impl CharRefTokenizer {
     }
 }
 
-impl<'sink, Sink: TokenSink> CharRefTokenizer {
-    pub fn step(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+impl<Sink: TokenSink> CharRefTokenizer {
+    pub fn step(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         if self.result.is_some() {
             return Done;
         }
@@ -126,7 +126,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn do_begin(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn do_begin(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
                 => self.finish_none(),
@@ -147,7 +147,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn do_octothorpe(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn do_octothorpe(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match c {
             'x' | 'X' => {
@@ -164,7 +164,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         Progress
     }
 
-    fn do_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>, base: u32) -> Status {
+    fn do_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match to_digit(c, base as uint) {
             Some(n) => {
@@ -189,7 +189,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => tokenizer.discard_char(),
             _   => tokenizer.emit_error(Slice("Semicolon missing after numeric character reference")),
@@ -197,7 +197,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         self.finish_numeric(tokenizer)
     }
 
-    fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let mut unconsume = String::from_char(1, '#');
         match self.hex_marker {
             Some(c) => unconsume.push(c),
@@ -209,7 +209,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         self.finish_none()
     }
 
-    fn finish_numeric(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn finish_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         fn conv(n: u32) -> char {
             from_u32(n).expect("invalid char missed by error handling cases")
         }
@@ -242,7 +242,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         self.finish_one(c)
     }
 
-    fn do_named(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn do_named(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
         match data::NAMED_ENTITIES.find_equiv(&self.name_buf().as_slice()) {
@@ -262,19 +262,19 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn emit_name_error(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
+    fn emit_name_error(&mut self, tokenizer: &mut Tokenizer<Sink>) {
         let msg = format_if!(tokenizer.opts.exact_errors,
             "Invalid character reference",
             "Invalid character reference &{:s}", self.name_buf().as_slice());
         tokenizer.emit_error(msg);
     }
 
-    fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
+    fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<Sink>) {
         tokenizer.unconsume(self.name_buf_opt.take().unwrap());
     }
 
     fn finish_named(&mut self,
-            tokenizer: &mut Tokenizer<'sink, Sink>,
+            tokenizer: &mut Tokenizer<Sink>,
             end_char: Option<char>) -> Status {
         match self.name_match {
             None => {
@@ -356,7 +356,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) -> Status {
+    fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
         match c {
@@ -368,7 +368,7 @@ impl<'sink, Sink: TokenSink> CharRefTokenizer {
         self.finish_none()
     }
 
-    pub fn end_of_file(&mut self, tokenizer: &mut Tokenizer<'sink, Sink>) {
+    pub fn end_of_file(&mut self, tokenizer: &mut Tokenizer<Sink>) {
         while self.result.is_none() {
             match self.state {
                 Begin => drop(self.finish_none()),

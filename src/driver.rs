@@ -35,15 +35,16 @@ pub fn tokenize_to<
         Sink: TokenSink,
         It: Iterator<String>
     >(
-        sink: &mut Sink,
+        sink: Sink,
         mut input: It,
-        opts: TokenizerOpts) {
+        opts: TokenizerOpts) -> Sink {
 
     let mut tok = Tokenizer::new(sink, opts);
     for s in input {
         tok.feed(s);
     }
     tok.end();
+    tok.unwrap()
 }
 
 /// All-encompassing options struct for the parser.
@@ -69,16 +70,17 @@ pub fn parse_to<
         Sink: TreeSink<Handle>,
         It: Iterator<String>
     >(
-        sink: &mut Sink,
+        sink: Sink,
         mut input: It,
-        opts: ParseOpts) {
+        opts: ParseOpts) -> Sink {
 
-    let mut tb  = TreeBuilder::new(sink, opts.tree_builder);
-    let mut tok = Tokenizer::new(&mut tb, opts.tokenizer);
+    let tb = TreeBuilder::new(sink, opts.tree_builder);
+    let mut tok = Tokenizer::new(tb, opts.tokenizer);
     for s in input {
         tok.feed(s);
     }
     tok.end();
+    tok.unwrap().unwrap()
 }
 
 /// Results which can be extracted from a `TreeSink`.
@@ -105,7 +107,6 @@ pub fn parse<
         input: It,
         opts: ParseOpts) -> Output {
 
-    let mut sink: Sink = Default::default();
-    parse_to(&mut sink, input, opts);
+    let sink = parse_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
 }

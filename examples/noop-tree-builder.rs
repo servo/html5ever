@@ -78,11 +78,11 @@ impl TreeSink<uint> for Sink {
 }
 
 fn main() {
-    let mut sink = Sink {
+    let sink = Sink {
         next_id: 1,
         names: HashMap::new(),
     };
 
     let input = io::stdin().read_to_string().unwrap();
-    parse_to(&mut sink, one_input(input), Default::default());
+    parse_to(sink, one_input(input), Default::default());
 }

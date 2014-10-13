@@ -83,12 +83,12 @@ impl Default for TreeBuilderOpts {
 }
 
 /// The HTML tree builder.
-pub struct TreeBuilder<'sink, Handle, Sink:'sink> {
+pub struct TreeBuilder<Handle, Sink> {
     /// Options controlling the behavior of the tree builder.
     opts: TreeBuilderOpts,
 
     /// Consumer of tree modifications.
-    sink: &'sink mut Sink,
+    sink: Sink,
 
     /// Insertion mode.
     mode: InsertionMode,
@@ -136,11 +136,11 @@ pub struct TreeBuilder<'sink, Handle, Sink:'sink> {
     foster_parenting: bool,
 }
 
-impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Sink> {
+impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
     /// The tree builder is also a `TokenSink`.
-    pub fn new(sink: &'sink mut Sink, opts: TreeBuilderOpts) -> TreeBuilder<'sink, Handle, Sink> {
+    pub fn new(mut sink: Sink, opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         TreeBuilder {
             opts: opts,
@@ -160,6 +160,18 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
             ignore_lf: false,
             foster_parenting: false,
         }
+    }
+
+    pub fn unwrap(self) -> Sink {
+        self.sink
+    }
+
+    pub fn sink<'a>(&'a self) -> &'a Sink {
+        &self.sink
+    }
+
+    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
+        &mut self.sink
     }
 
     // Debug helper
@@ -235,7 +247,7 @@ impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<'sink, Handle, Si
     }
 }
 
-impl<'sink, Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<'sink, Handle, Sink> {
+impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Sink> {
     fn process_token(&mut self, token: tokenizer::Token) {
         let ignore_lf = replace(&mut self.ignore_lf, false);
 

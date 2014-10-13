@@ -37,8 +37,8 @@ pub trait TreeBuilderStep<Handle> {
 }
 
 #[doc(hidden)]
-impl<'sink, Handle: Clone, Sink: TreeSink<Handle>>
-    TreeBuilderStep<Handle> for super::TreeBuilder<'sink, Handle, Sink> {
+impl<Handle: Clone, Sink: TreeSink<Handle>>
+    TreeBuilderStep<Handle> for super::TreeBuilder<Handle, Sink> {
 
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
         self.debug_step(mode, &token);

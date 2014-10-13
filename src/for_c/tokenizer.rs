@@ -46,13 +46,13 @@ pub struct h5e_token_sink {
     user: *mut c_void,
 }
 
-impl TokenSink for h5e_token_sink {
+impl TokenSink for *mut h5e_token_sink {
     fn process_token(&mut self, token: Token) {
         macro_rules! call ( ($name:ident $(, $arg:expr)*) => (
             unsafe {
-                match (*self.ops).$name {
+                match (*(**self).ops).$name {
                     None => (),
-                    Some(f) => f(self.user $(, $arg)*),
+                    Some(f) => f((**self).user $(, $arg)*),
                 }
             }
         ))
@@ -117,26 +117,25 @@ pub type h5e_tokenizer_ptr = *const ();
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_new(sink: *mut h5e_token_sink) -> h5e_tokenizer_ptr {
-    let tok: Box<Tokenizer<h5e_token_sink>>
-        = box Tokenizer::new(mem::transmute::<_, &mut h5e_token_sink>(sink),
-            Default::default());
+    let tok: Box<Tokenizer<*mut h5e_token_sink>>
+        = box Tokenizer::new(sink, Default::default());
 
     mem::transmute(tok)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_free(tok: h5e_tokenizer_ptr) {
-    let _: Box<Tokenizer<h5e_token_sink>> = mem::transmute(tok);
+    let _: Box<Tokenizer<*mut h5e_token_sink>> = mem::transmute(tok);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_feed(tok: h5e_tokenizer_ptr, buf: h5e_buf) {
-    let tok: &mut Tokenizer<h5e_token_sink> = mem::transmute(tok);
+    let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
     tok.feed(buf.with_slice(|s| String::from_str(s)));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_end(tok: h5e_tokenizer_ptr) {
-    let tok: &mut Tokenizer<h5e_token_sink> = mem::transmute(tok);
+    let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
     tok.end();
 }

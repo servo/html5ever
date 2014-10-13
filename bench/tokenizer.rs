@@ -73,8 +73,7 @@ impl TDynBenchFn for Bench {
                 // separately and subtract it out.
                 black_box(input);
             } else {
-                let mut sink = Sink;
-                let mut tok = Tokenizer::new(&mut sink, self.opts.clone());
+                let mut tok = Tokenizer::new(Sink, self.opts.clone());
                 tok.feed(input);
                 tok.end();
             }

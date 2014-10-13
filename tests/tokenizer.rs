@@ -123,15 +123,13 @@ impl TokenSink for TokenLogger {
 }
 
 fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
-    let mut sink = TokenLogger::new(opts.exact_errors);
-    {
-        let mut tok = Tokenizer::new(&mut sink, opts);
-        for chunk in input.into_iter() {
-            tok.feed(chunk);
-        }
-        tok.end();
+    let sink = TokenLogger::new(opts.exact_errors);
+    let mut tok = Tokenizer::new(sink, opts);
+    for chunk in input.into_iter() {
+        tok.feed(chunk);
     }
-    sink.get_tokens()
+    tok.end();
+    tok.unwrap().get_tokens()
 }
 
 trait JsonExt {

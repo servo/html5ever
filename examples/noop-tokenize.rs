@@ -38,8 +38,7 @@ fn main() {
     let mut file = io::File::open(&path).ok().expect("can't open file");
     let file_input = file.read_to_string().ok().expect("can't read file");
 
-    let mut sink = Sink;
-    tokenize_to(&mut sink, one_input(file_input), TokenizerOpts {
+    tokenize_to(Sink, one_input(file_input), TokenizerOpts {
         profile: true,
         .. Default::default()
     });
