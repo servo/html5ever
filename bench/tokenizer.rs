@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{io, os};
+use std::{io, os, cmp};
 use std::default::Default;
 use std::vec::MoveItems;
 
@@ -29,7 +29,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: String,
+    input: Vec<String>,
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -41,19 +41,23 @@ impl Bench {
         path.push("../data/bench/");
         path.push(name);
         let mut file = io::File::open(&path).ok().expect("can't open file");
-        let file_input = file.read_to_string().ok().expect("can't read file");
 
-        let input = match size {
-            None => file_input,
-            Some(size) => {
-                // Replicate the input in memory up to the desired size.
-                let mut input = String::with_capacity(size);
-                while input.len() < size {
-                    input.push_str(file_input.as_slice());
-                }
-                input
-            }
-        };
+        // Read the file and treat it as an infinitely repeating sequence of characters.
+        let file_input = file.read_to_string().ok().expect("can't read file");
+        let size = size.unwrap_or(file_input.len());
+        let mut stream = file_input.as_slice().chars().cycle();
+
+        // Break the input into chunks of 1024 chars (= a few kB).
+        // This simulates reading from the network.
+        let mut input = vec![];
+        let mut total = 0u;
+        while total < size {
+            // The by_ref() call is important, otherwise we get wrong results!
+            // See rust-lang/rust#18045.
+            let sz = cmp::min(1024, size - total);
+            input.push(stream.by_ref().take(sz).collect());
+            total += sz;
+        }
 
         Bench {
             input: input,
@@ -71,10 +75,14 @@ impl TDynBenchFn for Bench {
                 // Because the tokenizer consumes its buffers, we need
                 // to clone inside iter().  We can benchmark this
                 // separately and subtract it out.
+                //
+                // See rust-lang/rust#18043.
                 black_box(input);
             } else {
                 let mut tok = Tokenizer::new(Sink, self.opts.clone());
-                tok.feed(input);
+                for buf in input.into_iter() {
+                    tok.feed(buf);
+                }
                 tok.end();
             }
         });
