@@ -9,12 +9,13 @@
 
 use core::prelude::*;
 
+use util::str::AsciiCast;
 use util::smallcharset::SmallCharSet;
 
 use core::str::CharRange;
 use collections::string::String;
 use collections::{MutableSeq, Deque};
-use collections::dlist::DList;
+use collections::ringbuf::RingBuf;
 
 struct Buffer {
     /// Byte position within the buffer.
@@ -34,18 +35,14 @@ pub enum SetResult {
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    buffers: DList<Buffer>,
-
-    /// Number of available characters.
-    available: uint,
+    buffers: RingBuf<Buffer>,
 }
 
 impl BufferQueue {
     /// Create an empty BufferQueue.
     pub fn new() -> BufferQueue {
         BufferQueue {
-            buffers: DList::new(),
-            available: 0,
+            buffers: RingBuf::with_capacity(3),
         }
     }
 
@@ -54,7 +51,6 @@ impl BufferQueue {
         if buf.len() == 0 {
             return;
         }
-        self.account_new(buf.as_slice());
         self.buffers.push_front(Buffer {
             pos: 0,
             buf: buf,
@@ -68,25 +64,10 @@ impl BufferQueue {
         if pos >= buf.len() {
             return;
         }
-        self.account_new(buf.as_slice().slice_from(pos));
         self.buffers.push(Buffer {
             pos: pos,
             buf: buf,
         });
-    }
-
-    /// Do we have at least n characters available?
-    pub fn has(&self, n: uint) -> bool {
-        self.available >= n
-    }
-
-    /// Get multiple characters, if that many are available.
-    pub fn pop_front(&mut self, n: uint) -> Option<String> {
-        if !self.has(n) {
-            return None;
-        }
-        // FIXME: this is probably pretty inefficient
-        Some(self.by_ref().take(n).collect())
     }
 
     /// Look at the next available character, if any.
@@ -95,6 +76,24 @@ impl BufferQueue {
             Some(&Buffer { pos, ref buf }) => Some(buf.as_slice().char_at(pos)),
             None => None,
         }
+    }
+
+    /// Get the next character, if one is available.
+    pub fn next(&mut self) -> Option<char> {
+        let (result, now_empty) = match self.buffers.front_mut() {
+            None => (None, false),
+            Some(&Buffer { ref mut pos, ref buf }) => {
+                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
+                *pos = next;
+                (Some(ch), next >= buf.len())
+            }
+        };
+
+        if now_empty {
+            self.buffers.pop_front();
+        }
+
+        result
     }
 
     /// Pops and returns either a single character from the given set, or
@@ -109,12 +108,10 @@ impl BufferQueue {
                     let new_pos = *pos + n;
                     let out = String::from_str(buf.as_slice().slice(*pos, new_pos));
                     *pos = new_pos;
-                    self.available -= n;
                     (Some(NotFromSet(out)), new_pos >= buf.len())
                 } else {
                     let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
                     *pos = next;
-                    self.available -= 1;
                     (Some(FromSet(ch)), next >= buf.len())
                 }
             }
@@ -129,36 +126,50 @@ impl BufferQueue {
         result
     }
 
-    fn account_new(&mut self, buf: &str) {
-        // FIXME: We could pass through length from the initial [u8] -> String
-        // conversion, which already must re-encode or at least scan for UTF-8
-        // validity.
-        self.available += buf.char_len();
-    }
-}
-
-impl Iterator<char> for BufferQueue {
-    /// Get the next character, if one is available.
-    ///
-    /// Because more data can arrive at any time, this can return Some(c) after
-    /// it returns None.  That is allowed by the Iterator protocol, but it's
-    /// unusual!
-    fn next(&mut self) -> Option<char> {
-        let (result, now_empty) = match self.buffers.front_mut() {
-            None => (None, false),
-            Some(&Buffer { ref mut pos, ref buf }) => {
-                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
-                *pos = next;
-                self.available -= 1;
-                (Some(ch), next >= buf.len())
-            }
+    // Check if the next characters are an ASCII case-insensitive match for
+    // `pat`, which must be non-empty.
+    //
+    // If so, consume them and return Some(true).
+    // If they do not match, return Some(false).
+    // If not enough characters are available to know, return None.
+    pub fn eat(&mut self, pat: &str) -> Option<bool> {
+        let mut buffers_exhausted = 0u;
+        let mut consumed_from_last = match self.buffers.front() {
+            None => return None,
+            Some(ref buf) => buf.pos,
         };
 
-        if now_empty {
+        for c in pat.chars() {
+            if buffers_exhausted >= self.buffers.len() {
+                return None;
+            }
+            let ref buf = self.buffers[buffers_exhausted];
+
+            let d = buf.buf.as_slice().char_at(consumed_from_last);
+            match (c.to_ascii_opt(), d.to_ascii_opt()) {
+                (Some(c), Some(d)) if c.eq_ignore_case(d) => (),
+                _ => return Some(false),
+            }
+
+            // d was an ASCII character; size must be 1 byte
+            consumed_from_last += 1;
+            if consumed_from_last >= buf.buf.len() {
+                buffers_exhausted += 1;
+                consumed_from_last = 0;
+            }
+        }
+
+        // We have a match. Commit changes to the BufferQueue.
+        for _ in range(0, buffers_exhausted) {
             self.buffers.pop_front();
         }
 
-        result
+        match self.buffers.front_mut() {
+            None => assert_eq!(consumed_from_last, 0),
+            Some(ref mut buf) => buf.pos = consumed_from_last,
+        }
+
+        Some(true)
     }
 }
 
@@ -172,15 +183,10 @@ mod test {
     #[test]
     fn smoke_test() {
         let mut bq = BufferQueue::new();
-        assert_eq!(bq.has(1), false);
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
         bq.push_back(String::from_str("abc"), 0);
-        assert_eq!(bq.has(1), true);
-        assert_eq!(bq.has(3), true);
-        assert_eq!(bq.has(4), false);
-
         assert_eq!(bq.peek(), Some('a'));
         assert_eq!(bq.next(), Some('a'));
         assert_eq!(bq.peek(), Some('b'));
@@ -189,18 +195,6 @@ mod test {
         assert_eq!(bq.peek(), Some('c'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.peek(), None);
-        assert_eq!(bq.next(), None);
-    }
-
-    #[test]
-    fn can_pop_front() {
-        let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc"), 0);
-
-        assert_eq!(bq.pop_front(2), Some(String::from_str("ab")));
-        assert_eq!(bq.peek(), Some('c'));
-        assert_eq!(bq.pop_front(2), None);
-        assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
     }
 
@@ -233,8 +227,22 @@ mod test {
     fn can_push_truncated() {
         let mut bq = BufferQueue::new();
         bq.push_back(String::from_str("abc"), 1);
-        assert!(!bq.has(3)); // regression test for #37
         assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
+
+    #[test]
+    fn can_eat() {
+        // This is not very comprehensive.  We rely on the tokenizer
+        // integration tests for more thorough testing with many
+        // different input buffer splits.
+        let mut bq = BufferQueue::new();
+        bq.push_back(String::from_str("a"), 0);
+        bq.push_back(String::from_str("bc"), 0);
+        assert_eq!(bq.eat("abcd"), None);
+        assert_eq!(bq.eat("ax"), Some(false));
+        assert_eq!(bq.eat("ab"), Some(true));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
     }

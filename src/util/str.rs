@@ -97,6 +97,11 @@ impl Ascii {
     pub fn to_lowercase(self) -> Ascii {
         Ascii { chr: ASCII_LOWER_MAP[self.chr as uint] }
     }
+
+    #[inline]
+    pub fn eq_ignore_case(self, other: Ascii) -> bool {
+        ASCII_LOWER_MAP[self.chr as uint] == ASCII_LOWER_MAP[other.chr as uint]
+    }
 }
 
 pub trait AsciiCast {

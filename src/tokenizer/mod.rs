@@ -26,7 +26,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
-use util::str::{lower_ascii, lower_ascii_letter, empty_str, AsciiExt};
+use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::smallcharset::SmallCharSet;
 
 use core::mem::replace;
@@ -110,10 +110,6 @@ pub struct Tokenizer<Sink> {
     /// Input ready to be tokenized.
     input_buffers: BufferQueue,
 
-    /// If Some(n), the abstract machine needs n available
-    /// characters to continue.
-    wait_for: Option<uint>,
-
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
     at_eof: bool,
@@ -188,7 +184,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             opts: opts,
             sink: sink,
             state: state,
-            wait_for: None,
             char_ref_tokenizer: None,
             input_buffers: BufferQueue::new(),
             at_eof: false,
@@ -314,36 +309,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    // If fewer than n characters are available, return None.
-    // Otherwise check if they satisfy a predicate, and consume iff so.
+    // Check if the next characters are an ASCII case-insensitive match.  See
+    // BufferQueue::eat.
     //
-    // FIXME: we shouldn't need to consume and then put back
-    //
-    // FIXME: do input stream preprocessing.  It's probably okay not to,
-    // because none of the strings we look ahead for contain characters
-    // affected by it, but think about this more.
-    fn lookahead_and_consume(&mut self, n: uint, p: |&str| -> bool) -> Option<bool> {
-        match self.input_buffers.pop_front(n) {
-            None if self.at_eof => {
-                h5e_debug!("lookahead: requested {:u} characters not available and never will be", n);
-                Some(false)
-            }
-            None => {
-                h5e_debug!("lookahead: requested {:u} characters not available", n);
-                self.wait_for = Some(n);
-                None
-            }
-            Some(s) => {
-                if p(s.as_slice()) {
-                    h5e_debug!("lookahead: condition satisfied by {:?}", s);
-                    // FIXME: set current input character?
-                    Some(true)
-                } else {
-                    h5e_debug!("lookahead: condition not satisfied by {:?}", s);
-                    self.unconsume(s);
-                    Some(false)
-                }
-            }
+    // NB: this doesn't do input stream preprocessing or set the current input
+    // character.
+    fn eat(&mut self, pat: &str) -> Option<bool> {
+        match self.input_buffers.eat(pat) {
+            None if self.at_eof => Some(false),
+            r => r,
         }
     }
 
@@ -655,15 +629,8 @@ macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
     unwrap_or_return!($me.pop_except_from($set), false)
 ))
 
-// NB: if you use this after get_char!(self) then the first char is still
-// consumed no matter what!
-macro_rules! lookahead_and_consume ( ($me:expr, $n:expr, $pred:expr) => (
-    match $me.lookahead_and_consume($n, $pred) {
-        // This counts as progress because we set the
-        // wait_for variable.
-        None => return true,
-        Some(r) => r
-    }
+macro_rules! eat ( ($me:expr, $pat:expr) => (
+    unwrap_or_return!($me.eat($pat), false)
 ))
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
@@ -673,18 +640,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn step(&mut self) -> bool {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer();
-        }
-
-        match self.wait_for {
-            Some(n) if !self.input_buffers.has(n) => {
-                h5e_debug!("lookahead: requested {:u} characters still not available", n);
-                return false;
-            }
-            Some(_n) => {
-                h5e_debug!("lookahead: requested {:u} characters become available", _n);
-                self.wait_for = None;
-            }
-            None => (),
         }
 
         h5e_debug!("processing in state {:?}", self.state);
@@ -1106,9 +1061,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ after-doctype-name-state
             states::AfterDoctypeName => loop {
-                if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("public")) {
+                if eat!(self, "public") {
                     go!(self: to AfterDoctypeKeyword Public);
-                } else if lookahead_and_consume!(self, 6, |s| s.eq_ignore_ascii_case("system")) {
+                } else if eat!(self, "system") {
                     go!(self: to AfterDoctypeKeyword System);
                 } else {
                     match get_char!(self) {
@@ -1195,9 +1150,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ markup-declaration-open-state
             states::MarkupDeclarationOpen => loop {
-                if lookahead_and_consume!(self, 2, |s| s == "--") {
+                if eat!(self, "--") {
                     go!(self: clear_comment; to CommentStart);
-                } else if lookahead_and_consume!(self, 7, |s| s.eq_ignore_ascii_case("doctype")) {
+                } else if eat!(self, "doctype") {
                     go!(self: to Doctype);
                 } else {
                     // FIXME: CDATA, requires "adjusted current node" from tree builder
@@ -1269,7 +1224,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
-        self.wait_for = None;
         self.at_eof = true;
         self.run();
 
