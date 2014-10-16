@@ -93,7 +93,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
         }
 
         Element(ref name, ref attrs) => {
-            assert!(name.ns == ns!(""));
+            assert!(name.ns == ns!(HTML));
             buf.push_str("<");
             buf.push_str(name.local.as_slice());
             buf.push_str(">\n");
