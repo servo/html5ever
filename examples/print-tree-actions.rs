@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate debug;
 extern crate string_cache;
 
 extern crate html5ever;
@@ -46,7 +45,7 @@ impl TreeSink<uint> for Sink {
     }
 
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
-        println!("Set quirks mode to {:?}", mode);
+        println!("Set quirks mode to {}", mode);
     }
 
     fn same_node(&self, x: uint, y: uint) -> bool {

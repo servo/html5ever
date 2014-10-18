@@ -125,7 +125,7 @@ fn append(mut new_parent: Handle, mut child: Handle) {
     *parent = new_parent
 }
 
-fn get_parent_and_index(mut child: Handle) -> Option<(Handle, uint)> {
+fn get_parent_and_index(child: Handle) -> Option<(Handle, uint)> {
     if child.parent.is_null() {
         return None;
     }
@@ -207,7 +207,7 @@ impl TreeSink<Handle> for Sink {
         self.new_node(Comment(text))
     }
 
-    fn append(&mut self, mut parent: Handle, child: NodeOrText<Handle>) {
+    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.children.last() {

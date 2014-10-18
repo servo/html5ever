@@ -222,7 +222,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        h5e_debug!("processing {} in insertion mode {}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
@@ -305,7 +305,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Si
                 self.sink.parse_error(format_if!(
                     self.opts.exact_errors,
                     "DOCTYPE in body",
-                    "DOCTYPE in insertion mode {:?}", self.mode));
+                    "DOCTYPE in insertion mode {}", self.mode));
                 return;
             },
 

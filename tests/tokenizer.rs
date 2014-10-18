@@ -225,7 +225,7 @@ fn json_to_token(js: &Json) -> Token {
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
 
-        _ => fail!("don't understand token {:?}", parts),
+        _ => fail!("don't understand token {}", parts),
     }
 }
 
@@ -343,7 +343,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
                 "PLAINTEXT state" => Plaintext,
                 "RAWTEXT state"   => RawData(Rawtext),
                 "RCDATA state"    => RawData(Rcdata),
-                s => fail!("don't know state {:?}", s),
+                s => fail!("don't know state {}", s),
             })).collect(),
         None => vec!(None),
         _ => fail!("don't understand initialStates value"),
@@ -354,7 +354,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {
-                Some(s) => newdesc = format!("{:s} (in state {:?})", newdesc, s),
+                Some(s) => newdesc = format!("{:s} (in state {})", newdesc, s),
                 None  => (),
             };
             if exact_errors {

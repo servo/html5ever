@@ -267,11 +267,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         } {
             // format_if!(true) will still use the static error when built for C.
             let msg = format_if!(true, "Bad character",
-                "Bad character {:?}", c);
+                "Bad character {}", c);
             self.emit_error(msg);
         }
 
-        h5e_debug!("got character {:?}", c);
+        h5e_debug!("got character {}", c);
         self.current_char = c;
         Some(c)
     }
@@ -352,7 +352,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let msg = format_if!(
             self.opts.exact_errors,
             "Bad character",
-            "Saw {:?} in state {:?}", self.current_char, self.state);
+            "Saw {} in state {}", self.current_char, self.state);
         self.emit_error(msg);
     }
 
@@ -360,7 +360,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let msg = format_if!(
             self.opts.exact_errors,
             "Unexpected EOF",
-            "Saw EOF in state {:?}", self.state);
+            "Saw EOF in state {}", self.state);
         self.emit_error(msg);
     }
 
@@ -642,7 +642,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return self.step_char_ref_tokenizer();
         }
 
-        h5e_debug!("processing in state {:?}", self.state);
+        h5e_debug!("processing in state {}", self.state);
         match self.state {
             //§ data-state
             states::Data => loop {
@@ -1163,7 +1163,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ cdata-section-state
             states::CdataSection
-                => fail!("FIXME: state {:?} not implemented", self.state),
+                => fail!("FIXME: state {} not implemented", self.state),
             //§ END
         }
     }
@@ -1205,7 +1205,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 states::AttributeValue(_)
                     => go!(self: push_value c),
 
-                _ => fail!("state {:?} should not be reachable in process_char_ref", self.state),
+                _ => fail!("state {} should not be reachable in process_char_ref", self.state),
             }
         }
     }
@@ -1256,12 +1256,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            println!("{:12u}  {:4.1f}%  {:?}", v, pct, k);
+            println!("{:12u}  {:4.1f}%  {}", v, pct, k);
         }
     }
 
     fn eof_step(&mut self) -> bool {
-        h5e_debug!("processing EOF in state {:?}", self.state);
+        h5e_debug!("processing EOF in state {}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
             | states::RawData(ScriptData) | states::Plaintext
@@ -1326,7 +1326,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error; to BogusComment),
 
             states::CdataSection
-                => fail!("FIXME: state {:?} not implemented in EOF", self.state),
+                => fail!("FIXME: state {} not implemented in EOF", self.state),
         }
     }
 }
