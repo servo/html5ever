@@ -37,8 +37,6 @@ extern crate collections;
 #[phase(plugin, link)]
 extern crate log;
 
-#[phase(plugin, link)]
-extern crate debug;
 
 #[phase(plugin)]
 extern crate phf_mac;

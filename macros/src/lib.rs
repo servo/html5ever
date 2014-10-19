@@ -16,7 +16,6 @@
 extern crate syntax;
 extern crate rustc;
 extern crate serialize;
-extern crate debug;
 
 use rustc::plugin::Registry;
 
