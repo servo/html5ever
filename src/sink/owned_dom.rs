@@ -28,7 +28,7 @@ use tree_builder;
 use serialize::{Serializable, Serializer};
 use driver::ParseResult;
 
-use core::ty::Unsafe;
+use core::cell::UnsafeCell;
 use core::default::Default;
 use core::mem::transmute;
 use core::kinds::marker;
@@ -61,13 +61,13 @@ impl SquishyNode {
 }
 
 struct Handle {
-    ptr: *const Unsafe<SquishyNode>,
+    ptr: *const UnsafeCell<SquishyNode>,
     no_send: marker::NoSend,
     no_sync: marker::NoSync,
 }
 
 impl Handle {
-    fn new(ptr: *const Unsafe<SquishyNode>) -> Handle {
+    fn new(ptr: *const UnsafeCell<SquishyNode>) -> Handle {
         Handle {
             ptr: ptr,
             no_send: marker::NoSend,
@@ -148,7 +148,7 @@ fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
 }
 
 pub struct Sink {
-    nodes: Vec<Box<Unsafe<SquishyNode>>>,
+    nodes: Vec<Box<UnsafeCell<SquishyNode>>>,
     document: Handle,
     errors: Vec<MaybeOwned<'static>>,
     quirks_mode: QuirksMode,
@@ -169,8 +169,8 @@ impl Default for Sink {
 
 impl Sink {
     fn new_node(&mut self, node: NodeEnum) -> Handle {
-        self.nodes.push(box Unsafe::new(SquishyNode::new(node)));
-        let ptr: *const Unsafe<SquishyNode> = &**self.nodes.last().unwrap();
+        self.nodes.push(box UnsafeCell::new(SquishyNode::new(node)));
+        let ptr: *const UnsafeCell<SquishyNode> = &**self.nodes.last().unwrap();
         Handle::new(ptr)
     }
 }
@@ -311,7 +311,7 @@ impl ParseResult<Sink> for OwnedDom {
         // their parent.  In the process of iterating we drop all nodes that
         // aren't in the tree.
         for node in sink.nodes.into_iter() {
-            let ptr: *const Unsafe<SquishyNode> = &*node;
+            let ptr: *const UnsafeCell<SquishyNode> = &*node;
             if live.contains(&(ptr as uint)) {
                 unsafe {
                     mem::forget(node);
@@ -323,7 +323,7 @@ impl ParseResult<Sink> for OwnedDom {
 
         // Transmute the root to a Node, finalizing the transfer of ownership.
         let document = unsafe {
-            mem::transmute::<*const Unsafe<SquishyNode>, Box<Node>>(sink.document.ptr)
+            mem::transmute::<*const UnsafeCell<SquishyNode>, Box<Node>>(sink.document.ptr)
         };
 
         // FIXME: do this assertion statically
