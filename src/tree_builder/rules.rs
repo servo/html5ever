@@ -773,7 +773,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                         self.sink.mark_script_already_started(current);
                     }
                     self.pop();
-                    Reprocess(self.orig_mode.take_unwrap(), token)
+                    Reprocess(self.orig_mode.take().unwrap(), token)
                 }
 
                 tag @ </_> => {
@@ -782,7 +782,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                         h5e_warn!("FIXME: </script> not fully implemented");
                         self.sink.complete_script(node);
                     }
-                    self.mode = self.orig_mode.take_unwrap();
+                    self.mode = self.orig_mode.take().unwrap();
                     Done
                 }
 
@@ -921,7 +921,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                         }
                     }
 
-                    Reprocess(self.orig_mode.take_unwrap(), token)
+                    Reprocess(self.orig_mode.take().unwrap(), token)
                 }
             }),
 
@@ -1157,7 +1157,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                 </optgroup> => {
                     if self.open_elems.len() >= 2
                         && self.current_node_named(atom!(option))
-                        && self.html_elem_named(self.open_elems.get(1).clone(),
+                        && self.html_elem_named(self.open_elems[1].clone(),
                             atom!(optgroup)) {
                         self.pop();
                     }
