@@ -35,8 +35,8 @@ Bindings for Python and other languages are much desired.
 To build examples and tests, do something like
 
 ```
-mkdir build
-cd build
+git submodule update --init  # to fetch html5lib-tests
+mkdir build && cd build
 ../configure
 make examples check bench
 ```
