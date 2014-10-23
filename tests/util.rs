@@ -16,11 +16,11 @@ pub fn foreach_html5lib_test(
         ext: &'static str,
         mk: |path_str: &str, file: io::File|) {
     let test_dir_path = src_dir.join_many(["html5lib-tests", subdir]);
-    let test_files = io::fs::readdir(&test_dir_path).ok().expect("can't open dir");
+    let test_files = io::fs::readdir(&test_dir_path).unwrap();
     for path in test_files.into_iter() {
         let path_str = path.filename_str().unwrap();
         if path_str.ends_with(ext) {
-            let file = io::File::open(&path).ok().expect("can't open file");
+            let file = io::File::open(&path).unwrap();
             mk(path_str, file);
         }
     }
