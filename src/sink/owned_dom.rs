@@ -173,6 +173,14 @@ impl Sink {
         let ptr: *const UnsafeCell<SquishyNode> = &**self.nodes.last().unwrap();
         Handle::new(ptr)
     }
+
+    // FIXME(rust-lang/rust#18296): This is separate from remove_from_parent so
+    // we can call it.
+    fn unparent(&mut self, mut target: Handle) {
+        let (mut parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
+        parent.children.remove(i).expect("not found!");
+        target.parent = Handle::null();
+    }
 }
 
 impl TreeSink<Handle> for Sink {
@@ -249,7 +257,7 @@ impl TreeSink<Handle> for Sink {
         };
 
         if !child.parent.is_null() {
-            self.remove_from_parent(child);
+            self.unparent(child);
         }
 
         child.parent = parent;
@@ -273,10 +281,8 @@ impl TreeSink<Handle> for Sink {
         existing.extend(attrs.into_iter());
     }
 
-    fn remove_from_parent(&mut self, mut target: Handle) {
-        let (mut parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
-        parent.children.remove(i).expect("not found!");
-        target.parent = Handle::null();
+    fn remove_from_parent(&mut self, target: Handle) {
+        self.unparent(target);
     }
 
     fn mark_script_already_started(&mut self, _node: Handle) { }
