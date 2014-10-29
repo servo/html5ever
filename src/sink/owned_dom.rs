@@ -133,7 +133,7 @@ fn get_parent_and_index(child: Handle) -> Option<(Handle, uint)> {
     let to_find = child;
     match child.parent.children.iter().enumerate().find(|&(_, n)| *n == to_find) {
         Some((i, _)) => Some((child.parent, i)),
-        None => fail!("have parent but couldn't find in parent's children!"),
+        None => panic!("have parent but couldn't find in parent's children!"),
     }
 }
 
@@ -203,7 +203,7 @@ impl TreeSink<Handle> for Sink {
     fn elem_name(&self, target: Handle) -> QualName {
         match target.node {
             Element(ref name, _) => name.clone(),
-            _ => fail!("not an element!"),
+            _ => panic!("not an element!"),
         }
     }
 
@@ -379,7 +379,7 @@ impl Serializable for Node {
             (true, &Text(ref text)) => serializer.write_text(text.as_slice()),
             (true, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
 
-            (true, &Document) => fail!("Can't serialize Document node itself"),
+            (true, &Document) => panic!("Can't serialize Document node itself"),
         }
     }
 }

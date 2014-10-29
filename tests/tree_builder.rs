@@ -69,7 +69,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
 
     let node = handle.borrow();
     match node.node {
-        Document => fail!("should not reach Document"),
+        Document => panic!("should not reach Document"),
 
         Doctype(ref name, ref public, ref system) => {
             buf.push_str("<!DOCTYPE ");
@@ -156,7 +156,7 @@ fn make_test(
             result.truncate(len - 1);  // drop the trailing newline
 
             if result != expected {
-                fail!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
+                panic!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
                     data, result, expected);
             }
         }),

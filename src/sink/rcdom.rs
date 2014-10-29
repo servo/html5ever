@@ -85,7 +85,7 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, uint)> {
     match parent.borrow_mut().children.iter().enumerate()
                 .find(|&(_, n)| same_node(n, target)) {
         Some((i, _)) => Some((parent, i)),
-        None => fail!("have parent but couldn't find in parent's children!"),
+        None => panic!("have parent but couldn't find in parent's children!"),
     }
 }
 
@@ -141,7 +141,7 @@ impl TreeSink<Handle> for RcDom {
     fn elem_name(&self, target: Handle) -> QualName {
         match target.borrow().node {
             Element(ref name, _) => name.clone(),
-            _ => fail!("not an element!"),
+            _ => panic!("not an element!"),
         }
     }
 
@@ -280,7 +280,7 @@ impl Serializable for Handle {
             (true, &Text(ref text)) => serializer.write_text(text.as_slice()),
             (true, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
 
-            (true, &Document) => fail!("Can't serialize Document node itself"),
+            (true, &Document) => panic!("Can't serialize Document node itself"),
         }
     }
 }

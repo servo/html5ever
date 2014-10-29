@@ -93,7 +93,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
 
         let html_name = match name.ns {
             ns!(HTML) => Some(name.local.clone()),
-            _ => fail!("FIXME: Handle qualified tag names"),
+            _ => panic!("FIXME: Handle qualified tag names"),
         };
 
         if self.parent().ignore_children {

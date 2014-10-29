@@ -173,7 +173,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
         if opts.profile && cfg!(for_c) {
-            fail!("Can't profile tokenizer when built as a C library");
+            panic!("Can't profile tokenizer when built as a C library");
         }
 
         let start_tag_name = opts.last_start_tag_name.take()
@@ -1163,7 +1163,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ cdata-section-state
             states::CdataSection
-                => fail!("FIXME: state {} not implemented", self.state),
+                => panic!("FIXME: state {} not implemented", self.state),
             //§ END
         }
     }
@@ -1205,7 +1205,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 states::AttributeValue(_)
                     => go!(self: push_value c),
 
-                _ => fail!("state {} should not be reachable in process_char_ref", self.state),
+                _ => panic!("state {} should not be reachable in process_char_ref", self.state),
             }
         }
     }
@@ -1326,7 +1326,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error; to BogusComment),
 
             states::CdataSection
-                => fail!("FIXME: state {} not implemented in EOF", self.state),
+                => panic!("FIXME: state {} not implemented in EOF", self.state),
         }
     }
 }

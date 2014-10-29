@@ -175,18 +175,18 @@ fn parse_spanned_ident(parser: &mut Parser) -> ast::SpannedIdent {
 
 fn parse_tag(parser: &mut Parser) -> Spanned<Tag> {
     let lo = parser.span.lo;
-    parser.expect(&token::LT);
+    parser.expect(&token::Lt);
 
-    let kind = match parser.eat(&token::BINOP(token::SLASH)) {
+    let kind = match parser.eat(&token::BinOp(token::Slash)) {
         true => EndTag,
         false => StartTag,
     };
-    let name = match parser.eat(&token::UNDERSCORE) {
+    let name = match parser.eat(&token::Underscore) {
         true => None,
         false => Some(parser.parse_ident()),
     };
 
-    parser.expect(&token::GT);
+    parser.expect(&token::Gt);
     spanned(lo, parser.last_span.hi, Tag {
         kind: kind,
         name: name,
@@ -198,22 +198,22 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts.to_vec());
 
     let discriminant = parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL);
-    parser.commit_expr_expecting(&*discriminant, token::LBRACE);
+    parser.commit_expr_expecting(&*discriminant, token::LBrace);
 
     let mut arms: Vec<Arm> = Vec::new();
-    while parser.token != token::RBRACE {
+    while parser.token != token::RBrace {
         let mut binding = None;
-        if parser.look_ahead(1, |t| *t == token::AT) {
+        if parser.look_ahead(1, |t| *t == token::At) {
             binding = Some(parse_spanned_ident(&mut parser));
             parser.bump(); // Consume the @
         }
 
         let lhs_lo = parser.span.lo;
         let lhs = match parser.token {
-            token::UNDERSCORE | token::IDENT(..) => Pat(parser.parse_pat()),
-            token::LT => {
+            token::Underscore | token::Ident(..) => Pat(parser.parse_pat()),
+            token::Lt => {
                 let mut tags = Vec::new();
-                while parser.token != token::FAT_ARROW {
+                while parser.token != token::FatArrow {
                     tags.push(parse_tag(&mut parser));
                 }
                 Tags(tags)
@@ -222,12 +222,12 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
         };
         let lhs_hi = parser.last_span.hi;
 
-        parser.expect(&token::FAT_ARROW);
+        parser.expect(&token::FatArrow);
 
         let rhs_lo = parser.span.lo;
         let mut rhs_hi = parser.span.hi;
         let rhs = if parser.eat_keyword(token::keywords::Else) {
-            parser.expect(&token::COMMA);
+            parser.expect(&token::Comma);
             Else
         } else {
             let expr = parser.parse_expr_res(parser::RESTRICTION_STMT_EXPR);
@@ -235,12 +235,12 @@ fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
 
             let require_comma =
                 !classify::expr_is_simple_block(&*expr)
-                && parser.token != token::RBRACE;
+                && parser.token != token::RBrace;
 
             if require_comma {
-                parser.commit_expr(&*expr, &[token::COMMA], &[token::RBRACE]);
+                parser.commit_expr(&*expr, &[token::Comma], &[token::RBrace]);
             } else {
-                parser.eat(&token::COMMA);
+                parser.eat(&token::Comma);
             }
 
             Expr(expr)

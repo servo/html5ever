@@ -60,7 +60,7 @@ pub struct TreeBuilderOpts {
 
     /// The `<svg>`, `<math>`, and `<template>` tags have special
     /// parsing rules that are currently unimplemented.  By default
-    /// we `fail!()` if any of these tags is encountered.  If this
+    /// we `panic!()` if any of these tags is encountered.  If this
     /// option is enabled, we will instead attempt to parse them
     /// using the ordinary HTML parsing rules.
     ///
@@ -209,7 +209,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
                 ns!(HTML) => print!(" {}", local),
-                _ => fail!(),
+                _ => panic!(),
             }
         }
         println!("");

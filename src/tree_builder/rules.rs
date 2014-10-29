@@ -630,7 +630,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                     }))
                 }
 
-                <isindex> => fail!("FIXME: <isindex> not implemented"),
+                <isindex> => panic!("FIXME: <isindex> not implemented"),
 
                 tag @ <textarea> => {
                     self.ignore_lf = true;
@@ -701,7 +701,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                         self.insert_element_for(tag);
                         Done
                     } else {
-                        fail!("FIXME: MathML and SVG are not implemented");
+                        panic!("FIXME: MathML and SVG are not implemented");
                     }
                 }
 
@@ -759,7 +759,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
 
                 // FIXME: This should be unreachable, but match_token! requires a
                 // catch-all case.
-                _ => fail!("impossible case in InBody mode"),
+                _ => panic!("impossible case in InBody mode"),
             }),
 
             //§ parsing-main-incdata
@@ -788,7 +788,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
 
                 // The spec doesn't say what to do here.
                 // Other tokens are impossible?
-                _ => fail!("impossible case in Text mode"),
+                _ => panic!("impossible case in Text mode"),
             }),
 
             //§ parsing-main-intable
@@ -912,7 +912,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                         for (split, text) in pending.into_iter() {
                             match self.foster_parent_in_body(CharacterTokens(split, text)) {
                                 Done => (),
-                                _ => fail!("not prepared to handle this!"),
+                                _ => panic!("not prepared to handle this!"),
                             }
                         }
                     } else {
@@ -1240,7 +1240,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                 if self.opts.ignore_missing_rules {
                     self.step(InBody, token)
                 } else {
-                    fail!("FIXME: <template> not implemented");
+                    panic!("FIXME: <template> not implemented");
                 }
             }
 

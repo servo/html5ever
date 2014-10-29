@@ -55,7 +55,7 @@ pub trait TreeSink<Handle> {
     /// What is the name of this element?
     ///
     /// Should never be called on a non-element node;
-    /// feel free to `fail!`.
+    /// feel free to `panic!`.
     fn elem_name(&self, target: Handle) -> QualName;
 
     /// Set the document's quirks mode.

@@ -428,7 +428,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                     Some(_) => return AfterHead,
                 },
 
-                atom!(template) => fail!("FIXME: <template> not implemented"),
+                atom!(template) => panic!("FIXME: <template> not implemented"),
 
                 _ => (),
             }

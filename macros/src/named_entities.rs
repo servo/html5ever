@@ -18,7 +18,7 @@ use std::collections::hashmap::HashMap;
 
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TtToken};
-use syntax::parse::token::LIT_STR;
+use syntax::parse::token;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::ext::source_util::expand_file;
 
@@ -77,7 +77,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
-        [TtToken(_, LIT_STR(s))] => s.as_str().to_string(),
+        [TtToken(_, token::LitStr(s))] => s.as_str().to_string(),
         _ => bail!(cx, sp, usage),
     };
 
