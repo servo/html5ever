@@ -194,8 +194,8 @@ fn parse_tag(parser: &mut Parser) -> Spanned<Tag> {
 }
 
 /// Parse a `match_token!` invocation into the little AST defined above.
-fn parse(cx: &mut ExtCtxt, tts: &[ast::TokenTree]) -> Match {
-    let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts.to_vec());
+fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
+    let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), toks.to_vec());
 
     let discriminant = parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL);
     parser.commit_expr_expecting(&*discriminant, token::LBrace);
@@ -286,8 +286,8 @@ fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
 }
 
 /// Expand the `match_token!` macro.
-pub fn expand(cx: &mut ExtCtxt, span: Span, tts: &[ast::TokenTree]) -> Box<MacResult+'static> {
-    let Match { discriminant, mut arms } = parse(cx, tts);
+pub fn expand(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree]) -> Box<MacResult+'static> {
+    let Match { discriminant, mut arms } = parse(cx, toks);
 
     // Handle the last arm specially at the end.
     let last_arm = match arms.pop() {
