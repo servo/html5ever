@@ -13,7 +13,7 @@ use std::io;
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
-use std::collections::hashmap::HashMap;
+use std::collections::{HashSet, HashMap};
 use std::vec::MoveItems;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 
@@ -123,6 +123,7 @@ static IGNORE_SUBSTRS: &'static [&'static str]
 
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,
+        ignores: &HashSet<String>,
         path_str: &str,
         idx: uint,
         fields: HashMap<String, String>) {
@@ -139,10 +140,14 @@ fn make_test(
 
     let data = get_field("data");
     let expected = get_field("document");
+    let name = format!("tb: {}-{}", path_str, idx);
+    let ignore = ignores.contains(&name)
+        || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
+
     tests.push(TestDescAndFn {
         desc: TestDesc {
-            name: DynTestName(format!("tb: {}-{}", path_str, idx)),
-            ignore: IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig)),
+            name: DynTestName(name),
+            ignore: ignore,
             should_fail: false,
         },
         testfn: DynTestFn(proc() {
@@ -163,7 +168,7 @@ fn make_test(
     });
 }
 
-pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
+pub fn tests(src_dir: Path, ignores: &HashSet<String>) -> MoveItems<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tree-construction", ".dat", |path_str, file| {
@@ -173,7 +178,7 @@ pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
         let data = parse_tests(lines);
 
         for (i, test) in data.into_iter().enumerate() {
-            make_test(&mut tests, path_str, i, test);
+            make_test(&mut tests, ignores, path_str, i, test);
         }
     });
 

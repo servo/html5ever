@@ -19,8 +19,9 @@ extern crate string_cache;
 
 extern crate html5ever;
 
-use std::os;
+use std::{io, os};
 use std::from_str::FromStr;
+use std::collections::HashSet;
 use test::test_main;
 
 mod tokenizer;
@@ -32,6 +33,15 @@ fn main() {
         os::getenv("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set").as_slice()
     ).expect("HTML5EVER_SRC_DIR invalid");
 
+    let mut ignores = HashSet::new();
+    {
+        let f = io::File::open(&src_dir.join("data/test/ignore")).unwrap();
+        let mut r = io::BufferedReader::new(f);
+        for ln in r.lines() {
+            ignores.insert(ln.unwrap().as_slice().trim_right().to_string());
+        }
+    }
+
     let mut tests = vec!();
 
     if os::getenv("HTML5EVER_NO_TOK_TEST").is_none() {
@@ -39,7 +49,7 @@ fn main() {
     }
 
     if os::getenv("HTML5EVER_NO_TB_TEST").is_none() {
-        tests.extend(tree_builder::tests(src_dir));
+        tests.extend(tree_builder::tests(src_dir, &ignores));
     }
 
     let args: Vec<String> = os::args().into_iter().collect();

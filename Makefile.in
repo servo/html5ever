@@ -76,7 +76,7 @@ check-internal: html5ever-test
 
 .PHONY: check-external
 check-external: html5ever-external-test
-	HTML5EVER_SRC_DIR=$(VPATH) HTML5EVER_NO_TB_TEST=1 ./html5ever-external-test
+	HTML5EVER_SRC_DIR=$(VPATH) ./html5ever-external-test
 
 METRICS ?= metrics.json
 
