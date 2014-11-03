@@ -110,11 +110,9 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     // Emit a macro invocation of the form
     //
     //     phf_map!(k => v, k => v, ...)
-    let mut toks: Vec<TokenTree> = vec!();
-    for (k, c) in map.into_iter() {
+    let toks: Vec<_> = map.into_iter().flat_map(|(k, [c0, c1])| {
         let k = k.as_slice();
-        let [c0, c1] = c;
-        toks.extend(quote_tokens!(&mut *cx, $k => [$c0, $c1],).into_iter());
-    }
+        (quote_tokens!(&mut *cx, $k => [$c0, $c1],)).into_iter()
+    }).collect();
     MacExpr::new(quote_expr!(&mut *cx, phf_map!($toks)))
 }
