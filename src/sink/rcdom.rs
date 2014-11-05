@@ -25,7 +25,6 @@ use driver::ParseResult;
 use core::cell::RefCell;
 use core::default::Default;
 use alloc::rc::{Rc, Weak};
-use collections::MutableSeq;
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;

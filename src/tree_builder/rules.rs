@@ -22,7 +22,6 @@ use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 use util::str::is_ascii_whitespace;
 
 use core::mem::replace;
-use collections::MutableSeq;
 use collections::string::String;
 use collections::str::Slice;
 

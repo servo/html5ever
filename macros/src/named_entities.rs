@@ -14,7 +14,7 @@ use std::path;
 use serialize::json;
 use serialize::json::Json;
 use serialize::Decodable;
-use std::collections::hashmap::HashMap;
+use std::collections::HashMap;
 
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TtToken};

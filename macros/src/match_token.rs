@@ -97,7 +97,8 @@ matching, by enforcing the following restrictions on its input:
 
 #![allow(unused_imports)]  // for quotes
 
-use std::collections::hashmap::{HashSet, HashMap, Occupied, Vacant};
+use std::collections::{HashSet, HashMap};
+use std::collections::hash_map::{Occupied, Vacant};
 
 use syntax::ptr::P;
 use syntax::codemap::{Span, Spanned, spanned};
@@ -198,10 +199,10 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), toks.to_vec());
 
     let discriminant = parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL);
-    parser.commit_expr_expecting(&*discriminant, token::LBrace);
+    parser.commit_expr_expecting(&*discriminant, token::OpenDelim(token::Brace));
 
     let mut arms: Vec<Arm> = Vec::new();
-    while parser.token != token::RBrace {
+    while parser.token != token::CloseDelim(token::Brace) {
         let mut binding = None;
         if parser.look_ahead(1, |t| *t == token::At) {
             binding = Some(parse_spanned_ident(&mut parser));
@@ -235,10 +236,10 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
 
             let require_comma =
                 !classify::expr_is_simple_block(&*expr)
-                && parser.token != token::RBrace;
+                && parser.token != token::CloseDelim(token::Brace);
 
             if require_comma {
-                parser.commit_expr(&*expr, &[token::Comma], &[token::RBrace]);
+                parser.commit_expr(&*expr, &[token::Comma], &[token::CloseDelim(token::Brace)]);
             } else {
                 parser.eat(&token::Comma);
             }

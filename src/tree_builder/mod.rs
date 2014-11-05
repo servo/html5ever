@@ -30,7 +30,7 @@ use core::mem::replace;
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::Slice;
-use collections::{MutableSeq, Deque, RingBuf};
+use collections::RingBuf;
 
 mod interface;
 mod tag_sets;

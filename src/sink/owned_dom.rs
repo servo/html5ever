@@ -34,7 +34,6 @@ use core::mem::transmute;
 use core::kinds::marker;
 use core::mem;
 use alloc::boxed::Box;
-use collections::{MutableSeq, Set, MutableSet};
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::MaybeOwned;
