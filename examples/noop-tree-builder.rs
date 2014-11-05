@@ -14,7 +14,7 @@ extern crate html5ever;
 use std::io;
 use std::default::Default;
 use std::string::String;
-use std::collections::hashmap::HashMap;
+use std::collections::HashMap;
 use std::str::MaybeOwned;
 use string_cache::QualName;
 

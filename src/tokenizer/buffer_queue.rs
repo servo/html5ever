@@ -14,8 +14,7 @@ use util::smallcharset::SmallCharSet;
 
 use core::str::CharRange;
 use collections::string::String;
-use collections::{MutableSeq, Deque};
-use collections::ringbuf::RingBuf;
+use collections::RingBuf;
 
 struct Buffer {
     /// Byte position within the buffer.

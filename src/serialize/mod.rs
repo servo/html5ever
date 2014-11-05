@@ -11,7 +11,6 @@ use core::prelude::*;
 
 use std::io::{Writer, IoResult};
 use core::default::Default;
-use collections::MutableSeq;
 use collections::vec::Vec;
 
 use string_cache::{Atom, QualName};
@@ -76,7 +75,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         for c in text.chars() {
             try!(match c {
                 '&' => self.writer.write_str("&amp;"),
-                '\xA0' => self.writer.write_str("&nbsp;"),
+                '\u00A0' => self.writer.write_str("&nbsp;"),
                 '"' if attr_mode => self.writer.write_str("&quot;"),
                 '<' if !attr_mode => self.writer.write_str("&lt;"),
                 '>' if !attr_mode => self.writer.write_str("&gt;"),

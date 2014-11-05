@@ -32,11 +32,11 @@ use util::smallcharset::SmallCharSet;
 use core::mem::replace;
 use core::default::Default;
 use alloc::boxed::Box;
-use collections::{MutableSeq, MutableMap};
 use collections::vec::Vec;
+use collections::slice::MutableSliceAllocating;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
-use collections::treemap::TreeMap;
+use collections::TreeMap;
 
 use string_cache::{Atom, QualName};
 
@@ -1247,7 +1247,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         let mut results: Vec<(states::State, u64)>
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
-        results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+        results.as_mut_slice().sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");

@@ -16,7 +16,7 @@ use std::path::Path;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use serialize::json;
 use serialize::json::Json;
-use std::collections::treemap::TreeMap;
+use std::collections::TreeMap;
 use std::str::Slice;
 use std::vec::MoveItems;
 
@@ -315,10 +315,10 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
 
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find(&"input".to_string()).unwrap().get_str();
-    let mut expect = js.find(&"output".to_string()).unwrap().clone();
+    let mut input = js.find("input").unwrap().get_str();
+    let mut expect = js.find("output").unwrap().clone();
     let desc = format!("tok: {:s}: {:s}",
-        path_str, js.find(&"description".to_string()).unwrap().get_str());
+        path_str, js.find("description").unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.

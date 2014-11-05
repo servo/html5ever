@@ -31,7 +31,6 @@ use core::mem::replace;
 use core::iter::{Rev, Enumerate};
 use core::slice;
 use core::fmt::Show;
-use collections::MutableSeq;
 use collections::vec::Vec;
 use collections::string::String;
 use collections::str::Slice;
