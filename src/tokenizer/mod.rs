@@ -33,6 +33,7 @@ use core::mem::replace;
 use core::default::Default;
 use alloc::boxed::Box;
 use collections::vec::Vec;
+#[cfg(not(for_c))]
 use collections::slice::SliceAllocPrelude;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
