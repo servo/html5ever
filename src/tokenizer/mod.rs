@@ -33,7 +33,7 @@ use core::mem::replace;
 use core::default::Default;
 use alloc::boxed::Box;
 use collections::vec::Vec;
-use collections::slice::MutableSliceAllocating;
+use collections::slice::SliceAllocPrelude;
 use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
 use collections::TreeMap;
@@ -329,7 +329,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let old_sink = self.time_in_sink;
                 let (run, mut dt) = time!(self.step());
                 dt -= (self.time_in_sink - old_sink);
-                let new = match self.state_profile.find_mut(&state) {
+                let new = match self.state_profile.get_mut(&state) {
                     Some(x) => {
                         *x += dt;
                         false
@@ -1337,7 +1337,7 @@ mod test {
     use core::prelude::*;
     use collections::vec::Vec;
     use collections::string::String;
-    use collections::slice::CloneableVector;
+    use collections::slice::CloneSliceAllocPrelude;
     use super::{option_push, append_strings}; // private items
 
     #[test]

@@ -12,7 +12,7 @@ use core::prelude::*;
 use tokenizer::states;
 
 use collections::vec::Vec;
-use collections::slice::MutableOrdSlice;
+use collections::slice::OrdSliceAllocPrelude;
 use collections::string::String;
 use collections::str::MaybeOwned;
 
