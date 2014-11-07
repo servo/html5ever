@@ -179,7 +179,7 @@ impl JsonExt for Json {
     }
 
     fn find<'t>(&'t self, key: &str) -> &'t Json {
-        self.get_obj().find(&key.to_string()).unwrap()
+        self.get_obj().get(&key.to_string()).unwrap()
     }
 }
 
@@ -322,7 +322,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
-    if obj.find(&"doubleEscaped".to_string()).map_or(false, |j| j.get_bool()) {
+    if obj.get(&"doubleEscaped".to_string()).map_or(false, |j| j.get_bool()) {
         match unescape(input.as_slice()) {
             None => return,
             Some(i) => input = i,
@@ -334,10 +334,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let insplits = splits(input.as_slice(), 3);
 
     // Some tests have a last start tag name.
-    let start_tag = obj.find(&"lastStartTag".to_string()).map(|s| s.get_str());
+    let start_tag = obj.get(&"lastStartTag".to_string()).map(|s| s.get_str());
 
     // Some tests want to start in a state other than Data.
-    let state_overrides = match obj.find(&"initialStates".to_string()) {
+    let state_overrides = match obj.get(&"initialStates".to_string()) {
         Some(&json::List(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
@@ -384,7 +384,7 @@ pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
         let js = json::from_reader(&mut file as &mut Reader)
             .ok().expect("json parse error");
 
-        match js.get_obj().find(&"tests".to_string()) {
+        match js.get_obj().get(&"tests".to_string()) {
             Some(&json::List(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);

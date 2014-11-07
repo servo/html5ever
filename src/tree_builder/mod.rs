@@ -261,7 +261,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
                         String::from_str(buf.slice_to(len)));
 
                     if len < buf.len() {
-                        more_tokens.push(
+                        more_tokens.push_back(
                             CharacterTokens(NotSplit, String::from_str(buf.slice_from(len))));
                     }
                 }

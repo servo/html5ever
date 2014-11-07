@@ -45,7 +45,7 @@ impl TreeSink<uint> for Sink {
     }
 
     fn elem_name(&self, target: uint) -> QualName {
-        self.names.find(&target).expect("not an element").clone()
+        self.names.get(&target).expect("not an element").clone()
     }
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> uint {

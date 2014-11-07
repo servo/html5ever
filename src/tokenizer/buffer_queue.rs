@@ -63,7 +63,7 @@ impl BufferQueue {
         if pos >= buf.len() {
             return;
         }
-        self.buffers.push(Buffer {
+        self.buffers.push_back(Buffer {
             pos: pos,
             buf: buf,
         });

@@ -30,7 +30,7 @@ fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, Strin
     macro_rules! finish_val ( () => (
         match key.take() {
             None => (),
-            Some(key) => assert!(test.insert(key, replace(&mut val, String::new()))),
+            Some(key) => assert!(test.insert(key, replace(&mut val, String::new())).is_none()),
         }
     ))
 
