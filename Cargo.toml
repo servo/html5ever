@@ -4,6 +4,9 @@ name = "html5ever"
 version = "0.0.0"
 authors = [ "The html5ever Project Developers" ]
 
+[dependencies.time]
+git = "https://github.com/rust-lang/time"
+
 [dependencies.phf]
 git = "https://github.com/sfackler/rust-phf"
 [dependencies.phf_mac]
