@@ -9,13 +9,17 @@
 
 use core::prelude::*;
 
-use super::{Tokenizer, TokenSink};
+use super::{TokenizerInner, TokenSink, Span};
+use util::single_char::{SingleChar, MayAppendSingleChar};
 
-use util::str::{is_ascii_alnum, empty_str};
+use util::fast_option::{Uninit, Full, FastOption};
+use util::span::ValidatedSpanUtils;
+use util::str::is_ascii_alnum;
 
 use core::char::from_u32;
 use collections::str::Slice;
-use collections::string::String;
+
+use iobuf::{BufSpan, Iobuf, RWIobuf};
 
 pub use self::Status::*;
 use self::State::*;
@@ -25,10 +29,7 @@ mod data;
 //§ tokenizing-character-references
 pub struct CharRef {
     /// The resulting character(s)
-    pub chars: [char, ..2],
-
-    /// How many slots in `chars` are valid?
-    pub num_chars: u8,
+    pub chars: Span,
 }
 
 pub enum Status {
@@ -40,8 +41,8 @@ pub enum Status {
 #[deriving(Show)]
 enum State {
     Begin,
-    Octothorpe,
-    Numeric(u32), // base
+    Octothorpe(SingleChar),
+    Numeric(SingleChar /* octothorpe char */, u32), // base
     NumericSemicolon,
     Named,
     BogusName,
@@ -49,26 +50,28 @@ enum State {
 
 pub struct CharRefTokenizer {
     state: State,
-    addnl_allowed: Option<char>,
+    addnl_allowed: Option<u8>,
+    /// The initial ampersand.
+    pub amp: SingleChar,
     result: Option<CharRef>,
 
     num: u32,
     num_too_big: bool,
     seen_digit: bool,
-    hex_marker: Option<char>,
+    hex_marker: Option<SingleChar>,
 
-    name_buf_opt: Option<String>,
-    name_match: Option<&'static [u32, ..2]>,
-    name_len: uint,
+    name_buf_opt: Option<Span>,
+    name_match: Option<data::NamedEntity>,
 }
 
 impl CharRefTokenizer {
     // NB: We assume that we have an additional allowed character iff we're
     // tokenizing in an attribute value.
-    pub fn new(addnl_allowed: Option<char>) -> CharRefTokenizer {
+    pub fn new(amp: SingleChar, addnl_allowed: Option<u8>) -> CharRefTokenizer {
         CharRefTokenizer {
             state: Begin,
             addnl_allowed: addnl_allowed,
+            amp: amp,
             result: None,
             num: 0,
             num_too_big: false,
@@ -76,101 +79,127 @@ impl CharRefTokenizer {
             hex_marker: None,
             name_buf_opt: None,
             name_match: None,
-            name_len: 0,
         }
     }
 
     // A CharRefTokenizer can only tokenize one character reference,
     // so this method consumes the tokenizer.
-    pub fn get_result(self) -> CharRef {
-        self.result.expect("get_result called before done")
+    pub fn get_result(self) -> Span {
+        let CharRef { chars } = self.result.expect("get_result called before done");
+        if chars.is_empty() {
+            self.amp.into_span()
+        } else {
+            chars
+        }
     }
 
-    fn name_buf<'t>(&'t self) -> &'t String {
+    fn name_buf<'t>(&'t self) -> &'t Span {
         self.name_buf_opt.as_ref()
             .expect("name_buf missing in named character reference")
     }
 
-    fn name_buf_mut<'t>(&'t mut self) -> &'t mut String {
+    fn name_buf_mut<'t>(&'t mut self) -> &'t mut Span {
         self.name_buf_opt.as_mut()
             .expect("name_buf missing in named character reference")
     }
 
     fn finish_none(&mut self) -> Status {
         self.result = Some(CharRef {
-            chars: ['\0', '\0'],
-            num_chars: 0,
+            chars: BufSpan::new(),
         });
         Done
     }
 
-    fn finish_one(&mut self, c: char) -> Status {
+    fn finish_one(&mut self, chr: SingleChar) -> Status {
         self.result = Some(CharRef {
-            chars: [c, '\0'],
-            num_chars: 1,
+            chars: chr.into_span(),
         });
         Done
     }
 }
 
 impl<Sink: TokenSink> CharRefTokenizer {
-    pub fn step(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
+    pub fn step(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
         if self.result.is_some() {
             return Done;
         }
 
         h5e_debug!("char ref tokenizer stepping in state {}", self.state);
+        let octothorpe_char = match self.state {
+            Octothorpe(ref c) | Numeric(ref c, _) => Some((*c).clone()),
+            _ => None,
+        };
+
         match self.state {
             Begin => self.do_begin(tokenizer),
-            Octothorpe => self.do_octothorpe(tokenizer),
-            Numeric(base) => self.do_numeric(tokenizer, base),
+            Octothorpe(_) => self.do_octothorpe(tokenizer, octothorpe_char.unwrap()),
+            Numeric(_, base) => self.do_numeric(tokenizer, octothorpe_char.unwrap(), base),
             NumericSemicolon => self.do_numeric_semicolon(tokenizer),
             Named => self.do_named(tokenizer),
             BogusName => self.do_bogus_name(tokenizer),
         }
     }
 
-    fn do_begin(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        match unwrap_or_return!(tokenizer.peek(), Stuck) {
-            '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
+    fn do_begin(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.peek(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        match c.as_ref().as_u8() {
+            b'\t' | b'\n' | b'\x0C' | b' ' | b'<' | b'&'
                 => self.finish_none(),
-            c if Some(c) == self.addnl_allowed
+            chr if Some(chr) == self.addnl_allowed
                 => self.finish_none(),
 
-            '#' => {
+            b'#' => {
                 tokenizer.discard_char();
-                self.state = Octothorpe;
+                self.state = Octothorpe(c.take());
                 Progress
             }
 
             _ => {
                 self.state = Named;
-                self.name_buf_opt = Some(empty_str());
+                self.name_buf_opt = Some(BufSpan::new());
                 Progress
             }
         }
     }
 
-    fn do_octothorpe(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match c {
-            'x' | 'X' => {
+    fn do_octothorpe(&mut self, tokenizer: &mut TokenizerInner<Sink>, octothorpe_char: SingleChar) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.peek(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        match c.as_ref().as_u8() {
+            b'x' | b'X' => {
                 tokenizer.discard_char();
-                self.hex_marker = Some(c);
-                self.state = Numeric(16);
+                self.hex_marker = Some(c.take());
+                self.state = Numeric(octothorpe_char, 16);
             }
 
             _ => {
                 self.hex_marker = None;
-                self.state = Numeric(10);
+                self.state = Numeric(octothorpe_char, 10);
             }
         }
         Progress
     }
 
-    fn do_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match Char::to_digit(c, base as uint) {
+    fn do_numeric(&mut self, tokenizer: &mut TokenizerInner<Sink>, octothorpe_char: SingleChar, base: u32) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.peek(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        match Char::to_digit(c.as_ref().as_u8() as char, base as uint) {
             Some(n) => {
                 tokenizer.discard_char();
                 self.num *= base;
@@ -184,7 +213,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 Progress
             }
 
-            None if !self.seen_digit => self.unconsume_numeric(tokenizer),
+            None if !self.seen_digit => self.unconsume_numeric(tokenizer, octothorpe_char),
 
             None => {
                 self.state = NumericSemicolon;
@@ -193,19 +222,27 @@ impl<Sink: TokenSink> CharRefTokenizer {
         }
     }
 
-    fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        match unwrap_or_return!(tokenizer.peek(), Stuck) {
-            ';' => tokenizer.discard_char(),
-            _   => tokenizer.emit_error(Slice("Semicolon missing after numeric character reference")),
+    fn do_numeric_semicolon(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.peek(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        match c.as_ref().as_u8() {
+            b';' => tokenizer.discard_char(),
+            _    => tokenizer.emit_error(Slice("Semicolon missing after numeric character reference")),
         };
+
         self.finish_numeric(tokenizer)
     }
 
-    fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let mut unconsume = String::from_char(1, '#');
+    fn unconsume_numeric(&mut self, tokenizer: &mut TokenizerInner<Sink>, octothorpe: SingleChar) -> Status {
+        let mut unconsume = octothorpe.into_span();
         match self.hex_marker {
-            Some(c) => unconsume.push(c),
-            None => (),
+            Some(ref marker) => unconsume.push_sc((*marker).clone()),
+            None    => {},
         }
 
         tokenizer.unconsume(unconsume);
@@ -213,16 +250,19 @@ impl<Sink: TokenSink> CharRefTokenizer {
         self.finish_none()
     }
 
-    fn finish_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        fn conv(n: u32) -> char {
-            from_u32(n).expect("invalid char missed by error handling cases")
+    fn finish_numeric(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
+        fn conv(n: u32) -> SingleChar {
+            let c = from_u32(n).expect("invalid char missed by error handling cases");
+            let b = RWIobuf::new(c.len_utf8());
+            unsafe { c.encode_utf8(b.as_mut_window_slice()); }
+            SingleChar::new(b.read_only())
         }
 
         let (c, error) = match self.num {
-            n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
-            0x00 | 0xD800...0xDFFF => ('\ufffd', true),
+            n if (n > 0x10FFFF) || self.num_too_big => (SingleChar::unicode_replacement(), true),
+            0x00 | 0xD800...0xDFFF => (SingleChar::unicode_replacement(), true),
 
-            0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as uint] {
+            0x80...0x9F => match data::lookup_c1_replacement((self.num - 0x80) as uint) {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },
@@ -246,61 +286,68 @@ impl<Sink: TokenSink> CharRefTokenizer {
         self.finish_one(c)
     }
 
-    fn do_named(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push(c);
-        match data::NAMED_ENTITIES.get(self.name_buf().as_slice()) {
+    fn do_named(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.get_char(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        self.name_buf_mut().push_sc((*c.as_ref()).clone());
+
+        match data::lookup_named_entity(self.name_buf()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
-                if m[0] != 0 {
+                if m.num_chars > 0 {
                     // We have a full match, but there might be a longer one to come.
                     self.name_match = Some(m);
-                    self.name_len = self.name_buf().len();
                 }
-                // Otherwise we just have a prefix match.
+                // Otherwise, we just have a prefix match.
                 Progress
             }
-
             // Can't continue the match.
-            None => self.finish_named(tokenizer, Some(c)),
+            None => {
+                let to_finish_with = Some(c.take());
+                self.finish_named(tokenizer, to_finish_with)
+            },
         }
     }
 
-    fn emit_name_error(&mut self, tokenizer: &mut Tokenizer<Sink>) {
+    fn emit_name_error(&mut self, tokenizer: &mut TokenizerInner<Sink>) {
         let msg = format_if!(tokenizer.opts.exact_errors,
             "Invalid character reference",
-            "Invalid character reference &{}", self.name_buf().as_slice());
+            "Invalid character reference &{}", self.name_buf());
         tokenizer.emit_error(msg);
     }
 
-    fn unconsume_name(&mut self, tokenizer: &mut Tokenizer<Sink>) {
-        tokenizer.unconsume(self.name_buf_opt.take().unwrap());
+    fn unconsume_name(&mut self, tokenizer: &mut TokenizerInner<Sink>) {
+        tokenizer.unconsume(self.name_buf_opt.clone().unwrap());
     }
 
     fn finish_named(&mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            end_char: Option<char>) -> Status {
-        match self.name_match {
+            tokenizer: &mut TokenizerInner<Sink>,
+            end_char: Option<SingleChar>) -> Status {
+        let result = match self.name_match {
             None => {
                 match end_char {
-                    Some(c) if is_ascii_alnum(c) => {
+                    Some(ref c) if is_ascii_alnum(c.as_u8() as char) => {
                         // Keep looking for a semicolon, to determine whether
                         // we emit a parse error.
                         self.state = BogusName;
                         return Progress;
                     }
-
                     // Check length because &; is not a parse error.
-                    Some(';') if self.name_buf().len() > 1
-                        => self.emit_name_error(tokenizer),
+                    Some(ref c) if c.as_u8() == b';' && self.name_buf().count_bytes() > 1 =>
+                        self.emit_name_error(tokenizer),
 
                     _ => (),
                 }
                 self.unconsume_name(tokenizer);
-                self.finish_none()
+                Ok(self.finish_none())
             }
 
-            Some(&[c1, c2]) => {
+            Some(ref name_match) => {
                 // We have a complete match, but we may have consumed
                 // additional characters into self.name_buf.  Usually
                 // at least one, but several in cases like
@@ -309,16 +356,21 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 //     &noti   => valid prefix for &notin
                 //     &notit  => can't continue match
 
-                let name_len = self.name_len;
-                assert!(name_len > 0);
-                let last_matched = self.name_buf().as_slice().char_at(name_len-1);
+                let name_match_byte_len = name_match.key.as_bytes().len() as u32;
+
+                let last_matched = {
+                    assert!(name_match_byte_len > 0);
+                    // We know the name buf is utf-8, since it is a result of
+                    // matching something in our table in data.rs.
+                    self.name_buf().iter_bytes().skip(name_match_byte_len as uint - 1).next().unwrap()
+                };
 
                 // There might not be a next character after the match, if
                 // we had a full match and then hit EOF.
-                let next_after = if name_len == self.name_buf().len() {
+                let next_after = if name_match_byte_len == self.name_buf().count_bytes() {
                     None
                 } else {
-                    Some(self.name_buf().as_slice().char_at(name_len))
+                    self.name_buf().iter_bytes().skip(name_match_byte_len as uint).next()
                 };
 
                 // "If the character reference is being consumed as part of an
@@ -332,12 +384,12 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 // character (=), then this is a parse error"
 
                 let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
-                    (_, ';', _) => false,
-                    (Some(_), _, Some('=')) => {
+                    (_, b';', _) => false,
+                    (Some(_), _, Some(b'=')) => {
                         tokenizer.emit_error(Slice("Equals sign after character reference in attribute"));
                         true
                     }
-                    (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
+                    (Some(_), _, Some(c)) if c < 0x80 && is_ascii_alnum(c as char) => true,
                     _ => {
                         tokenizer.emit_error(Slice("Character reference does not end with semicolon"));
                         false
@@ -345,42 +397,60 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 };
 
                 if unconsume_all {
-                    self.unconsume_name(tokenizer);
-                    self.finish_none()
+                    Err(())
                 } else {
-                    tokenizer.unconsume(String::from_str(
-                        self.name_buf().as_slice().slice_from(name_len)));
+                    tokenizer.unconsume(self.name_buf_opt.clone().unwrap().slice_from(name_match_byte_len));
                     self.result = Some(CharRef {
-                        chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
-                        num_chars: if c2 == 0 { 1 } else { 2 },
+                        chars: BufSpan::from_buf(name_match.chars.clone()),
                     });
-                    Done
+                    Ok(Done)
                 }
+            }
+        };
+
+        match result {
+            Ok(status) => status,
+            Err(()) => {
+                self.unconsume_name(tokenizer);
+                self.finish_none()
             }
         }
     }
 
-    fn do_bogus_name(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push(c);
-        match c {
-            _ if is_ascii_alnum(c) => return Progress,
-            ';' => self.emit_name_error(tokenizer),
+    fn do_bogus_name(&mut self, tokenizer: &mut TokenizerInner<Sink>) -> Status {
+        let mut c = FastOption::new();
+
+        match tokenizer.get_char(&mut c) {
+            Uninit => return Stuck,
+            Full => {},
+        }
+
+        let chr = c.as_ref().as_u8();
+        self.name_buf_mut().push_sc(c.take());
+
+        match chr {
+            _ if is_ascii_alnum(chr as char) => return Progress,
+            b';' => self.emit_name_error(tokenizer),
             _ => ()
         }
         self.unconsume_name(tokenizer);
         self.finish_none()
     }
 
-    pub fn end_of_file(&mut self, tokenizer: &mut Tokenizer<Sink>) {
+    pub fn end_of_file(&mut self, tokenizer: &mut TokenizerInner<Sink>) {
         while self.result.is_none() {
+            let octothorpe_char = match self.state {
+                Numeric(ref c, _) | Octothorpe(ref c) => Some((*c).clone()),
+                _ => None,
+            };
+
             match self.state {
                 Begin => drop(self.finish_none()),
 
-                Numeric(_) if !self.seen_digit
-                    => drop(self.unconsume_numeric(tokenizer)),
+                Numeric(_, _) if !self.seen_digit
+                    => drop(self.unconsume_numeric(tokenizer, octothorpe_char.unwrap())),
 
-                Numeric(_) | NumericSemicolon => {
+                Numeric(_, _) | NumericSemicolon => {
                     tokenizer.emit_error(Slice("EOF in numeric character reference"));
                     self.finish_numeric(tokenizer);
                 }
@@ -392,8 +462,8 @@ impl<Sink: TokenSink> CharRefTokenizer {
                     self.finish_none();
                 }
 
-                Octothorpe => {
-                    tokenizer.unconsume(String::from_char(1, '#'));
+                Octothorpe(_) => {
+                    tokenizer.unconsume(octothorpe_char.unwrap().into_span());
                     tokenizer.emit_error(Slice("EOF after '#' in character reference"));
                     self.finish_none();
                 }

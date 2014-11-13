@@ -35,12 +35,13 @@ use core::kinds::marker;
 use core::mem;
 use alloc::boxed::Box;
 use collections::vec::Vec;
-use collections::string::String;
 use collections::str::MaybeOwned;
 use std::io::{Writer, IoResult};
 use std::collections::HashSet;
 
-use string_cache::QualName;
+use string_cache::{QualName, Atom};
+
+use util::span::Span;
 
 /// The internal type we use for nodes during parsing.
 struct SquishyNode {
@@ -136,10 +137,10 @@ fn get_parent_and_index(child: Handle) -> Option<(Handle, uint)> {
     }
 }
 
-fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
+fn append_to_existing_text(mut prev: Handle, text: Span) -> bool {
     match prev.deref_mut().node {
         Text(ref mut existing) => {
-            existing.push_str(text);
+            existing.append(text);
             true
         }
         _ => false,
@@ -210,7 +211,7 @@ impl TreeSink<Handle> for Sink {
         self.new_node(Element(name, attrs))
     }
 
-    fn create_comment(&mut self, text: String) -> Handle {
+    fn create_comment(&mut self, text: Span) -> Handle {
         self.new_node(Comment(text))
     }
 
@@ -218,7 +219,7 @@ impl TreeSink<Handle> for Sink {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.children.last() {
-                Some(h) => if append_to_existing_text(*h, text.as_slice()) { return; },
+                Some(h) => if append_to_existing_text(*h, (*text).clone()) { return; },
                 _ => (),
             },
             _ => (),
@@ -237,15 +238,15 @@ impl TreeSink<Handle> for Sink {
 
         let mut child = match (child, i) {
             // No previous node.
-            (AppendText(text), 0) => self.new_node(Text(text)),
+            (AppendText(ref text), 0) => self.new_node(Text((*text).clone())),
 
             // Look for a text node before the insertion point.
-            (AppendText(text), i) => {
+            (AppendText(ref text), i) => {
                 let prev = parent.children[i-1];
-                if append_to_existing_text(prev, text.as_slice()) {
+                if append_to_existing_text(prev, (*text).clone()) {
                     return Ok(());
                 }
-                self.new_node(Text(text))
+                self.new_node(Text((*text).clone()))
             }
 
             // The tree builder promises we won't have a text node after
@@ -264,7 +265,7 @@ impl TreeSink<Handle> for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self, name: Atom, public_id: Span, system_id: Span) {
         append(self.document, self.new_node(Doctype(name, public_id, system_id)));
     }
 
@@ -352,7 +353,7 @@ impl Serializable for Node {
             (_, &Element(ref name, ref attrs)) => {
                 if incl_self {
                     try!(serializer.start_elem(name.clone(),
-                        attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
+                        attrs.iter().map(|at| (&at.name, &at.value))));
                 }
 
                 for child in self.children.iter() {
@@ -374,9 +375,9 @@ impl Serializable for Node {
 
             (false, _) => Ok(()),
 
-            (true, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
-            (true, &Text(ref text)) => serializer.write_text(text.as_slice()),
-            (true, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
+            (true, &Doctype(ref name, _, _)) => serializer.write_doctype(name),
+            (true, &Text(ref text)) => serializer.write_text(text),
+            (true, &Comment(ref text)) => serializer.write_comment(text),
 
             (true, &Document) => panic!("Can't serialize Document node itself"),
         }

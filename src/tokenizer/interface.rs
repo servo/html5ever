@@ -10,25 +10,24 @@
 use core::prelude::*;
 
 use tokenizer::states;
+use util::span::Span;
 
 use collections::vec::Vec;
 use collections::slice::OrdSliceAllocPrelude;
-use collections::string::String;
 use collections::str::MaybeOwned;
 
 use string_cache::{Atom, QualName};
 
-pub use self::TagKind::{StartTag, EndTag};
-pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
-pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
+pub use self::TagKind::*;
+pub use self::Token::*;
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
 #[deriving(PartialEq, Eq, Clone, Show)]
 pub struct Doctype {
-    pub name: Option<String>,
-    pub public_id: Option<String>,
-    pub system_id: Option<String>,
+    pub name:      Option<Atom>,
+    pub public_id: Option<Span>,
+    pub system_id: Option<Span>,
     pub force_quirks: bool,
 }
 
@@ -52,7 +51,7 @@ impl Doctype {
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct Attribute {
     pub name: QualName,
-    pub value: String,
+    pub value: Span,
 }
 
 #[deriving(PartialEq, Eq, Clone, Show)]
@@ -91,8 +90,8 @@ impl Tag {
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
-    CommentToken(String),
-    CharacterTokens(String),
+    CommentToken(Span),
+    CharacterTokens(Span),
     NullCharacterToken,
     EOFToken,
     ParseError(MaybeOwned<'static>),

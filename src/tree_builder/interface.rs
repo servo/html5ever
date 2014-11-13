@@ -15,10 +15,11 @@ use core::prelude::*;
 use tokenizer::Attribute;
 
 use collections::vec::Vec;
-use collections::string::String;
 use collections::str::MaybeOwned;
 
-use string_cache::QualName;
+use string_cache::{QualName, Atom};
+
+use util::span::Span;
 
 pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
@@ -37,7 +38,7 @@ pub enum QuirksMode {
 /// the sink may not want to allocate a `Handle` for each.
 pub enum NodeOrText<Handle> {
     AppendNode(Handle),
-    AppendText(String),
+    AppendText(Span),
 }
 
 /// Types which can process tree modifications from the tree builder.
@@ -68,7 +69,7 @@ pub trait TreeSink<Handle> {
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle;
 
     /// Create a comment node.
-    fn create_comment(&mut self, text: String) -> Handle;
+    fn create_comment(&mut self, text: Span) -> Handle;
 
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
@@ -91,7 +92,7 @@ pub trait TreeSink<Handle> {
         new_node: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>>;
 
     /// Append a `DOCTYPE` element to the `Document` node.
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);
+    fn append_doctype_to_document(&mut self, name: Atom, public_id: Span, system_id: Span);
 
     /// Add each attribute to the given element, if no attribute
     /// with that name already exists.

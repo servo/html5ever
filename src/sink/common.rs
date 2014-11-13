@@ -10,8 +10,9 @@
 use tokenizer::Attribute;
 
 use collections::vec::Vec;
-use collections::string::String;
-use string_cache::QualName;
+use string_cache::{QualName, Atom};
+
+use util::span::Span;
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
 
@@ -22,13 +23,13 @@ pub enum NodeEnum {
     Document,
 
     /// A `DOCTYPE` with name, public id, and system id.
-    Doctype(String, String, String),
+    Doctype(Atom, Span, Span),
 
     /// A text node.
-    Text(String),
+    Text(Span),
 
     /// A comment.
-    Comment(String),
+    Comment(Span),
 
     /// An element with attributes.
     Element(QualName, Vec<Attribute>),

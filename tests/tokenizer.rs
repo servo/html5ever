@@ -20,6 +20,7 @@ use std::collections::TreeMap;
 use std::str::Slice;
 use std::vec::MoveItems;
 
+use html5ever::{Span, BufSpan, ROIobuf};
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -54,7 +55,7 @@ fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
-    current_str: String,
+    current_str: Span,
     exact_errors: bool,
 }
 
@@ -62,7 +63,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: vec!(),
-            current_str: String::new(),
+            current_str: BufSpan::new(),
             exact_errors: exact_errors,
         }
     }
@@ -74,8 +75,8 @@ impl TokenLogger {
     }
 
     fn finish_str(&mut self) {
-        if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, String::new());
+        if !self.current_str.is_empty() {
+            let s = replace(&mut self.current_str, BufSpan::new());
             self.tokens.push(CharacterTokens(s));
         }
     }
@@ -90,11 +91,11 @@ impl TokenSink for TokenLogger {
     fn process_token(&mut self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                self.current_str.push_str(b.as_slice());
+                self.current_str.append(b);
             }
 
             NullCharacterToken => {
-                self.current_str.push('\0');
+                self.current_str.push(ROIobuf::from_str("\0"));
             }
 
             ParseError(_) => if self.exact_errors {
@@ -122,7 +123,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
+fn tokenize(input: Vec<ROIobuf<'static>>, opts: TokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
     for chunk in input.into_iter() {
@@ -133,8 +134,11 @@ fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
 }
 
 trait JsonExt {
-    fn get_str(&self) -> String;
-    fn get_nullable_str(&self) -> Option<String>;
+    fn get_str(&self) -> &str;
+    fn get_span(&self) -> Span;
+    fn get_nullable_str(&self) -> Option<&str>;
+    fn get_nullable_span(&self) -> Option<Span>;
+    fn get_nullable_atom(&self) -> Option<Atom>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
@@ -142,19 +146,31 @@ trait JsonExt {
 }
 
 impl JsonExt for Json {
-    fn get_str(&self) -> String {
+    fn get_str(&self) -> &str {
         match *self {
-            json::String(ref s) => s.to_string(),
+            json::String(ref s) => s.as_slice(),
             _ => panic!("Json::get_str: not a String"),
         }
     }
 
-    fn get_nullable_str(&self) -> Option<String> {
+    fn get_span(&self) -> Span {
+        BufSpan::from_buf(ROIobuf::from_str_copy(self.get_str()))
+    }
+
+    fn get_nullable_str(&self) -> Option<&str> {
         match *self {
             json::Null => None,
-            json::String(ref s) => Some(s.to_string()),
+            json::String(ref s) => Some(s.as_slice()),
             _ => panic!("Json::get_nullable_str: not a String"),
         }
+    }
+
+    fn get_nullable_span(&self) -> Option<Span> {
+        self.get_nullable_str().map(|s| BufSpan::from_buf(ROIobuf::from_str_copy(s)))
+    }
+
+    fn get_nullable_atom(&self) -> Option<Atom> {
+        self.get_nullable_str().map(Atom::from_slice)
     }
 
     fn get_bool(&self) -> bool {
@@ -190,9 +206,9 @@ fn json_to_token(js: &Json) -> Token {
     let args: Vec<&Json> = parts.slice_from(1).iter().collect();
     match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
-            name: name.get_nullable_str(),
-            public_id: public_id.get_nullable_str(),
-            system_id: system_id.get_nullable_str(),
+            name: name.get_nullable_atom(),
+            public_id: public_id.get_nullable_span(),
+            system_id: system_id.get_nullable_span(),
             force_quirks: !correct.get_bool(),
         }),
 
@@ -202,7 +218,7 @@ fn json_to_token(js: &Json) -> Token {
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(k.as_slice())),
-                    value: v.get_str()
+                    value: v.get_span()
                 }
             }).collect(),
             self_closing: match rest {
@@ -218,9 +234,9 @@ fn json_to_token(js: &Json) -> Token {
             self_closing: false
         }),
 
-        ("Comment", [txt]) => CommentToken(txt.get_str()),
+        ("Comment", [txt]) => CommentToken(txt.get_span()),
 
-        ("Character", [txt]) => CharacterTokens(txt.get_str()),
+        ("Character", [txt]) => CharacterTokens(txt.get_span()),
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
@@ -288,8 +304,7 @@ fn unescape_json(js: &Json) -> Json {
         _ => js.clone(),
     }
 }
-
-fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Json, exact_errors: bool, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -298,15 +313,18 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
             should_fail: false,
         },
         testfn: DynTestFn(proc() {
+            let expect_toks = json_to_tokens(&expect, exact_errors);
+
             for input in insplits.into_iter() {
                 // Clone 'input' so we have it for the failure message.
                 // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize(input.clone(), opts.clone());
-                if output != expect {
+                let input_bufs = input.clone().into_iter().map(|x| ROIobuf::from_str_copy(x.as_slice())).collect();
+                let output = tokenize(input_bufs, opts.clone());
+                if output != expect_toks {
                     panic!("\ninput: {}\ngot: {}\nexpected: {}",
-                        input, output, expect);
+                        input, output, expect_toks);
                 }
             }
         }),
@@ -315,7 +333,8 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
 
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
-    let mut input = js.find("input").unwrap().get_str();
+    let mut input = js.find("input").unwrap().get_str().to_string();
+
     let mut expect = js.find("output").unwrap().clone();
     let desc = format!("tok: {}: {}",
         path_str, js.find("description").unwrap().get_str());
@@ -361,11 +380,10 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
                 newdesc = format!("{} (exact errors)", newdesc);
             }
 
-            let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc, insplits.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc, insplits.clone(), expect.clone(), exact_errors, TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
-                last_start_tag_name: start_tag.clone(),
+                last_start_tag_name: start_tag.map(|s| s.to_string()),
 
                 // Not discarding a BOM is what the test suite expects; see
                 // https://github.com/html5lib/html5lib-tests/issues/2

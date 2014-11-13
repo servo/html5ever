@@ -11,13 +11,18 @@ use core::prelude::*;
 
 use core::slice;
 use core::str;
+use core::raw::Repr;
 use core::kinds::marker::ContravariantLifetime;
 use collections::str::MaybeOwned;
-use collections::string::String;
+use collections::vec::Vec;
 
 use libc::{size_t, c_int, c_char, strlen};
 
 use string_cache::Atom;
+
+use util::span::Span;
+
+use iobuf::Iobuf;
 
 #[repr(C)]
 pub struct h5e_buf {
@@ -38,6 +43,22 @@ impl h5e_buf {
     }
 }
 
+/// A set of h5e buffers.
+#[repr(C)]
+pub struct h5e_bufset {
+    data: *const h5e_buf,
+    len:  size_t,
+}
+
+impl h5e_bufset {
+    pub fn null() -> h5e_bufset {
+        h5e_bufset {
+            data: RawPtr::null(),
+            len: 0,
+        }
+    }
+}
+
 pub struct LifetimeBuf<'a> {
     buf: h5e_buf,
     marker: ContravariantLifetime<'a>,
@@ -54,6 +75,19 @@ impl<'a> LifetimeBuf<'a> {
         }
     }
 
+    pub fn from_iobuf<'a, Buf: Iobuf>(buf: &'a Buf) -> LifetimeBuf<'a> {
+        unsafe {
+            let window = buf.as_window_slice().repr();
+            LifetimeBuf {
+                buf: h5e_buf {
+                    data: window.data,
+                    len:  window.len as size_t,
+                },
+                marker: ContravariantLifetime,
+            }
+        }
+    }
+
     pub fn null() -> LifetimeBuf<'a> {
         LifetimeBuf {
             buf: h5e_buf::null(),
@@ -67,16 +101,45 @@ impl<'a> LifetimeBuf<'a> {
     }
 }
 
+pub struct LifetimeBufSet<'a> {
+    bufset: Option<Vec<h5e_buf>>,
+    marker: ContravariantLifetime<'a>,
+}
+
+impl<'a> LifetimeBufSet<'a> {
+    pub fn from_span<'a>(span: &'a Span) -> LifetimeBufSet<'a> {
+        LifetimeBufSet {
+            bufset: Some(span.iter().map(|b| LifetimeBuf::from_iobuf(b).get()).collect()),
+            marker: ContravariantLifetime,
+        }
+    }
+
+    pub fn null() -> LifetimeBufSet<'static> {
+        LifetimeBufSet {
+            bufset: None,
+            marker: ContravariantLifetime,
+        }
+    }
+
+    pub fn get(&self) -> h5e_bufset {
+        match self.bufset {
+            None =>
+                h5e_bufset::null(),
+            Some(ref bufset) => {
+                let as_repr = bufset.as_slice().repr();
+                h5e_bufset {
+                    data: as_repr.data,
+                    len:  as_repr.len as size_t,
+                }
+            }
+        }
+    }
+}
+
 // Or we could just make `LifetimeBuf::from_str` generic over <T: Str>;
 // see rust-lang/rust#16738.
 pub trait AsLifetimeBuf {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a>;
-}
-
-impl AsLifetimeBuf for String {
-    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
-        LifetimeBuf::from_str(self.as_slice())
-    }
 }
 
 impl AsLifetimeBuf for Atom {
@@ -88,6 +151,16 @@ impl AsLifetimeBuf for Atom {
 impl<'b> AsLifetimeBuf for MaybeOwned<'b> {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
         LifetimeBuf::from_str(self.as_slice())
+    }
+}
+
+pub trait AsLifetimeBufSet {
+    fn as_lifetime_bufset<'a>(&'a self) -> LifetimeBufSet<'a>;
+}
+
+impl AsLifetimeBufSet for Span {
+    fn as_lifetime_bufset<'a>(&'a self) -> LifetimeBufSet<'a> {
+        LifetimeBufSet::from_span(self)
     }
 }
 

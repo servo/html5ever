@@ -26,12 +26,12 @@ use syntax::ext::source_util::expand_file;
 // Simplifies JSON parsing because we can use Decodable.
 #[deriving(Decodable)]
 struct CharRef {
-    codepoints: Vec<u32>,
-    //characters: String,  // Present in the file but we don't need it
+    // codepoints: Vec<u32>, // Present in the file but we don't need it
+    characters: String,
 }
 
 // Build the map from entity names (and their prefixes) to characters.
-fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
+fn build_map(js: Json) -> Option<HashMap<String, (String, u8)>> {
     let mut map = HashMap::new();
     let json_map = match js {
         json::Object(m) => m,
@@ -41,28 +41,28 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     // Add every named entity to the map.
     for (k,v) in json_map.into_iter() {
         let mut decoder = json::Decoder::new(v);
-        let CharRef { codepoints }: CharRef
+        let CharRef { characters }: CharRef
             = Decodable::decode(&mut decoder).ok().expect("bad CharRef");
 
-        assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
-        let mut codepoint_pair = [0, 0];
-        for (i,n) in codepoints.into_iter().enumerate() {
-            codepoint_pair[i] = n;
-        }
+        let num_chars = characters.as_slice().chars().count();
 
         // Slice off the initial '&'
         assert!(k.as_slice().char_at(0) == '&');
-        map.insert(k.as_slice().slice_from(1).to_string(), codepoint_pair);
+        map.insert(k.as_slice().slice_from(1).to_string(), (characters, num_chars.to_u8().unwrap()));
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.
-    map.insert("".to_string(), [0, 0]);
-    let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
+    map.insert("".to_string(), ("".to_string(), 0));
+    let keys: Vec<String> =
+        map.keys()
+           .map(|k| k.to_string())
+           .collect();
     for k in keys.into_iter() {
         for n in range(1, k.len()) {
             let pfx = k.as_slice().slice_to(n).to_string();
+
             if !map.contains_key(&pfx) {
-                map.insert(pfx, [0, 0]);
+                map.insert(pfx, ("".to_string(), 0));
             }
         }
     }
@@ -111,10 +111,10 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     //
     //     phf_map!(k => v, k => v, ...)
     let mut toks: Vec<TokenTree> = vec!();
-    for (k, c) in map.into_iter() {
+    for (k, (v, len)) in map.into_iter() {
         let k = k.as_slice();
-        let [c0, c1] = c;
-        toks.extend(quote_tokens!(&mut *cx, $k => [$c0, $c1],).into_iter());
+        let v = v.as_slice();
+        toks.extend(quote_tokens!(&mut *cx, $k => ($v, $len),).into_iter());
     }
     MacExpr::new(quote_expr!(&mut *cx, phf_map!($toks)))
 }

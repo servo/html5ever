@@ -11,8 +11,10 @@
 
 use core::prelude::*;
 
-use for_c::common::{LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
+use for_c::common::{h5e_buf, h5e_bufset, c_bool};
+use for_c::common::{LifetimeBuf, AsLifetimeBuf, LifetimeBufSet, AsLifetimeBufSet};
 
+use util::span::Span;
 use tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
 use tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
 use tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
@@ -20,21 +22,24 @@ use tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
 use core::mem;
 use core::default::Default;
 use alloc::boxed::Box;
-use collections::String;
 use libc::{c_void, c_int, size_t};
+
+use iobuf::ROIobuf;
+
+use string_cache::Atom;
 
 #[repr(C)]
 pub struct h5e_token_ops {
     do_doctype: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
-        public: h5e_buf, system: h5e_buf, force_quirks: c_int)>,
+        public: h5e_bufset, system: h5e_bufset, force_quirks: c_int)>,
 
     do_start_tag: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
         self_closing: c_int, num_attrs: size_t)>,
 
-    do_tag_attr:      Option<extern "C" fn(user: *mut c_void, name: h5e_buf, value: h5e_buf)>,
+    do_tag_attr:      Option<extern "C" fn(user: *mut c_void, name: h5e_buf, value: h5e_bufset)>,
     do_end_tag:       Option<extern "C" fn(user: *mut c_void, name: h5e_buf)>,
-    do_comment:       Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
-    do_chars:         Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
+    do_comment:       Option<extern "C" fn(user: *mut c_void, text: h5e_bufset)>,
+    do_chars:         Option<extern "C" fn(user: *mut c_void, text: h5e_bufset)>,
     do_null_char:     Option<extern "C" fn(user: *mut c_void)>,
     do_eof:           Option<extern "C" fn(user: *mut c_void)>,
     do_error:         Option<extern "C" fn(user: *mut c_void, message: h5e_buf)>,
@@ -57,7 +62,14 @@ impl TokenSink for *mut h5e_token_sink {
             }
         ))
 
-        fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
+        fn opt_span_to_bufset<'a>(s: &'a Option<Span>) -> LifetimeBufSet<'a> {
+            match *s {
+                None => LifetimeBufSet::null(),
+                Some(ref s) => s.as_lifetime_bufset(),
+            }
+        }
+
+        fn opt_atom_to_buf<'a>(s: &'a Option<Atom>) -> LifetimeBuf<'a> {
             match *s {
                 None => LifetimeBuf::null(),
                 Some(ref s) => s.as_lifetime_buf(),
@@ -66,9 +78,9 @@ impl TokenSink for *mut h5e_token_sink {
 
         match token {
             DoctypeToken(Doctype { name, public_id, system_id, force_quirks }) => {
-                let name = opt_str_to_buf(&name);
-                let public_id = opt_str_to_buf(&public_id);
-                let system_id = opt_str_to_buf(&system_id);
+                let name = opt_atom_to_buf(&name);
+                let public_id = opt_span_to_bufset(&public_id);
+                let system_id = opt_span_to_bufset(&system_id);
                 call!(do_doctype, name.get(), public_id.get(), system_id.get(),
                     c_bool(force_quirks));
             }
@@ -83,7 +95,7 @@ impl TokenSink for *mut h5e_token_sink {
                             // All attribute names from the tokenizer are local.
                             assert!(attr.name.ns == ns!(""));
                             let name = attr.name.local.as_lifetime_buf();
-                            let value = attr.value.as_lifetime_buf();
+                            let value = attr.value.as_lifetime_bufset();
                             call!(do_tag_attr, name.get(), value.get());
                         }
                     }
@@ -92,12 +104,12 @@ impl TokenSink for *mut h5e_token_sink {
             }
 
             CommentToken(text) => {
-                let text = text.as_lifetime_buf();
+                let text = text.as_lifetime_bufset();
                 call!(do_comment, text.get());
             }
 
             CharacterTokens(text) => {
-                let text = text.as_lifetime_buf();
+                let text = text.as_lifetime_bufset();
                 call!(do_chars, text.get());
             }
 
@@ -131,7 +143,9 @@ pub unsafe extern "C" fn h5e_tokenizer_free(tok: h5e_tokenizer_ptr) {
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_feed(tok: h5e_tokenizer_ptr, buf: h5e_buf) {
     let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
-    tok.feed(String::from_str(buf.as_slice()));
+    // TODO(cgaebel): Allow C to create and fill Iobufs, to actually be zero-copy,
+    // instead of just being "zero-copy iff we're called from rust code".
+    tok.feed(ROIobuf::from_str_copy(buf.as_slice()));
 }
 
 #[no_mangle]

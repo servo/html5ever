@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, phase, globs)]
+#![feature(macro_rules, phase, globs, unsafe_destructor)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
@@ -37,6 +37,8 @@ extern crate collections;
 #[phase(plugin, link)]
 extern crate log;
 
+extern crate iobuf;
+
 #[phase(plugin)]
 extern crate phf_mac;
 
@@ -57,11 +59,17 @@ pub use driver::{one_input, ParseOpts, parse_to, parse};
 #[cfg(not(for_c))]
 pub use serialize::serialize;
 
+pub use iobuf::{BufSpan, Iobuf, ROIobuf};
+pub use util::span::{Span, ValidatedSpanUtils};
+
 mod macros;
 
 mod util {
     #![macro_escape]
 
+    pub mod fast_option;
+    pub mod single_char;
+    pub mod span;
     pub mod str;
     pub mod smallcharset;
 }

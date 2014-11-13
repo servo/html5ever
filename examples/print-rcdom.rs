@@ -20,9 +20,19 @@ use std::string::String;
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
-use html5ever::{parse, one_input};
+use html5ever::{ROIobuf, Span, ValidatedSpanUtils, parse, one_input};
 
 // This is not proper HTML serialization, of course.
+
+fn escape(span: &Span) -> String {
+    let mut ret = String::new();
+
+    for c in span.iter_chars() {
+        ret.extend(Char::escape_default(c));
+    }
+
+    ret
+}
 
 fn walk(indent: uint, handle: Handle) {
     let node = handle.borrow();
@@ -36,10 +46,10 @@ fn walk(indent: uint, handle: Handle) {
             => println!("<!DOCTYPE {} \"{}\" \"{}\">", *name, *public, *system),
 
         Text(ref text)
-            => println!("#text: {}", text.escape_default()),
+            => println!("#text: {}", escape(text)),
 
         Comment(ref text)
-            => println!("<!-- {} -->", text.escape_default()),
+            => println!("<!-- {} -->", escape(text)),
 
         Element(ref name, ref attrs) => {
             assert!(name.ns == ns!(html));
@@ -59,7 +69,7 @@ fn walk(indent: uint, handle: Handle) {
 
 fn main() {
     let input = io::stdin().read_to_string().unwrap();
-    let dom: RcDom = parse(one_input(input), Default::default());
+    let dom: RcDom = parse(one_input(ROIobuf::from_str_copy(input.as_slice())), Default::default());
     walk(0, dom.document);
 
     if !dom.errors.is_empty() {

@@ -22,7 +22,8 @@ use tree_builder::rules::TreeBuilderStep;
 use tokenizer::{Attribute, Tag};
 use tokenizer::states::{RawData, RawKind};
 
-use util::str::AsciiExt;
+use util::span::Span;
+use util::str::AsciiCast;
 
 #[cfg(not(for_c))]
 use util::str::to_escaped_string;
@@ -32,12 +33,35 @@ use core::iter::{Rev, Enumerate};
 use core::slice;
 use core::fmt::Show;
 use collections::vec::Vec;
-use collections::string::String;
 use collections::str::Slice;
 
 use string_cache::{Atom, QualName};
 
 pub use self::PushFlag::*;
+
+/// NB: the slice must be of all lowercase letters; they won't be lowered for you.
+fn byte_equal_lowercase(span: &Span, slice: &[u8]) -> bool {
+    span.count_bytes_cmp(slice.len()) == Ordering::Equal
+    && span.iter_bytes().zip(slice.iter()).all(
+        |(a, b)| match (a.to_ascii_opt(), b) {
+            (Some(a), &b) => a.to_lowercase().to_u8() == b,
+            _ => false,
+            })
+}
+
+#[test]
+fn test_byte_equal_lowercase() {
+    fn span(s: &'static str) -> Span {
+        use iobuf::{BufSpan, ROIobuf};
+        BufSpan::from_buf(ROIobuf::from_str(s))
+    }
+    assert!(byte_equal_lowercase(&span("hello, world"), b"hello, world"));
+    assert!(byte_equal_lowercase(&span("HeLlO, WoRlD"), b"hello, world"));
+    assert!(!byte_equal_lowercase(&span("HelLO world"), b"hello, world"));
+    assert!(byte_equal_lowercase(&span(""), b""));
+    assert!(!byte_equal_lowercase(&span(""), b"a"));
+    assert!(!byte_equal_lowercase(&span("a"), b""));
+}
 
 pub struct ActiveFormattingIter<'a, Handle: 'a> {
     iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
@@ -63,10 +87,10 @@ pub trait TreeBuilderActions<Handle> {
     fn assert_named(&mut self, node: Handle, name: Atom);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
-    fn append_text(&mut self, text: String) -> ProcessResult;
-    fn append_comment(&mut self, text: String) -> ProcessResult;
-    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
-    fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
+    fn append_text(&mut self, text: Span) -> ProcessResult;
+    fn append_comment(&mut self, text: Span) -> ProcessResult;
+    fn append_comment_to_doc(&mut self, text: Span) -> ProcessResult;
+    fn append_comment_to_html(&mut self, text: Span) -> ProcessResult;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
@@ -376,7 +400,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
     fn is_type_hidden(&self, tag: &Tag) -> bool {
         match tag.attrs.iter().find(|&at| at.name == qualname!("", "type")) {
             None => false,
-            Some(at) => at.value.as_slice().eq_ignore_ascii_case("hidden"),
+            Some(at) => byte_equal_lowercase(&at.value, b"hidden"),
         }
     }
 
@@ -444,25 +468,25 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         }
     }
 
-    fn append_text(&mut self, text: String) -> ProcessResult {
+    fn append_text(&mut self, text: Span) -> ProcessResult {
         self.insert_appropriately(AppendText(text));
         Done
     }
 
-    fn append_comment(&mut self, text: String) -> ProcessResult {
+    fn append_comment(&mut self, text: Span) -> ProcessResult {
         let comment = self.sink.create_comment(text);
         self.insert_appropriately(AppendNode(comment));
         Done
     }
 
-    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult {
+    fn append_comment_to_doc(&mut self, text: Span) -> ProcessResult {
         let target = self.doc_handle.clone();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
     }
 
-    fn append_comment_to_html(&mut self, text: String) -> ProcessResult {
+    fn append_comment_to_html(&mut self, text: Span) -> ProcessResult {
         let target = self.html_elem();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
