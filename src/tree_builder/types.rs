@@ -15,6 +15,12 @@ use tokenizer::Tag;
 
 use collections::string::String;
 
+pub use self::InsertionMode::*;
+pub use self::SplitStatus::*;
+pub use self::Token::*;
+pub use self::ProcessResult::*;
+pub use self::FormatEntry::*;
+
 #[deriving(PartialEq, Eq, Clone, Show)]
 pub enum InsertionMode {
     Initial,

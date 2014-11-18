@@ -20,6 +20,9 @@ use collections::str::MaybeOwned;
 
 use string_cache::QualName;
 
+pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
+pub use self::NodeOrText::{AppendNode, AppendText};
+
 /// A document's quirks mode.
 #[deriving(PartialEq, Eq, Clone, Hash, Show)]
 pub enum QuirksMode {

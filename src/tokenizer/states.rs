@@ -14,6 +14,12 @@
 
 use core::prelude::*;
 
+pub use self::ScriptEscapeKind::*;
+pub use self::DoctypeIdKind::*;
+pub use self::RawKind::*;
+pub use self::AttrValueKind::*;
+pub use self::State::*;
+
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Show)]
 pub enum ScriptEscapeKind {
     Escaped,

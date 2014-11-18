@@ -52,6 +52,8 @@ extern crate html5ever_macros;
 extern crate native;
 
 extern crate phf;
+
+#[allow(deprecated)]
 extern crate time;
 
 pub use tokenizer::Attribute;

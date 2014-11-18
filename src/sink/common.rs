@@ -13,6 +13,8 @@ use collections::vec::Vec;
 use collections::string::String;
 use string_cache::QualName;
 
+pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
+
 /// The different kinds of nodes in the DOM.
 #[deriving(Show)]
 pub enum NodeEnum {
@@ -31,4 +33,3 @@ pub enum NodeEnum {
     /// An element with attributes.
     Element(QualName, Vec<Attribute>),
 }
-

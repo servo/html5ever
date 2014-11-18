@@ -17,6 +17,9 @@ use core::char::{to_digit, from_u32};
 use collections::str::Slice;
 use collections::string::String;
 
+pub use self::Status::*;
+use self::State::*;
+
 mod data;
 
 //§ tokenizing-character-references
@@ -246,7 +249,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
     fn do_named(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
-        match data::NAMED_ENTITIES.find_equiv(self.name_buf().as_slice()) {
+        match data::NAMED_ENTITIES.get_equiv(self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
                 if m[0] != 0 {

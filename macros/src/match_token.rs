@@ -108,6 +108,10 @@ use syntax::parse::{token, parser, classify};
 use syntax::parse;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 
+use self::TagKind::{StartTag, EndTag};
+use self::LHS::{Pat, Tags};
+use self::RHS::{Else, Expr};
+
 type Tokens = Vec<ast::TokenTree>;
 
 type TagName = ast::Ident;

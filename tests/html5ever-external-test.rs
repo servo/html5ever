@@ -20,7 +20,7 @@ extern crate string_cache;
 extern crate html5ever;
 
 use std::{io, os};
-use std::from_str::FromStr;
+use std::str::FromStr;
 use std::collections::HashSet;
 use test::test_main;
 

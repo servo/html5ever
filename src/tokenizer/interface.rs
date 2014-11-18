@@ -18,6 +18,10 @@ use collections::str::MaybeOwned;
 
 use string_cache::{Atom, QualName};
 
+pub use self::TagKind::{StartTag, EndTag};
+pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
+pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
+
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
 #[deriving(PartialEq, Eq, Clone, Show)]

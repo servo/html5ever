@@ -16,6 +16,8 @@ use core::str::CharRange;
 use collections::string::String;
 use collections::RingBuf;
 
+pub use self::SetResult::{FromSet, NotFromSet};
+
 struct Buffer {
     /// Byte position within the buffer.
     pub pos: uint,

@@ -19,7 +19,7 @@ use core::fmt::Show;
 
 #[cfg(not(for_c))]
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
-    use std::to_string::ToString;
+    use std::string::ToString;
     use collections::str::StrAllocating;
 
     // FIXME: don't allocate twice
