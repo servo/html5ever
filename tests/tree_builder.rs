@@ -129,11 +129,11 @@ fn make_test(
         fields: HashMap<String, String>) {
 
     let get_field = |key| {
-        let field = fields.find_equiv(key).expect("missing field");
+        let field = fields.get(key).expect("missing field");
         field.as_slice().trim_right_chars('\n').to_string()
     };
 
-    if fields.find_equiv("document-fragment").is_some() {
+    if fields.get("document-fragment").is_some() {
         // FIXME
         return;
     }

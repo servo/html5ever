@@ -15,7 +15,7 @@ pub fn foreach_html5lib_test(
         subdir: &'static str,
         ext: &'static str,
         mk: |path_str: &str, file: io::File|) {
-    let test_dir_path = src_dir.join_many(["html5lib-tests", subdir]);
+    let test_dir_path = src_dir.join_many(&["html5lib-tests", subdir]);
     let test_files = io::fs::readdir(&test_dir_path).unwrap();
     for path in test_files.into_iter() {
         let path_str = path.filename_str().unwrap();
