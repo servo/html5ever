@@ -96,7 +96,7 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
             name: DynTestName([
                 "tokenize ".to_string(),
                 name.to_string(),
-                size.map_or("".to_string(), |s| format!(" size {:7u}", s)),
+                size.map_or("".to_string(), |s| format!(" size {:7}", s)),
                 (if clone_only { " (clone only)" } else { "" }).to_string(),
                 (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
             ].concat().to_string()),
@@ -132,7 +132,7 @@ pub fn tests() -> MoveItems<TestDescAndFn> {
         if os::getenv("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
             for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
-                let name = format!("uncommitted/{:s}", file);
+                let name = format!("uncommitted/{}", file);
                 tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
             }
         }

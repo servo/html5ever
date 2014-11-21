@@ -249,7 +249,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
     fn do_named(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
-        match data::NAMED_ENTITIES.get_equiv(self.name_buf().as_slice()) {
+        match data::NAMED_ENTITIES.get(self.name_buf().as_slice()) {
             // We have either a full match or a prefix of one.
             Some(m) => {
                 if m[0] != 0 {
@@ -269,7 +269,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
     fn emit_name_error(&mut self, tokenizer: &mut Tokenizer<Sink>) {
         let msg = format_if!(tokenizer.opts.exact_errors,
             "Invalid character reference",
-            "Invalid character reference &{:s}", self.name_buf().as_slice());
+            "Invalid character reference &{}", self.name_buf().as_slice());
         tokenizer.emit_error(msg);
     }
 

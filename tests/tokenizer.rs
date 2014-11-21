@@ -317,7 +317,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").unwrap().get_str();
     let mut expect = js.find("output").unwrap().clone();
-    let desc = format!("tok: {:s}: {:s}",
+    let desc = format!("tok: {}: {}",
         path_str, js.find("description").unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -354,11 +354,11 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {
-                Some(s) => newdesc = format!("{:s} (in state {})", newdesc, s),
+                Some(s) => newdesc = format!("{} (in state {})", newdesc, s),
                 None  => (),
             };
             if exact_errors {
-                newdesc = format!("{:s} (exact errors)", newdesc);
+                newdesc = format!("{} (exact errors)", newdesc);
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
