@@ -1252,12 +1252,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         let total = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");
-        println!("\n{:12u}         total in token sink", self.time_in_sink);
-        println!("\n{:12u}         total in tokenizer", total);
+        println!("\n{:12}         total in token sink", self.time_in_sink);
+        println!("\n{:12}         total in tokenizer", total);
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            println!("{:12u}  {:4.1f}%  {}", v, pct, k);
+            println!("{:12}  {:4.1}%  {}", v, pct, k);
         }
     }
 
