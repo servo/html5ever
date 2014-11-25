@@ -12,9 +12,7 @@ VPATH := %VPATH%
 RUSTC ?= rustc
 RUST_DIRS := -L $(VPATH)/target -L $(VPATH)/target/deps
 
-TIME_LIB := $(shell find $(VPATH)/target/deps -name 'libtime-*.rlib')
-
-RUSTC_CMD := $(RUSTC) -D warnings -C rpath $(RUST_DIRS) --extern time=$(TIME_LIB) $(RUSTFLAGS)
+RUSTC_CMD := $(RUSTC) -D warnings -C rpath $(RUST_DIRS) --extern time=`find $(VPATH)/target/deps -name 'libtime-*.rlib'` $(RUSTFLAGS)
 
 # We build the library itself using Cargo.
 CARGO_SOURCES := $(shell find $(VPATH)/src $(VPATH)/macros/src -type f -name '*.rs')
