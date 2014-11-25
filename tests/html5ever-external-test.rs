@@ -28,6 +28,8 @@ mod tokenizer;
 mod tree_builder;
 mod util;
 
+// Needed to make `cargo test` run warning-free.
+#[allow(dead_code)]
 fn main() {
     let src_dir: Path = FromStr::from_str(
         os::getenv("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set").as_slice()
