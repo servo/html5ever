@@ -11,7 +11,6 @@ use core::prelude::*;
 
 use core::str::CharEq;
 use collections::vec::Vec;
-use collections::string;
 use collections::string::String;
 
 #[cfg(not(for_c))]
@@ -145,7 +144,7 @@ impl<'a> AsciiExt<String> for &'a str {
     #[inline]
     fn to_ascii_lower(&self) -> String {
         // Vec<u8>::to_ascii_lower() preserves the UTF-8 invariant.
-        unsafe { string::raw::from_utf8(self.as_bytes().to_ascii_lower()) }
+        unsafe { String::from_utf8_unchecked(self.as_bytes().to_ascii_lower()) }
     }
 
     #[inline]
@@ -198,7 +197,7 @@ pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)>
 
     for (idx, ch) in rest.char_indices() {
         if matches != pred.matches(ch) {
-            return Some((idx + first.len_utf8_bytes(), matches));
+            return Some((idx + first.len_utf8(), matches));
         }
     }
     Some((buf.len(), matches))

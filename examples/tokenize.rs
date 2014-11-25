@@ -11,7 +11,6 @@
 extern crate html5ever;
 
 use std::io;
-use std::char;
 use std::default::Default;
 
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
@@ -34,7 +33,9 @@ impl TokenPrinter {
 
     fn do_char(&mut self, c: char) {
         self.is_char(true);
-        char::escape_default(c, |d| print!("{}", d));
+        for d in Char::escape_default(c) {
+            print!("{}", d);
+        }
     }
 }
 

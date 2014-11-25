@@ -13,7 +13,7 @@ use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
 
-use core::char::{to_digit, from_u32};
+use core::char::from_u32;
 use collections::str::Slice;
 use collections::string::String;
 
@@ -170,7 +170,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
 
     fn do_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match to_digit(c, base as uint) {
+        match Char::to_digit(c, base as uint) {
             Some(n) => {
                 tokenizer.discard_char();
                 self.num *= base;

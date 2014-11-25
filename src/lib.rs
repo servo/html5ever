@@ -47,10 +47,6 @@ extern crate string_cache;
 #[phase(plugin)]
 extern crate html5ever_macros;
 
-// Need #[start] for the test runner.
-#[cfg(test)]
-extern crate native;
-
 extern crate phf;
 
 extern crate time;

@@ -9,8 +9,8 @@
 
 use core::prelude::*;
 
-use core::slice::raw::buf_as_slice;
-use core::str::raw::from_utf8;
+use core::slice;
+use core::str;
 use core::kinds::marker::ContravariantLifetime;
 use collections::str::MaybeOwned;
 use collections::string::String;
@@ -33,9 +33,8 @@ impl h5e_buf {
         }
     }
 
-    pub unsafe fn with_slice<R>(&self, f: |&str| -> R) -> R {
-        buf_as_slice(self.data, self.len as uint,
-            |bytes| f(from_utf8(bytes)))
+    pub unsafe fn as_slice(&self) -> &str {
+        str::from_utf8_unchecked(slice::from_raw_buf(&self.data, self.len as uint))
     }
 }
 

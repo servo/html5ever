@@ -131,7 +131,7 @@ pub unsafe extern "C" fn h5e_tokenizer_free(tok: h5e_tokenizer_ptr) {
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_feed(tok: h5e_tokenizer_ptr, buf: h5e_buf) {
     let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
-    tok.feed(buf.with_slice(|s| String::from_str(s)));
+    tok.feed(String::from_str(buf.as_slice()));
 }
 
 #[no_mangle]

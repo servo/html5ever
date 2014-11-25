@@ -27,7 +27,7 @@ pub fn one_input(x: String) -> option::Item<String> {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```ignore
 /// let mut sink = MySink;
 /// tokenize_to(&mut sink, one_input(my_str), Default::default());
 /// ```
@@ -61,7 +61,7 @@ pub struct ParseOpts {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```ignore
 /// let mut sink = MySink;
 /// parse_to(&mut sink, one_input(my_str), Default::default());
 /// ```
@@ -95,7 +95,7 @@ pub trait ParseResult<Sink> {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```ignore
 /// let dom: RcDom = parse(one_input(my_str), Default::default());
 /// ```
 pub fn parse<

@@ -4,18 +4,15 @@ name = "html5ever"
 version = "0.0.0"
 authors = [ "The html5ever Project Developers" ]
 
-[dependencies.phf]
-git = "https://github.com/sfackler/rust-phf"
-[dependencies.phf_mac]
-git = "https://github.com/sfackler/rust-phf"
+[dependencies]
+phf = "0"
+phf_mac = "0"
+time = "0"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"
 [dependencies.string_cache_macros]
 git = "https://github.com/servo/string-cache"
-
-[dependencies.time]
-git = "https://github.com/rust-lang/time"
 
 [dependencies.html5ever_macros]
 path = "macros"
