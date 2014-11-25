@@ -59,7 +59,6 @@ impl PaddedIobuf {
 
 #[test]
 fn test_iobuf_padded_size() {
-    assert_eq!(mem::size_of::<ROIobuf<'static>>(), 24);
     assert_eq!(mem::size_of::<PaddedIobuf>(), 32);
 }
 
