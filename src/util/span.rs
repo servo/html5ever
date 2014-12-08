@@ -17,7 +17,17 @@ pub enum MaybeOwnedBytes<'a> {
     Owned(String),
 }
 
-pub type Span = BufSpan<ROIobuf<'static>>;
+/// The core type of a buffer passed into `feed`. `Buf`s are guaranteed not to
+/// slice a utf-8 char in the middle. See the `iobuf` crate docs for more details
+/// on using `Buf`.
+pub type Buf = ROIobuf<'static>;
+
+/// Conceptually, just a `Vec<Buf>`. If there were two buffers passed into
+/// `feed`: [ "<body>hel", "lo, world!</body>" ], then the text of the body tag
+/// must _span_ over multiple buffers. This allows us to concatenate strings
+/// without copying the underlying buffers. See the `iobuf` crate docs for more
+/// details on using `Span` (it's called `BufSpan` there).
+pub type Span = BufSpan<Buf>;
 
 /// Functions that are safe because all Spans in html5ever are valid utf-8.
 pub trait ValidatedSpanUtils {
@@ -55,7 +65,7 @@ impl ValidatedSpanUtils for Span {
     }
 
     fn slice_from(self, mut from: u32) -> Span {
-        let mut bufs: RingBuf<ROIobuf<'static>> = self.into_iter().collect();
+        let mut bufs: RingBuf<Buf> = self.into_iter().collect();
         while from > 0 {
             let needs_pop =
                 match bufs.front_mut() {

@@ -11,7 +11,7 @@
 
 use core::prelude::*;
 
-pub use util::span::{Span, ValidatedSpanUtils};
+pub use util::span::{Buf, Span, ValidatedSpanUtils};
 
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
@@ -109,7 +109,7 @@ impl Default for TokenizerOpts {
 /// except via get_char and pop_except_from.
 struct Shared {
     c: FastOption<SingleChar>,
-    r: FastOption<ROIobuf<'static>>,
+    r: FastOption<Buf>,
 }
 
 pub struct Tokenizer<Sink> {
@@ -141,7 +141,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: ROIobuf<'static>) {
+    pub fn feed(&mut self, input: Buf) {
         self.inner.feed(input, &mut self.shared)
     }
 
@@ -198,9 +198,9 @@ struct TokenizerInner<Sink> {
     current_comment: Span,
 
     /// The buffer representing the first '-' that's ending a comment.
-    first_comment_end_dash:  Option<ROIobuf<'static>>,
+    first_comment_end_dash:  Option<Buf>,
     /// The buffer representing the second '-' that's ending a comment.
-    second_comment_end_dash: Option<ROIobuf<'static>>,
+    second_comment_end_dash: Option<Buf>,
 
     /// Another "temporary buffer" not mentioned in the spec. This is used for
     /// when we drop into states that we might soon drop out of, and lets us
@@ -280,7 +280,7 @@ impl<Sink: TokenSink> TokenizerInner<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    fn feed(&mut self, mut input: ROIobuf<'static>, shared: &mut Shared) {
+    fn feed(&mut self, mut input: Buf, shared: &mut Shared) {
         if input.len() == 0 {
             return;
         }
@@ -443,7 +443,7 @@ impl<Sink: TokenSink> TokenizerInner<Sink> {
     /// be filled. The left hand side of the tuple refers to char_dst, and the right
     /// hand side refers to `run_dst`.
     #[inline(always)]
-    fn pop_except_from(&mut self, set: SmallCharSet, char_dst: &mut FastOption<SingleChar>, run_dst: &mut FastOption<ROIobuf<'static>>) -> (OptValue, OptValue) {
+    fn pop_except_from(&mut self, set: SmallCharSet, char_dst: &mut FastOption<SingleChar>, run_dst: &mut FastOption<Buf>) -> (OptValue, OptValue) {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
@@ -543,7 +543,7 @@ impl<Sink: TokenSink> TokenizerInner<Sink> {
     }
 
     #[inline]
-    fn emit_buf(&mut self, buf: ROIobuf<'static>) {
+    fn emit_buf(&mut self, buf: Buf) {
         self.process_token(CharacterTokens(BufSpan::from_buf(buf)));
     }
 

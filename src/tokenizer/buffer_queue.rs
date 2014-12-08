@@ -12,7 +12,7 @@ use core::prelude::*;
 use util::fast_option::{Uninit, Full, FastOption, OptValue};
 use util::single_char::SingleChar;
 use util::smallcharset::SmallCharSet;
-use util::span::Span;
+use util::span::{Buf, Span};
 use util::str::Ascii;
 
 use core::mem;
@@ -176,7 +176,7 @@ impl BufferQueue {
     /// is represented as a bitmask and so can only contain the first 64
     /// ASCII characters.
     #[inline(always)]
-    pub fn pop_except_from(&mut self, set: SmallCharSet, char_dst: &mut FastOption<SingleChar>, run_dst: &mut FastOption<ROIobuf<'static>>) -> (OptValue, OptValue) {
+    pub fn pop_except_from(&mut self, set: SmallCharSet, char_dst: &mut FastOption<SingleChar>, run_dst: &mut FastOption<Buf>) -> (OptValue, OptValue) {
         // Load the front buffer into run_dst.
         match self.buffers.front() {
             None => return (Uninit, Uninit),

@@ -17,10 +17,10 @@ use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 use core::default::Default;
 use core::option;
 
-use iobuf::ROIobuf;
+use util::span::Buf;
 
 /// Convenience function to turn a single `String` into an iterator.
-pub fn one_input(x: ROIobuf<'static>) -> option::Item<ROIobuf<'static>> {
+pub fn one_input(x: Buf) -> option::Item<Buf> {
     Some(x).into_iter()
 }
 
@@ -34,7 +34,7 @@ pub fn one_input(x: ROIobuf<'static>) -> option::Item<ROIobuf<'static>> {
 /// ```
 pub fn tokenize_to<
         Sink: TokenSink,
-        It: Iterator<ROIobuf<'static>>
+        It: Iterator<Buf>
     >(
         sink: Sink,
         mut input: It,
@@ -69,7 +69,7 @@ pub struct ParseOpts {
 pub fn parse_to<
         Handle: Clone,
         Sink: TreeSink<Handle>,
-        It: Iterator<ROIobuf<'static>>
+        It: Iterator<Buf>
     >(
         sink: Sink,
         mut input: It,
@@ -103,7 +103,7 @@ pub fn parse<
         Handle: Clone,
         Sink: Default + TreeSink<Handle>,
         Output: ParseResult<Sink>,
-        It: Iterator<ROIobuf<'static>>
+        It: Iterator<Buf>
     >(
         input: It,
         opts: ParseOpts) -> Output {

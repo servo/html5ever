@@ -60,7 +60,7 @@ pub use driver::{one_input, ParseOpts, parse_to, parse};
 pub use serialize::serialize;
 
 pub use iobuf::{BufSpan, Iobuf, ROIobuf};
-pub use util::span::{Span, ValidatedSpanUtils};
+pub use util::span::{Buf, Span, ValidatedSpanUtils};
 
 mod macros;
 
