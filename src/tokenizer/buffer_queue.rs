@@ -19,58 +19,17 @@ use core::mem;
 use core::str;
 use collections::RingBuf;
 
-use iobuf::{BufSpan, Iobuf, ROIobuf};
-
-#[allow(dead_code)]
-struct PaddedIobuf {
-    buf: ROIobuf<'static>,
-    #[cfg(target_word_size = "64")]
-    pad: u8,
-    #[cfg(target_word_size = "32")]
-    pad: [u8, ..12],
-}
-
-impl PaddedIobuf {
-    #[inline(always)]
-    fn new(buf: ROIobuf<'static>) -> PaddedIobuf {
-        unsafe {
-            PaddedIobuf {
-                buf: buf,
-                pad: mem::uninitialized(),
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn as_ref(&self) -> &ROIobuf<'static> {
-        &self.buf
-    }
-
-    #[inline(always)]
-    fn as_mut(&mut self) -> &mut ROIobuf<'static> {
-        &mut self.buf
-    }
-
-    #[inline(always)]
-    fn unwrap(self) -> ROIobuf<'static> {
-        self.buf
-    }
-}
-
-#[test]
-fn test_iobuf_padded_size() {
-    assert_eq!(mem::size_of::<PaddedIobuf>(), 32);
-}
+use iobuf::{BufSpan, Iobuf};
 
 /// A queue of owned string buffers, which supports incrementally
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    buffers: RingBuf<PaddedIobuf>,
+    buffers: RingBuf<Buf>,
 }
 
 #[inline]
-fn first_char_len_of_buf(buf: &ROIobuf<'static>) -> u32 {
+fn first_char_len_of_buf(buf: &Buf) -> u32 {
     unsafe {
         let first_byte: u8 = buf.unsafe_peek_be(0);
         if first_byte < 0x80 { 1 } else { str::utf8_char_width(first_byte) as u32 }
@@ -89,22 +48,22 @@ impl BufferQueue {
     ///
     /// Only push buffers that have been utf-8 validated. If the buffer _came_
     /// from the buffer queue, it's already been validated.
-    pub fn push_front(&mut self, buf: ROIobuf<'static>) {
+    pub fn push_front(&mut self, buf: Buf) {
         if buf.is_empty() { return; }
 
-        self.buffers.push_front(PaddedIobuf::new(buf));
+        self.buffers.push_front(buf);
     }
 
     /// Add a buffer to the end of the queue.
     /// The buffer will be validated as utf-8, panicing if it isn't.
-    pub fn push_back(&mut self, buf: ROIobuf<'static>) {
+    pub fn push_back(&mut self, buf: Buf) {
         if buf.is_empty() { return; }
 
         if unsafe { !str::is_utf8(buf.as_window_slice()) } {
             panic!("Invalid utf-8 passed to html5ever: {}", buf);
         }
 
-        self.buffers.push_back(PaddedIobuf::new(buf));
+        self.buffers.push_back(buf);
     }
 
     /// Look at the next available character, if any.
@@ -112,7 +71,6 @@ impl BufferQueue {
         match self.buffers.front() {
             None => Uninit,
             Some(buf) => unsafe {
-                let buf = buf.as_ref();
                 let len = first_char_len_of_buf(buf);
                 let mut ret_buf = (*buf).clone();
                 ret_buf.unsafe_resize(len);
@@ -128,7 +86,6 @@ impl BufferQueue {
             match self.buffers.front_mut() {
                 None => return Uninit,
                 Some(front_buf) => unsafe {
-                    let front_buf = front_buf.as_mut();
                     let len = first_char_len_of_buf(front_buf);
                     let will_be_empty = front_buf.len() == len;
                     if dst.is_filled() {
@@ -156,11 +113,10 @@ impl BufferQueue {
             match self.buffers.front_mut() {
                 None => return None,
                 Some(buf) => unsafe {
-                    let front_buf = buf.as_mut();
-                    let s: &str = mem::transmute(front_buf.as_window_slice());
+                    let s: &str = mem::transmute(buf.as_window_slice());
                     let str::CharRange { ch, next } = s.char_range_at(0);
-                    front_buf.unsafe_advance(next as u32);
-                    (front_buf.is_empty(), ch)
+                    buf.unsafe_advance(next as u32);
+                    (buf.is_empty(), ch)
                 }
             };
 
@@ -181,7 +137,6 @@ impl BufferQueue {
         match self.buffers.front() {
             None => return (Uninit, Uninit),
             Some(buf) => {
-                let buf = buf.as_ref();
                 // If the old run_dst is the same as the current buffer, just copy
                 // in the new limits and bounds.
                 if run_dst.is_filled() {
@@ -204,7 +159,7 @@ impl BufferQueue {
                 front_buf.unsafe_resize(n);
                 match self.buffers.front_mut() {
                     None      => {},
-                    Some(buf) => buf.as_mut().unsafe_advance(n),
+                    Some(buf) => buf.unsafe_advance(n),
                 };
                 (Uninit, Full)
             }
@@ -229,7 +184,7 @@ impl BufferQueue {
 
             for &c in pat.iter() {
                 let buflen = {
-                    let buf = unwrap_or_return!(buffers.peek(), None).as_ref();
+                    let buf = unwrap_or_return!(buffers.peek(), None);
 
                     match Ascii::new(buf.peek_be(consumed_from_last).unwrap()) {
                         Some(d) if c == d.to_lowercase().to_u8() => (),
@@ -253,13 +208,12 @@ impl BufferQueue {
 
         // We have a match. Commit changes to the BufferQueue.
         for _ in range(0, buffers_exhausted) {
-            ret.push(self.buffers.pop_front().unwrap().unwrap());
+            ret.push(self.buffers.pop_front().unwrap());
         }
 
         match self.buffers.front_mut() {
             None => assert_eq!(consumed_from_last, 0),
             Some(buf) => unsafe {
-                let buf = buf.as_mut();
                 let (begin, end) = buf.unsafe_split_at(consumed_from_last);
                 *buf = end;
                 ret.push(begin);

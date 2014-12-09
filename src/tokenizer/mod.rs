@@ -623,10 +623,12 @@ impl<Sink: TokenSink> TokenizerInner<Sink> {
         self.replace_another_temp_buf_span(BufSpan::new());
     }
 
+    #[inline]
     fn replace_another_temp_buf(&mut self, c: SingleChar) {
         self.replace_another_temp_buf_span(c.into_span());
     }
 
+    #[inline]
     fn replace_another_temp_buf_span(&mut self, s: Span) {
         self.another_temp_buf = s;
     }
