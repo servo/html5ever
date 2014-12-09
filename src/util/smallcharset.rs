@@ -26,7 +26,7 @@ impl SmallCharSet {
     /// Count the number of bytes of characters at the beginning
     /// of `buf` which are not in the set.
     /// See `tokenizer::buffer_queue::pop_except_from`.
-    #[inline(never)]
+    #[inline]
     pub fn nonmember_prefix_len(&self, buf: &[u8]) -> u32 {
         let mut n = 0;
         for &b in buf.iter() {
