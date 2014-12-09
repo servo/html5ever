@@ -11,6 +11,8 @@
 
 use core::prelude::*;
 
+pub use util::span::{Buf, Span, ValidatedSpanUtils};
+
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -21,12 +23,16 @@ use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{DoctypeIdKind, Public, System};
+use self::states::{ScriptEscapeKind, RawKind};
 
-use self::char_ref::{CharRef, CharRefTokenizer};
+use self::char_ref::CharRefTokenizer;
 
-use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
+use self::buffer_queue::BufferQueue;
 
-use util::str::{lower_ascii, lower_ascii_letter, empty_str};
+use util::fast_option::{Uninit, Full, FastOption, OptValue};
+use util::single_char::{SingleChar, MayAppendSingleChar};
+
+use util::str::{is_alphabetic, lower_ascii};
 use util::smallcharset::SmallCharSet;
 
 use core::mem::replace;
@@ -39,6 +45,8 @@ use collections::string::String;
 use collections::str::{MaybeOwned, Slice};
 use collections::TreeMap;
 
+use iobuf::{BufSpan, Iobuf, ROIobuf};
+
 use string_cache::{Atom, QualName};
 
 pub mod states;
@@ -46,18 +54,18 @@ mod interface;
 mod char_ref;
 mod buffer_queue;
 
-fn option_push(opt_str: &mut Option<String>, c: char) {
+fn option_push(opt_str: &mut Option<Span>, c: SingleChar) {
     match *opt_str {
-        Some(ref mut s) => s.push(c),
-        None => *opt_str = Some(String::from_char(1, c)),
+        Some(ref mut s) => s.push_sc(c),
+        None => *opt_str = Some(c.into_span()),
     }
 }
 
-fn append_strings(lhs: &mut String, rhs: String) {
-    if lhs.is_empty() {
-        *lhs = rhs;
-    } else {
-        lhs.push_str(rhs.as_slice());
+fn is_errorful_char(c: u32) -> bool {
+    match c {
+        0x01...0x08 | 0x0B | 0x0E...0x1F | 0x7F...0x9F | 0xFDD0...0xFDEF => true,
+        n if (n & 0xFFFE) == 0xFFFE => true,
+        _ => false,
     }
 }
 
@@ -97,10 +105,60 @@ impl Default for TokenizerOpts {
     }
 }
 
-/// The HTML tokenizer.
+/// Shared state in the tokenizer that the step function needs, but we don't mutate
+/// except via get_char and pop_except_from.
+struct Shared {
+    c: FastOption<SingleChar>,
+    r: FastOption<Buf>,
+}
+
 pub struct Tokenizer<Sink> {
+    shared: Shared,
+    inner:  TokenizerInner<Sink>,
+}
+
+impl<Sink: TokenSink> Tokenizer<Sink> {
+    pub fn new(sink: Sink, opts: TokenizerOpts) -> Tokenizer<Sink> {
+        Tokenizer {
+            shared: Shared {
+                c: FastOption::new(),
+                r: FastOption::new(),
+            },
+            inner: TokenizerInner::new(sink, opts),
+        }
+    }
+
+    pub fn unwrap(self) -> Sink {
+        self.inner.sink
+    }
+
+    pub fn sink<'a>(&'a self) -> &'a Sink {
+        &self.inner.sink
+    }
+
+    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
+        &mut self.inner.sink
+    }
+
+    /// Feed an input string into the tokenizer.
+    pub fn feed(&mut self, input: Buf) {
+        self.inner.feed(input, &mut self.shared)
+    }
+
+    pub fn end(&mut self) {
+        self.inner.end(&mut self.shared)
+    }
+}
+
+
+/// The HTML tokenizer.
+struct TokenizerInner<Sink> {
     /// Options controlling the behavior of the tokenizer.
     opts: TokenizerOpts,
+
+    /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
+    /// beginning of the stream.
+    discard_bom: bool,
 
     /// Destination for tokens we emit.
     sink: Sink,
@@ -108,30 +166,15 @@ pub struct Tokenizer<Sink> {
     /// The abstract machine state as described in the spec.
     state: states::State,
 
-    /// Input ready to be tokenized.
-    input_buffers: BufferQueue,
-
-    /// Are we at the end of the file, once buffers have been processed
-    /// completely? This affects whether we will wait for lookahead or not.
-    at_eof: bool,
-
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
     char_ref_tokenizer: Option<Box<CharRefTokenizer>>,
 
+    /// Input ready to be tokenized.
+    input_buffers: BufferQueue,
+
     /// Current input character.  Just consumed, may reconsume.
-    current_char: char,
-
-    /// Should we reconsume the current input character?
-    reconsume: bool,
-
-    /// Did we just consume \r, translating it to \n?  In that case we need
-    /// to ignore the next character if it's \n.
-    ignore_lf: bool,
-
-    /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
-    /// beginning of the stream.
-    discard_bom: bool,
+    current_char: Option<SingleChar>,
 
     /// Current tag kind.
     current_tag_kind: TagKind,
@@ -149,30 +192,55 @@ pub struct Tokenizer<Sink> {
     current_attr_name: String,
 
     /// Current attribute value.
-    current_attr_value: String,
+    current_attr_value: Span,
 
     /// Current comment.
-    current_comment: String,
+    current_comment: Span,
+
+    /// The buffer representing the first '-' that's ending a comment.
+    first_comment_end_dash:  Option<Buf>,
+    /// The buffer representing the second '-' that's ending a comment.
+    second_comment_end_dash: Option<Buf>,
+
+    /// Another "temporary buffer" not mentioned in the spec. This is used for
+    /// when we drop into states that we might soon drop out of, and lets us
+    /// keep around the characters that caused the state transitions.
+    another_temp_buf: Span,
+
+    /// The "temporary buffer" mentioned in the spec.
+    temp_buf: Span,
 
     /// Current doctype token.
     current_doctype: Doctype,
 
+    /// Current doctype name. This will need to be atomized before loading into
+    //// the `current_doctype`.
+    current_doctype_name: Option<Span>,
+
     /// Last start tag name, for use in checking "appropriate end tag".
     last_start_tag_name: Option<Atom>,
 
-    /// The "temporary buffer" mentioned in the spec.
-    temp_buf: String,
+    /// Are we at the end of the file, once buffers have been processed
+    /// completely? This affects whether we will wait for lookahead or not.
+    at_eof: bool,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     state_profile: TreeMap<states::State, u64>,
 
     /// Record of how many ns we spent in the token sink.
     time_in_sink: u64,
+
+    /// Did we just consume \r, translating it to \n?  In that case we need
+    /// to ignore the next character if it's \n.
+    ignore_lf: bool,
+
+    /// A cached copy of a single newline character, to deal with CRLF replacement.
+    newline: SingleChar,
 }
 
-impl<Sink: TokenSink> Tokenizer<Sink> {
+impl<Sink: TokenSink> TokenizerInner<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
-    pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
+    fn new(sink: Sink, mut opts: TokenizerOpts) -> TokenizerInner<Sink> {
         if opts.profile && cfg!(for_c) {
             panic!("Can't profile tokenizer when built as a C library");
         }
@@ -181,78 +249,106 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             .map(|s| Atom::from_slice(s.as_slice()));
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
-        Tokenizer {
+        TokenizerInner {
             opts: opts,
             sink: sink,
             state: state,
             char_ref_tokenizer: None,
             input_buffers: BufferQueue::new(),
             at_eof: false,
-            current_char: '\0',
-            reconsume: false,
+            current_char: None,
             ignore_lf: false,
             discard_bom: discard_bom,
             current_tag_kind: StartTag,
-            current_tag_name: empty_str(),
+            current_tag_name: String::new(),
             current_tag_self_closing: false,
             current_tag_attrs: vec!(),
-            current_attr_name: empty_str(),
-            current_attr_value: empty_str(),
-            current_comment: empty_str(),
+            current_attr_name: String::new(),
+            current_attr_value: BufSpan::new(),
+            current_comment: BufSpan::new(),
             current_doctype: Doctype::new(),
+            current_doctype_name: None,
             last_start_tag_name: start_tag_name,
-            temp_buf: empty_str(),
+            temp_buf: BufSpan::new(),
+            another_temp_buf: BufSpan::new(),
+            first_comment_end_dash: None,
+            second_comment_end_dash: None,
             state_profile: TreeMap::new(),
             time_in_sink: 0,
+            newline: SingleChar::new(ROIobuf::from_str("\n")),
         }
     }
 
-    pub fn unwrap(self) -> Sink {
-        self.sink
-    }
-
-    pub fn sink<'a>(&'a self) -> &'a Sink {
-        &self.sink
-    }
-
-    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
-        &mut self.sink
-    }
-
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: String) {
+    fn feed(&mut self, mut input: Buf, shared: &mut Shared) {
         if input.len() == 0 {
             return;
         }
 
-        let pos = if self.discard_bom && input.as_slice().char_at(0) == '\ufeff' {
-            self.discard_bom = false;
-            3  // length of BOM in UTF-8
-        } else {
-            0
-        };
+        if self.discard_bom {
+            let mut first_three_bytes = [0u8, ..3];
+            static UTF8_BOM: [u8, ..3] = [ 0xEF, 0xBB, 0xBF ];
 
-        self.input_buffers.push_back(input, pos);
-        self.run();
+            unsafe {
+                match input.peek(0, &mut first_three_bytes) {
+                    Err(()) => {},
+                    Ok (()) => {
+                        if first_three_bytes.as_slice() == UTF8_BOM.as_slice() {
+                            input.unsafe_advance(first_three_bytes.len() as u32);
+                        }
+                    }
+                }
+            }
+        }
+
+        self.input_buffers.push_back(input);
+        self.run(shared);
     }
 
+    #[inline(never)]
     fn process_token(&mut self, token: Token) {
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token));
-            self.time_in_sink += dt;
+            self.process_token_slow(token);
         } else {
             self.sink.process_token(token);
         }
     }
 
-    //§ preprocessing-the-input-stream
-    // Get the next input character, which might be the character
-    // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char) -> Option<char> {
+    #[inline(never)]
+    fn process_token_slow(&mut self, token: Token) {
+        let (_, dt) = time!(self.sink.process_token(token));
+        self.time_in_sink += dt;
+    }
+
+    /// This function is unsafe because the input option `c` MUST be `some` when
+    /// you call this function.
+    #[inline]
+    fn get_preprocessed_char(&mut self, c: &mut FastOption<SingleChar>) -> OptValue {
+        if !self.ignore_lf && c.as_ref().as_u8() != b'\r' && !self.opts.exact_errors {
+            Full
+        } else {
+            self.get_preprocessed_char_slow(c)
+        }
+    }
+
+    #[inline]
+    fn get_preprocessed_char_simple(&mut self, c: char) -> Option<char> {
+        if !self.ignore_lf && c != '\r' && !self.opts.exact_errors {
+            Some(c)
+        } else {
+            self.get_preprocessed_char_simple_slow(c)
+        }
+    }
+
+    #[inline(never)]
+    fn get_preprocessed_char_simple_slow(&mut self, mut c: char) -> Option<char> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
-                c = unwrap_or_return!(self.input_buffers.next(), None);
+                c = match self.input_buffers.next_simple() {
+                    None => return None,
+                    Some(c) => c,
+                };
             }
         }
 
@@ -261,11 +357,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             c = '\n';
         }
 
-        if self.opts.exact_errors && match c as u32 {
-            0x01...0x08 | 0x0B | 0x0E...0x1F | 0x7F...0x9F | 0xFDD0...0xFDEF => true,
-            n if (n & 0xFFFE) == 0xFFFE => true,
-            _ => false,
-        } {
+        if self.opts.exact_errors && is_errorful_char(c as u32) {
             // format_if!(true) will still use the static error when built for C.
             let msg = format_if!(true, "Bad character",
                 "Bad character {}", c);
@@ -273,41 +365,103 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         h5e_debug!("got character {}", c);
-        self.current_char = c;
         Some(c)
+    }
+
+    //§ preprocessing-the-input-stream
+    // Get the next input character, which might be the character
+    // 'c' that we already consumed from the buffers.
+    //
+    // `c` must be a previously filled FastOption<SingleChar>
+    #[inline(never)]
+    fn get_preprocessed_char_slow(&mut self, c: &mut FastOption<SingleChar>) -> OptValue {
+        if self.ignore_lf {
+            self.ignore_lf = false;
+            if c.as_ref().as_u8() == b'\n' {
+                match self.input_buffers.next(c) {
+                    Full   => {},
+                    Uninit => return Uninit,
+                }
+            }
+        }
+
+        if c.as_ref().as_u8() == b'\r' {
+            self.ignore_lf = true;
+            c.fill(self.newline.clone());
+        }
+
+        let c_char = c.as_ref().decode_as_char();
+
+        // TODO: This should be possible without actually decoding the char.
+        if self.opts.exact_errors && is_errorful_char(c_char as u32) {
+            // format_if!(true) will still use the static error when built for C.
+            let msg = format_if!(true, "Bad character",
+                "Bad character {}", c_char);
+            self.emit_error(msg);
+        }
+
+        h5e_debug!("got character {}", c_char);
+        Full
     }
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self) -> Option<char> {
-        if self.reconsume {
-            self.reconsume = false;
-            Some(self.current_char)
+    #[inline(always)]
+    fn get_char(&mut self, dst: &mut FastOption<SingleChar>) -> OptValue {
+        if self.current_char.is_none() {
+            match self.input_buffers.next(dst) {
+                Full   => self.get_preprocessed_char(dst),
+                Uninit => Uninit,
+            }
         } else {
-            self.input_buffers.next()
-                .and_then(|c| self.get_preprocessed_char(c))
+            self.get_char_slow(dst)
         }
     }
 
-    fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
+    #[inline(never)]
+    fn get_char_slow(&mut self, dst: &mut FastOption<SingleChar>) -> OptValue {
+        dst.fill(self.current_char.take().unwrap())
+    }
+
+    #[inline(always)]
+    fn get_char_simple(&mut self) -> Option<char> {
+        if self.current_char.is_none() {
+            self.input_buffers.next_simple().and_then(|c| self.get_preprocessed_char_simple(c))
+        } else {
+            self.get_char_simple_slow()
+        }
+    }
+
+    #[inline(never)]
+    fn get_char_simple_slow(&mut self) -> Option<char> {
+        Some(self.current_char.take().unwrap().decode_as_char())
+    }
+
+    /// If neither of the `FastOption`s are full, then we're at end of input.
+    /// This function will never fill both. Either one or the other. If a char
+    /// got popped, `char_dst` will be filled. If a run got popped, `run_dst` will
+    /// be filled. The left hand side of the tuple refers to char_dst, and the right
+    /// hand side refers to `run_dst`.
+    #[inline(always)]
+    fn pop_except_from(&mut self, set: SmallCharSet, char_dst: &mut FastOption<SingleChar>, run_dst: &mut FastOption<Buf>) -> (OptValue, OptValue) {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
         // always do the same thing as the `NotFromSet` case.
-        if self.opts.exact_errors || self.reconsume || self.ignore_lf {
-            return self.get_char().map(|x| FromSet(x));
+        if self.opts.exact_errors || self.current_char.is_some() || self.ignore_lf {
+            return (self.get_char(char_dst), Uninit);
         }
 
-        let d = self.input_buffers.pop_except_from(set);
-        h5e_debug!("got characters {}", d);
-        match d {
-            Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
+        let ret = self.input_buffers.pop_except_from(set, char_dst, run_dst);
 
-            // NB: We don't set self.current_char for a run of characters not
-            // in the set.  It shouldn't matter for the codepaths that use
-            // this.
-            _ => d
-        }
+        match ret {
+            (Full, Uninit) => {
+                self.get_preprocessed_char(char_dst);
+            }
+            _ => {},
+        };
+
+        ret
     }
 
     // Check if the next characters are an ASCII case-insensitive match.  See
@@ -315,20 +469,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
-    fn eat(&mut self, pat: &str) -> Option<bool> {
+    fn eat(&mut self, pat: &[u8]) -> Option<Span> {
         match self.input_buffers.eat(pat) {
-            None if self.at_eof => Some(false),
+            None if self.at_eof => Some(BufSpan::new()),
             r => r,
         }
     }
 
     // Run the state machine for as long as we can.
-    fn run(&mut self) {
+    fn run(&mut self, shared: &mut Shared) {
         if self.opts.profile {
             loop {
                 let state = self.state;
                 let old_sink = self.time_in_sink;
-                let (run, mut dt) = time!(self.step());
+                let (run, mut dt) = time!(self.step(shared));
                 dt -= (self.time_in_sink - old_sink);
                 let new = match self.state_profile.get_mut(&state) {
                     Some(x) => {
@@ -344,19 +498,27 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 if !run { break; }
             }
         } else {
-            while self.step() {
+            while self.step(shared) {
             }
         }
     }
 
-    fn bad_char_error(&mut self) {
+    #[inline(never)]
+    fn bad_char_error(&mut self, c: &SingleChar) {
+        self.bad_char_error_simple(c.decode_as_char())
+    }
+
+    #[inline(never)]
+    fn bad_char_error_simple(&mut self, c: char) {
+        let _ignored_when_for_c = c;
         let msg = format_if!(
             self.opts.exact_errors,
             "Bad character",
-            "Saw {} in state {}", self.current_char, self.state);
+            "Saw {} in state {}", c, self.state);
         self.emit_error(msg);
     }
 
+    #[inline(never)]
     fn bad_eof_error(&mut self) {
         let msg = format_if!(
             self.opts.exact_errors,
@@ -365,23 +527,48 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.emit_error(msg);
     }
 
-    fn emit_char(&mut self, c: char) {
-        self.process_token(match c {
-            '\0' => NullCharacterToken,
-            _ => CharacterTokens(String::from_char(1, c)),
-        });
+    #[inline]
+    fn emit_unicode_replacement(&mut self, _: SingleChar) {
+        self.emit_char(SingleChar::unicode_replacement())
+    }
+
+    #[inline(never)]
+    fn emit_null(&mut self, _: SingleChar) {
+        self.process_token(NullCharacterToken);
+    }
+
+    #[inline]
+    fn emit_char(&mut self, c: SingleChar) {
+        self.process_token(CharacterTokens(c.into_span()))
+    }
+
+    #[inline]
+    fn emit_buf(&mut self, buf: Buf) {
+        self.process_token(CharacterTokens(BufSpan::from_buf(buf)));
     }
 
     // The string must not contain '\0'!
-    fn emit_chars(&mut self, b: String) {
+    #[inline]
+    fn emit_span(&mut self, b: Span) {
         self.process_token(CharacterTokens(b));
+    }
+
+    fn push_doctype_name_unicode_replacement(&mut self, _: SingleChar) {
+        option_push(&mut self.current_doctype_name, SingleChar::unicode_replacement())
+    }
+
+    fn push_doctype_id_unicode_replacement(&mut self, k: states::DoctypeIdKind, _: SingleChar) {
+        option_push(self.doctype_id(k), SingleChar::unicode_replacement())
+    }
+
+    fn push_tag_unicode_replacement(&mut self) {
+        self.current_tag_name.push('\ufffd')
     }
 
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
-
-        let name = replace(&mut self.current_tag_name, String::new());
-        let name = Atom::from_slice(name.as_slice());
+        let name = Atom::from_slice(self.current_tag_name.as_slice());
+        self.current_tag_name.truncate(0);
 
         match self.current_tag_kind {
             StartTag => {
@@ -397,7 +584,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }
         }
 
-        let token = TagToken(Tag { kind: self.current_tag_kind,
+        let token = TagToken(Tag {
+            kind: self.current_tag_kind,
             name: name,
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
@@ -412,39 +600,111 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
+    fn push_value_unicode_replacement(&mut self, _: SingleChar) {
+        self.current_attr_value.push_sc(SingleChar::unicode_replacement())
+    }
+
     fn emit_temp_buf(&mut self) {
         // FIXME: Make sure that clearing on emit is spec-compatible.
-        let buf = replace(&mut self.temp_buf, empty_str());
-        self.emit_chars(buf);
+        let span = replace(&mut self.temp_buf, BufSpan::new());
+        self.emit_span(span);
     }
 
     fn clear_temp_buf(&mut self) {
-        // Do this without a new allocation.
-        self.temp_buf.truncate(0);
+        self.temp_buf = BufSpan::new();
+    }
+
+    fn emit_another_temp_buf(&mut self) {
+        let span = replace(&mut self.another_temp_buf, BufSpan::new());
+        self.emit_span(span);
+    }
+
+    fn clear_another_temp_buf(&mut self) {
+        self.replace_another_temp_buf_span(BufSpan::new());
+    }
+
+    #[inline]
+    fn replace_another_temp_buf(&mut self, c: SingleChar) {
+        self.replace_another_temp_buf_span(c.into_span());
+    }
+
+    #[inline]
+    fn replace_another_temp_buf_span(&mut self, s: Span) {
+        self.another_temp_buf = s;
+    }
+
+    fn append_another_temp_buf_to_comment(&mut self) {
+        self.current_comment.append(replace(&mut self.another_temp_buf, BufSpan::new()));
+    }
+
+    fn push_comment_unicode_replacement(&mut self, _: SingleChar) {
+        self.current_comment.push_sc(SingleChar::unicode_replacement());
+    }
+
+    fn clear_comment_end_dashes(&mut self) {
+        self.first_comment_end_dash  = None;
+        self.second_comment_end_dash = None;
+    }
+
+    fn push_comment_end_dash(&mut self, c: SingleChar) {
+        match replace(&mut self.second_comment_end_dash, Some(c.into_buf())) {
+            None => {},
+            Some(old_second) => {
+                match replace(&mut self.first_comment_end_dash, Some(old_second)) {
+                    None => {},
+                    Some(old_first) => {
+                        self.current_comment.push(old_first);
+                    }
+                }
+            }
+        }
+    }
+
+    fn flush_comment_end_dashes_to_comment(&mut self) {
+        match self.first_comment_end_dash.take() {
+            None => {},
+            Some(buf) => self.current_comment.push(buf),
+        }
+        match self.second_comment_end_dash.take() {
+            None => {},
+            Some(buf) => self.current_comment.push(buf),
+        }
     }
 
     fn emit_current_comment(&mut self) {
-        let comment = replace(&mut self.current_comment, empty_str());
-        self.process_token(CommentToken(comment));
+        let span = replace(&mut self.current_comment, BufSpan::new());
+        self.process_token(CommentToken(span));
     }
 
     fn discard_tag(&mut self) {
-        self.current_tag_name = String::new();
+        self.current_tag_name.truncate(0);
         self.current_tag_self_closing = false;
         self.current_tag_attrs = vec!();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
-        self.discard_tag();
+        self.current_tag_name.truncate(0);
         self.current_tag_name.push(c);
+        self.current_tag_self_closing = false;
+        self.current_tag_attrs = vec!();
         self.current_tag_kind = kind;
+    }
+
+    #[inline]
+    fn create_start_tag(&mut self, c: char) {
+        self.create_tag(StartTag, c)
+    }
+
+    #[inline]
+    fn create_end_tag(&mut self, c: char) {
+        self.create_tag(EndTag, c)
     }
 
     fn have_appropriate_end_tag(&self) -> bool {
         match self.last_start_tag_name.as_ref() {
             Some(last) =>
                 (self.current_tag_kind == EndTag)
-                && (self.current_tag_name.as_slice() == last.as_slice()),
+                && self.current_tag_name.as_slice() == last.as_slice(),
             None => false,
         }
     }
@@ -455,8 +715,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.current_attr_name.push(c);
     }
 
+    fn create_attribute_unicode_replacement(&mut self) {
+        self.create_attribute('\ufffd');
+    }
+
     fn finish_attribute(&mut self) {
-        if self.current_attr_name.len() == 0 {
+        if self.current_attr_name.is_empty() {
             return;
         }
 
@@ -470,25 +734,39 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         if dup {
             self.emit_error(Slice("Duplicate attribute"));
-            self.current_attr_name.truncate(0);
-            self.current_attr_value.truncate(0);
+            self.current_attr_value = BufSpan::new();
         } else {
-            let name = replace(&mut self.current_attr_name, String::new());
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(""), Atom::from_slice(name.as_slice())),
-                value: replace(&mut self.current_attr_value, empty_str()),
+                name: QualName::new(ns!(""), Atom::from_slice(self.current_attr_name.as_slice())),
+                value: replace(&mut self.current_attr_value, BufSpan::new()),
             });
         }
+
+        self.current_attr_name.truncate(0);
+    }
+
+    fn push_name_unicode_replacement(&mut self) {
+        self.current_attr_name.push('\ufffd');
+    }
+
+    fn create_doctype(&mut self) {
+        self.current_doctype      = Doctype::new();
+        self.current_doctype_name = None;
     }
 
     fn emit_current_doctype(&mut self) {
-        let doctype = replace(&mut self.current_doctype, Doctype::new());
+        let mut doctype = replace(&mut self.current_doctype, Doctype::new());
+
+        doctype.name =
+            replace(&mut self.current_doctype_name, None)
+            .map(|name| name.with_lower_str_copy(Atom::from_slice));
+
         self.process_token(DoctypeToken(doctype));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<String> {
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<Span> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,
@@ -496,38 +774,38 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn clear_doctype_id(&mut self, kind: DoctypeIdKind) {
-        let id = self.doctype_id(kind);
-        match *id {
-            Some(ref mut s) => s.truncate(0),
-            None => *id = Some(empty_str()),
-        }
+        *self.doctype_id(kind) = Some(BufSpan::new());
     }
 
-    fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
+    fn consume_char_ref(&mut self, amp: SingleChar, addnl_allowed: Option<u8>) {
         // NB: The char ref tokenizer assumes we have an additional allowed
         // character iff we're tokenizing in an attribute value.
-        self.char_ref_tokenizer = Some(box CharRefTokenizer::new(addnl_allowed));
+        self.char_ref_tokenizer = Some(box CharRefTokenizer::new(amp, addnl_allowed));
     }
 
     fn emit_eof(&mut self) {
         self.process_token(EOFToken);
     }
 
-    fn peek(&mut self) -> Option<char> {
-        if self.reconsume {
-            Some(self.current_char)
-        } else {
-            self.input_buffers.peek()
+    fn peek(&mut self, dst: &mut FastOption<SingleChar>) -> OptValue {
+        match self.current_char {
+            Some(ref c) => dst.fill((*c).clone()),
+            None => self.input_buffers.peek(dst),
         }
     }
 
     fn discard_char(&mut self) {
-        let c = self.get_char();
-        assert!(c.is_some());
+        let mut c = FastOption::new();
+        match self.get_char(&mut c) {
+            Uninit => panic!("Should be discarding a valid char."),
+            Full   => {},
+        }
     }
 
-    fn unconsume(&mut self, buf: String) {
-        self.input_buffers.push_front(buf);
+    fn unconsume(&mut self, span: Span) {
+        for buf in span.into_iter().rev() {
+            self.input_buffers.push_front(buf);
+        }
     }
 
     fn emit_error(&mut self, error: MaybeOwned<'static>) {
@@ -538,36 +816,65 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( $me:expr : emit $c:expr                    ) => ( $me.emit_char($c);                                   );
-    ( $me:expr : create_tag $kind:expr $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:expr : push_tag $c:expr                ) => ( $me.current_tag_name.push($c);                       );
-    ( $me:expr : discard_tag                     ) => ( $me.discard_tag();                                   );
-    ( $me:expr : push_temp $c:expr               ) => ( $me.temp_buf.push($c);                               );
-    ( $me:expr : emit_temp                       ) => ( $me.emit_temp_buf();                                 );
-    ( $me:expr : clear_temp                      ) => ( $me.clear_temp_buf();                                );
-    ( $me:expr : create_attr $c:expr             ) => ( $me.create_attribute($c);                            );
-    ( $me:expr : push_name $c:expr               ) => ( $me.current_attr_name.push($c);                      );
-    ( $me:expr : push_value $c:expr              ) => ( $me.current_attr_value.push($c);                     );
-    ( $me:expr : append_value $c:expr            ) => ( append_strings(&mut $me.current_attr_value, $c);     );
-    ( $me:expr : push_comment $c:expr            ) => ( $me.current_comment.push($c);                        );
-    ( $me:expr : append_comment $c:expr          ) => ( $me.current_comment.push_str($c);                    );
-    ( $me:expr : emit_comment                    ) => ( $me.emit_current_comment();                          );
-    ( $me:expr : clear_comment                   ) => ( $me.current_comment.truncate(0);                     );
-    ( $me:expr : create_doctype                  ) => ( $me.current_doctype = Doctype::new();                );
-    ( $me:expr : push_doctype_name $c:expr       ) => ( option_push(&mut $me.current_doctype.name, $c);      );
-    ( $me:expr : push_doctype_id $k:expr $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
-    ( $me:expr : clear_doctype_id $k:expr        ) => ( $me.clear_doctype_id($k);                            );
-    ( $me:expr : force_quirks                    ) => ( $me.current_doctype.force_quirks = true;             );
-    ( $me:expr : emit_doctype                    ) => ( $me.emit_current_doctype();                          );
-    ( $me:expr : error                           ) => ( $me.bad_char_error();                                );
-    ( $me:expr : error_eof                       ) => ( $me.bad_eof_error();                                 );
+    ( $me:expr : emit_null $c:expr                  ) => ( $me.emit_null($c.take());                               );
+    ( $me:expr : emit $c:expr                       ) => ( $me.emit_char($c.take());                               );
+    ( $me:expr : emit_ur $c:expr                    ) => ( $me.emit_unicode_replacement($c.take());                );
+    ( $me:expr : emit_buf $b:expr                   ) => ( $me.emit_buf($b.take());                                );
+    ( $me:expr : emit_span $s:expr                  ) => ( $me.emit_span($s.take());                               );
+    ( $me:expr : emit_span_raw $s:expr              ) => ( $me.emit_span($s);                                      );
+    ( $me:expr : create_start_tag $c:expr           ) => ( $me.create_start_tag(lower_ascii($c as char));          );
+    ( $me:expr : create_end_tag $c:expr             ) => ( $me.create_end_tag(lower_ascii($c as char));            );
+    ( $me:expr : push_tag $c:expr                   ) => ( go!($me: push_tag_char ($c as char));                   );
+    ( $me:expr : push_tag_char $c:expr              ) => ( $me.current_tag_name.push(lower_ascii($c));             );
+    ( $me:expr : push_tag_ur                        ) => ( $me.push_tag_unicode_replacement();                     );
+    ( $me:expr : discard_tag                        ) => ( $me.discard_tag();                                      );
+    ( $me:expr : push_temp $c:expr                  ) => ( $me.temp_buf.push_sc($c.take());                        );
+    ( $me:expr : push_temp_clone $c:expr            ) => ( $me.temp_buf.push_sc((*$c.as_ref()).clone());           );
+    ( $me:expr : emit_temp                          ) => ( $me.emit_temp_buf();                                    );
+    ( $me:expr : clear_temp                         ) => ( $me.clear_temp_buf();                                   );
+    ( $me:expr : push_temp2 $c: expr                ) => ( $me.another_temp_buf.push_sc($c.take());                );
+    ( $me:expr : push_temp2_span $s: expr           ) => ( $me.another_temp_buf.append($s.take());                 );
+    ( $me:expr : emit_temp2                         ) => ( $me.emit_another_temp_buf();                            );
+    ( $me:expr : clear_temp2                        ) => ( $me.clear_another_temp_buf();                           );
+    ( $me:expr : replace_temp2 $c: expr             ) => ( $me.replace_another_temp_buf($c.take());                );
+    ( $me:expr : replace_temp2_span $s: expr        ) => ( $me.replace_another_temp_buf_span($s.take());           );
+    ( $me:expr : append_temp2_to_comment            ) => ( $me.append_another_temp_buf_to_comment();               );
+    ( $me:expr : clear_comment_end_dashes           ) => ( $me.clear_comment_end_dashes();                         );
+    ( $me:expr : push_comment_end_dash $c: expr     ) => ( $me.push_comment_end_dash($c.take());                   );
+    ( $me:expr : flush_comment_end_dashes           ) => ( $me.flush_comment_end_dashes_to_comment();              );
+    ( $me:expr : create_attr $c:expr                ) => ( $me.create_attribute(lower_ascii($c));                  );
+    ( $me:expr : create_attr_ur                     ) => ( $me.create_attribute_unicode_replacement();             );
+    ( $me:expr : push_name $c:expr                  ) => ( $me.current_attr_name.push(lower_ascii($c));            );
+    ( $me:expr : push_name_ur                       ) => ( $me.push_name_unicode_replacement();                    );
+    ( $me:expr : append_value $b:expr               ) => ( $me.current_attr_value.push($b.take());                 );
+    ( $me:expr : push_value $c:expr                 ) => ( $me.current_attr_value.push_sc($c.take());              );
+    ( $me:expr : push_value_ur $c:expr              ) => ( $me.push_value_unicode_replacement($c.take());          );
+    ( $me:expr : append_value_span $s:expr          ) => ( $me.current_attr_value.append($s.take());               );
+    ( $me:expr : append_value_span_raw $s:expr      ) => ( $me.current_attr_value.append($s);                      );
+    ( $me:expr : push_comment $c:expr               ) => ( $me.current_comment.push_sc($c.take());                 );
+    ( $me:expr : push_comment_ur $c:expr            ) => ( $me.push_comment_unicode_replacement($c.take());        );
+    ( $me:expr : append_comment $c:expr             ) => ( $me.current_comment.append($c.take());                  );
+    ( $me:expr : emit_comment                       ) => ( $me.emit_current_comment();                             );
+    ( $me:expr : clear_comment                      ) => ( $me.current_comment = BufSpan::new();                   );
+    ( $me:expr : create_doctype                     ) => ( $me.create_doctype();                                   );
+    ( $me:expr : push_doctype_name $c:expr          ) => ( option_push(&mut $me.current_doctype_name, $c.take());  );
+    ( $me:expr : push_doctype_name_ur $c:expr       ) => ( $me.push_doctype_name_unicode_replacement($c.take());   );
+    ( $me:expr : push_doctype_id $k:expr $c:expr    ) => ( option_push($me.doctype_id($k), $c.take());             );
+    ( $me:expr : push_doctype_id_ur $k:expr $c:expr ) => ( $me.push_doctype_id_unicode_replacement($k, $c.take()); );
+    ( $me:expr : clear_doctype_id $k:expr           ) => ( $me.clear_doctype_id($k);                               );
+    ( $me:expr : force_quirks                       ) => ( $me.current_doctype.force_quirks = true;                );
+    ( $me:expr : emit_doctype                       ) => ( $me.emit_current_doctype();                             );
+    ( $me:expr : error $c:expr                      ) => ( $me.bad_char_error($c.as_ref());                        );
+    ( $me:expr : error_simple $c:expr               ) => ( $me.bad_char_error_simple($c);                          );
+    ( $me:expr : error_raw $c:expr                  ) => ( $me.bad_char_error(&$c);                                );
+    ( $me:expr : error_eof                          ) => ( $me.bad_eof_error();                                    );
 )
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
 // so it's behind a cfg flag.
 #[cfg(trace_tokenizer)]
 macro_rules! sh_trace ( ( $me:expr : $($cmds:tt)* ) => ({
-    h5e_debug!("  {:s}", stringify!($($cmds)*));
+    h5e_debug!("  {}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }))
 
@@ -590,12 +897,12 @@ macro_rules! go (
     ( $me:expr : to $s:ident $k1:expr          ) => ({ $me.state = states::$s($k1); return true;      });
     ( $me:expr : to $s:ident $k1:expr $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return true; });
 
-    ( $me:expr : reconsume $s:ident                   ) => ({ $me.reconsume = true; go!($me: to $s);         });
-    ( $me:expr : reconsume $s:ident $k1:expr          ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
-    ( $me:expr : reconsume $s:ident $k1:expr $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
+    ( $me:expr : reconsume $c:expr $s:ident                   ) => ({ $me.current_char = Some($c.take()); go!($me: to $s);         });
+    ( $me:expr : reconsume $c:expr $s:ident $k1:expr          ) => ({ $me.current_char = Some($c.take()); go!($me: to $s $k1);     });
+    ( $me:expr : reconsume $c:expr $s:ident $k1:expr $k2:expr ) => ({ $me.current_char = Some($c.take()); go!($me: to $s $k1 $k2); });
 
-    ( $me:expr : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
-    ( $me:expr : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
+    ( $me:expr : consume_char_ref $amp:expr             ) => ({ $me.consume_char_ref($amp.take(), None);         return true; });
+    ( $me:expr : consume_char_ref $amp:expr $addnl:expr ) => ({ $me.consume_char_ref($amp.take(), Some($addnl)); return true; });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:expr : emit_tag $s:ident ) => ({
@@ -622,23 +929,43 @@ macro_rules! go_match ( ( $me:expr : $x:expr, $($pats:pat)|+ => $($cmds:tt)* ) =
 
 // This is a macro because it can cause early return
 // from the function where it is used.
-macro_rules! get_char ( ($me:expr) => (
-    unwrap_or_return!($me.get_char(), false)
+macro_rules! get_char ( ($me:expr, $s:expr) => (
+    {
+        match $me.get_char(&mut $s.c) {
+            Uninit => { return false },
+            Full   => {},
+        };
+        ($s.c).as_ref().as_u8()
+    }
 ))
 
-macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($set), false)
+macro_rules! get_char_simple ( ($me:expr) => (
+    match $me.get_char_simple() { None => return false, Some(c) => c }
+))
+
+macro_rules! pop_except_from ( ($me:expr, $s:expr, $set:expr) => (
+    {
+        let ret = $me.pop_except_from($set, &mut $s.c, &mut $s.r);
+        match ret {
+            (Uninit, Uninit) => return false,
+            ret => ret,
+        }
+    }
 ))
 
 macro_rules! eat ( ($me:expr, $pat:expr) => (
     unwrap_or_return!($me.eat($pat), false)
 ))
 
-impl<Sink: TokenSink> Tokenizer<Sink> {
+// Clean up the state machine type signatures a little bit.
+type TI<Sink> = TokenizerInner<Sink>;
+
+impl<Sink: TokenSink> TokenizerInner<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
-    fn step(&mut self) -> bool {
+    #[inline(always)]
+    fn step(&mut self, s: &mut Shared) -> bool {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer();
         }
@@ -646,525 +973,919 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         h5e_debug!("processing in state {}", self.state);
         match self.state {
             //§ data-state
-            states::Data => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\0'),
-                    FromSet('&')  => go!(self: consume_char_ref),
-                    FromSet('<')  => go!(self: to TagOpen),
-                    FromSet(c)    => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::Data => {
+                #[inline(never)]
+                fn data_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '&' '<')) {
+                            (_, Full) => go!(this: emit_buf s.r),
+                                  _   => match s.c.as_ref().as_u8() {
+                                b'<'  => go!(this: replace_temp2 s.c; to TagOpen),
+                                b'&'  => go!(this: consume_char_ref s.c),
+                                b'\0' => go!(this: error s.c; emit_null s.c),
+                                  _   => go!(this: emit s.c),
+                            },
+                        }
+                    }
                 }
+                data_state(self, s)
             },
 
             //§ rcdata-state
-            states::RawData(Rcdata) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet('&') => go!(self: consume_char_ref),
-                    FromSet('<') => go!(self: to RawLessThanSign Rcdata),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::RawData(Rcdata) => {
+                #[inline(never)]
+                fn rcdata_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '&' '<')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                b'&'  => go!(this: consume_char_ref s.c),
+                                b'<'  => go!(this: replace_temp2 s.c; to RawLessThanSign Rcdata),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                rcdata_state(self, s)
             },
 
             //§ rawtext-state
-            states::RawData(Rawtext) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet('<') => go!(self: to RawLessThanSign Rawtext),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::RawData(Rawtext) => {
+                #[inline(never)]
+                fn rawtext_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '<')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                b'<'  => go!(this: replace_temp2 s.c; to RawLessThanSign Rawtext),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                rawtext_state(self, s)
             },
 
             //§ script-data-state
-            states::RawData(ScriptData) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet('<') => go!(self: to RawLessThanSign ScriptData),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::RawData(ScriptData) => {
+                #[inline(never)]
+                fn script_data_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '<')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                b'<'  => go!(this: replace_temp2 s.c; to RawLessThanSign ScriptData),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                script_data_state(self, s)
             },
 
             //§ script-data-escaped-state
-            states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '-' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash Escaped),
-                    FromSet('<') => go!(self: to RawLessThanSign ScriptDataEscaped Escaped),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::RawData(ScriptDataEscaped(Escaped)) => {
+                #[inline(never)]
+                fn script_data_escaped_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '-' '<')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                b'-'  => go!(this: emit s.c; to ScriptDataEscapedDash Escaped),
+                                b'<'  => go!(this: replace_temp2 s.c; to RawLessThanSign ScriptDataEscaped Escaped),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                script_data_escaped_state(self, s)
             },
 
             //§ script-data-double-escaped-state
-            states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '-' '<')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash DoubleEscaped),
-                    FromSet('<') => go!(self: emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::RawData(ScriptDataEscaped(DoubleEscaped)) => {
+                #[inline(never)]
+                fn script_data_double_escaped_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0' '-' '<')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                b'-'  => go!(this: emit s.c; to ScriptDataEscapedDash DoubleEscaped),
+                                b'<'  => go!(this: emit s.c; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                script_data_double_escaped_state(self, s)
             },
 
             //§ plaintext-state
-            states::Plaintext => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0')) {
-                    FromSet('\0') => go!(self: error; emit '\ufffd'),
-                    FromSet(c)    => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+            states::Plaintext => {
+                #[inline(never)]
+                fn plaintext_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\0')) {
+                            (Full, Uninit) => match s.c.as_ref().as_u8() {
+                                b'\0' => go!(this: error s.c; emit_ur s.c),
+                                  _   => go!(this: emit s.c),
+                            },
+                            (Uninit, Full) => go!(this: emit_buf s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                plaintext_state(self, s)
             },
 
             //§ tag-open-state
-            states::TagOpen => loop { match get_char!(self) {
-                '!' => go!(self: to MarkupDeclarationOpen),
-                '/' => go!(self: to EndTagOpen),
-                '?' => go!(self: error; clear_comment; push_comment '?'; to BogusComment),
-                c => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: create_tag StartTag cl; to TagName),
-                    None     => go!(self: error; emit '<'; reconsume Data),
+            states::TagOpen => {
+                #[inline(never)]
+                fn tag_open_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'!' => go!(this: push_temp2 s.c; to MarkupDeclarationOpen),
+                            b'/' => go!(this: push_temp2 s.c; to EndTagOpen),
+                            b'?' => go!(this: error s.c; clear_comment; push_comment s.c; to BogusComment),
+                            chr if is_alphabetic(chr) => go!(this: create_start_tag chr; to TagName),
+                            _ => go!(this: error s.c; emit_temp2; reconsume s.c Data)
+                        }
+                    }
                 }
-            }},
+                tag_open_state(self, s)
+            },
 
             //§ end-tag-open-state
-            states::EndTagOpen => loop { match get_char!(self) {
-                '>'  => go!(self: error; to Data),
-                '\0' => go!(self: error; clear_comment; push_comment '\ufffd'; to BogusComment),
-                c => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: create_tag EndTag cl; to TagName),
-                    None     => go!(self: error; clear_comment; push_comment c; to BogusComment),
+            states::EndTagOpen => {
+                #[inline(never)]
+                fn end_tag_open_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'>'  => go!(this: error s.c; to Data),
+                            b'\0' => go!(this: error s.c; clear_comment; push_comment_ur s.c; to BogusComment),
+                            chr if is_alphabetic(chr) => go!(this: create_end_tag chr; to TagName),
+                            _ => go!(this: error s.c; clear_comment; push_comment s.c; to BogusComment),
+                        }
+                    }
                 }
-            }},
+                end_tag_open_state(self, s)
+            },
 
             //§ tag-name-state
-            states::TagName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to BeforeAttributeName),
-                '/'  => go!(self: to SelfClosingStartTag),
-                '>'  => go!(self: emit_tag Data),
-                '\0' => go!(self: error; push_tag '\ufffd'),
-                c    => go!(self: push_tag (lower_ascii(c))),
-            }},
+            states::TagName => {
+                #[inline(never)]
+                fn tag_name_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    loop {
+                        let c = get_char_simple!(this);
+                        match c {
+                            '\t' | '\n' | '\x0C' | ' '
+                                  => go!(this: to BeforeAttributeName),
+                            '/'   => go!(this: to SelfClosingStartTag),
+                            '>'   => go!(this: emit_tag Data),
+                            '\0'  => go!(this: error_simple c; push_tag_ur),
+                              c   => go!(this: push_tag_char c)
+                        }
+                    }
+                }
+                tag_name_state(self, s)
+            },
 
             //§ script-data-escaped-less-than-sign-state
-            states::RawLessThanSign(ScriptDataEscaped(Escaped)) => loop { match get_char!(self) {
-                '/' => go!(self: clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
-                c => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: clear_temp; push_temp cl; emit '<'; emit c;
-                                    to ScriptDataEscapeStart DoubleEscaped),
-                    None => go!(self: emit '<'; reconsume RawData ScriptDataEscaped Escaped),
+            states::RawLessThanSign(ScriptDataEscaped(Escaped)) => {
+                #[inline(never)]
+                fn script_data_escaped_less_than_sign_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'/' => go!(this: clear_temp; push_temp2 s.c; to RawEndTagOpen ScriptDataEscaped Escaped),
+                            chr if is_alphabetic(chr) => go!(this: clear_temp; push_temp_clone s.c; emit_temp2; emit s.c; to ScriptDataEscapeStart DoubleEscaped),
+                            _    => go!(this: emit_temp2; reconsume s.c RawData ScriptDataEscaped Escaped),
+                        }
+                    }
                 }
-            }},
+                script_data_escaped_less_than_sign_state(self, s)
+            },
 
             //§ script-data-double-escaped-less-than-sign-state
-            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => loop { match get_char!(self) {
-                '/' => go!(self: clear_temp; emit '/'; to ScriptDataDoubleEscapeEnd),
-                _   => go!(self: reconsume RawData ScriptDataEscaped DoubleEscaped),
-            }},
+            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => {
+                #[inline(never)]
+                fn script_data_double_escaped_less_than_sign_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'/' => go!(this: clear_temp; emit s.c; to ScriptDataDoubleEscapeEnd),
+                              _  => go!(this: reconsume s.c RawData ScriptDataEscaped DoubleEscaped),
+                        }
+                    }
+                }
+                script_data_double_escaped_less_than_sign_state(self, s)
+            },
 
             //§ rcdata-less-than-sign-state rawtext-less-than-sign-state script-data-less-than-sign-state
             // otherwise
-            states::RawLessThanSign(kind) => loop { match get_char!(self) {
-                '/' => go!(self: clear_temp; to RawEndTagOpen kind),
-                '!' if kind == ScriptData => go!(self: emit '<'; emit '!'; to ScriptDataEscapeStart Escaped),
-                _   => go!(self: emit '<'; reconsume RawData kind),
-            }},
+            states::RawLessThanSign(kind) => {
+                #[inline(never)]
+                fn other_less_than_sign_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: RawKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'/' => go!(this: clear_temp; push_temp2 s.c; to RawEndTagOpen kind),
+                            b'!' if kind == ScriptData => go!(this: emit_temp2; emit s.c; to ScriptDataEscapeStart Escaped),
+                              _  => go!(this: emit_temp2; reconsume s.c RawData kind),
+                        }
+                    }
+                }
+                other_less_than_sign_state(self, s, kind)
+            },
 
             //§ rcdata-end-tag-open-state rawtext-end-tag-open-state script-data-end-tag-open-state script-data-escaped-end-tag-open-state
-            states::RawEndTagOpen(kind) => loop {
-                let c = get_char!(self);
-                match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: create_tag EndTag cl; push_temp c; to RawEndTagName kind),
-                    None     => go!(self: emit '<'; emit '/'; reconsume RawData kind),
+            states::RawEndTagOpen(kind) => {
+                #[inline(never)]
+                fn other_end_tag_open_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: RawKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            chr if is_alphabetic(chr) => go!(this: push_temp_clone s.c; create_end_tag chr; to RawEndTagName kind),
+                            _                         => go!(this: emit_temp2; reconsume s.c RawData kind)
+                        }
+                    }
                 }
+                other_end_tag_open_state(self, s, kind)
             },
 
             //§ rcdata-end-tag-name-state rawtext-end-tag-name-state script-data-end-tag-name-state script-data-escaped-end-tag-name-state
-            states::RawEndTagName(kind) => loop {
-                let c = get_char!(self);
-                if self.have_appropriate_end_tag() {
-                    match c {
-                        '\t' | '\n' | '\x0C' | ' '
-                            => go!(self: to BeforeAttributeName),
-                        '/' => go!(self: to SelfClosingStartTag),
-                        '>' => go!(self: emit_tag Data),
-                        _ => (),
+            states::RawEndTagName(kind) => {
+                #[inline(never)]
+                fn other_end_tag_name_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: RawKind) -> bool {
+                    loop {
+                        let c_u8 = get_char!(this, s);
+
+                        if this.have_appropriate_end_tag() {
+                            match c_u8 {
+                                b'\t' | b'\n' | b'\x0C' | b' '
+                                     => go!(this: to BeforeAttributeName),
+                                b'/' => go!(this: to SelfClosingStartTag),
+                                b'>' => go!(this: emit_tag Data),
+                                _    => {},
+                            }
+                        }
+
+                        if is_alphabetic(c_u8) {
+                            go!(this: push_temp_clone s.c; push_tag c_u8)
+                        } else {
+                            go!(this: discard_tag; emit_temp2; emit_temp; reconsume s.c RawData kind)
+                        }
                     }
                 }
-
-                match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: push_tag cl; push_temp c),
-                    None     => go!(self: discard_tag; emit '<'; emit '/'; emit_temp; reconsume RawData kind),
-                }
+                other_end_tag_name_state(self, s, kind)
             },
 
             //§ script-data-double-escape-start-state
-            states::ScriptDataEscapeStart(DoubleEscaped) => loop {
-                let c = get_char!(self);
-                match c {
-                    '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
-                        go!(self: emit c; to RawData ScriptDataEscaped esc);
-                    }
-                    _ => match lower_ascii_letter(c) {
-                        Some(cl) => go!(self: push_temp cl; emit c),
-                        None     => go!(self: reconsume RawData ScriptDataEscaped Escaped),
+            states::ScriptDataEscapeStart(DoubleEscaped) => {
+                #[inline(never)]
+                fn script_data_double_escape_start_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        let chr = get_char!(this, s);
+                        match chr {
+                            b'\t' | b'\n' | b'\x0C' | b' ' | b'/' | b'>' => {
+                                let esc = if this.temp_buf.byte_equal_slice_lower(b"script") { DoubleEscaped } else { Escaped };
+                                go!(this: emit s.c; to RawData ScriptDataEscaped esc);
+                            }
+                            chr if is_alphabetic(chr) => go!(this: push_temp_clone s.c; emit s.c),
+                            _ => go!(this: reconsume s.c RawData ScriptDataEscaped Escaped),
+                        }
                     }
                 }
+                script_data_double_escape_start_state(self, s)
             },
 
             //§ script-data-escape-start-state
-            states::ScriptDataEscapeStart(Escaped) => loop { match get_char!(self) {
-                '-' => go!(self: emit '-'; to ScriptDataEscapeStartDash),
-                _   => go!(self: reconsume RawData ScriptData),
-            }},
+            states::ScriptDataEscapeStart(Escaped) => {
+                #[inline(never)]
+                fn script_data_escape_start_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-' => go!(this: emit s.c; to ScriptDataEscapeStartDash),
+                              _  => go!(this: reconsume s.c RawData ScriptData),
+                        }
+                    }
+                }
+                script_data_escape_start_state(self, s)
+            },
 
             //§ script-data-escape-start-dash-state
-            states::ScriptDataEscapeStartDash => loop { match get_char!(self) {
-                '-' => go!(self: emit '-'; to ScriptDataEscapedDashDash Escaped),
-                _   => go!(self: reconsume RawData ScriptData),
-            }},
+            states::ScriptDataEscapeStartDash => {
+                #[inline(never)]
+                fn script_data_escape_start_dash_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-' => go!(this: emit s.c; to ScriptDataEscapedDashDash Escaped),
+                              _  => go!(this: reconsume s.c RawData ScriptData),
+                        }
+                    }
+                }
+                script_data_escape_start_dash_state(self, s)
+            },
 
             //§ script-data-escaped-dash-state script-data-double-escaped-dash-state
-            states::ScriptDataEscapedDash(kind) => loop { match get_char!(self) {
-                '-'  => go!(self: emit '-'; to ScriptDataEscapedDashDash kind),
-                '<'  => {
-                    if kind == DoubleEscaped { go!(self: emit '<'); }
-                    go!(self: to RawLessThanSign ScriptDataEscaped kind);
+            states::ScriptDataEscapedDash(kind) => {
+                #[inline(never)]
+                fn script_data_escaped_dash_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: ScriptEscapeKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: emit s.c; to ScriptDataEscapedDashDash kind),
+                            b'<' if kind == DoubleEscaped => go!(this: emit s.c; to RawLessThanSign ScriptDataEscaped kind),
+                            b'<'                          => go!(this: replace_temp2 s.c; to RawLessThanSign ScriptDataEscaped kind),
+                            b'\0' => go!(this: error s.c; emit_ur s.c; to RawData ScriptDataEscaped kind),
+                              _   => go!(this: emit s.c; to RawData ScriptDataEscaped kind),
+                        }
+                    }
                 }
-                '\0' => go!(self: error; emit '\ufffd'; to RawData ScriptDataEscaped kind),
-                c    => go!(self: emit c; to RawData ScriptDataEscaped kind),
-            }},
+                script_data_escaped_dash_state(self, s, kind)
+            },
 
             //§ script-data-escaped-dash-dash-state script-data-double-escaped-dash-dash-state
-            states::ScriptDataEscapedDashDash(kind) => loop { match get_char!(self) {
-                '-'  => go!(self: emit '-'),
-                '<'  => {
-                    if kind == DoubleEscaped { go!(self: emit '<'); }
-                    go!(self: to RawLessThanSign ScriptDataEscaped kind);
+            states::ScriptDataEscapedDashDash(kind) => {
+                #[inline(never)]
+                fn script_data_escaped_dash_dash_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: ScriptEscapeKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: emit s.c),
+                            b'<' if kind == DoubleEscaped => go!(this: emit s.c; to RawLessThanSign ScriptDataEscaped kind),
+                            b'<'                          => go!(this: replace_temp2 s.c; to RawLessThanSign ScriptDataEscaped kind),
+                            b'>'  => go!(this: emit s.c; to RawData ScriptData),
+                            b'\0' => go!(this: error s.c; emit_ur s.c; to RawData ScriptDataEscaped kind),
+                              _   => go!(this: emit s.c; to RawData ScriptDataEscaped kind),
+                        }
+                    }
                 }
-                '>'  => go!(self: emit '>'; to RawData ScriptData),
-                '\0' => go!(self: error; emit '\ufffd'; to RawData ScriptDataEscaped kind),
-                c    => go!(self: emit c; to RawData ScriptDataEscaped kind),
-            }},
+                script_data_escaped_dash_dash_state(self, s, kind)
+            },
 
             //§ script-data-double-escape-end-state
-            states::ScriptDataDoubleEscapeEnd => loop {
-                let c = get_char!(self);
-                match c {
-                    '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
-                        go!(self: emit c; to RawData ScriptDataEscaped esc);
-                    }
-                    _ => match lower_ascii_letter(c) {
-                        Some(cl) => go!(self: push_temp cl; emit c),
-                        None     => go!(self: reconsume RawData ScriptDataEscaped DoubleEscaped),
+            states::ScriptDataDoubleEscapeEnd => {
+                #[inline(never)]
+                fn script_data_double_escape_end_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        let chr = get_char!(this, s);
+                        match chr {
+                            b'\t' | b'\n' | b'\x0C' | b' ' | b'/' | b'>' => {
+                                let esc = if this.temp_buf.byte_equal_slice_lower(b"script") { Escaped } else { DoubleEscaped };
+                                go!(this: emit s.c; to RawData ScriptDataEscaped esc);
+                            }
+                            chr if is_alphabetic(chr) => go!(this: push_temp_clone s.c; emit s.c),
+                            _ => go!(this: reconsume s.c RawData ScriptDataEscaped DoubleEscaped),
+                        }
                     }
                 }
+                script_data_double_escape_end_state(self, s)
             },
 
             //§ before-attribute-name-state
-            states::BeforeAttributeName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '/'  => go!(self: to SelfClosingStartTag),
-                '>'  => go!(self: emit_tag Data),
-                '\0' => go!(self: error; create_attr '\ufffd'; to AttributeName),
-                c    => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: create_attr cl; to AttributeName),
-                    None => {
-                        go_match!(self: c,
-                            '"' | '\'' | '<' | '=' => error);
-                        go!(self: create_attr c; to AttributeName);
+            states::BeforeAttributeName => {
+                #[inline(never)]
+                fn before_attribute_name_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    loop {
+                        let c = get_char_simple!(this);
+                        match c {
+                            '\t' | '\n' | '\x0C' | ' ' => {},
+                            '/'  => go!(this: to SelfClosingStartTag),
+                            '>'  => go!(this: emit_tag Data),
+                            '\0' => go!(this: error_simple c; create_attr_ur; to AttributeName),
+                            chr => {
+                                go_match!(this: chr,
+                                    '"' | '\'' | '<' | '=' => error_simple chr);
+                                go!(this: create_attr c; to AttributeName)
+                            }
+                        }
                     }
                 }
-            }},
+                before_attribute_name_state(self, s)
+            },
 
             //§ attribute-name-state
-            states::AttributeName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to AfterAttributeName),
-                '/'  => go!(self: to SelfClosingStartTag),
-                '='  => go!(self: to BeforeAttributeValue),
-                '>'  => go!(self: emit_tag Data),
-                '\0' => go!(self: error; push_name '\ufffd'),
-                c    => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: push_name cl),
-                    None => {
-                        go_match!(self: c,
-                            '"' | '\'' | '<' => error);
-                        go!(self: push_name c);
+            states::AttributeName => {
+                #[inline(never)]
+                fn attribute_name_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    loop {
+                        let c = get_char_simple!(this);
+                        match c {
+                            '\t' | '\n' | '\x0C' | ' '
+                                 => go!(this: to AfterAttributeName),
+                            '/'  => go!(this: to SelfClosingStartTag),
+                            '='  => go!(this: to BeforeAttributeValue),
+                            '>'  => go!(this: emit_tag Data),
+                            '\0' => go!(this: error_simple c; push_name_ur),
+                            chr => {
+                                go_match!(this: chr,
+                                    '"' | '\'' | '<' => error_simple chr);
+                                go!(this: push_name chr);
+                            }
+                        }
                     }
                 }
-            }},
+                attribute_name_state(self, s)
+            },
 
             //§ after-attribute-name-state
-            states::AfterAttributeName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '/'  => go!(self: to SelfClosingStartTag),
-                '='  => go!(self: to BeforeAttributeValue),
-                '>'  => go!(self: emit_tag Data),
-                '\0' => go!(self: error; create_attr '\ufffd'; to AttributeName),
-                c    => match lower_ascii_letter(c) {
-                    Some(cl) => go!(self: create_attr cl; to AttributeName),
-                    None => {
-                        go_match!(self: c,
-                            '"' | '\'' | '<' => error);
-                        go!(self: create_attr c; to AttributeName);
+            states::AfterAttributeName => {
+                #[inline(never)]
+                fn after_attribute_name_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    loop {
+                        let c = get_char_simple!(this);
+                        match c {
+                            '\t' | '\n' | '\x0C' | ' ' => {},
+                            '/'  => go!(this: to SelfClosingStartTag),
+                            '='  => go!(this: to BeforeAttributeValue),
+                            '>'  => go!(this: emit_tag Data),
+                            '\0' => go!(this: error_simple c; create_attr_ur; to AttributeName),
+                            chr => {
+                                go_match!(this: chr,
+                                    '"' | '\'' | '<' => error_simple chr);
+                                go!(this: create_attr chr; to AttributeName);
+                            }
+                        }
                     }
                 }
-            }},
+                after_attribute_name_state(self, s)
+            },
 
             //§ before-attribute-value-state
-            states::BeforeAttributeValue => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '"'  => go!(self: to AttributeValue DoubleQuoted),
-                '&'  => go!(self: reconsume AttributeValue Unquoted),
-                '\'' => go!(self: to AttributeValue SingleQuoted),
-                '\0' => go!(self: error; push_value '\ufffd'; to AttributeValue Unquoted),
-                '>'  => go!(self: error; emit_tag Data),
-                c => {
-                    go_match!(self: c,
-                        '<' | '=' | '`' => error);
-                    go!(self: push_value c; to AttributeValue Unquoted);
+            states::BeforeAttributeValue => {
+                #[inline(never)]
+                fn before_attribute_value_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                            b'"'  => go!(this: to AttributeValue DoubleQuoted),
+                            b'&'  => go!(this: reconsume s.c AttributeValue Unquoted),
+                            b'\'' => go!(this: to AttributeValue SingleQuoted),
+                            b'\0' => go!(this: error s.c; push_value_ur s.c; to AttributeValue Unquoted),
+                            b'>'  => go!(this: error s.c; emit_tag Data),
+                            chr => {
+                                go_match!(this: chr,
+                                    b'<' | b'=' | b'`' => error s.c);
+                                go!(this: push_value s.c; to AttributeValue Unquoted);
+                            }
+                        }
+                    }
                 }
-            }},
+                before_attribute_value_state(self, s)
+            },
 
             //§ attribute-value-(double-quoted)-state
-            states::AttributeValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '"' '&' '\0')) {
-                    FromSet('"')  => go!(self: to AfterAttributeValueQuoted),
-                    FromSet('&')  => go!(self: consume_char_ref '"'),
-                    FromSet('\0') => go!(self: error; push_value '\ufffd'),
-                    FromSet(c)    => go!(self: push_value c),
-                    NotFromSet(b) => go!(self: append_value b),
+            states::AttributeValue(DoubleQuoted) => {
+                #[inline(never)]
+                fn attribute_value_double_quoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '"' '&' '\0')) {
+                            (Full, Uninit) => {
+                                match s.c.as_ref().as_u8() {
+                                    b'"'  => go!(this: to AfterAttributeValueQuoted),
+                                    b'&'  => go!(this: consume_char_ref s.c b'"'),
+                                    b'\0' => go!(this: error s.c; push_value_ur s.c),
+                                    _     => go!(this: push_value s.c),
+                                }
+                            },
+                            (Uninit, Full) => go!(this: append_value s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                attribute_value_double_quoted_state(self, s)
             },
 
             //§ attribute-value-(single-quoted)-state
-            states::AttributeValue(SingleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\'' '&' '\0')) {
-                    FromSet('\'') => go!(self: to AfterAttributeValueQuoted),
-                    FromSet('&')  => go!(self: consume_char_ref '\''),
-                    FromSet('\0') => go!(self: error; push_value '\ufffd'),
-                    FromSet(c)    => go!(self: push_value c),
-                    NotFromSet(b) => go!(self: append_value b),
+            states::AttributeValue(SingleQuoted) => {
+                #[inline(never)]
+                fn attribute_value_single_quoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\'' '&' '\0')) {
+                            (Full, Uninit) => {
+                                match s.c.as_ref().as_u8() {
+                                    b'\'' => go!(this: to AfterAttributeValueQuoted),
+                                    b'&'  => go!(this: consume_char_ref s.c b'\''),
+                                    b'\0' => go!(this: error s.c; push_value_ur s.c),
+                                    _     => go!(this: push_value s.c),
+                                }
+                            },
+                            (Uninit, Full) => go!(this: append_value s.r),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
+                attribute_value_single_quoted_state(self, s)
             },
 
             //§ attribute-value-(unquoted)-state
-            states::AttributeValue(Unquoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')) {
-                    FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ')
-                     => go!(self: to BeforeAttributeName),
-                    FromSet('&')  => go!(self: consume_char_ref '>'),
-                    FromSet('>')  => go!(self: emit_tag Data),
-                    FromSet('\0') => go!(self: error; push_value '\ufffd'),
-                    FromSet(c) => {
-                        go_match!(self: c,
-                            '"' | '\'' | '<' | '=' | '`' => error);
-                        go!(self: push_value c);
+            states::AttributeValue(Unquoted) => {
+                #[inline(never)]
+                fn attribute_value_unquoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match pop_except_from!(this, s, small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')) {
+                            (Full, Uninit) => {
+                                match s.c.as_ref().as_u8() {
+                                    b'\t' | b'\n' | b'\x0C' | b' ' => go!(this: to BeforeAttributeName),
+                                    b'&'  => go!(this: consume_char_ref s.c b'>'),
+                                    b'>'  => go!(this: emit_tag Data),
+                                    b'\0' => go!(this: error s.c; push_value_ur s.c),
+                                    chr => {
+                                        go_match!(this: chr,
+                                            b'"' | b'\'' | b'<' | b'=' | b'`' => error s.c);
+                                        go!(this: push_value s.c);
+                                    }
+                                }
+                            },
+                            (Uninit, Full) => go!(this: append_value s.r),
+                            _ => unreachable!(),
+                        }
                     }
-                    NotFromSet(b) => go!(self: append_value b),
                 }
+                attribute_value_unquoted_state(self, s)
             },
 
             //§ after-attribute-value-(quoted)-state
-            states::AfterAttributeValueQuoted => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to BeforeAttributeName),
-                '/'  => go!(self: to SelfClosingStartTag),
-                '>'  => go!(self: emit_tag Data),
-                _    => go!(self: error; reconsume BeforeAttributeName),
-            }},
-
-            //§ self-closing-start-tag-state
-            states::SelfClosingStartTag => loop { match get_char!(self) {
-                '>' => {
-                    self.current_tag_self_closing = true;
-                    go!(self: emit_tag Data);
-                }
-                _ => go!(self: error; reconsume BeforeAttributeName),
-            }},
-
-            //§ comment-start-state
-            states::CommentStart => loop { match get_char!(self) {
-                '-'  => go!(self: to CommentStartDash),
-                '\0' => go!(self: error; push_comment '\ufffd'; to Comment),
-                '>'  => go!(self: error; emit_comment; to Data),
-                c    => go!(self: push_comment c; to Comment),
-            }},
-
-            //§ comment-start-dash-state
-            states::CommentStartDash => loop { match get_char!(self) {
-                '-'  => go!(self: to CommentEnd),
-                '\0' => go!(self: error; append_comment "-\ufffd"; to Comment),
-                '>'  => go!(self: error; emit_comment; to Data),
-                c    => go!(self: push_comment '-'; push_comment c; to Comment),
-            }},
-
-            //§ comment-state
-            states::Comment => loop { match get_char!(self) {
-                '-'  => go!(self: to CommentEndDash),
-                '\0' => go!(self: error; push_comment '\ufffd'),
-                c    => go!(self: push_comment c),
-            }},
-
-            //§ comment-end-dash-state
-            states::CommentEndDash => loop { match get_char!(self) {
-                '-'  => go!(self: to CommentEnd),
-                '\0' => go!(self: error; append_comment "-\ufffd"; to Comment),
-                c    => go!(self: push_comment '-'; push_comment c; to Comment),
-            }},
-
-            //§ comment-end-state
-            states::CommentEnd => loop { match get_char!(self) {
-                '>'  => go!(self: emit_comment; to Data),
-                '\0' => go!(self: error; append_comment "--\ufffd"; to Comment),
-                '!'  => go!(self: error; to CommentEndBang),
-                '-'  => go!(self: error; push_comment '-'),
-                c    => go!(self: error; append_comment "--"; push_comment c; to Comment),
-            }},
-
-            //§ comment-end-bang-state
-            states::CommentEndBang => loop { match get_char!(self) {
-                '-'  => go!(self: append_comment "--!"; to CommentEndDash),
-                '>'  => go!(self: emit_comment; to Data),
-                '\0' => go!(self: error; append_comment "--!\ufffd"; to Comment),
-                c    => go!(self: append_comment "--!"; push_comment c; to Comment),
-            }},
-
-            //§ doctype-state
-            states::Doctype => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                    => go!(self: to BeforeDoctypeName),
-                _   => go!(self: error; reconsume BeforeDoctypeName),
-            }},
-
-            //§ before-doctype-name-state
-            states::BeforeDoctypeName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '\0' => go!(self: error; create_doctype; push_doctype_name '\ufffd'; to DoctypeName),
-                '>'  => go!(self: error; create_doctype; force_quirks; emit_doctype; to Data),
-                c    => go!(self: create_doctype; push_doctype_name (lower_ascii(c)); to DoctypeName),
-            }},
-
-            //§ doctype-name-state
-            states::DoctypeName => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to AfterDoctypeName),
-                '>'  => go!(self: emit_doctype; to Data),
-                '\0' => go!(self: error; push_doctype_name '\ufffd'),
-                c    => go!(self: push_doctype_name (lower_ascii(c))),
-            }},
-
-            //§ after-doctype-name-state
-            states::AfterDoctypeName => loop {
-                if eat!(self, "public") {
-                    go!(self: to AfterDoctypeKeyword Public);
-                } else if eat!(self, "system") {
-                    go!(self: to AfterDoctypeKeyword System);
-                } else {
-                    match get_char!(self) {
-                        '\t' | '\n' | '\x0C' | ' ' => (),
-                        '>' => go!(self: emit_doctype; to Data),
-                        _   => go!(self: error; force_quirks; to BogusDoctype),
+            states::AfterAttributeValueQuoted => {
+                #[inline(never)]
+                fn after_attribute_value_quoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' '
+                                  => go!(this: to BeforeAttributeName),
+                            b'/'  => go!(this: to SelfClosingStartTag),
+                            b'>'  => go!(this: emit_tag Data),
+                            _     => go!(this: error s.c; reconsume s.c BeforeAttributeName),
+                        }
                     }
                 }
+                after_attribute_value_quoted_state(self, s)
+            },
+
+            //§ self-closing-start-tag-state
+            states::SelfClosingStartTag => {
+                #[inline(never)]
+                fn self_closing_start_tag_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'>' => {
+                                this.current_tag_self_closing = true;
+                                go!(this: emit_tag Data);
+                            }
+                            _ => go!(this: error s.c; reconsume s.c BeforeAttributeName),
+                        }
+                    }
+                }
+                self_closing_start_tag_state(self, s)
+            },
+
+            //§ comment-start-state
+            states::CommentStart => {
+                #[inline(never)]
+                fn comment_start_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: clear_comment_end_dashes; push_comment_end_dash s.c; to CommentStartDash),
+                            b'\0' => go!(this: error s.c; push_comment_ur s.c; to Comment),
+                            b'>'  => go!(this: error s.c; emit_comment; to Data),
+                            _     => go!(this: push_comment s.c; to Comment),
+                        }
+                    }
+                }
+                comment_start_state(self, s)
+            },
+
+            //§ comment-start-dash-state
+            states::CommentStartDash => {
+                #[inline(never)]
+                fn comment_start_dash_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: push_comment_end_dash s.c; to CommentEnd),
+                            b'\0' => go!(this: error s.c; flush_comment_end_dashes; push_comment_ur s.c; to Comment),
+                            b'>'  => go!(this: error s.c; emit_comment; to Data),
+                            _     => go!(this: flush_comment_end_dashes; push_comment s.c; to Comment),
+                        }
+                    }
+                }
+                comment_start_dash_state(self, s)
+            },
+
+            //§ comment-state
+            states::Comment => {
+                #[inline(never)]
+                fn comment_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: clear_comment_end_dashes; push_comment_end_dash s.c; to CommentEndDash),
+                            b'\0' => go!(this: error s.c; push_comment_ur s.c),
+                            _     => go!(this: append_temp2_to_comment; push_comment s.c),
+                        }
+                    }
+                }
+                comment_state(self, s)
+            },
+
+            //§ comment-end-dash-state
+            states::CommentEndDash => {
+                #[inline(never)]
+                fn comment_end_dash_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: push_comment_end_dash s.c; to CommentEnd),
+                            b'\0' => go!(this: error s.c; flush_comment_end_dashes; push_comment_ur s.c; to Comment),
+                            _     => go!(this: flush_comment_end_dashes; push_comment s.c; to Comment),
+                        }
+                    }
+                }
+                comment_end_dash_state(self, s)
+            },
+
+            //§ comment-end-state
+            states::CommentEnd => {
+                #[inline(never)]
+                fn comment_end_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'>'  => go!(this: emit_comment; to Data),
+                            b'\0' => go!(this: error s.c; flush_comment_end_dashes; push_comment_ur s.c; to Comment),
+                            b'!'  => go!(this: error s.c; clear_temp2; push_temp2 s.c; to CommentEndBang),
+                            b'-'  => go!(this: error s.c; push_comment_end_dash s.c),
+                            _     => go!(this: error s.c; flush_comment_end_dashes; push_comment s.c; to Comment),
+                        }
+                    }
+                }
+                comment_end_state(self, s)
+            },
+
+            //§ comment-end-bang-state
+            states::CommentEndBang => {
+                #[inline(never)]
+                fn comment_end_bang_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'-'  => go!(this: flush_comment_end_dashes; append_temp2_to_comment; to CommentEndDash),
+                            b'>'  => go!(this: emit_comment; to Data),
+                            b'\0' => go!(this: error s.c; flush_comment_end_dashes; append_temp2_to_comment; push_comment_ur s.c; to Comment),
+                            _     => go!(this: flush_comment_end_dashes; append_temp2_to_comment; push_comment s.c; to Comment),
+                        }
+                    }
+                }
+                comment_end_bang_state(self, s)
+            },
+
+            //§ doctype-state
+            states::Doctype => {
+                #[inline(never)]
+                fn doctype_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' '
+                                => go!(this: to BeforeDoctypeName),
+                            _   => go!(this: error s.c; reconsume s.c BeforeDoctypeName),
+                        }
+                    }
+                }
+                doctype_state(self, s)
+            },
+
+            //§ before-doctype-name-state
+            states::BeforeDoctypeName => {
+                #[inline(never)]
+                fn before_doctype_name_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                            b'\0' => go!(this: error s.c; create_doctype; push_doctype_name_ur s.c; to DoctypeName),
+                            b'>'  => go!(this: error s.c; create_doctype; force_quirks; emit_doctype; to Data),
+                            _     => go!(this: create_doctype; push_doctype_name s.c; to DoctypeName),
+                        }
+                    }
+                }
+                before_doctype_name_state(self, s)
+            },
+
+            //§ doctype-name-state
+            states::DoctypeName => {
+                #[inline(never)]
+                fn doctype_name_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' '
+                                  => go!(this: to AfterDoctypeName),
+                            b'>'  => go!(this: emit_doctype; to Data),
+                            b'\0' => go!(this: error s.c; push_doctype_name_ur s.c),
+                            _     => go!(this: push_doctype_name s.c),
+                        }
+                    }
+                }
+                doctype_name_state(self, s)
+            },
+
+            //§ after-doctype-name-state
+            states::AfterDoctypeName => {
+                #[inline(never)]
+                fn after_doctype_name_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        if !eat!(this, b"public").is_empty() {
+                            go!(this: to AfterDoctypeKeyword Public);
+                        } else if !eat!(this, b"system").is_empty() {
+                            go!(this: to AfterDoctypeKeyword System);
+                        } else {
+                            match get_char!(this, s) {
+                                b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                                b'>' => go!(this: emit_doctype; to Data),
+                                _    => go!(this: error s.c; force_quirks; to BogusDoctype),
+                            }
+                        }
+                    }
+                }
+                after_doctype_name_state(self, s)
             },
 
             //§ after-doctype-public-keyword-state after-doctype-system-keyword-state
-            states::AfterDoctypeKeyword(kind) => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to BeforeDoctypeIdentifier kind),
-                '"'  => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
-                '\'' => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
-                '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
-                _    => go!(self: error; force_quirks; to BogusDoctype),
-            }},
+            states::AfterDoctypeKeyword(kind) => {
+                #[inline(never)]
+                fn after_doctype_keyword_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: DoctypeIdKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' '
+                                 => go!(this: to BeforeDoctypeIdentifier kind),
+                            b'"'  => go!(this: error s.c; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
+                            b'\'' => go!(this: error s.c; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
+                            b'>'  => go!(this: error s.c; force_quirks; emit_doctype; to Data),
+                            _     => go!(this: error s.c; force_quirks; to BogusDoctype),
+                        }
+                    }
+                }
+                after_doctype_keyword_state(self, s, kind)
+            },
 
             //§ before-doctype-public-identifier-state before-doctype-system-identifier-state
-            states::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '"'  => go!(self: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
-                '\'' => go!(self: clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
-                '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
-                _    => go!(self: error; force_quirks; to BogusDoctype),
-            }},
+            states::BeforeDoctypeIdentifier(kind) => {
+                #[inline(never)]
+                fn before_doctype_identifier_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: DoctypeIdKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                            b'"'  => go!(this: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
+                            b'\'' => go!(this: clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
+                            b'>'  => go!(this: error s.c; force_quirks; emit_doctype; to Data),
+                            _     => go!(this: error s.c; force_quirks; to BogusDoctype),
+                        }
+                    }
+                }
+                before_doctype_identifier_state(self, s, kind)
+            },
 
             //§ doctype-public-identifier-(double-quoted)-state doctype-system-identifier-(double-quoted)-state
-            states::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self) {
-                '"'  => go!(self: to AfterDoctypeIdentifier kind),
-                '\0' => go!(self: error; push_doctype_id kind '\ufffd'),
-                '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
-                c    => go!(self: push_doctype_id kind c),
-            }},
+            states::DoctypeIdentifierDoubleQuoted(kind) => {
+                #[inline(never)]
+                fn doctype_identifier_double_quoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: DoctypeIdKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'"'  => go!(this: to AfterDoctypeIdentifier kind),
+                            b'\0' => go!(this: error s.c; push_doctype_id_ur kind s.c),
+                            b'>'  => go!(this: error s.c; force_quirks; emit_doctype; to Data),
+                            _     => go!(this: push_doctype_id kind s.c),
+                        }
+                    }
+                }
+                doctype_identifier_double_quoted_state(self, s, kind)
+            },
 
             //§ doctype-public-identifier-(single-quoted)-state doctype-system-identifier-(single-quoted)-state
-            states::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self) {
-                '\'' => go!(self: to AfterDoctypeIdentifier kind),
-                '\0' => go!(self: error; push_doctype_id kind '\ufffd'),
-                '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
-                c    => go!(self: push_doctype_id kind c),
-            }},
+            states::DoctypeIdentifierSingleQuoted(kind) => {
+                #[inline(never)]
+                fn doctype_identifier_single_quoted_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared, kind: DoctypeIdKind) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\'' => go!(this: to AfterDoctypeIdentifier kind),
+                            b'\0' => go!(this: error s.c; push_doctype_id_ur kind s.c),
+                            b'>'  => go!(this: error s.c; force_quirks; emit_doctype; to Data),
+                            _     => go!(this: push_doctype_id kind s.c),
+                        }
+                    }
+                }
+                doctype_identifier_single_quoted_state(self, s, kind)
+            },
 
             //§ after-doctype-public-identifier-state
-            states::AfterDoctypeIdentifier(Public) => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to BetweenDoctypePublicAndSystemIdentifiers),
-                '>'  => go!(self: emit_doctype; to Data),
-                '"'  => go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
-                '\'' => go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
-                _    => go!(self: error; force_quirks; to BogusDoctype),
-            }},
+            states::AfterDoctypeIdentifier(Public) => {
+                #[inline(never)]
+                fn after_doctype_public_identifier_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' '
+                                 => go!(this: to BetweenDoctypePublicAndSystemIdentifiers),
+                            b'>'  => go!(this: emit_doctype; to Data),
+                            b'"'  => go!(this: error s.c; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
+                            b'\'' => go!(this: error s.c; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
+                            _     => go!(this: error s.c; force_quirks; to BogusDoctype),
+                        }
+                    }
+                }
+                after_doctype_public_identifier_state(self, s)
+            },
 
             //§ after-doctype-system-identifier-state
-            states::AfterDoctypeIdentifier(System) => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '>' => go!(self: emit_doctype; to Data),
-                _   => go!(self: error; to BogusDoctype),
-            }},
+            states::AfterDoctypeIdentifier(System) => {
+                #[inline(never)]
+                fn after_doctype_system_identifier_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                            b'>' => go!(this: emit_doctype; to Data),
+                            _    => go!(this: error s.c; to BogusDoctype),
+                        }
+                    }
+                }
+                after_doctype_system_identifier_state(self, s)
+            },
 
             //§ between-doctype-public-and-system-identifiers-state
-            states::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '>'  => go!(self: emit_doctype; to Data),
-                '"'  => go!(self: clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
-                '\'' => go!(self: clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
-                _    => go!(self: error; force_quirks; to BogusDoctype),
-            }},
+            states::BetweenDoctypePublicAndSystemIdentifiers => {
+                #[inline(never)]
+                fn between_doctype_public_and_system_identifiers_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'\t' | b'\n' | b'\x0C' | b' ' => {},
+                            b'>'  => go!(this: emit_doctype; to Data),
+                            b'"'  => go!(this: clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
+                            b'\'' => go!(this: clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
+                            _     => go!(this: error s.c; force_quirks; to BogusDoctype),
+                        }
+                    }
+                }
+                between_doctype_public_and_system_identifiers_state(self, s)
+            },
 
             //§ bogus-doctype-state
-            states::BogusDoctype => loop { match get_char!(self) {
-                '>'  => go!(self: emit_doctype; to Data),
-                _    => (),
-            }},
+            states::BogusDoctype => {
+                #[inline(never)]
+                fn bogus_doctype_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'>'  => go!(this: emit_doctype; to Data),
+                            _     => {},
+                        }
+                    }
+                }
+                bogus_doctype_state(self, s)
+            },
 
             //§ bogus-comment-state
-            states::BogusComment => loop { match get_char!(self) {
-                '>'  => go!(self: emit_comment; to Data),
-                '\0' => go!(self: push_comment '\ufffd'),
-                c    => go!(self: push_comment c),
-            }},
+            states::BogusComment => {
+                #[inline(never)]
+                fn bogus_comment_state<S: TokenSink>(this: &mut TI<S>, s: &mut Shared) -> bool {
+                    loop {
+                        match get_char!(this, s) {
+                            b'>'  => go!(this: emit_comment; to Data),
+                            b'\0' => go!(this: push_comment_ur s.c),
+                            _     => go!(this: push_comment s.c),
+                        }
+                    }
+                }
+                bogus_comment_state(self, s)
+            },
 
             //§ markup-declaration-open-state
-            states::MarkupDeclarationOpen => loop {
-                if eat!(self, "--") {
-                    go!(self: clear_comment; to CommentStart);
-                } else if eat!(self, "doctype") {
-                    go!(self: to Doctype);
-                } else {
-                    // FIXME: CDATA, requires "adjusted current node" from tree builder
-                    // FIXME: 'error' gives wrong message
-                    go!(self: error; to BogusComment);
+            states::MarkupDeclarationOpen => {
+                #[inline(never)]
+                fn markup_declaration_open_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    loop {
+                        let span = eat!(this, b"--");
+                        if !span.is_empty() {
+                            go!(this: clear_temp2; clear_comment; to CommentStart);
+                        }
+
+                        let span = eat!(this, b"doctype");
+                        if !span.is_empty() {
+                            go!(this: to Doctype);
+                        }
+
+                        // FIXME: CDATA, requires "adjusted current node" from tree builder
+                        // FIXME: 'error' gives wrong message
+                        let nil = SingleChar::null();
+                        let c = (*this.current_char.as_ref().unwrap_or(&nil)).clone();
+                        go!(this: error_raw c; to BogusComment);
+                    }
                 }
+                markup_declaration_open_state(self, s)
             },
 
             //§ cdata-section-state
-            states::CdataSection
-                => panic!("FIXME: state {} not implemented", self.state),
+            states::CdataSection => {
+                #[inline(never)]
+                fn cdata_section_state<S: TokenSink>(this: &mut TI<S>, _s: &mut Shared) -> bool {
+                    panic!("FIXME: state {} not implemented", this.state)
+                }
+                cdata_section_state(self, s)
+            }
             //§ END
         }
     }
@@ -1189,30 +1910,17 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         progress
     }
 
-    fn process_char_ref(&mut self, char_ref: CharRef) {
-        let CharRef { mut chars, mut num_chars } = char_ref;
-
-        if num_chars == 0 {
-            chars[0] = '&';
-            num_chars = 1;
-        }
-
-        for i in range(0, num_chars) {
-            let c = chars[i as uint];
-            match self.state {
-                states::Data | states::RawData(states::Rcdata)
-                    => go!(self: emit c),
-
-                states::AttributeValue(_)
-                    => go!(self: push_value c),
-
-                _ => panic!("state {} should not be reachable in process_char_ref", self.state),
-            }
+    #[inline(never)]
+    fn process_char_ref(&mut self, chars: Span) {
+        match self.state {
+            states::Data | states::RawData(states::Rcdata) => go!(self: emit_span_raw chars),
+            states::AttributeValue(_) => go!(self: append_value_span_raw chars),
+            _ => panic!("state {} should not be reachable in process_char_ref", self.state),
         }
     }
 
     /// Indicate that we have reached the end of the input.
-    pub fn end(&mut self) {
+    fn end(&mut self, shared: &mut Shared) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
         match self.char_ref_tokenizer.take() {
@@ -1226,7 +1934,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run();
+        self.run(shared);
 
         while self.eof_step() {
             // loop
@@ -1277,22 +1985,26 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error_eof; to Data),
 
             states::TagOpen
-                => go!(self: error_eof; emit '<'; to Data),
+                => go!(self: error_eof; emit_temp2; to Data),
 
             states::EndTagOpen
-                => go!(self: error_eof; emit '<'; emit '/'; to Data),
+                => go!(self: error_eof; emit_temp2; to Data),
 
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped))
                 => go!(self: to RawData ScriptDataEscaped DoubleEscaped),
 
             states::RawLessThanSign(kind)
-                => go!(self: emit '<'; to RawData kind),
+                => go!(self: emit_temp2; to RawData kind),
 
             states::RawEndTagOpen(kind)
-                => go!(self: emit '<'; emit '/'; to RawData kind),
+                => {
+                    go!(self: emit_temp2; to RawData kind)
+            },
 
             states::RawEndTagName(kind)
-                => go!(self: emit '<'; emit '/'; emit_temp; to RawData kind),
+                => {
+                    go!(self: emit_temp2; emit_temp; to RawData kind)
+            },
 
             states::ScriptDataEscapeStart(kind)
                 => go!(self: to RawData ScriptDataEscaped kind),
@@ -1324,61 +2036,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: emit_comment; to Data),
 
             states::MarkupDeclarationOpen
-                => go!(self: error; to BogusComment),
+                => {
+                    let c = (*self.current_char.as_ref().unwrap()).clone();
+                    go!(self: error_raw c; to BogusComment)
+                },
 
             states::CdataSection
                 => panic!("FIXME: state {} not implemented in EOF", self.state),
         }
-    }
-}
-
-#[cfg(test)]
-#[allow(non_snake_case)]
-mod test {
-    use core::prelude::*;
-    use collections::vec::Vec;
-    use collections::string::String;
-    use collections::slice::CloneSliceAllocPrelude;
-    use super::{option_push, append_strings}; // private items
-
-    #[test]
-    fn push_to_None_gives_singleton() {
-        let mut s: Option<String> = None;
-        option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("x")));
-    }
-
-    #[test]
-    fn push_to_empty_appends() {
-        let mut s: Option<String> = Some(String::new());
-        option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("x")));
-    }
-
-    #[test]
-    fn push_to_nonempty_appends() {
-        let mut s: Option<String> = Some(String::from_str("y"));
-        option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("yx")));
-    }
-
-    #[test]
-    fn append_appends() {
-        let mut s = String::from_str("foo");
-        append_strings(&mut s, String::from_str("bar"));
-        assert_eq!(s, String::from_str("foobar"));
-    }
-
-    #[test]
-    fn append_to_empty_does_not_copy() {
-        let mut lhs: String = String::from_str("");
-        let rhs: Vec<u8> = b"foo".to_vec();
-        let ptr_old = rhs[0] as *const u8;
-
-        append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
-        assert_eq!(lhs, String::from_str("foo"));
-
-        let ptr_new = lhs.into_bytes()[0] as *const u8;
-        assert_eq!(ptr_old, ptr_new);
     }
 }

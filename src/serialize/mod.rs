@@ -15,6 +15,8 @@ use collections::vec::Vec;
 
 use string_cache::{Atom, QualName};
 
+use util::span::{Span, ValidatedSpanUtils};
+
 //§ serializing-html-fragments
 pub trait Serializable {
     fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>, incl_self: bool) -> IoResult<()>;
@@ -46,7 +48,7 @@ struct ElemInfo {
     processed_first_child: bool,
 }
 
-pub type AttrRef<'a> = (&'a QualName, &'a str);
+pub type AttrRef<'a> = (&'a QualName, &'a Span);
 
 pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
@@ -71,8 +73,8 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         self.stack.last_mut().expect("no parent ElemInfo")
     }
 
-    fn write_escaped(&mut self, text: &str, attr_mode: bool) -> IoResult<()> {
-        for c in text.chars() {
+    fn write_escaped(&mut self, text: &Span, attr_mode: bool) -> IoResult<()> {
+        for c in text.iter_chars() {
             try!(match c {
                 '&' => self.writer.write_str("&amp;"),
                 '\u00A0' => self.writer.write_str("&nbsp;"),
@@ -149,8 +151,15 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         self.writer.write_char('>')
     }
 
-    pub fn write_text(&mut self, text: &str) -> IoResult<()> {
-        let prepend_lf = text.starts_with("\n") && {
+    fn write_span(&mut self, span: &Span) -> IoResult<()> {
+        for s in span.iter_strs() {
+            try!(self.writer.write_str(s));
+        }
+        Ok(())
+    }
+
+    pub fn write_text(&mut self, text: &Span) -> IoResult<()> {
+        let prepend_lf = text.starts_with(b"\n") && {
             let parent = self.parent();
             !parent.processed_first_child && match parent.html_name {
                 Some(atom!(pre)) | Some(atom!(textarea)) | Some(atom!(listing)) => true,
@@ -175,19 +184,22 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         if escape {
             self.write_escaped(text, false)
         } else {
-            self.writer.write_str(text)
+            for s in text.iter_strs() {
+                try!(self.writer.write_str(s));
+            }
+            Ok(())
         }
     }
 
-    pub fn write_comment(&mut self, text: &str) -> IoResult<()> {
+    pub fn write_comment(&mut self, text: &Span) -> IoResult<()> {
         try!(self.writer.write_str("<!--"));
-        try!(self.writer.write_str(text));
+        try!(self.write_span(text));
         self.writer.write_str("-->")
     }
 
-    pub fn write_doctype(&mut self, name: &str) -> IoResult<()> {
+    pub fn write_doctype(&mut self, name: &Atom) -> IoResult<()> {
         try!(self.writer.write_str("<!DOCTYPE "));
-        try!(self.writer.write_str(name));
+        try!(self.writer.write_str(name.as_slice()));
         self.writer.write_char('\n')
     }
 }

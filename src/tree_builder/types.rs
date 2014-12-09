@@ -13,7 +13,7 @@ use core::prelude::*;
 
 use tokenizer::Tag;
 
-use collections::string::String;
+use util::span::Span;
 
 pub use self::InsertionMode::*;
 pub use self::SplitStatus::*;
@@ -60,8 +60,8 @@ pub enum SplitStatus {
 #[deriving(PartialEq, Eq, Clone, Show)]
 pub enum Token {
     TagToken(Tag),
-    CommentToken(String),
-    CharacterTokens(SplitStatus, String),
+    CommentToken(Span),
+    CharacterTokens(SplitStatus, Span),
     NullCharacterToken,
     EOFToken,
 }
@@ -69,7 +69,7 @@ pub enum Token {
 pub enum ProcessResult {
     Done,
     DoneAckSelfClosing,
-    SplitWhitespace(String),
+    SplitWhitespace(Span),
     Reprocess(InsertionMode, Token),
 }
 

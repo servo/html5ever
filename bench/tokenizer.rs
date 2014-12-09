@@ -14,11 +14,13 @@ use std::vec::MoveItems;
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 
+use html5ever::ROIobuf;
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
 struct Sink;
 
 impl TokenSink for Sink {
+    #[inline(never)]
     fn process_token(&mut self, token: Token) {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
@@ -29,7 +31,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: Vec<String>,
+    input: Vec<ROIobuf<'static>>,
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -51,11 +53,14 @@ impl Bench {
         // This simulates reading from the network.
         let mut input = vec![];
         let mut total = 0u;
+        let mut s = String::new();
         while total < size {
             // The by_ref() call is important, otherwise we get wrong results!
             // See rust-lang/rust#18045.
             let sz = cmp::min(1024, size - total);
-            input.push(stream.by_ref().take(sz).collect());
+            s.truncate(0);
+            s.extend(stream.by_ref().take(sz));
+            input.push(ROIobuf::from_str_copy(s.as_slice()));
             total += sz;
         }
 

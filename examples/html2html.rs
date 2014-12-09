@@ -23,11 +23,11 @@ use std::default::Default;
 use html5ever::sink::rcdom::RcDom;
 use html5ever::driver::ParseOpts;
 use html5ever::tree_builder::TreeBuilderOpts;
-use html5ever::{parse, one_input, serialize};
+use html5ever::{ROIobuf, parse, one_input, serialize};
 
 fn main() {
     let input = io::stdin().read_to_string().unwrap();
-    let dom: RcDom = parse(one_input(input), ParseOpts {
+    let dom: RcDom = parse(one_input(ROIobuf::from_str_copy(input.as_slice())), ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,
             ..Default::default()

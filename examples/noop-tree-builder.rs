@@ -13,12 +13,11 @@ extern crate html5ever;
 
 use std::io;
 use std::default::Default;
-use std::string::String;
 use std::collections::HashMap;
 use std::str::MaybeOwned;
-use string_cache::QualName;
+use string_cache::{QualName, Atom};
 
-use html5ever::{parse_to, one_input};
+use html5ever::{ROIobuf, parse_to, one_input, Span};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 
@@ -54,7 +53,7 @@ impl TreeSink<uint> for Sink {
         id
     }
 
-    fn create_comment(&mut self, _text: String) -> uint {
+    fn create_comment(&mut self, _text: Span) -> uint {
         self.get_id()
     }
 
@@ -70,7 +69,7 @@ impl TreeSink<uint> for Sink {
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
 
-    fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
+    fn append_doctype_to_document(&mut self, _name: Atom, _public_id: Span, _system_id: Span) { }
     fn add_attrs_if_missing(&mut self, _target: uint, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: uint) { }
     fn mark_script_already_started(&mut self, _node: uint) { }
@@ -83,5 +82,5 @@ fn main() {
     };
 
     let input = io::stdin().read_to_string().unwrap();
-    parse_to(sink, one_input(input), Default::default());
+    parse_to(sink, one_input(ROIobuf::from_str_copy(input.as_slice())), Default::default());
 }

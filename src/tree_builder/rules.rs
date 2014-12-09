@@ -19,15 +19,27 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
+use util::span::Span;
 use util::str::is_ascii_whitespace;
 
 use core::mem::replace;
-use collections::string::String;
 use collections::str::Slice;
 
-fn any_not_whitespace(x: &String) -> bool {
+fn any_not_whitespace(x: &Span) -> bool {
     // FIXME: this might be much faster as a byte scan
-    x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
+    x.iter_bytes().any(|c| c & 0x80 != 0 || !is_ascii_whitespace(c as char))
+}
+
+#[test]
+fn test_any_non_whitespace() {
+    fn span(s: &'static str) -> Span {
+        use iobuf::{BufSpan, ROIobuf};
+        BufSpan::from_buf(ROIobuf::from_str(s))
+    }
+    assert!(any_not_whitespace(&span("helloworld")));
+    assert!(!any_not_whitespace(&span("")));
+    assert!(!any_not_whitespace(&span("  \t  ")));
+    assert!(any_not_whitespace(&span("          hi")));
 }
 
 // This goes in a trait so that we can control visibility.

@@ -16,10 +16,11 @@ use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use core::default::Default;
 use core::option;
-use collections::string::String;
+
+use util::span::Buf;
 
 /// Convenience function to turn a single `String` into an iterator.
-pub fn one_input(x: String) -> option::Item<String> {
+pub fn one_input(x: Buf) -> option::Item<Buf> {
     Some(x).into_iter()
 }
 
@@ -33,7 +34,7 @@ pub fn one_input(x: String) -> option::Item<String> {
 /// ```
 pub fn tokenize_to<
         Sink: TokenSink,
-        It: Iterator<String>
+        It: Iterator<Buf>
     >(
         sink: Sink,
         mut input: It,
@@ -68,7 +69,7 @@ pub struct ParseOpts {
 pub fn parse_to<
         Handle: Clone,
         Sink: TreeSink<Handle>,
-        It: Iterator<String>
+        It: Iterator<Buf>
     >(
         sink: Sink,
         mut input: It,
@@ -102,7 +103,7 @@ pub fn parse<
         Handle: Clone,
         Sink: Default + TreeSink<Handle>,
         Output: ParseResult<Sink>,
-        It: Iterator<String>
+        It: Iterator<Buf>
     >(
         input: It,
         opts: ParseOpts) -> Output {

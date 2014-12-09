@@ -13,14 +13,24 @@ extern crate html5ever;
 
 use std::io;
 use std::default::Default;
-use std::string::String;
 use std::collections::HashMap;
 use std::str::MaybeOwned;
-use string_cache::QualName;
+use string_cache::{QualName, Atom};
 
+use html5ever::{ROIobuf, Span, ValidatedSpanUtils};
 use html5ever::{parse_to, one_input};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+
+fn escape(span: &Span) -> String {
+    let mut ret = String::new();
+
+    for c in span.iter_chars() {
+        ret.extend(Char::escape_default(c));
+    }
+
+    ret
+}
 
 struct Sink {
     next_id: uint,
@@ -63,9 +73,9 @@ impl TreeSink<uint> for Sink {
         id
     }
 
-    fn create_comment(&mut self, text: String) -> uint {
+    fn create_comment(&mut self, text: Span) -> uint {
         let id = self.get_id();
-        println!("Created comment \"{}\" as {}", text.escape_default(), id);
+        println!("Created comment \"{}\" as {}", escape(&text), id);
         id
     }
 
@@ -74,7 +84,9 @@ impl TreeSink<uint> for Sink {
             AppendNode(n)
                 => println!("Append node {} to {}", n, parent),
             AppendText(t)
-                => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
+                => {
+                    println!("Append text to {}: \"{}\"", parent, escape(&t))
+                },
         }
     }
 
@@ -85,7 +97,7 @@ impl TreeSink<uint> for Sink {
             AppendNode(n)
                 => println!("Append node {} before {}", n, sibling),
             AppendText(t)
-                => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
+                => println!("Append text before {}: \"{}\"", sibling, escape(&t)),
         }
 
         // `sibling` will have a parent unless a script moved it, and we're
@@ -93,7 +105,7 @@ impl TreeSink<uint> for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self, name: Atom, public_id: Span, system_id: Span) {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
@@ -120,5 +132,5 @@ fn main() {
     };
 
     let input = io::stdin().read_to_string().unwrap();
-    parse_to(sink, one_input(input), Default::default());
+    parse_to(sink, one_input(ROIobuf::from_str_copy(input.as_slice())), Default::default());
 }

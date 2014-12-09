@@ -13,6 +13,10 @@ use core::str::CharEq;
 use collections::vec::Vec;
 use collections::string::String;
 
+use util::span::{Span, ValidatedSpanUtils};
+
+use iobuf::{BufSpan, Iobuf};
+
 #[cfg(not(for_c))]
 use core::fmt::Show;
 
@@ -73,8 +77,23 @@ pub struct Ascii {
 }
 
 impl Ascii {
+    #[inline]
+    pub fn new(chr: u8) -> Option<Ascii> {
+        if chr < 0x80 {
+            Some(Ascii { chr: chr })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn to_char(self) -> char {
         self.chr as char
+    }
+
+    #[inline]
+    pub fn to_u8(self) -> u8 {
+        self.chr
     }
 
     #[inline]
@@ -108,10 +127,31 @@ pub trait AsciiCast {
 }
 
 impl AsciiCast for char {
+    #[inline]
     fn to_ascii_opt(&self) -> Option<Ascii> {
         let n = *self as uint;
         if n < 0x80 {
             Some(Ascii { chr: n as u8 })
+        } else {
+            None
+        }
+    }
+}
+
+#[inline]
+pub fn is_alphabetic(chr: u8) -> bool {
+    match chr {
+        b'a'...b'z' | b'A'...b'Z' => true,
+        _ => false,
+    }
+}
+
+
+impl AsciiCast for u8 {
+    #[inline]
+    fn to_ascii_opt(&self) -> Option<Ascii> {
+        if *self < 0x80 {
+            Some(Ascii { chr: *self as u8 })
         } else {
             None
         }
@@ -155,6 +195,7 @@ impl<'a> AsciiExt<String> for &'a str {
 
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
+#[inline]
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c.to_ascii_opt() {
         Some(a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
@@ -163,6 +204,7 @@ pub fn lower_ascii_letter(c: char) -> Option<char> {
 }
 
 /// Map ASCII uppercase to lowercase; preserve other characters.
+#[inline]
 pub fn lower_ascii(c: char) -> char {
     lower_ascii_letter(c).unwrap_or(c)
 }
@@ -170,11 +212,6 @@ pub fn lower_ascii(c: char) -> char {
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
     c.to_ascii_opt().map_or(false, |a| a.is_alphanumeric())
-}
-
-/// Allocate an empty string with a small non-zero capacity.
-pub fn empty_str() -> String {
-    String::with_capacity(4)
 }
 
 /// ASCII whitespace characters, as defined by
@@ -186,27 +223,61 @@ pub fn is_ascii_whitespace(c: char) -> bool {
     }
 }
 
-/// Count how many bytes at the beginning of the string
-/// either all match or all don't match the predicate,
-/// and also return whether they match.
+/// Slices a span such that it contains characters at the beginning of the string,
+/// and either all or none match the predicate, and also return whether they match.
 ///
-/// Returns `None` on an empty string.
-pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)> {
-    let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
-    let matches = pred.matches(first);
+/// Returns `None` on an empty span.
+pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &Span) -> Option<(Span, Span, bool)> {
+    let mut char_iter = buf.iter_chars();
+    let first_char = unwrap_or_return!(char_iter.next(), None);
+    let matches = pred.matches(first_char);
+    let mut buf_iter = buf.iter().peekable();
 
-    for (idx, ch) in rest.char_indices() {
-        if matches != pred.matches(ch) {
-            return Some((idx + first.len_utf8(), matches));
+    // the number of full buffers in the set.
+    let mut buffers_in_set = 0u;
+
+    // the number of bytes in the last buffer that are in the set.
+    let mut bytes_in_set = first_char.len_utf8() as u32;
+
+    for ch in char_iter {
+        if matches != pred.matches(ch) { break; }
+
+        bytes_in_set += ch.len_utf8() as u32;
+
+        if bytes_in_set == buf_iter.peek().unwrap().len() {
+            buffers_in_set += 1;
+            bytes_in_set = 0;
+            buf_iter.next().unwrap();
         }
     }
-    Some((buf.len(), matches))
+
+    assert!(bytes_in_set <= buf_iter.peek().map(|buf| buf.len()).unwrap_or(0));
+    assert!(buffers_in_set != 0 || bytes_in_set != 0);
+
+    let mut matching_bufs: Span = buf.iter().take(buffers_in_set).map(|buf| (*buf).clone()).collect();
+    if bytes_in_set != 0 {
+        let mut new_buf = (*buf_iter.peek().unwrap()).clone();
+        new_buf.resize(bytes_in_set).unwrap();
+        matching_bufs.push(new_buf);
+    }
+
+    let mut nonmatching_bufs: Span = BufSpan::new();
+    if bytes_in_set != 0 {
+        let mut new_buf = (*buf_iter.peek().unwrap()).clone();
+        new_buf.advance(bytes_in_set).unwrap();
+        nonmatching_bufs.push(new_buf);
+    }
+    nonmatching_bufs.extend(buf.iter().skip(buffers_in_set + 1).map(|buf| (*buf).clone()));
+
+    Some((matching_bufs, nonmatching_bufs, matches))
 }
 
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
+    use util::span::Span;
+    use iobuf::{ROIobuf, BufSpan};
     use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
@@ -225,21 +296,25 @@ mod test {
     test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false)
     test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\ua66e'), false)
 
+    fn span(s: &'static str) -> Span {
+        BufSpan::from_buf(ROIobuf::from_str(s))
+    }
+
     macro_rules! test_char_run ( ($name:ident, $input:expr, $expect:expr) => (
-        test_eq!($name, char_run(is_ascii_whitespace, $input), $expect)
+        test_eq!($name, char_run(is_ascii_whitespace, &span($input)), $expect)
     ))
 
     test_char_run!(run_empty, "", None)
-    test_char_run!(run_one_t, " ", Some((1, true)))
-    test_char_run!(run_one_f, "x", Some((1, false)))
-    test_char_run!(run_t, "  \t  \n", Some((6, true)))
-    test_char_run!(run_f, "xyzzy", Some((5, false)))
-    test_char_run!(run_tf, "   xyzzy", Some((3, true)))
-    test_char_run!(run_ft, "xyzzy   ", Some((5, false)))
-    test_char_run!(run_tft, "   xyzzy  ", Some((3, true)))
-    test_char_run!(run_ftf, "xyzzy   hi", Some((5, false)))
-    test_char_run!(run_multibyte_0, "中 ", Some((3, false)))
-    test_char_run!(run_multibyte_1, " 中 ", Some((1, true)))
-    test_char_run!(run_multibyte_2, "  中 ", Some((2, true)))
-    test_char_run!(run_multibyte_3, "   中 ", Some((3, true)))
+    test_char_run!(run_one_t, " ", Some((span(" "), span(""), true)))
+    test_char_run!(run_one_f, "x", Some((span("x"), span(""), false)))
+    test_char_run!(run_t, "  \t  \n", Some((span("  \t  \n"), span(""), true)))
+    test_char_run!(run_f, "xyzzy", Some((span("xyzzy"), span(""), false)))
+    test_char_run!(run_tf, "   xyzzy", Some((span("   "), span("xyzzy"), true)))
+    test_char_run!(run_ft, "xyzzy   ", Some((span("xyzzy"), span("   "), false)))
+    test_char_run!(run_tft, "   xyzzy  ", Some((span("   "), span("xyzzy  "), true)))
+    test_char_run!(run_ftf, "xyzzy   hi", Some((span("xyzzy"), span("   hi"), false)))
+    test_char_run!(run_multibyte_0, "中 ", Some((span("中"), span(" "), false)))
+    test_char_run!(run_multibyte_1, " 中 ", Some((span(" "), span("中 "), true)))
+    test_char_run!(run_multibyte_2, "  中 ", Some((span("  "), span("中 "), true)))
+    test_char_run!(run_multibyte_3, "   中 ", Some((span("   "), span("中 "), true)))
 }

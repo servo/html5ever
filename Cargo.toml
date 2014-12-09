@@ -8,6 +8,7 @@ authors = [ "The html5ever Project Developers" ]
 phf = "0"
 phf_mac = "0"
 time = "0"
+iobuf = "3"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"
@@ -19,3 +20,10 @@ path = "macros"
 
 [[test]]
 name = "html5ever-external-test"
+
+[profile.release]
+
+opt-level = 3
+debug = false
+rpath = false
+lto = false

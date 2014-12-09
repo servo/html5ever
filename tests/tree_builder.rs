@@ -19,7 +19,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
-use html5ever::{parse, one_input};
+use html5ever::{ROIobuf, Span, ValidatedSpanUtils, parse, one_input};
 
 fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
@@ -63,6 +63,18 @@ fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, Strin
     tests
 }
 
+trait MayPushSpan {
+    fn push_span(&mut self, s: &Span);
+}
+
+impl MayPushSpan for String {
+    fn push_span(&mut self, span: &Span) {
+        for s in span.iter_strs() {
+            self.push_str(s);
+        }
+    }
+}
+
 fn serialize(buf: &mut String, indent: uint, handle: Handle) {
     buf.push_str("|");
     buf.grow(indent, ' ');
@@ -75,20 +87,24 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name.as_slice());
             if !public.is_empty() || !system.is_empty() {
-                buf.push_str(format!(" \"{}\" \"{}\"", public, system).as_slice());
+                buf.push_str(" \"");
+                buf.push_span(public);
+                buf.push_str("\" \"");
+                buf.push_span(system);
+                buf.push_str("\"");
             }
             buf.push_str(">\n");
         }
 
         Text(ref text) => {
             buf.push_str("\"");
-            buf.push_str(text.as_slice());
+            buf.push_span(text);
             buf.push_str("\"\n");
         }
 
         Comment(ref text) => {
             buf.push_str("<!-- ");
-            buf.push_str(text.as_slice());
+            buf.push_span(text);
             buf.push_str(" -->\n");
         }
 
@@ -106,8 +122,10 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
                 assert!(attr.name.ns == ns!(""));
                 buf.push_str("|");
                 buf.grow(indent+2, ' ');
-                buf.push_str(format!("{}=\"{}\"\n",
-                    attr.name.local.as_slice(), attr.value).as_slice());
+                buf.push_str(attr.name.local.as_slice());
+                buf.push_str("=\"");
+                buf.push_span(&attr.value);
+                buf.push_str("\"\n");
             }
         }
     }
@@ -140,7 +158,9 @@ fn make_test(
 
     let data = get_field("data");
     let expected = get_field("document");
+
     let name = format!("tb: {}-{}", path_str, idx);
+
     let ignore = ignores.contains(&name)
         || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
 
@@ -151,7 +171,7 @@ fn make_test(
             should_fail: false,
         },
         testfn: DynTestFn(proc() {
-            let dom: RcDom = parse(one_input(data.clone()), Default::default());
+            let dom: RcDom = parse(one_input(ROIobuf::from_str_copy(data.as_slice())), Default::default());
 
             let mut result = String::new();
             for child in dom.document.borrow().children.iter() {

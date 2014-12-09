@@ -17,6 +17,7 @@ use std::default::Default;
 
 use test::black_box;
 
+use html5ever::ROIobuf;
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts};
 use html5ever::driver::{tokenize_to, one_input};
 
@@ -38,7 +39,7 @@ fn main() {
     let mut file = io::File::open(&path).ok().expect("can't open file");
     let file_input = file.read_to_string().ok().expect("can't read file");
 
-    tokenize_to(Sink, one_input(file_input), TokenizerOpts {
+    tokenize_to(Sink, one_input(ROIobuf::from_str_copy(file_input.as_slice())), TokenizerOpts {
         profile: true,
         .. Default::default()
     });

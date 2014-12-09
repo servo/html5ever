@@ -23,6 +23,7 @@ use tokenizer;
 use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
 
+use util::span::Span;
 use util::str::{is_ascii_whitespace, char_run};
 
 use core::default::Default;
@@ -31,6 +32,10 @@ use collections::vec::Vec;
 use collections::string::String;
 use collections::str::Slice;
 use collections::RingBuf;
+
+use iobuf::{BufSpan, Iobuf};
+
+use string_cache::atom::Atom;
 
 mod interface;
 mod tag_sets;
@@ -100,7 +105,7 @@ pub struct TreeBuilder<Handle, Sink> {
     template_modes: Vec<InsertionMode>,
 
     /// Pending table character tokens.
-    pending_table_text: Vec<(SplitStatus, String)>,
+    pending_table_text: Vec<(SplitStatus, Span)>,
 
     /// Quirks mode as set by the parser.
     /// FIXME: can scripts etc. change this?
@@ -216,6 +221,10 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
     }
 
     #[cfg(for_c)]
+    #[allow(dead_code)]
+    fn dump_state(&self, _: String) {}
+
+    #[cfg(for_c)]
     fn debug_step(&self, _mode: InsertionMode, _token: &Token) {
     }
 
@@ -250,19 +259,17 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
                     self.mode = m;
                     token = t;
                 }
-                SplitWhitespace(buf) => {
-                    let buf = buf.as_slice();
-
-                    let (len, is_ws) = unwrap_or_return!(
+                SplitWhitespace(ref buf) => {
+                    let (before, after, is_ws) = unwrap_or_return!(
                         char_run(is_ascii_whitespace, buf), ());
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
-                        String::from_str(buf.slice_to(len)));
+                        before);
 
-                    if len < buf.len() {
+                    if !after.is_empty() {
                         more_tokens.push_back(
-                            CharacterTokens(NotSplit, String::from_str(buf.slice_from(len))));
+                            CharacterTokens(NotSplit, after));
                     }
                 }
             }
@@ -292,9 +299,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Si
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 if !self.opts.drop_doctype {
                     self.sink.append_doctype_to_document(
-                        name.unwrap_or(String::new()),
-                        public_id.unwrap_or(String::new()),
-                        system_id.unwrap_or(String::new())
+                        name.unwrap_or(Atom::from_slice("")),
+                        public_id.unwrap_or(BufSpan::new()),
+                        system_id.unwrap_or(BufSpan::new())
                     );
                 }
                 self.set_quirks_mode(quirk);
@@ -314,14 +321,25 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Si
             tokenizer::NullCharacterToken => NullCharacterToken,
             tokenizer::EOFToken => EOFToken,
 
-            tokenizer::CharacterTokens(mut x) => {
-                if ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
-                    x.remove(0);
-                }
-                if x.is_empty() {
+            tokenizer::CharacterTokens(x) => {
+                let new_toks: Span =
+                    if ignore_lf && x.iter_bytes().next().map(|b| b == b'\n').unwrap_or(false) {
+                        let mut is_first = true;
+                        x.into_iter().map(|mut b| {
+                                if is_first {
+                                    b.advance(1).unwrap();
+                                    is_first = false;
+                                }
+                                b
+                            }).collect()
+                    } else {
+                        x
+                    };
+
+                if new_toks.is_empty() {
                     return;
                 }
-                CharacterTokens(NotSplit, x)
+                CharacterTokens(NotSplit, new_toks)
             }
         };
 

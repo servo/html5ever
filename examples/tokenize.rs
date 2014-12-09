@@ -13,6 +13,7 @@ extern crate html5ever;
 use std::io;
 use std::default::Default;
 
+use html5ever::{ROIobuf, ValidatedSpanUtils};
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
 use html5ever::driver::{tokenize_to, one_input};
@@ -43,7 +44,7 @@ impl TokenSink for TokenPrinter {
     fn process_token(&mut self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                for c in b.as_slice().chars() {
+                for c in b.iter_chars() {
                     self.do_char(c);
                 }
             }
@@ -81,7 +82,7 @@ fn main() {
         in_char_run: false,
     };
     let input = io::stdin().read_to_string().unwrap();
-    tokenize_to(sink, one_input(input), TokenizerOpts {
+    tokenize_to(sink, one_input(ROIobuf::from_str_copy(input.as_slice())), TokenizerOpts {
         profile: true,
         .. Default::default()
     });
