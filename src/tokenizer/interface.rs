@@ -14,7 +14,7 @@ use tokenizer::states;
 use collections::vec::Vec;
 use collections::slice::OrdSliceAllocPrelude;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::str::CowString;
 
 use string_cache::{Atom, QualName};
 
@@ -87,7 +87,7 @@ impl Tag {
     }
 }
 
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[deriving(PartialEq, Eq, Show)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
@@ -95,7 +95,7 @@ pub enum Token {
     CharacterTokens(String),
     NullCharacterToken,
     EOFToken,
-    ParseError(MaybeOwned<'static>),
+    ParseError(CowString<'static>),
 }
 
 /// Types which can receive tokens from the tokenizer.

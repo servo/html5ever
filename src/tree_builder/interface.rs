@@ -16,7 +16,7 @@ use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::str::CowString;
 
 use string_cache::QualName;
 
@@ -47,7 +47,7 @@ pub enum NodeOrText<Handle> {
 /// the same node.
 pub trait TreeSink<Handle> {
     /// Signal a parse error.
-    fn parse_error(&mut self, msg: MaybeOwned<'static>);
+    fn parse_error(&mut self, msg: CowString<'static>);
 
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Handle;

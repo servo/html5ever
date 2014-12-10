@@ -17,7 +17,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use serialize::json;
 use serialize::json::Json;
 use std::collections::TreeMap;
-use std::str::Slice;
+use std::borrow::Cow::Borrowed;
 use std::vec::MoveItems;
 
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
@@ -98,7 +98,7 @@ impl TokenSink for TokenLogger {
             }
 
             ParseError(_) => if self.exact_errors {
-                self.push(ParseError(Slice("")));
+                self.push(ParseError(Borrowed("")));
             },
 
             TagToken(mut t) => {
@@ -237,7 +237,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             json::String(ref s)
-                if s.as_slice() == "ParseError" => sink.process_token(ParseError(Slice(""))),
+                if s.as_slice() == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
             _ => sink.process_token(json_to_token(tok)),
         }
     }
