@@ -144,36 +144,36 @@ trait JsonExt {
 impl JsonExt for Json {
     fn get_str(&self) -> String {
         match *self {
-            json::String(ref s) => s.to_string(),
+            Json::String(ref s) => s.to_string(),
             _ => panic!("Json::get_str: not a String"),
         }
     }
 
     fn get_nullable_str(&self) -> Option<String> {
         match *self {
-            json::Null => None,
-            json::String(ref s) => Some(s.to_string()),
+            Json::Null => None,
+            Json::String(ref s) => Some(s.to_string()),
             _ => panic!("Json::get_nullable_str: not a String"),
         }
     }
 
     fn get_bool(&self) -> bool {
         match *self {
-            json::Boolean(b) => b,
+            Json::Boolean(b) => b,
             _ => panic!("Json::get_bool: not a Boolean"),
         }
     }
 
     fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Json> {
         match *self {
-            json::Object(ref m) => &*m,
+            Json::Object(ref m) => &*m,
             _ => panic!("Json::get_obj: not an Object"),
         }
     }
 
     fn get_list<'t>(&'t self) -> &'t Vec<Json> {
         match *self {
-            json::Array(ref m) => m,
+            Json::Array(ref m) => m,
             _ => panic!("Json::get_list: not an Array"),
         }
     }
@@ -236,7 +236,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
         match *tok {
-            json::String(ref s)
+            Json::String(ref s)
                 if s.as_slice() == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
             _ => sink.process_token(json_to_token(tok)),
         }
@@ -276,14 +276,14 @@ fn unescape_json(js: &Json) -> Json {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        json::String(ref s) => json::String(unescape(s.as_slice()).unwrap()),
-        json::Array(ref xs) => json::Array(xs.iter().map(unescape_json).collect()),
-        json::Object(ref obj) => {
+        Json::String(ref s) => Json::String(unescape(s.as_slice()).unwrap()),
+        Json::Array(ref xs) => Json::Array(xs.iter().map(unescape_json).collect()),
+        Json::Object(ref obj) => {
             let mut new_obj = TreeMap::new();
             for (k,v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
             }
-            json::Object(new_obj)
+            Json::Object(new_obj)
         }
         _ => js.clone(),
     }
@@ -338,7 +338,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
 
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.get(&"initialStates".to_string()) {
-        Some(&json::Array(ref xs)) => xs.iter().map(|s|
+        Some(&Json::Array(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
                 "RAWTEXT state"   => RawData(Rawtext),
@@ -385,7 +385,7 @@ pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
             .ok().expect("json parse error");
 
         match js.get_obj().get(&"tests".to_string()) {
-            Some(&json::Array(ref lst)) => {
+            Some(&Json::Array(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);
                 }
