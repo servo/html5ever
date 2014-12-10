@@ -34,7 +34,7 @@ struct CharRef {
 fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     let mut map = HashMap::new();
     let json_map = match js {
-        json::Object(m) => m,
+        Json::Object(m) => m,
         _ => return None,
     };
 
