@@ -27,7 +27,7 @@ use core::default::Default;
 use alloc::rc::{Rc, Weak};
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::str::CowString;
 use std::io::{Writer, IoResult};
 
 use string_cache::QualName;
@@ -114,14 +114,14 @@ pub struct RcDom {
     pub document: Handle,
 
     /// Errors that occurred during parsing.
-    pub errors: Vec<MaybeOwned<'static>>,
+    pub errors: Vec<CowString<'static>>,
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
 }
 
 impl TreeSink<Handle> for RcDom {
-    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
+    fn parse_error(&mut self, msg: CowString<'static>) {
         self.errors.push(msg);
     }
 

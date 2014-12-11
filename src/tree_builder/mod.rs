@@ -29,7 +29,7 @@ use core::default::Default;
 use core::mem::replace;
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::Slice;
+use std::borrow::Cow::Borrowed;
 use collections::RingBuf;
 
 mod interface;
@@ -239,7 +239,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
             match self.step(mode, token) {
                 Done => {
                     if is_self_closing {
-                        self.sink.parse_error(Slice("Unacknowledged self-closing tag"));
+                        self.sink.parse_error(Borrowed("Unacknowledged self-closing tag"));
                     }
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
                 }

@@ -33,7 +33,7 @@ use core::slice;
 use core::fmt::Show;
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::Slice;
+use std::borrow::Cow::Borrowed;
 
 use string_cache::{Atom, QualName};
 
@@ -440,7 +440,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
     fn close_the_cell(&mut self) {
         self.generate_implied_end(cursory_implied_end);
         if self.pop_until(td_th) != 1 {
-            self.sink.parse_error(Slice("expected to close <td> or <th> with cell"));
+            self.sink.parse_error(Borrowed("expected to close <td> or <th> with cell"));
         }
     }
 

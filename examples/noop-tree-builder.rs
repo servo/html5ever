@@ -15,7 +15,7 @@ use std::io;
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
-use std::str::MaybeOwned;
+use std::str::CowString;
 use string_cache::QualName;
 
 use html5ever::{parse_to, one_input};
@@ -66,7 +66,7 @@ impl TreeSink<uint> for Sink {
         Ok(())
     }
 
-    fn parse_error(&mut self, _msg: MaybeOwned<'static>) { }
+    fn parse_error(&mut self, _msg: CowString<'static>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
 

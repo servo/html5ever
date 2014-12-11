@@ -14,7 +14,7 @@ use super::{Tokenizer, TokenSink};
 use util::str::{is_ascii_alnum, empty_str};
 
 use core::char::from_u32;
-use collections::str::Slice;
+use std::borrow::Cow::Borrowed;
 use collections::string::String;
 
 pub use self::Status::*;
@@ -196,7 +196,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
     fn do_numeric_semicolon(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         match unwrap_or_return!(tokenizer.peek(), Stuck) {
             ';' => tokenizer.discard_char(),
-            _   => tokenizer.emit_error(Slice("Semicolon missing after numeric character reference")),
+            _   => tokenizer.emit_error(Borrowed("Semicolon missing after numeric character reference")),
         };
         self.finish_numeric(tokenizer)
     }
@@ -209,7 +209,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
         }
 
         tokenizer.unconsume(unconsume);
-        tokenizer.emit_error(Slice("Numeric character reference without digits"));
+        tokenizer.emit_error(Borrowed("Numeric character reference without digits"));
         self.finish_none()
     }
 
@@ -334,12 +334,12 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
                     (_, ';', _) => false,
                     (Some(_), _, Some('=')) => {
-                        tokenizer.emit_error(Slice("Equals sign after character reference in attribute"));
+                        tokenizer.emit_error(Borrowed("Equals sign after character reference in attribute"));
                         true
                     }
                     (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
                     _ => {
-                        tokenizer.emit_error(Slice("Character reference does not end with semicolon"));
+                        tokenizer.emit_error(Borrowed("Character reference does not end with semicolon"));
                         false
                     }
                 };
@@ -381,7 +381,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
                     => drop(self.unconsume_numeric(tokenizer)),
 
                 Numeric(_) | NumericSemicolon => {
-                    tokenizer.emit_error(Slice("EOF in numeric character reference"));
+                    tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
                     self.finish_numeric(tokenizer);
                 }
 
@@ -394,7 +394,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
 
                 Octothorpe => {
                     tokenizer.unconsume(String::from_char(1, '#'));
-                    tokenizer.emit_error(Slice("EOF after '#' in character reference"));
+                    tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
                 }
             }
