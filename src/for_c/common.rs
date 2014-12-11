@@ -12,7 +12,7 @@ use core::prelude::*;
 use core::slice;
 use core::str;
 use core::kinds::marker::ContravariantLifetime;
-use collections::str::MaybeOwned;
+use collections::str::CowString;
 use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
@@ -85,7 +85,7 @@ impl AsLifetimeBuf for Atom {
     }
 }
 
-impl<'b> AsLifetimeBuf for MaybeOwned<'b> {
+impl<'b> AsLifetimeBuf for CowString<'b> {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
         LifetimeBuf::from_str(self.as_slice())
     }
