@@ -23,7 +23,6 @@ extern crate alloc;
 #[phase(plugin, link)]
 extern crate core;
 
-#[cfg(not(for_c))]
 #[phase(plugin, link)]
 extern crate std;
 
@@ -86,12 +85,4 @@ pub mod driver;
 pub mod for_c {
     pub mod common;
     pub mod tokenizer;
-}
-
-/// A fake `std` module so that `deriving` and other macros will work.
-/// See rust-lang/rust#16803.
-#[cfg(for_c)]
-mod std {
-    pub use core::{clone, cmp, default, fmt, option, str};
-    pub use collections::hash;
 }
