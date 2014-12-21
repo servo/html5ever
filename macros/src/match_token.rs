@@ -117,7 +117,7 @@ type Tokens = Vec<ast::TokenTree>;
 type TagName = ast::Ident;
 
 // FIXME: duplicated in src/tokenizer/interface.rs
-#[deriving(PartialEq, Eq, Hash, Clone)]
+#[deriving(PartialEq, Eq, Hash, Clone, Copy)]
 enum TagKind {
     StartTag,
     EndTag,
