@@ -158,7 +158,7 @@ impl<'a> AsciiExt<String> for &'a str {
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c.to_ascii_opt() {
-        Some(a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
+        Some(ref a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
         _ => None,
     }
 }
@@ -193,8 +193,7 @@ pub fn is_ascii_whitespace(c: char) -> bool {
 ///
 /// Returns `None` on an empty string.
 pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)> {
-    let (first, rest) = buf.slice_shift_char();
-    let first = unwrap_or_return!(first, None);
+    let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
     let matches = pred.matches(first);
 
     for (idx, ch) in rest.char_indices() {

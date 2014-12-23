@@ -148,7 +148,8 @@ impl BufferQueue {
 
             let d = buf.buf.as_slice().char_at(consumed_from_last);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
-                (Some(c), Some(d)) if c.eq_ignore_case(d) => (),
+                // FIXME remove the refs/clone after Ascii implements Copy
+                (Some(ref c), Some(ref d)) if c.eq_ignore_case(d.clone()) => (),
                 _ => return Some(false),
             }
 
