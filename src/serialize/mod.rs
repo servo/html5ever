@@ -75,7 +75,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         for c in text.chars() {
             try!(match c {
                 '&' => self.writer.write_str("&amp;"),
-                '\u00A0' => self.writer.write_str("&nbsp;"),
+                '\u{00A0}' => self.writer.write_str("&nbsp;"),
                 '"' if attr_mode => self.writer.write_str("&quot;"),
                 '<' if !attr_mode => self.writer.write_str("&lt;"),
                 '>' if !attr_mode => self.writer.write_str("&gt;"),
