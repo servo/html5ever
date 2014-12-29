@@ -59,6 +59,8 @@ impl SquishyNode {
     }
 }
 
+#[allow(raw_pointer_deriving)]
+#[deriving(Copy)]
 struct Handle {
     ptr: *const UnsafeCell<SquishyNode>,
     no_send: marker::NoSend,

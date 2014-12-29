@@ -27,6 +27,7 @@ pub fn serialize<Wr: Writer, T: Serializable>
     node.serialize(&mut ser, false)
 }
 
+#[deriving(Copy)]
 pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,

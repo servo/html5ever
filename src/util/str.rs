@@ -68,7 +68,7 @@ pub static ASCII_LOWER_MAP: [u8, ..256] = [
     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
 ];
 
-#[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[deriving(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Ascii {
     chr: u8,
 }

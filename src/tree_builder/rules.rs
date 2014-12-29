@@ -898,8 +898,8 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
 
                 token => {
                     let pending = replace(&mut self.pending_table_text, vec!());
-                    let contains_nonspace = pending.iter().any(|&(split, ref text)| {
-                        match split {
+                    let contains_nonspace = pending.iter().any(|&(ref split, ref text)| {
+                        match *split {
                             Whitespace => false,
                             NotWhitespace => true,
                             NotSplit => any_not_whitespace(text),

@@ -24,7 +24,7 @@ pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
 
 /// A document's quirks mode.
-#[deriving(PartialEq, Eq, Clone, Hash, Show)]
+#[deriving(PartialEq, Eq, Clone, Copy, Hash, Show)]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,

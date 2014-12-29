@@ -21,7 +21,7 @@ pub use self::Token::*;
 pub use self::ProcessResult::*;
 pub use self::FormatEntry::*;
 
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[deriving(PartialEq, Eq, Clone, Copy, Show)]
 pub enum InsertionMode {
     Initial,
     BeforeHtml,

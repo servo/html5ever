@@ -40,7 +40,7 @@ mod actions;
 mod rules;
 
 /// Tree builder options, with an impl for Default.
-#[deriving(Clone)]
+#[deriving(Clone, Copy)]
 pub struct TreeBuilderOpts {
     /// Report all parse errors described in the spec, at some
     /// performance penalty?  Default: false
