@@ -36,7 +36,7 @@ impl Sink {
 }
 
 impl TreeSink<uint> for Sink {
-    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
+    fn parse_error(&mut self, msg: Cow<'static, String, str>) {
         println!("Parse error: {}", msg);
     }
 

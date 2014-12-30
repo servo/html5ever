@@ -14,7 +14,7 @@ use tokenizer::states;
 use collections::vec::Vec;
 use collections::slice::OrdSliceAllocPrelude;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::borrow::Cow;
 
 use string_cache::{Atom, QualName};
 
@@ -95,7 +95,7 @@ pub enum Token {
     CharacterTokens(String),
     NullCharacterToken,
     EOFToken,
-    ParseError(MaybeOwned<'static>),
+    ParseError(Cow<'static, String, str>),
 }
 
 /// Types which can receive tokens from the tokenizer.

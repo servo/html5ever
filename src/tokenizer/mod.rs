@@ -36,7 +36,7 @@ use collections::vec::Vec;
 #[cfg(not(for_c))]
 use collections::slice::SliceAllocPrelude;
 use collections::string::String;
-use collections::str::{MaybeOwned, Slice};
+use std::borrow::Cow::{mod, Borrowed};
 use collections::TreeMap;
 
 use string_cache::{Atom, QualName};
@@ -389,10 +389,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error(Slice("Attributes on an end tag"));
+                    self.emit_error(Borrowed("Attributes on an end tag"));
                 }
                 if self.current_tag_self_closing {
-                    self.emit_error(Slice("Self-closing end tag"));
+                    self.emit_error(Borrowed("Self-closing end tag"));
                 }
             }
         }
@@ -469,7 +469,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         };
 
         if dup {
-            self.emit_error(Slice("Duplicate attribute"));
+            self.emit_error(Borrowed("Duplicate attribute"));
             self.current_attr_name.truncate(0);
             self.current_attr_value.truncate(0);
         } else {
@@ -530,7 +530,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.input_buffers.push_front(buf);
     }
 
-    fn emit_error(&mut self, error: MaybeOwned<'static>) {
+    fn emit_error(&mut self, error: Cow<'static, String, str>) {
         self.process_token(ParseError(error));
     }
 }
@@ -1338,7 +1338,7 @@ mod test {
     use core::prelude::*;
     use collections::vec::Vec;
     use collections::string::String;
-    use collections::slice::CloneSliceAllocPrelude;
+    use collections::slice::CloneBorrowedAllocPrelude;
     use super::{option_push, append_strings}; // private items
 
     #[test]

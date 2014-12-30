@@ -66,7 +66,7 @@ impl TreeSink<uint> for Sink {
         Ok(())
     }
 
-    fn parse_error(&mut self, _msg: MaybeOwned<'static>) { }
+    fn parse_error(&mut self, _msg: Cow<'static, String, str>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: uint, _child: NodeOrText<uint>) { }
 
