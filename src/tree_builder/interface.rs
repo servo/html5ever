@@ -16,7 +16,7 @@ use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::borrow::Cow;
 
 use string_cache::QualName;
 
@@ -24,7 +24,7 @@ pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
 
 /// A document's quirks mode.
-#[deriving(PartialEq, Eq, Clone, Hash, Show)]
+#[deriving(PartialEq, Eq, Clone, Copy, Hash, Show)]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,
@@ -47,7 +47,7 @@ pub enum NodeOrText<Handle> {
 /// the same node.
 pub trait TreeSink<Handle> {
     /// Signal a parse error.
-    fn parse_error(&mut self, msg: MaybeOwned<'static>);
+    fn parse_error(&mut self, msg: Cow<'static, String, str>);
 
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Handle;

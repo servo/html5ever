@@ -12,7 +12,7 @@ use core::prelude::*;
 use core::slice::raw::buf_as_slice;
 use core::str::raw::from_utf8;
 use core::kinds::marker::ContravariantLifetime;
-use collections::str::MaybeOwned;
+use std::borrow::Cow;
 use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};

@@ -37,15 +37,15 @@ macro_rules! addrs_of ( ($obj:expr : $($field:ident),+) => (
 // No format!() without libstd... just use the static message.
 #[cfg(for_c)]
 macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
-    ::collections::str::Slice($msg_static)
+    ::std::borrow::Cow::Borrowed($msg_static)
 ))
 
 #[cfg(not(for_c))]
 macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
     if $pred {
-        ::collections::str::Owned(format!($msg_fmt, $($arg),*))
+        ::std::borrow::Cow::Owned(format!($msg_fmt, $($arg),*))
     } else {
-        ::collections::str::Slice($msg_static)
+        ::std::borrow::Cow::Borrowed($msg_static)
     }
 ))
 

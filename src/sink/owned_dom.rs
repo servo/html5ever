@@ -36,7 +36,7 @@ use core::mem;
 use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
-use collections::str::MaybeOwned;
+use std::borrow::Cow;
 use std::io::{Writer, IoResult};
 use std::collections::HashSet;
 
@@ -59,6 +59,8 @@ impl SquishyNode {
     }
 }
 
+#[allow(raw_pointer_deriving)]
+#[deriving(Copy)]
 struct Handle {
     ptr: *const UnsafeCell<SquishyNode>,
     no_send: marker::NoSend,
@@ -149,7 +151,7 @@ fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
 pub struct Sink {
     nodes: Vec<Box<UnsafeCell<SquishyNode>>>,
     document: Handle,
-    errors: Vec<MaybeOwned<'static>>,
+    errors: Vec<Cow<'static, String, str>>,
     quirks_mode: QuirksMode,
 }
 
@@ -183,7 +185,7 @@ impl Sink {
 }
 
 impl TreeSink<Handle> for Sink {
-    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
+    fn parse_error(&mut self, msg: Cow<'static, String, str>) {
         self.errors.push(msg);
     }
 
@@ -295,7 +297,7 @@ pub struct Node {
 
 pub struct OwnedDom {
     pub document: Box<Node>,
-    pub errors: Vec<MaybeOwned<'static>>,
+    pub errors: Vec<Cow<'static, String, str>>,
     pub quirks_mode: QuirksMode,
 }
 

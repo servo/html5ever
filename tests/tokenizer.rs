@@ -173,8 +173,8 @@ impl JsonExt for Json {
 
     fn get_list<'t>(&'t self) -> &'t Vec<Json> {
         match *self {
-            json::List(ref m) => m,
-            _ => panic!("Json::get_list: not a List"),
+            Json::Array(ref m) => m,
+            _ => panic!("Json::get_list: not an Array"),
         }
     }
 
@@ -236,7 +236,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
         match *tok {
-            json::String(ref s)
+            Json::String(ref s)
                 if s.as_slice() == "ParseError" => sink.process_token(ParseError(Slice(""))),
             _ => sink.process_token(json_to_token(tok)),
         }
@@ -276,9 +276,9 @@ fn unescape_json(js: &Json) -> Json {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        json::String(ref s) => json::String(unescape(s.as_slice()).unwrap()),
-        json::List(ref xs) => json::List(xs.iter().map(unescape_json).collect()),
-        json::Object(ref obj) => {
+        Json::String(ref s) => Json::String(unescape(s.as_slice()).unwrap()),
+        Json::Array(ref xs) => Json::Array(xs.iter().map(unescape_json).collect()),
+        Json::Object(ref obj) => {
             let mut new_obj = TreeMap::new();
             for (k,v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
@@ -317,7 +317,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").unwrap().get_str();
     let mut expect = js.find("output").unwrap().clone();
-    let desc = format!("tok: {:s}: {:s}",
+    let desc = format!("tok: {}: {}",
         path_str, js.find("description").unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -338,7 +338,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
 
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.get(&"initialStates".to_string()) {
-        Some(&json::List(ref xs)) => xs.iter().map(|s|
+        Some(&Json::Array(ref xs)) => xs.iter().map(|s|
             Some(match s.get_str().as_slice() {
                 "PLAINTEXT state" => Plaintext,
                 "RAWTEXT state"   => RawData(Rawtext),
@@ -354,11 +354,11 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {
-                Some(s) => newdesc = format!("{:s} (in state {})", newdesc, s),
+                Some(s) => newdesc = format!("{} (in state {})", newdesc, s),
                 None  => (),
             };
             if exact_errors {
-                newdesc = format!("{:s} (exact errors)", newdesc);
+                newdesc = format!("{} (exact errors)", newdesc);
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
@@ -385,7 +385,7 @@ pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
             .ok().expect("json parse error");
 
         match js.get_obj().get(&"tests".to_string()) {
-            Some(&json::List(ref lst)) => {
+            Some(&Json::Array(ref lst)) => {
                 for test in lst.iter() {
                     mk_tests(&mut tests, path_str.as_slice(), test);
                 }

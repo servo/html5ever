@@ -11,7 +11,6 @@ use core::prelude::*;
 
 use core::str::CharEq;
 use collections::vec::Vec;
-use collections::string;
 use collections::string::String;
 
 #[cfg(not(for_c))]
@@ -68,7 +67,7 @@ pub static ASCII_LOWER_MAP: [u8, ..256] = [
     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
 ];
 
-#[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[deriving(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Ascii {
     chr: u8,
 }
@@ -145,7 +144,7 @@ impl<'a> AsciiExt<String> for &'a str {
     #[inline]
     fn to_ascii_lower(&self) -> String {
         // Vec<u8>::to_ascii_lower() preserves the UTF-8 invariant.
-        unsafe { string::raw::from_utf8(self.as_bytes().to_ascii_lower()) }
+        unsafe { String::from_utf8_unchecked(self.as_bytes().to_ascii_lower()) }
     }
 
     #[inline]
@@ -158,7 +157,7 @@ impl<'a> AsciiExt<String> for &'a str {
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c.to_ascii_opt() {
-        Some(a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
+        Some(ref a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
         _ => None,
     }
 }
@@ -193,13 +192,12 @@ pub fn is_ascii_whitespace(c: char) -> bool {
 ///
 /// Returns `None` on an empty string.
 pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)> {
-    let (first, rest) = buf.slice_shift_char();
-    let first = unwrap_or_return!(first, None);
+    let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
     let matches = pred.matches(first);
 
     for (idx, ch) in rest.char_indices() {
         if matches != pred.matches(ch) {
-            return Some((idx + first.len_utf8_bytes(), matches));
+            return Some((idx + first.len_utf8(), matches));
         }
     }
     Some((buf.len(), matches))
@@ -214,18 +212,18 @@ mod test {
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
     test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'))
     test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None)
-    test_eq!(lower_letter_nonascii_is_None, lower_ascii_letter('\ua66e'), None)
+    test_eq!(lower_letter_nonascii_is_None, lower_ascii_letter('\u{a66e}'), None)
 
     test_eq!(lower_a_is_a, lower_ascii('a'), 'a')
     test_eq!(lower_A_is_a, lower_ascii('A'), 'a')
     test_eq!(lower_symbol_unchanged, lower_ascii('!'), '!')
-    test_eq!(lower_nonascii_unchanged, lower_ascii('\ua66e'), '\ua66e')
+    test_eq!(lower_nonascii_unchanged, lower_ascii('\u{a66e}'), '\u{a66e}')
 
     test_eq!(is_alnum_a, is_ascii_alnum('a'), true)
     test_eq!(is_alnum_A, is_ascii_alnum('A'), true)
     test_eq!(is_alnum_1, is_ascii_alnum('1'), true)
     test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false)
-    test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\ua66e'), false)
+    test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\u{a66e}'), false)
 
     macro_rules! test_char_run ( ($name:ident, $input:expr, $expect:expr) => (
         test_eq!($name, char_run(is_ascii_whitespace, $input), $expect)

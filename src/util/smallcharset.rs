@@ -13,6 +13,7 @@ use core::prelude::*;
 
 /// Represents a set of "small characters", those with Unicode scalar
 /// values less than 64.
+#[deriving(Copy)]
 pub struct SmallCharSet {
     pub bits: u64,
 }

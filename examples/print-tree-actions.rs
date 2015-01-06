@@ -36,8 +36,8 @@ impl Sink {
 }
 
 impl TreeSink<uint> for Sink {
-    fn parse_error(&mut self, msg: MaybeOwned<'static>) {
-        println!("Parse error: {:s}", msg);
+    fn parse_error(&mut self, msg: Cow<'static, String, str>) {
+        println!("Parse error: {}", msg);
     }
 
     fn get_document(&mut self) -> uint {
@@ -58,23 +58,23 @@ impl TreeSink<uint> for Sink {
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> uint {
         let id = self.get_id();
-        println!("Created {} as {:u}", name, id);
+        println!("Created {} as {}", name, id);
         self.names.insert(id, name);
         id
     }
 
     fn create_comment(&mut self, text: String) -> uint {
         let id = self.get_id();
-        println!("Created comment \"{:s}\" as {:u}", text.escape_default(), id);
+        println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
     }
 
     fn append(&mut self, parent: uint, child: NodeOrText<uint>) {
         match child {
             AppendNode(n)
-                => println!("Append node {:u} to {:u}", n, parent),
+                => println!("Append node {} to {}", n, parent),
             AppendText(t)
-                => println!("Append text to {:u}: \"{:s}\"", parent, t.escape_default()),
+                => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
         }
     }
 
@@ -83,9 +83,9 @@ impl TreeSink<uint> for Sink {
             new_node: NodeOrText<uint>) -> Result<(), NodeOrText<uint>> {
         match new_node {
             AppendNode(n)
-                => println!("Append node {:u} before {:u}", n, sibling),
+                => println!("Append node {} before {}", n, sibling),
             AppendText(t)
-                => println!("Append text before {:u}: \"{:s}\"", sibling, t.escape_default()),
+                => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
         }
 
         // `sibling` will have a parent unless a script moved it, and we're
@@ -94,22 +94,22 @@ impl TreeSink<uint> for Sink {
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
-        println!("Append doctype: {:s} {:s} {:s}", name, public_id, system_id);
+        println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
     fn add_attrs_if_missing(&mut self, target: uint, attrs: Vec<Attribute>) {
-        println!("Add missing attributes to {:u}:", target);
+        println!("Add missing attributes to {}:", target);
         for attr in attrs.into_iter() {
             println!("    {} = {}", attr.name, attr.value);
         }
     }
 
     fn remove_from_parent(&mut self, target: uint) {
-        println!("Remove {:u} from parent", target);
+        println!("Remove {} from parent", target);
     }
 
     fn mark_script_already_started(&mut self, node: uint) {
-        println!("Mark script {:u} as already started", node);
+        println!("Mark script {} as already started", node);
     }
 }
 

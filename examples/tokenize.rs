@@ -34,7 +34,7 @@ impl TokenPrinter {
 
     fn do_char(&mut self, c: char) {
         self.is_char(true);
-        char::escape_default(c, |d| print!("{:c}", d));
+        char::escape_default(c, |d| print!("{}", d));
     }
 }
 
@@ -51,11 +51,11 @@ impl TokenSink for TokenPrinter {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
-                    StartTag => print!("TAG  : <\x1b[32m{:s}\x1b[0m", tag.name.as_slice()),
-                    EndTag   => print!("TAG  : <\x1b[31m/{:s}\x1b[0m", tag.name.as_slice()),
+                    StartTag => print!("TAG  : <\x1b[32m{}\x1b[0m", tag.name.as_slice()),
+                    EndTag   => print!("TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
                 }
                 for attr in tag.attrs.iter() {
-                    print!(" \x1b[36m{:s}\x1b[0m='\x1b[34m{:s}\x1b[0m'",
+                    print!(" \x1b[36m{}\x1b[0m='\x1b[34m{}\x1b[0m'",
                         attr.name.local.as_slice(), attr.value);
                 }
                 if tag.self_closing {
@@ -65,7 +65,7 @@ impl TokenSink for TokenPrinter {
             }
             ParseError(err) => {
                 self.is_char(false);
-                println!("ERROR: {:s}", err);
+                println!("ERROR: {}", err);
             }
             _ => {
                 self.is_char(false);

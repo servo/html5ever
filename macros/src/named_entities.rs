@@ -17,7 +17,7 @@ use serialize::Decodable;
 use std::collections::HashMap;
 
 use syntax::codemap::Span;
-use syntax::ast::{Path, ExprLit, LitStr, TokenTree, TtToken};
+use syntax::ast::{Path, ExprLit, Lit_, TokenTree, TtToken};
 use syntax::parse::token;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::ext::source_util::expand_file;
@@ -34,7 +34,7 @@ struct CharRef {
 fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
     let mut map = HashMap::new();
     let json_map = match js {
-        json::Object(m) => m,
+        Json::Object(m) => m,
         _ => return None,
     };
 
@@ -77,7 +77,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     // Argument to the macro should be a single literal string: a path to
     // entities.json, relative to the file containing the macro invocation.
     let json_filename = match tt {
-        [TtToken(_, token::LitStr(s))] => s.as_str().to_string(),
+        [TtToken(_, token::Literal(token::Lit::Str_(s), _))] => s.as_str().to_string(),
         _ => bail!(cx, sp, usage),
     };
 
@@ -86,7 +86,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     let mod_filename = expect!(cx, sp, match expand_file(cx, sp, &[]).make_expr() {
         Some(e) => match e.node {
             ExprLit(ref s) => match s.node {
-                LitStr(ref s, _) => Some(s.get().to_string()),
+                Lit_::LitStr(ref s, _) => Some(s.get().to_string()),
                 _ => None,
             },
             _ => None,
