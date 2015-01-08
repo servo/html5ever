@@ -19,7 +19,7 @@ use core::option;
 use collections::string::String;
 
 /// Convenience function to turn a single `String` into an iterator.
-pub fn one_input(x: String) -> option::Item<String> {
+pub fn one_input(x: String) -> option::IntoIter<String> {
     Some(x).into_iter()
 }
 
@@ -33,7 +33,7 @@ pub fn one_input(x: String) -> option::Item<String> {
 /// ```
 pub fn tokenize_to<
         Sink: TokenSink,
-        It: Iterator<String>
+        It: Iterator<Item=String>
     >(
         sink: Sink,
         mut input: It,
@@ -48,7 +48,7 @@ pub fn tokenize_to<
 }
 
 /// All-encompassing options struct for the parser.
-#[deriving(Clone, Default)]
+#[derive(Clone, Default)]
 pub struct ParseOpts {
     /// Tokenizer options.
     pub tokenizer: TokenizerOpts,
@@ -68,7 +68,7 @@ pub struct ParseOpts {
 pub fn parse_to<
         Handle: Clone,
         Sink: TreeSink<Handle>,
-        It: Iterator<String>
+        It: Iterator<Item=String>
     >(
         sink: Sink,
         mut input: It,
@@ -102,7 +102,7 @@ pub fn parse<
         Handle: Clone,
         Sink: Default + TreeSink<Handle>,
         Output: ParseResult<Sink>,
-        It: Iterator<String>
+        It: Iterator<Item=String>
     >(
         input: It,
         opts: ParseOpts) -> Output {

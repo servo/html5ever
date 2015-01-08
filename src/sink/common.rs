@@ -16,7 +16,7 @@ use string_cache::QualName;
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
 
 /// The different kinds of nodes in the DOM.
-#[deriving(Show)]
+#[derive(Show)]
 pub enum NodeEnum {
     /// The `Document` itself.
     Document,

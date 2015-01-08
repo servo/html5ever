@@ -19,7 +19,7 @@ pub struct SmallCharSet {
 
 impl SmallCharSet {
     #[inline]
-    fn contains(self, n: u8) -> bool {
+    fn contains(&self, n: u8) -> bool {
         0 != (self.bits & (1 << (n as uint)))
     }
 
@@ -43,11 +43,12 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
     ::util::smallcharset::SmallCharSet {
         bits: $( (1 << ($e as uint)) )|+
     }
-))
+));
 
 #[cfg(test)]
 mod test {
     use core::prelude::*;
+    use core::iter::repeat;
     use collections::string::String;
 
     #[test]
@@ -55,9 +56,9 @@ mod test {
         for &c in ['&', '\0'].iter() {
             for x in range(0, 48u) {
                 for y in range(0, 48u) {
-                    let mut s = String::from_char(x, 'x');
+                    let mut s = repeat("x").take(x).collect::<String>();
                     s.push(c);
-                    s.grow(y, 'x');
+                    s.push_str(repeat("x").take(y).collect::<String>().as_slice());
                     let set = small_char_set!('&' '\0');
 
                     assert_eq!(x, set.nonmember_prefix_len(s.as_slice()));

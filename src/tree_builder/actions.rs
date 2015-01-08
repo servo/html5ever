@@ -40,10 +40,11 @@ use string_cache::{Atom, QualName};
 pub use self::PushFlag::*;
 
 pub struct ActiveFormattingIter<'a, Handle: 'a> {
-    iter: Rev<Enumerate<slice::Items<'a, FormatEntry<Handle>>>>,
+    iter: Rev<Enumerate<slice::Iter<'a, FormatEntry<Handle>>>>,
 }
 
-impl<'a, Handle> Iterator<(uint, &'a Handle, &'a Tag)> for ActiveFormattingIter<'a, Handle> {
+impl<'a, Handle> Iterator for ActiveFormattingIter<'a, Handle> {
+    type Item = (uint, &'a Handle, &'a Tag);
     fn next(&mut self) -> Option<(uint, &'a Handle, &'a Tag)> {
         match self.iter.next() {
             None | Some((_, &Marker)) => None,
@@ -171,7 +172,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
 
     // Insert at the "appropriate place for inserting a node".
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
-        declare_tag_set!(foster_target = table tbody tfoot thead tr)
+        declare_tag_set!(foster_target = table tbody tfoot thead tr);
         let target = self.current_node();
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
             // No foster parenting (the common case).
@@ -257,7 +258,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
     fn check_body_end(&mut self) {
         declare_tag_set!(body_end_ok =
             dd dt li optgroup option p rp rt tbody td tfoot th
-            thead tr body html)
+            thead tr body html);
 
         for elem in self.open_elems.iter() {
             let name = self.sink.elem_name(elem.clone());
@@ -390,7 +391,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
     }
 
     fn process_chars_in_table(&mut self, token: Token) -> ProcessResult {
-        declare_tag_set!(table_outer = table tbody tfoot thead tr)
+        declare_tag_set!(table_outer = table tbody tfoot thead tr);
         if self.current_node_in(table_outer) {
             assert!(self.pending_table_text.is_empty());
             self.orig_mode = Some(self.mode);

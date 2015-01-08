@@ -16,7 +16,7 @@ use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
-use std::str::CowString;
+use std::string::CowString;
 
 use string_cache::QualName;
 
@@ -24,7 +24,7 @@ pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
 
 /// A document's quirks mode.
-#[deriving(PartialEq, Eq, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, Copy, Clone, Hash, Show)]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,

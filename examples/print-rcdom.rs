@@ -15,6 +15,7 @@ extern crate string_cache;
 #[phase(plugin)] extern crate string_cache_macros;
 
 use std::io;
+use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
 
@@ -27,7 +28,7 @@ use html5ever::{parse, one_input};
 fn walk(indent: uint, handle: Handle) {
     let node = handle.borrow();
     // FIXME: don't allocate
-    print!("{}", String::from_char(indent, ' '));
+    print!("{}", repeat(" ").take(indent).collect::<String>());
     match node.node {
         Document
             => println!("#Document"),

@@ -19,7 +19,7 @@ use core::fmt::Show;
 #[cfg(not(for_c))]
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
     use std::string::ToString;
-    use collections::str::StrAllocating;
+    use collections::str::StrExt;
 
     // FIXME: don't allocate twice
     x.to_string().escape_default()
@@ -28,7 +28,7 @@ pub fn to_escaped_string<T: Show>(x: &T) -> String {
 // FIXME: The ASCII stuff is largely copied from std::ascii
 // (see rust-lang/rust#16801).
 
-pub static ASCII_LOWER_MAP: [u8, ..256] = [
+pub static ASCII_LOWER_MAP: [u8; 256] = [
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
@@ -67,7 +67,7 @@ pub static ASCII_LOWER_MAP: [u8, ..256] = [
     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
 ];
 
-#[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Ascii {
     chr: u8,
 }
@@ -157,7 +157,7 @@ impl<'a> AsciiExt<String> for &'a str {
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c.to_ascii_opt() {
-        Some(a) if a.is_alphabetic() => Some(a.to_lowercase().to_char()),
+        Some(a) => if a.is_alphabetic() { Some(a.to_lowercase().to_char()) } else { None },
         _ => None,
     }
 }
@@ -209,37 +209,37 @@ mod test {
     use core::prelude::*;
     use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
-    test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'))
-    test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'))
-    test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None)
-    test_eq!(lower_letter_nonascii_is_None, lower_ascii_letter('\ua66e'), None)
+    test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));
+    test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'));
+    test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None);
+    test_eq!(lower_letter_nonascii_is_None, lower_ascii_letter('\u{a66e}'), None);
 
-    test_eq!(lower_a_is_a, lower_ascii('a'), 'a')
-    test_eq!(lower_A_is_a, lower_ascii('A'), 'a')
-    test_eq!(lower_symbol_unchanged, lower_ascii('!'), '!')
-    test_eq!(lower_nonascii_unchanged, lower_ascii('\ua66e'), '\ua66e')
+    test_eq!(lower_a_is_a, lower_ascii('a'), 'a');
+    test_eq!(lower_A_is_a, lower_ascii('A'), 'a');
+    test_eq!(lower_symbol_unchanged, lower_ascii('!'), '!');
+    test_eq!(lower_nonascii_unchanged, lower_ascii('\u{a66e}'), '\u{a66e}');
 
-    test_eq!(is_alnum_a, is_ascii_alnum('a'), true)
-    test_eq!(is_alnum_A, is_ascii_alnum('A'), true)
-    test_eq!(is_alnum_1, is_ascii_alnum('1'), true)
-    test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false)
-    test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\ua66e'), false)
+    test_eq!(is_alnum_a, is_ascii_alnum('a'), true);
+    test_eq!(is_alnum_A, is_ascii_alnum('A'), true);
+    test_eq!(is_alnum_1, is_ascii_alnum('1'), true);
+    test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false);
+    test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\u{a66e}'), false);
 
     macro_rules! test_char_run ( ($name:ident, $input:expr, $expect:expr) => (
-        test_eq!($name, char_run(is_ascii_whitespace, $input), $expect)
-    ))
+        test_eq!($name, char_run(is_ascii_whitespace, $input), $expect);
+    ));
 
-    test_char_run!(run_empty, "", None)
-    test_char_run!(run_one_t, " ", Some((1, true)))
-    test_char_run!(run_one_f, "x", Some((1, false)))
-    test_char_run!(run_t, "  \t  \n", Some((6, true)))
-    test_char_run!(run_f, "xyzzy", Some((5, false)))
-    test_char_run!(run_tf, "   xyzzy", Some((3, true)))
-    test_char_run!(run_ft, "xyzzy   ", Some((5, false)))
-    test_char_run!(run_tft, "   xyzzy  ", Some((3, true)))
-    test_char_run!(run_ftf, "xyzzy   hi", Some((5, false)))
-    test_char_run!(run_multibyte_0, "中 ", Some((3, false)))
-    test_char_run!(run_multibyte_1, " 中 ", Some((1, true)))
-    test_char_run!(run_multibyte_2, "  中 ", Some((2, true)))
-    test_char_run!(run_multibyte_3, "   中 ", Some((3, true)))
+    test_char_run!(run_empty, "", None);
+    test_char_run!(run_one_t, " ", Some((1, true)));
+    test_char_run!(run_one_f, "x", Some((1, false)));
+    test_char_run!(run_t, "  \t  \n", Some((6, true)));
+    test_char_run!(run_f, "xyzzy", Some((5, false)));
+    test_char_run!(run_tf, "   xyzzy", Some((3, true)));
+    test_char_run!(run_ft, "xyzzy   ", Some((5, false)));
+    test_char_run!(run_tft, "   xyzzy  ", Some((3, true)));
+    test_char_run!(run_ftf, "xyzzy   hi", Some((5, false)));
+    test_char_run!(run_multibyte_0, "中 ", Some((3, false)));
+    test_char_run!(run_multibyte_1, " 中 ", Some((1, true)));
+    test_char_run!(run_multibyte_2, "  中 ", Some((2, true)));
+    test_char_run!(run_multibyte_3, "   中 ", Some((3, true)));
 }

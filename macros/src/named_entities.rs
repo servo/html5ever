@@ -11,6 +11,7 @@
 
 use std::io;
 use std::path;
+use std::str::FromStr;
 use serialize::json;
 use serialize::json::Json;
 use serialize::Decodable;
@@ -24,14 +25,14 @@ use syntax::ext::source_util::expand_file;
 
 // A struct matching the entries in entities.json.
 // Simplifies JSON parsing because we can use Decodable.
-#[deriving(Decodable)]
+#[derive(Decodable)]
 struct CharRef {
     codepoints: Vec<u32>,
     //characters: String,  // Present in the file but we don't need it
 }
 
 // Build the map from entity names (and their prefixes) to characters.
-fn build_map(js: Json) -> Option<HashMap<String, [u32, ..2]>> {
+fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
     let mut map = HashMap::new();
     let json_map = match js {
         Json::Object(m) => m,
@@ -95,7 +96,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     }, "unexpected result from file!()");
 
     // Combine those to get an absolute path to entities.json.
-    let mod_path: path::Path = expect!(cx, sp, from_str(mod_filename.as_slice()),
+    let mod_path: path::Path = expect!(cx, sp, FromStr::from_str(mod_filename.as_slice()),
         "can't parse module filename");
     let json_path = mod_path.dir_path().join(json_filename);
 

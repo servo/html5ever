@@ -26,7 +26,7 @@ struct Buffer {
 }
 
 /// Result from `pop_except_from`.
-#[deriving(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Show)]
 pub enum SetResult {
     FromSet(char),
     NotFromSet(String),
@@ -148,7 +148,7 @@ impl BufferQueue {
 
             let d = buf.buf.as_slice().char_at(consumed_from_last);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
-                (Some(c), Some(d)) if c.eq_ignore_case(d) => (),
+                (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
                 _ => return Some(false),
             }
 
