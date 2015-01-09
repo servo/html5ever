@@ -27,7 +27,7 @@ use html5ever::{parse, one_input};
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
     let mut test = HashMap::new();
-    let mut key = None;
+    let mut key: Option<String> = None;
     let mut val = String::new();
 
     macro_rules! finish_val ( () => (
@@ -131,7 +131,7 @@ fn make_test(
         idx: uint,
         fields: HashMap<String, String>) {
 
-    let get_field = |key| {
+    let get_field = |&:key| {
         let field = fields.get(key).expect("missing field");
         field.as_slice().trim_right_matches('\n').to_string()
     };

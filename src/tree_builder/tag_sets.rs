@@ -13,10 +13,7 @@
 
 use string_cache::QualName;
 
-//§ the-stack-of-open-elements
-pub type TagSet<'a> = |QualName|: 'a -> bool;
-
-macro_rules! declare_tag_set_impl ( ($param:ident $b:expr $supr:ident $($tag:ident)+) => (
+macro_rules! declare_tag_set_impl ( ($param:ident, $b:ident, $supr:ident, $($tag:tt)+) => (
     match $param {
         $( qualname!(HTML, $tag) => $b, )+
         p => $supr(p),
@@ -24,26 +21,26 @@ macro_rules! declare_tag_set_impl ( ($param:ident $b:expr $supr:ident $($tag:ide
 ));
 
 macro_rules! declare_tag_set_body (
-    ($param:ident $supr:ident - $($tag:ident)+)
-        => ( declare_tag_set_impl!($param false $supr $($tag)+) );
+    ($param:ident = $supr:ident - $($tag:tt)+)
+        => ( declare_tag_set_impl!($param, false, $supr, $($tag)+) );
 
-    ($param:ident $supr:ident + $($tag:ident)+)
-        => ( declare_tag_set_impl!($param true $supr $($tag)+) );
+    ($param:ident = $supr:ident + $($tag:tt)+)
+        => ( declare_tag_set_impl!($param, true, $supr, $($tag)+) );
 
-    ($param:ident $($tag:ident)+)
-        => ( declare_tag_set_impl!($param true empty_set $($tag)+) );
+    ($param:ident = $($tag:tt)+)
+        => ( declare_tag_set_impl!($param, true, empty_set, $($tag)+) );
 );
 
 macro_rules! declare_tag_set (
     (pub $name:ident = $($toks:tt)+) => (
         pub fn $name(p: ::string_cache::QualName) -> bool {
-            declare_tag_set_body!(p $($toks)+)
+            declare_tag_set_body!(p = $($toks)+)
         }
     );
 
     ($name:ident = $($toks:tt)+) => (
         fn $name(p: ::string_cache::QualName) -> bool {
-            declare_tag_set_body!(p $($toks)+)
+            declare_tag_set_body!(p = $($toks)+)
         }
     );
 );

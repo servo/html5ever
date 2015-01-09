@@ -18,11 +18,14 @@ use core::fmt::Show;
 
 #[cfg(not(for_c))]
 pub fn to_escaped_string<T: Show>(x: &T) -> String {
-    use std::string::ToString;
     use collections::str::StrExt;
+    use core::fmt::Writer;
 
     // FIXME: don't allocate twice
-    x.to_string().escape_default()
+    let mut buf = String::new();
+    let _ = buf.write_fmt(format_args!("{:?}", x));
+    buf.shrink_to_fit();
+    buf.escape_default()
 }
 
 // FIXME: The ASCII stuff is largely copied from std::ascii

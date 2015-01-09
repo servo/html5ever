@@ -31,7 +31,7 @@ use driver::ParseResult;
 use core::cell::UnsafeCell;
 use core::default::Default;
 use core::mem::transmute;
-use core::kinds::marker;
+use core::marker;
 use core::mem;
 use core::ptr;
 use alloc::boxed::Box;
@@ -329,7 +329,7 @@ impl ParseResult<Sink> for OwnedDom {
             }
         }
 
-        let old_addrs = addrs_of!(sink.document: node, parent, children);
+        let old_addrs = addrs_of!(sink.document => node, parent, children);
 
         // Transmute the root to a Node, finalizing the transfer of ownership.
         let document = unsafe {
@@ -337,7 +337,7 @@ impl ParseResult<Sink> for OwnedDom {
         };
 
         // FIXME: do this assertion statically
-        let new_addrs = addrs_of!(document: node, _parent_not_accessible, children);
+        let new_addrs = addrs_of!(document => node, _parent_not_accessible, children);
         assert_eq!(old_addrs, new_addrs);
 
         OwnedDom {

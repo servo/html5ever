@@ -83,15 +83,15 @@ pub trait TreeBuilderActions<Handle> {
     fn close_p_element(&mut self);
     fn expect_to_close(&mut self, name: Atom);
     fn pop_until_named(&mut self, name: Atom) -> uint;
-    fn pop_until(&mut self, pred: TagSet) -> uint;
-    fn pop_until_current(&mut self, pred: TagSet);
+    fn pop_until<TagSet>(&mut self, pred: TagSet) -> uint where TagSet: Fn(QualName) -> bool;
+    fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
     fn generate_implied_end_except(&mut self, except: Atom);
-    fn generate_implied_end(&mut self, set: TagSet);
-    fn in_scope_named(&self, scope: TagSet, name: Atom) -> bool;
+    fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(QualName) -> bool;
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node_named(&self, name: Atom) -> bool;
     fn html_elem_named(&self, elem: Handle, name: Atom) -> bool;
-    fn elem_in(&self, elem: Handle, set: TagSet) -> bool;
-    fn in_scope(&self, scope: TagSet, pred: |Handle| -> bool) -> bool;
+    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
+    fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool;
     fn check_body_end(&mut self);
     fn body_elem(&mut self) -> Option<Handle>;
     fn html_elem(&self) -> Handle;
@@ -100,7 +100,7 @@ pub trait TreeBuilderActions<Handle> {
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
     fn adoption_agency(&mut self, subject: Atom);
-    fn current_node_in(&self, set: TagSet) -> bool;
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
     fn parse_raw_data(&mut self, tag: Tag, k: RawKind);
     fn to_raw_text_mode(&mut self, k: RawKind);
@@ -117,7 +117,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         self.sink.parse_error(format_if!(
             self.opts.exact_errors,
             "Unexpected token",
-            "Unexpected token {} in insertion mode {}", to_escaped_string(_thing), self.mode));
+            "Unexpected token {} in insertion mode {:?}", to_escaped_string(_thing), self.mode));
         Done
     }
 
@@ -166,7 +166,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         self.open_elems.last().expect("no current element").clone()
     }
 
-    fn current_node_in(&self, set: TagSet) -> bool {
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool 
+        where TagSet: Fn(QualName) -> bool
+    {
         set(self.sink.elem_name(self.current_node()))
     }
 
@@ -265,7 +267,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
             if !body_end_ok(name.clone()) {
                 self.sink.parse_error(format_if!(self.opts.exact_errors,
                     "Unexpected open tag at end of body",
-                    "Unexpected open tag {} at end of body", name));
+                    "Unexpected open tag {:?} at end of body", name));
                 // FIXME: Do we keep checking after finding one bad tag?
                 // The spec suggests not.
                 return;
@@ -273,7 +275,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         }
     }
 
-    fn in_scope(&self, scope: TagSet, pred: |Handle| -> bool) -> bool {
+    fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool 
+        where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool
+    {
         for node in self.open_elems.iter().rev() {
             if pred(node.clone()) {
                 return true;
@@ -288,7 +292,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         false
     }
 
-    fn elem_in(&self, elem: Handle, set: TagSet) -> bool {
+    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool 
+        where TagSet: Fn(QualName) -> bool
+    {
         set(self.sink.elem_name(elem))
     }
 
@@ -300,13 +306,17 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         self.html_elem_named(self.current_node(), name)
     }
 
-    fn in_scope_named(&self, scope: TagSet, name: Atom) -> bool {
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool 
+        where TagSet: Fn(QualName) -> bool
+    {
         self.in_scope(scope, |elem|
             self.html_elem_named(elem, name.clone()))
     }
 
     //§ closing-elements-that-have-implied-end-tags
-    fn generate_implied_end(&mut self, set: TagSet) {
+    fn generate_implied_end<TagSet>(&mut self, set: TagSet) 
+        where TagSet: Fn(QualName) -> bool
+    {
         loop {
             let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
             let nsname = self.sink.elem_name(elem);
@@ -324,7 +334,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
     //§ END
 
     // Pop elements until the current element is in the set.
-    fn pop_until_current(&mut self, pred: TagSet) {
+    fn pop_until_current<TagSet>(&mut self, pred: TagSet) 
+        where TagSet: Fn(QualName) -> bool
+    {
         loop {
             if self.current_node_in(|x| pred(x)) {
                 break;
@@ -335,7 +347,9 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
 
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
-    fn pop_until(&mut self, pred: TagSet) -> uint {
+    fn pop_until<P>(&mut self, pred: P) -> uint
+        where P: Fn(QualName) -> bool
+    {
         let mut n = 0;
         loop {
             n += 1;
@@ -357,7 +371,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
         if self.pop_until_named(name.clone()) != 1 {
             self.sink.parse_error(format_if!(self.opts.exact_errors,
                 "Unexpected open element",
-                "Unexpected open element while closing {}", name));
+                "Unexpected open element while closing {:?}", name));
         }
     }
 

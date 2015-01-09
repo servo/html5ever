@@ -217,7 +217,7 @@ mod test {
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
         bq.push_back(String::from_str("abc&def"), 0);
-        let pop = || bq.pop_except_from(small_char_set!('&'));
+        let mut pop = |&mut:| bq.pop_except_from(small_char_set!('&'));
         assert_eq!(pop(), Some(NotFromSet(String::from_str("abc"))));
         assert_eq!(pop(), Some(FromSet('&')));
         assert_eq!(pop(), Some(NotFromSet(String::from_str("def"))));

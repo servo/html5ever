@@ -113,13 +113,14 @@ impl CharRefTokenizer {
     }
 }
 
+#[old_impl_check]
 impl<Sink: TokenSink> CharRefTokenizer {
     pub fn step(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         if self.result.is_some() {
             return Done;
         }
 
-        h5e_debug!("char ref tokenizer stepping in state {}", self.state);
+        h5e_debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             Begin => self.do_begin(tokenizer),
             Octothorpe => self.do_octothorpe(tokenizer),

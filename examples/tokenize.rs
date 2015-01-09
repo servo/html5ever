@@ -69,7 +69,7 @@ impl TokenSink for TokenPrinter {
             }
             _ => {
                 self.is_char(false);
-                println!("OTHER: {}", token);
+                println!("OTHER: {:?}", token);
             }
         }
     }

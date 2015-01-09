@@ -24,7 +24,7 @@ macro_rules! test_eq ( ($name:ident, $left:expr, $right:expr) => (
 ));
 
 /// Make a tuple of the addresses of some of a struct's fields.
-macro_rules! addrs_of ( ($obj:expr : $($field:ident),+) => (
+macro_rules! addrs_of ( ($obj:expr => $($field:ident),+) => (
     ( // make a tuple
         $(
             unsafe {

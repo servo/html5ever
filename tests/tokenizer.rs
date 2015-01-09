@@ -307,7 +307,7 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
                 if output != expect {
-                    panic!("\ninput: {}\ngot: {}\nexpected: {}",
+                    panic!("\ninput: {}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
                 }
             }
@@ -356,7 +356,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {
-                Some(s) => newdesc = format!("{} (in state {})", newdesc, s),
+                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
                 None  => (),
             };
             if exact_errors {

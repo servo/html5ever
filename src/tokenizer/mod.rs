@@ -306,7 +306,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         let d = self.input_buffers.pop_except_from(set);
-        h5e_debug!("got characters {}", d);
+        h5e_debug!("got characters {:?}", d);
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
 
@@ -360,7 +360,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let msg = format_if!(
             self.opts.exact_errors,
             "Bad character",
-            "Saw {} in state {}", self.current_char, self.state);
+            "Saw {} in state {:?}", self.current_char, self.state);
         self.emit_error(msg);
     }
 
@@ -368,7 +368,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let msg = format_if!(
             self.opts.exact_errors,
             "Unexpected EOF",
-            "Saw EOF in state {}", self.state);
+            "Saw EOF in state {:?}", self.state);
         self.emit_error(msg);
     }
 
@@ -545,82 +545,82 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( $me:expr : emit $c:expr                    ) => ( $me.emit_char($c);                                   );
-    ( $me:expr : create_tag $kind:expr $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:expr : push_tag $c:expr                ) => ( $me.current_tag_name.push($c);                       );
-    ( $me:expr : discard_tag                     ) => ( $me.discard_tag();                                   );
-    ( $me:expr : push_temp $c:expr               ) => ( $me.temp_buf.push($c);                               );
-    ( $me:expr : emit_temp                       ) => ( $me.emit_temp_buf();                                 );
-    ( $me:expr : clear_temp                      ) => ( $me.clear_temp_buf();                                );
-    ( $me:expr : create_attr $c:expr             ) => ( $me.create_attribute($c);                            );
-    ( $me:expr : push_name $c:expr               ) => ( $me.current_attr_name.push($c);                      );
-    ( $me:expr : push_value $c:expr              ) => ( $me.current_attr_value.push($c);                     );
-    ( $me:expr : append_value $c:expr            ) => ( append_strings(&mut $me.current_attr_value, $c);     );
-    ( $me:expr : push_comment $c:expr            ) => ( $me.current_comment.push($c);                        );
-    ( $me:expr : append_comment $c:expr          ) => ( $me.current_comment.push_str($c);                    );
-    ( $me:expr : emit_comment                    ) => ( $me.emit_current_comment();                          );
-    ( $me:expr : clear_comment                   ) => ( $me.current_comment.truncate(0);                     );
-    ( $me:expr : create_doctype                  ) => ( $me.current_doctype = Doctype::new();                );
-    ( $me:expr : push_doctype_name $c:expr       ) => ( option_push(&mut $me.current_doctype.name, $c);      );
-    ( $me:expr : push_doctype_id $k:expr $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
-    ( $me:expr : clear_doctype_id $k:expr        ) => ( $me.clear_doctype_id($k);                            );
-    ( $me:expr : force_quirks                    ) => ( $me.current_doctype.force_quirks = true;             );
-    ( $me:expr : emit_doctype                    ) => ( $me.emit_current_doctype();                          );
-    ( $me:expr : error                           ) => ( $me.bad_char_error();                                );
-    ( $me:expr : error_eof                       ) => ( $me.bad_eof_error();                                 );
+    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c);                                   );
+    ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
+    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push($c);                       );
+    ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
+    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push($c);                               );
+    ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
+    ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
+    ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c);                            );
+    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push($c);                      );
+    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push($c);                     );
+    ( $me:ident : append_value $c:expr             ) => ( append_strings(&mut $me.current_attr_value, $c);     );
+    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push($c);                        );
+    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_str($c);                    );
+    ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment();                          );
+    ( $me:ident : clear_comment                    ) => ( $me.current_comment.truncate(0);                     );
+    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new();                );
+    ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c);      );
+    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
+    ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k);                            );
+    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.force_quirks = true;             );
+    ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype();                          );
+    ( $me:ident : error                            ) => ( $me.bad_char_error();                                );
+    ( $me:ident : error_eof                        ) => ( $me.bad_eof_error();                                 );
 );
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
 // so it's behind a cfg flag.
 #[cfg(trace_tokenizer)]
-macro_rules! sh_trace ( ( $me:expr : $($cmds:tt)* ) => ({
+macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ({
     h5e_debug!("  {:s}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }));
 
 #[cfg(not(trace_tokenizer))]
-macro_rules! sh_trace ( ( $me:expr : $($cmds:tt)* ) => ( shorthand!($me: $($cmds)*) ) );
+macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ( shorthand!($me: $($cmds)*) ) );
 
 // A little DSL for sequencing shorthand actions.
 macro_rules! go (
     // A pattern like $($cmd:tt)* ; $($rest:tt)* causes parse ambiguity.
     // We have to tell the parser how much lookahead we need.
 
-    ( $me:expr : $a:tt                   ; $($rest:tt)* ) => ({ sh_trace!($me: $a);          go!($me: $($rest)*); });
-    ( $me:expr : $a:tt $b:tt             ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b);       go!($me: $($rest)*); });
-    ( $me:expr : $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b $c);    go!($me: $($rest)*); });
-    ( $me:expr : $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b $c $d); go!($me: $($rest)*); });
+    ( $me:ident : $a:tt                   ; $($rest:tt)* ) => ({ sh_trace!($me: $a);          go!($me: $($rest)*); });
+    ( $me:ident : $a:tt $b:tt             ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b);       go!($me: $($rest)*); });
+    ( $me:ident : $a:tt $b:tt $c:tt       ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b $c);    go!($me: $($rest)*); });
+    ( $me:ident : $a:tt $b:tt $c:tt $d:tt ; $($rest:tt)* ) => ({ sh_trace!($me: $a $b $c $d); go!($me: $($rest)*); });
 
     // These can only come at the end.
 
-    ( $me:expr : to $s:ident                   ) => ({ $me.state = states::$s; return true;           });
-    ( $me:expr : to $s:ident $k1:expr          ) => ({ $me.state = states::$s($k1); return true;      });
-    ( $me:expr : to $s:ident $k1:expr $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return true; });
+    ( $me:ident : to $s:ident                    ) => ({ $me.state = states::$s; return true;           });
+    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state = states::$s($k1); return true;      });
+    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return true; });
 
-    ( $me:expr : reconsume $s:ident                   ) => ({ $me.reconsume = true; go!($me: to $s);         });
-    ( $me:expr : reconsume $s:ident $k1:expr          ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
-    ( $me:expr : reconsume $s:ident $k1:expr $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
+    ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume = true; go!($me: to $s);         });
+    ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
+    ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
 
-    ( $me:expr : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
-    ( $me:expr : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
+    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
+    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
 
     // We have a default next state after emitting a tag, but the sink can override.
-    ( $me:expr : emit_tag $s:ident ) => ({
+    ( $me:ident : emit_tag $s:ident ) => ({
         $me.state = states::$s;
         $me.emit_current_tag();
         return true;
     });
 
-    ( $me:expr : eof ) => ({ $me.emit_eof(); return false; });
+    ( $me:ident : eof ) => ({ $me.emit_eof(); return false; });
 
     // If nothing else matched, it's a single command
-    ( $me:expr : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+); );
+    ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+); );
 
     // or nothing.
-    ($me:expr : ) => (());
+    ( $me:ident : ) => (());
 );
 
-macro_rules! go_match ( ( $me:expr : $x:expr, $($pats:pat)|+ => $($cmds:tt)* ) => (
+macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) => (
     match $x {
         $($pats)|+ => go!($me: $($cmds)*),
         _ => (),
@@ -650,7 +650,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return self.step_char_ref_tokenizer();
         }
 
-        h5e_debug!("processing in state {}", self.state);
+        h5e_debug!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
             states::Data => loop {
@@ -883,7 +883,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     Some(cl) => go!(self: create_attr cl; to AttributeName),
                     None => {
                         go_match!(self: c,
-                            '"' | '\'' | '<' | '=' => error);
+                            '"' , '\'' , '<' , '=' => error);
                         go!(self: create_attr c; to AttributeName);
                     }
                 }
@@ -901,7 +901,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     Some(cl) => go!(self: push_name cl),
                     None => {
                         go_match!(self: c,
-                            '"' | '\'' | '<' => error);
+                            '"' , '\'' , '<' => error);
                         go!(self: push_name c);
                     }
                 }
@@ -918,7 +918,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     Some(cl) => go!(self: create_attr cl; to AttributeName),
                     None => {
                         go_match!(self: c,
-                            '"' | '\'' | '<' => error);
+                            '"' , '\'' , '<' => error);
                         go!(self: create_attr c; to AttributeName);
                     }
                 }
@@ -934,7 +934,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 '>'  => go!(self: error; emit_tag Data),
                 c => {
                     go_match!(self: c,
-                        '<' | '=' | '`' => error);
+                        '<' , '=' , '`' => error);
                     go!(self: push_value c; to AttributeValue Unquoted);
                 }
             }},
@@ -971,7 +971,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c) => {
                         go_match!(self: c,
-                            '"' | '\'' | '<' | '=' | '`' => error);
+                            '"' , '\'' , '<' , '=' , '`' => error);
                         go!(self: push_value c);
                     }
                     NotFromSet(b) => go!(self: append_value b),
@@ -1171,7 +1171,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ cdata-section-state
             states::CdataSection
-                => panic!("FIXME: state {} not implemented", self.state),
+                => panic!("FIXME: state {:?} not implemented", self.state),
             //§ END
         }
     }
@@ -1213,7 +1213,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 states::AttributeValue(_)
                     => go!(self: push_value c),
 
-                _ => panic!("state {} should not be reachable in process_char_ref", self.state),
+                _ => panic!("state {:?} should not be reachable in process_char_ref", self.state),
             }
         }
     }
@@ -1264,12 +1264,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            println!("{:12}  {:4.1}%  {}", v, pct, k);
+            println!("{:12}  {:4.1}%  {:?}", v, pct, k);
         }
     }
 
     fn eof_step(&mut self) -> bool {
-        h5e_debug!("processing EOF in state {}", self.state);
+        h5e_debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
             | states::RawData(ScriptData) | states::Plaintext
@@ -1334,7 +1334,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error; to BogusComment),
 
             states::CdataSection
-                => panic!("FIXME: state {} not implemented in EOF", self.state),
+                => panic!("FIXME: state {:?} not implemented in EOF", self.state),
         }
     }
 }

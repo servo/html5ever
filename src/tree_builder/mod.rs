@@ -208,7 +208,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
         for node in self.open_elems.iter() {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
-                ns!(HTML) => print!(" {}", local),
+                ns!(HTML) => print!(" {:?}", local),
                 _ => panic!(),
             }
         }
@@ -222,7 +222,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {}", to_escaped_string(token), mode);
+        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
@@ -287,7 +287,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Si
                     self.sink.parse_error(format_if!(
                         self.opts.exact_errors,
                         "Bad DOCTYPE",
-                        "Bad DOCTYPE: {}", dt));
+                        "Bad DOCTYPE: {:?}", dt));
                 }
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 if !self.opts.drop_doctype {
@@ -305,7 +305,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Si
                 self.sink.parse_error(format_if!(
                     self.opts.exact_errors,
                     "DOCTYPE in body",
-                    "DOCTYPE in insertion mode {}", self.mode));
+                    "DOCTYPE in insertion mode {:?}", self.mode));
                 return;
             },
 

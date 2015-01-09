@@ -56,7 +56,7 @@ pub struct Attribute {
     pub value: String,
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Show)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Show)]
 pub enum TagKind {
     StartTag,
     EndTag,

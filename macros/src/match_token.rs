@@ -117,7 +117,7 @@ type Tokens = Vec<ast::TokenTree>;
 type TagName = ast::Ident;
 
 // FIXME: duplicated in src/tokenizer/interface.rs
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Show)]
 enum TagKind {
     StartTag,
     EndTag,
@@ -337,7 +337,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree]) -> Box<MacR
                     bail_if!(!seen_tags.insert(tag.clone()), cx, span, "duplicate tag");
                     bail_if!(tag.name.is_none(), cx, rhs.span,
                         "'else' may not appear with a wildcard tag");
-                    match wild_excluded.entry(&tag.kind) {
+                    match wild_excluded.entry(tag.kind) {
                         Occupied(e) => { e.into_mut().push(tag.clone()); }
                         Vacant(e)   => { e.insert(vec![tag.clone()]); }
                     }
