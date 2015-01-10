@@ -8,6 +8,7 @@
 // except according to those terms.
 
 #![feature(plugin)]
+#![allow(unstable)]
 
 extern crate html5ever;
 

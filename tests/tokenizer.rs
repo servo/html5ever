@@ -227,7 +227,7 @@ fn json_to_token(js: &Json) -> Token {
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
 
-        _ => panic!("don't understand token {}", parts),
+        _ => panic!("don't understand token {:?}", parts),
     }
 }
 
@@ -307,7 +307,7 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
                 if output != expect {
-                    panic!("\ninput: {}\ngot: {:?}\nexpected: {:?}",
+                    panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
                 }
             }

@@ -11,6 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(plugin)]
+#![allow(unstable)]
 
 extern crate test;
 extern crate serialize;

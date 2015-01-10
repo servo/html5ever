@@ -9,6 +9,8 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
+#![allow(unstable)]
+
 extern crate test;
 extern crate html5ever;
 

@@ -10,9 +10,9 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, old_impl_check)]
+#![feature(plugin, old_impl_check, int_uint, box_syntax)]
 #![deny(warnings)]
-#![allow(unused_parens)]
+#![allow(unused_parens, unstable)]
 
 // Don't implicitly pull in things from std::*
 // This helps us make a C-friendly library.

@@ -83,7 +83,7 @@ impl BufferQueue {
     pub fn next(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
-            Some(&Buffer { ref mut pos, ref buf }) => {
+            Some(&mut Buffer { ref mut pos, ref buf }) => {
                 let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
                 *pos = next;
                 (Some(ch), next >= buf.len())
@@ -103,7 +103,7 @@ impl BufferQueue {
     /// ASCII characters.
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
-            Some(&Buffer { ref mut pos, ref buf }) => {
+            Some(&mut Buffer { ref mut pos, ref buf }) => {
                 let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
                 if n > 0 {
                     let new_pos = *pos + n;
