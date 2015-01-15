@@ -52,14 +52,17 @@ impl Copy for h5e_token_sink { }
 
 impl TokenSink for *mut h5e_token_sink {
     fn process_token(&mut self, token: Token) {
-        macro_rules! call ( ($name:ident $(, $arg:expr)*) => (
-            unsafe {
-                match (*(**self).ops).$name {
-                    None => (),
-                    Some(f) => f((**self).user $(, $arg)*),
+        macro_rules! call {
+            ($name:ident, $($arg:expr),*) => (
+                unsafe {
+                    match (*(**self).ops).$name {
+                        None => (),
+                        Some(f) => f((**self).user $(, $arg)*),
+                    }
                 }
-            }
-        ));
+            );
+            ($name:ident) => (call!($name,)); // bleh
+        }
 
         fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
             match *s {

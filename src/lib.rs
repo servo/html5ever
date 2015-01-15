@@ -36,15 +36,15 @@ extern crate collections;
 #[macro_use]
 extern crate log;
 
-#[plugin]
+#[plugin] #[no_link]
 extern crate phf_mac;
 
-#[plugin]
-#[macro_use]
+#[plugin] #[no_link] #[macro_use]
 extern crate string_cache_macros;
+
 extern crate string_cache;
 
-#[plugin]
+#[plugin] #[no_link]
 extern crate html5ever_macros;
 
 extern crate phf;

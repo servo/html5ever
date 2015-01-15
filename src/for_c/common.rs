@@ -12,7 +12,7 @@ use core::prelude::*;
 use core::ptr;
 use core::slice;
 use core::str;
-use core::kinds::marker::ContravariantLifetime;
+use core::marker::ContravariantLifetime;
 use collections::string::CowString;
 use collections::string::String;
 
