@@ -7,14 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
+use core::option::Option::{self, None};
+use core::clone::Clone;
 
 use tokenizer::states;
 
 use collections::vec::Vec;
-use collections::slice::OrdSliceAllocPrelude;
+use collections::slice::SliceExt;
 use collections::string::String;
-use std::str::CowString;
+use std::string::CowString;
 
 use string_cache::{Atom, QualName};
 
@@ -24,7 +25,7 @@ pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Show)]
 pub struct Doctype {
     pub name: Option<String>,
     pub public_id: Option<String>,
@@ -49,20 +50,20 @@ impl Doctype {
 /// The tokenizer creates all attributes this way, but the tree
 /// builder will adjust certain attribute names inside foreign
 /// content (MathML, SVG).
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
 pub struct Attribute {
     pub name: QualName,
     pub value: String,
 }
 
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Show)]
 pub enum TagKind {
     StartTag,
     EndTag,
 }
 
 /// A tag token.
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Show)]
 pub struct Tag {
     pub kind: TagKind,
     pub name: Atom,
@@ -87,7 +88,7 @@ impl Tag {
     }
 }
 
-#[deriving(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Show)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),

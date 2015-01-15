@@ -10,6 +10,9 @@
 #![crate_name="html5ever-external-bench"]
 #![crate_type="bin"]
 
+#![feature(box_syntax)]
+#![allow(unstable)]
+
 extern crate test;
 
 extern crate html5ever;

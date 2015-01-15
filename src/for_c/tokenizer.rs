@@ -40,11 +40,15 @@ pub struct h5e_token_ops {
     do_error:         Option<extern "C" fn(user: *mut c_void, message: h5e_buf)>,
 }
 
+impl Copy for h5e_token_ops { }
+
 #[repr(C)]
 pub struct h5e_token_sink {
     ops: *const h5e_token_ops,
     user: *mut c_void,
 }
+
+impl Copy for h5e_token_sink { }
 
 impl TokenSink for *mut h5e_token_sink {
     fn process_token(&mut self, token: Token) {
@@ -55,7 +59,7 @@ impl TokenSink for *mut h5e_token_sink {
                     Some(f) => f((**self).user $(, $arg)*),
                 }
             }
-        ))
+        ));
 
         fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
             match *s {

@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unstable)]
 
 extern crate html5ever;
 
@@ -17,6 +18,7 @@ use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
 use html5ever::driver::{tokenize_to, one_input};
 
+#[derive(Copy)]
 struct TokenPrinter {
     in_char_run: bool,
 }
@@ -33,9 +35,7 @@ impl TokenPrinter {
 
     fn do_char(&mut self, c: char) {
         self.is_char(true);
-        for d in Char::escape_default(c) {
-            print!("{}", d);
-        }
+        print!("{}", c.to_string().escape_default());
     }
 }
 
@@ -70,7 +70,7 @@ impl TokenSink for TokenPrinter {
             }
             _ => {
                 self.is_char(false);
-                println!("OTHER: {}", token);
+                println!("OTHER: {:?}", token);
             }
         }
     }

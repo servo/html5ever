@@ -10,8 +10,9 @@
 #![crate_name="html5ever_macros"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, plugin_registrar, quote)]
+#![feature(plugin_registrar, quote, old_orphan_check)]
 #![deny(warnings)]
+#![allow(unstable)]
 
 extern crate syntax;
 extern crate rustc;

@@ -10,9 +10,9 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, phase, globs)]
+#![feature(plugin, old_impl_check, int_uint, box_syntax)]
 #![deny(warnings)]
-#![allow(unused_parens)]
+#![allow(unused_parens, unstable)]
 
 // Don't implicitly pull in things from std::*
 // This helps us make a C-friendly library.
@@ -20,30 +20,31 @@
 
 extern crate alloc;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate core;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate std;
 
 #[cfg(for_c)]
 extern crate libc;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate collections;
 
 #[cfg(not(for_c))]
-#[phase(plugin, link)]
+#[macro_use]
 extern crate log;
 
-#[phase(plugin)]
+#[plugin]
 extern crate phf_mac;
 
-#[phase(plugin)]
+#[plugin]
+#[macro_use]
 extern crate string_cache_macros;
 extern crate string_cache;
 
-#[phase(plugin)]
+#[plugin]
 extern crate html5ever_macros;
 
 extern crate phf;

@@ -10,21 +10,24 @@
 use util::foreach_html5lib_test;
 
 use std::io;
+use std::iter::repeat;
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
-use std::vec::MoveItems;
+use std::vec::IntoIter;
+use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldFail::No;
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, one_input};
 
-fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, String>> {
+fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
     let mut test = HashMap::new();
-    let mut key = None;
+    let mut key: Option<String> = None;
     let mut val = String::new();
 
     macro_rules! finish_val ( () => (
@@ -32,13 +35,13 @@ fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, Strin
             None => (),
             Some(key) => assert!(test.insert(key, replace(&mut val, String::new())).is_none()),
         }
-    ))
+    ));
 
     macro_rules! finish_test ( () => (
         if !test.is_empty() {
             tests.push(replace(&mut test, HashMap::new()));
         }
-    ))
+    ));
 
     loop {
         match lines.next() {
@@ -50,7 +53,7 @@ fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, Strin
                         finish_test!();
                     }
                     key = Some(line.as_slice().slice_from(1)
-                        .trim_right_chars('\n').to_string());
+                        .trim_right_matches('\n').to_string());
                 } else {
                     val.push_str(line.as_slice());
                 }
@@ -65,7 +68,7 @@ fn parse_tests<It: Iterator<String>>(mut lines: It) -> Vec<HashMap<String, Strin
 
 fn serialize(buf: &mut String, indent: uint, handle: Handle) {
     buf.push_str("|");
-    buf.grow(indent, ' ');
+    buf.push_str(repeat(" ").take(indent).collect::<String>().as_slice());
 
     let node = handle.borrow();
     match node.node {
@@ -105,7 +108,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
             for attr in attrs.into_iter() {
                 assert!(attr.name.ns == ns!(""));
                 buf.push_str("|");
-                buf.grow(indent+2, ' ');
+                buf.push_str(repeat(" ").take(indent+2).collect::<String>().as_slice());
                 buf.push_str(format!("{}=\"{}\"\n",
                     attr.name.local.as_slice(), attr.value).as_slice());
             }
@@ -128,9 +131,9 @@ fn make_test(
         idx: uint,
         fields: HashMap<String, String>) {
 
-    let get_field = |key| {
+    let get_field = |&:key| {
         let field = fields.get(key).expect("missing field");
-        field.as_slice().trim_right_chars('\n').to_string()
+        field.as_slice().trim_right_matches('\n').to_string()
     };
 
     if fields.get("document-fragment").is_some() {
@@ -148,9 +151,9 @@ fn make_test(
         desc: TestDesc {
             name: DynTestName(name),
             ignore: ignore,
-            should_fail: false,
+            should_fail: No,
         },
-        testfn: DynTestFn(proc() {
+        testfn: DynTestFn(Thunk::new(move || {
             let dom: RcDom = parse(one_input(data.clone()), Default::default());
 
             let mut result = String::new();
@@ -164,11 +167,11 @@ fn make_test(
                 panic!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
                     data, result, expected);
             }
-        }),
+        })),
     });
 }
 
-pub fn tests(src_dir: Path, ignores: &HashSet<String>) -> MoveItems<TestDescAndFn> {
+pub fn tests(src_dir: Path, ignores: &HashSet<String>) -> IntoIter<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tree-construction", ".dat", |path_str, file| {

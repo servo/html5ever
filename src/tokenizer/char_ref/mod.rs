@@ -25,7 +25,7 @@ mod data;
 //§ tokenizing-character-references
 pub struct CharRef {
     /// The resulting character(s)
-    pub chars: [char, ..2],
+    pub chars: [char; 2],
 
     /// How many slots in `chars` are valid?
     pub num_chars: u8,
@@ -37,7 +37,7 @@ pub enum Status {
     Done,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 enum State {
     Begin,
     Octothorpe,
@@ -58,7 +58,7 @@ pub struct CharRefTokenizer {
     hex_marker: Option<char>,
 
     name_buf_opt: Option<String>,
-    name_match: Option<&'static [u32, ..2]>,
+    name_match: Option<&'static [u32; 2]>,
     name_len: uint,
 }
 
@@ -113,13 +113,14 @@ impl CharRefTokenizer {
     }
 }
 
+#[old_impl_check]
 impl<Sink: TokenSink> CharRefTokenizer {
     pub fn step(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         if self.result.is_some() {
             return Done;
         }
 
-        h5e_debug!("char ref tokenizer stepping in state {}", self.state);
+        h5e_debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             Begin => self.do_begin(tokenizer),
             Octothorpe => self.do_octothorpe(tokenizer),
@@ -170,7 +171,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
 
     fn do_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match Char::to_digit(c, base as uint) {
+        match c.to_digit(base as uint) {
             Some(n) => {
                 tokenizer.discard_char();
                 self.num *= base;
@@ -202,7 +203,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
     }
 
     fn unconsume_numeric(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let mut unconsume = String::from_char(1, '#');
+        let mut unconsume = String::from_str("#");
         match self.hex_marker {
             Some(c) => unconsume.push(c),
             None => (),
@@ -219,8 +220,8 @@ impl<Sink: TokenSink> CharRefTokenizer {
         }
 
         let (c, error) = match self.num {
-            n if (n > 0x10FFFF) || self.num_too_big => ('\ufffd', true),
-            0x00 | 0xD800...0xDFFF => ('\ufffd', true),
+            n if (n > 0x10FFFF) || self.num_too_big => ('\u{fffd}', true),
+            0x00 | 0xD800...0xDFFF => ('\u{fffd}', true),
 
             0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as uint] {
                 Some(c) => (c, true),
@@ -393,7 +394,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(String::from_char(1, '#'));
+                    tokenizer.unconsume(String::from_str("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
                 }

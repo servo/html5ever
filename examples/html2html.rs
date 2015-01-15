@@ -25,6 +25,7 @@ use html5ever::driver::ParseOpts;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
 
+#[allow(unstable)]
 fn main() {
     let input = io::stdin().read_to_string().unwrap();
     let dom: RcDom = parse(one_input(input), ParseOpts {

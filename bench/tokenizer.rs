@@ -9,10 +9,11 @@
 
 use std::{io, os, cmp};
 use std::default::Default;
-use std::vec::MoveItems;
+use std::vec::IntoIter;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
+use test::ShouldFail::No;
 
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
@@ -101,13 +102,13 @@ fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
                 (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
             ].concat().to_string()),
             ignore: false,
-            should_fail: false,
+            should_fail: No,
         },
         testfn: DynBenchFn(box Bench::new(name, size, clone_only, opts)),
     }
 }
 
-pub fn tests() -> MoveItems<TestDescAndFn> {
+pub fn tests() -> IntoIter<TestDescAndFn> {
     let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = vec!(Default::default());

@@ -27,8 +27,9 @@ use core::default::Default;
 use alloc::rc::{Rc, Weak};
 use collections::vec::Vec;
 use collections::string::String;
-use std::str::CowString;
+use std::string::CowString;
 use std::io::{Writer, IoResult};
+use std::ops::DerefMut;
 
 use string_cache::QualName;
 
@@ -101,7 +102,7 @@ fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
 fn remove_from_parent(target: &Handle) {
     {
         let (parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
-        parent.borrow_mut().children.remove(i).expect("not found!");
+        parent.borrow_mut().children.remove(i);
     }
 
     let mut child = target.borrow_mut();

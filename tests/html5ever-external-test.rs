@@ -10,12 +10,15 @@
 #![crate_name="html5ever-external-test"]
 #![crate_type="bin"]
 
-#![feature(macro_rules, phase)]
+#![feature(plugin)]
+#![allow(unstable)]
 
 extern crate test;
 extern crate serialize;
 extern crate string_cache;
-#[phase(plugin)] extern crate string_cache_macros;
+#[plugin]
+#[macro_use]
+extern crate string_cache_macros;
 
 extern crate html5ever;
 

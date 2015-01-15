@@ -13,12 +13,14 @@ use std::{num, char};
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
+use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldFail::No;
 use serialize::json;
 use serialize::json::Json;
-use std::collections::TreeMap;
+use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
-use std::vec::MoveItems;
+use std::vec::IntoIter;
 
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
@@ -136,7 +138,7 @@ trait JsonExt {
     fn get_str(&self) -> String;
     fn get_nullable_str(&self) -> Option<String>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Self>;
+    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
@@ -164,7 +166,7 @@ impl JsonExt for Json {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t TreeMap<String, Json> {
+    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Json> {
         match *self {
             Json::Object(ref m) => &*m,
             _ => panic!("Json::get_obj: not an Object"),
@@ -225,7 +227,7 @@ fn json_to_token(js: &Json) -> Token {
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
 
-        _ => panic!("don't understand token {}", parts),
+        _ => panic!("don't understand token {:?}", parts),
     }
 }
 
@@ -279,7 +281,7 @@ fn unescape_json(js: &Json) -> Json {
         Json::String(ref s) => Json::String(unescape(s.as_slice()).unwrap()),
         Json::Array(ref xs) => Json::Array(xs.iter().map(unescape_json).collect()),
         Json::Object(ref obj) => {
-            let mut new_obj = TreeMap::new();
+            let mut new_obj = BTreeMap::new();
             for (k,v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
             }
@@ -295,9 +297,9 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
         desc: TestDesc {
             name: DynTestName(desc),
             ignore: false,
-            should_fail: false,
+            should_fail: No,
         },
-        testfn: DynTestFn(proc() {
+        testfn: DynTestFn(Thunk::new(move || {
             for input in insplits.into_iter() {
                 // Clone 'input' so we have it for the failure message.
                 // Also clone opts.  If we don't, we get the wrong
@@ -305,11 +307,11 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
                 if output != expect {
-                    panic!("\ninput: {}\ngot: {}\nexpected: {}",
+                    panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
                 }
             }
-        }),
+        })),
     }
 }
 
@@ -354,7 +356,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             match state {
-                Some(s) => newdesc = format!("{} (in state {})", newdesc, s),
+                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
                 None  => (),
             };
             if exact_errors {
@@ -377,7 +379,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     }
 }
 
-pub fn tests(src_dir: Path) -> MoveItems<TestDescAndFn> {
+pub fn tests(src_dir: Path) -> IntoIter<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tokenizer", ".test", |path_str, mut file| {

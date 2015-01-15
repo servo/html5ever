@@ -9,10 +9,11 @@
 
 use core::prelude::*;
 
+use core::ptr;
 use core::slice;
 use core::str;
 use core::kinds::marker::ContravariantLifetime;
-use collections::str::CowString;
+use collections::string::CowString;
 use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
@@ -25,10 +26,12 @@ pub struct h5e_buf {
     len: size_t,
 }
 
+impl Copy for h5e_buf { }
+
 impl h5e_buf {
     pub fn null() -> h5e_buf {
         h5e_buf {
-            data: RawPtr::null(),
+            data: ptr::null(),
             len: 0,
         }
     }

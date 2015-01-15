@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unstable)]
+
 extern crate string_cache;
 
 extern crate html5ever;
@@ -15,7 +17,7 @@ use std::io;
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
-use std::str::CowString;
+use std::string::CowString;
 use string_cache::QualName;
 
 use html5ever::{parse_to, one_input};
@@ -45,7 +47,7 @@ impl TreeSink<uint> for Sink {
     }
 
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
-        println!("Set quirks mode to {}", mode);
+        println!("Set quirks mode to {:?}", mode);
     }
 
     fn same_node(&self, x: uint, y: uint) -> bool {
@@ -58,7 +60,7 @@ impl TreeSink<uint> for Sink {
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> uint {
         let id = self.get_id();
-        println!("Created {} as {}", name, id);
+        println!("Created {:?} as {}", name, id);
         self.names.insert(id, name);
         id
     }
@@ -100,7 +102,7 @@ impl TreeSink<uint> for Sink {
     fn add_attrs_if_missing(&mut self, target: uint, attrs: Vec<Attribute>) {
         println!("Add missing attributes to {}:", target);
         for attr in attrs.into_iter() {
-            println!("    {} = {}", attr.name, attr.value);
+            println!("    {:?} = {}", attr.name, attr.value);
         }
     }
 

@@ -26,7 +26,7 @@ struct Buffer {
 }
 
 /// Result from `pop_except_from`.
-#[deriving(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Show)]
 pub enum SetResult {
     FromSet(char),
     NotFromSet(String),
@@ -83,7 +83,7 @@ impl BufferQueue {
     pub fn next(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
-            Some(&Buffer { ref mut pos, ref buf }) => {
+            Some(&mut Buffer { ref mut pos, ref buf }) => {
                 let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
                 *pos = next;
                 (Some(ch), next >= buf.len())
@@ -103,7 +103,7 @@ impl BufferQueue {
     /// ASCII characters.
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
-            Some(&Buffer { ref mut pos, ref buf }) => {
+            Some(&mut Buffer { ref mut pos, ref buf }) => {
                 let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
                 if n > 0 {
                     let new_pos = *pos + n;
@@ -148,7 +148,7 @@ impl BufferQueue {
 
             let d = buf.buf.as_slice().char_at(consumed_from_last);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
-                (Some(c), Some(d)) if c.eq_ignore_case(d) => (),
+                (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
                 _ => return Some(false),
             }
 
@@ -217,7 +217,7 @@ mod test {
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
         bq.push_back(String::from_str("abc&def"), 0);
-        let pop = || bq.pop_except_from(small_char_set!('&'));
+        let mut pop = |&mut:| bq.pop_except_from(small_char_set!('&'));
         assert_eq!(pop(), Some(NotFromSet(String::from_str("abc"))));
         assert_eq!(pop(), Some(FromSet('&')));
         assert_eq!(pop(), Some(NotFromSet(String::from_str("def"))));

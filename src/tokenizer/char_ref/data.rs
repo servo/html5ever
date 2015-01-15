@@ -14,17 +14,17 @@ use phf::Map;
 /// The spec replaces most characters in the ISO-2022 C1 control code range
 /// (U+0080 through U+009F) with these characters, based on Windows 8-bit
 /// codepages.
-pub static C1_REPLACEMENTS: [Option<char>, ..32] = [
-    Some('\u20ac'), None,           Some('\u201a'), Some('\u0192'),
-    Some('\u201e'), Some('\u2026'), Some('\u2020'), Some('\u2021'),
-    Some('\u02c6'), Some('\u2030'), Some('\u0160'), Some('\u2039'),
-    Some('\u0152'), None,           Some('\u017d'), None,
-    None,           Some('\u2018'), Some('\u2019'), Some('\u201c'),
-    Some('\u201d'), Some('\u2022'), Some('\u2013'), Some('\u2014'),
-    Some('\u02dc'), Some('\u2122'), Some('\u0161'), Some('\u203a'),
-    Some('\u0153'), None,           Some('\u017e'), Some('\u0178'),
+pub static C1_REPLACEMENTS: [Option<char>; 32] = [
+    Some('\u{20ac}'), None,             Some('\u{201a}'), Some('\u{0192}'),
+    Some('\u{201e}'), Some('\u{2026}'), Some('\u{2020}'), Some('\u{2021}'),
+    Some('\u{02c6}'), Some('\u{2030}'), Some('\u{0160}'), Some('\u{2039}'),
+    Some('\u{0152}'), None,             Some('\u{017d}'), None,
+    None,             Some('\u{2018}'), Some('\u{2019}'), Some('\u{201c}'),
+    Some('\u{201d}'), Some('\u{2022}'), Some('\u{2013}'), Some('\u{2014}'),
+    Some('\u{02dc}'), Some('\u{2122}'), Some('\u{0161}'), Some('\u{203a}'),
+    Some('\u{0153}'), None,             Some('\u{017e}'), Some('\u{0178}'),
 ];
 
 // The named_entities! macro is defined in html5/macros/named_entities.rs.
-pub static NAMED_ENTITIES: Map<&'static str, [u32, ..2]>
+pub static NAMED_ENTITIES: Map<&'static str, [u32; 2]>
     = named_entities!("../../../data/entities.json");

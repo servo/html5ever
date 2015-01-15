@@ -31,14 +31,16 @@ use driver::ParseResult;
 use core::cell::UnsafeCell;
 use core::default::Default;
 use core::mem::transmute;
-use core::kinds::marker;
+use core::marker;
 use core::mem;
+use core::ptr;
 use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
-use std::str::CowString;
+use std::string::CowString;
 use std::io::{Writer, IoResult};
 use std::collections::HashSet;
+use std::ops::{Deref, DerefMut};
 
 use string_cache::QualName;
 
@@ -75,7 +77,7 @@ impl Handle {
     }
 
     fn null() -> Handle {
-        Handle::new(RawPtr::null())
+        Handle::new(ptr::null())
     }
 
     fn is_null(&self) -> bool {
@@ -97,11 +99,13 @@ impl Clone for Handle {
     }
 }
 
+impl Copy for Handle { }
+
 // The safety of `Deref` and `DerefMut` depends on the invariant that `Handle`s
 // can't escape the `Sink`, because nodes are deallocated by consuming the
 // `Sink`.
 
-impl DerefMut<SquishyNode> for Handle {
+impl DerefMut for Handle {
     fn deref_mut<'a>(&'a mut self) -> &'a mut SquishyNode {
         unsafe {
             transmute::<_, &'a mut SquishyNode>((*self.ptr).get())
@@ -109,7 +113,8 @@ impl DerefMut<SquishyNode> for Handle {
     }
 }
 
-impl Deref<SquishyNode> for Handle {
+impl Deref for Handle {
+    type Target = SquishyNode;
     fn deref<'a>(&'a self) -> &'a SquishyNode {
         unsafe {
             transmute::<_, &'a SquishyNode>((*self.ptr).get())
@@ -177,7 +182,7 @@ impl Sink {
     // we can call it.
     fn unparent(&mut self, mut target: Handle) {
         let (mut parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
-        parent.children.remove(i).expect("not found!");
+        parent.children.remove(i);
         target.parent = Handle::null();
     }
 }
@@ -324,7 +329,7 @@ impl ParseResult<Sink> for OwnedDom {
             }
         }
 
-        let old_addrs = addrs_of!(sink.document: node, parent, children);
+        let old_addrs = addrs_of!(sink.document => node, parent, children);
 
         // Transmute the root to a Node, finalizing the transfer of ownership.
         let document = unsafe {
@@ -332,7 +337,7 @@ impl ParseResult<Sink> for OwnedDom {
         };
 
         // FIXME: do this assertion statically
-        let new_addrs = addrs_of!(document: node, _parent_not_accessible, children);
+        let new_addrs = addrs_of!(document => node, _parent_not_accessible, children);
         assert_eq!(old_addrs, new_addrs);
 
         OwnedDom {

@@ -381,10 +381,10 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ <li> <dd> <dt> => {
-                    declare_tag_set!(close_list = li)
-                    declare_tag_set!(close_defn = dd dt)
-                    declare_tag_set!(extra_special = special_tag - address div p)
-                    let can_close = match tag.name {
+                    declare_tag_set!(close_list = li);
+                    declare_tag_set!(close_defn = dd dt);
+                    declare_tag_set!(extra_special = special_tag - address div p);
+                    let can_close: fn(::string_cache::QualName) -> bool = match tag.name {
                         atom!(li) => close_list,
                         atom!(dd) | atom!(dt) => close_defn,
                         _ => unreachable!(),
@@ -483,7 +483,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 tag @ </li> </dd> </dt> => {
-                    let scope = match tag.name {
+                    let scope: fn(::string_cache::QualName) -> bool = match tag.name {
                         atom!(li) => list_item_scope,
                         _ => default_scope,
                     };
@@ -1018,7 +1018,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>>
                 }
 
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> </table> => {
-                    declare_tag_set!(table_outer = table tbody tfoot)
+                    declare_tag_set!(table_outer = table tbody tfoot);
                     if self.in_scope(table_scope, |e| self.elem_in(e, table_outer)) {
                         self.pop_until_current(table_body_context);
                         self.pop();

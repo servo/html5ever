@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unstable)]
+
 extern crate string_cache;
 
 extern crate html5ever;
@@ -15,7 +17,7 @@ use std::io;
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
-use std::str::CowString;
+use std::string::CowString;
 use string_cache::QualName;
 
 use html5ever::{parse_to, one_input};
