@@ -21,6 +21,7 @@ extern crate serialize;
 use rustc::plugin::Registry;
 
 // Internal macros for use in defining other macros.
+#[macro_use]
 mod internal;
 
 // Make these public so that rustdoc will generate documentation for them.

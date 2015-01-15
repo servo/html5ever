@@ -57,13 +57,13 @@ pub use driver::{one_input, ParseOpts, parse_to, parse};
 #[cfg(not(for_c))]
 pub use serialize::serialize;
 
+#[macro_use]
 mod macros;
 
+#[macro_use]
 mod util {
-    #![macro_escape]
-
     pub mod str;
-    pub mod smallcharset;
+    #[macro_use] pub mod smallcharset;
 }
 
 pub mod tokenizer;

@@ -9,8 +9,6 @@
 
 //! Macros for use in defining other macros.  Not exported.
 
-#![macro_escape]
-
 macro_rules! bail ( ($cx:expr, $sp:expr, $msg:expr) => ({
     $cx.span_err($sp, $msg);
     return ::syntax::ext::base::DummyResult::any($sp);

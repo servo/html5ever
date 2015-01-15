@@ -9,8 +9,6 @@
 
 //! Various sets of HTML tag names, and macros for declaring them.
 
-#![macro_escape]
-
 use string_cache::QualName;
 
 macro_rules! declare_tag_set_impl ( ($param:ident, $b:ident, $supr:ident, $($tag:tt)+) => (

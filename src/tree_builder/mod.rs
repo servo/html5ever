@@ -32,8 +32,8 @@ use collections::string::String;
 use std::borrow::Cow::Borrowed;
 use collections::RingBuf;
 
+#[macro_use] mod tag_sets;
 mod interface;
-mod tag_sets;
 mod data;
 mod types;
 mod actions;

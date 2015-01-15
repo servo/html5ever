@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![macro_escape]
-
 use core::prelude::*;
 
 /// Represents a set of "small characters", those with Unicode scalar
