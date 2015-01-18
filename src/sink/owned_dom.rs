@@ -31,7 +31,6 @@ use driver::ParseResult;
 use core::cell::UnsafeCell;
 use core::default::Default;
 use core::mem::transmute;
-use core::marker;
 use core::mem;
 use core::ptr;
 use alloc::boxed::Box;
@@ -63,16 +62,12 @@ impl SquishyNode {
 
 struct Handle {
     ptr: *const UnsafeCell<SquishyNode>,
-    no_send: marker::NoSend,
-    no_sync: marker::NoSync,
 }
 
 impl Handle {
     fn new(ptr: *const UnsafeCell<SquishyNode>) -> Handle {
         Handle {
             ptr: ptr,
-            no_send: marker::NoSend,
-            no_sync: marker::NoSync,
         }
     }
 
