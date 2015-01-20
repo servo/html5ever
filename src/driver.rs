@@ -66,8 +66,7 @@ pub struct ParseOpts {
 /// parse_to(&mut sink, one_input(my_str), Default::default());
 /// ```
 pub fn parse_to<
-        Handle: Clone,
-        Sink: TreeSink<Handle>,
+        Sink: TreeSink,
         It: Iterator<Item=String>
     >(
         sink: Sink,
@@ -87,8 +86,9 @@ pub fn parse_to<
 ///
 /// Implement this for your parse tree data type so that it
 /// can be returned by `parse()`.
-pub trait ParseResult<Sink> {
-    fn get_result(sink: Sink) -> Self;
+pub trait ParseResult {
+    type Sink: TreeSink + Default;
+    fn get_result(sink: Self::Sink) -> Self;
 }
 
 /// Parse into a type which implements `ParseResult`.
@@ -98,15 +98,10 @@ pub trait ParseResult<Sink> {
 /// ```ignore
 /// let dom: RcDom = parse(one_input(my_str), Default::default());
 /// ```
-pub fn parse<
-        Handle: Clone,
-        Sink: Default + TreeSink<Handle>,
-        Output: ParseResult<Sink>,
-        It: Iterator<Item=String>
-    >(
-        input: It,
-        opts: ParseOpts) -> Output {
-
+pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
+    where Output: ParseResult,
+          It: Iterator<Item=String>,
+{
     let sink = parse_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
 }

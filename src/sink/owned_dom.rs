@@ -182,7 +182,9 @@ impl Sink {
     }
 }
 
-impl TreeSink<Handle> for Sink {
+impl TreeSink for Sink {
+    type Handle = Handle;
+
     fn parse_error(&mut self, msg: CowString<'static>) {
         self.errors.push(msg);
     }
@@ -299,7 +301,9 @@ pub struct OwnedDom {
     pub quirks_mode: QuirksMode,
 }
 
-impl ParseResult<Sink> for OwnedDom {
+impl ParseResult for OwnedDom {
+    type Sink = Sink;
+
     fn get_result(sink: Sink) -> OwnedDom {
         fn walk(live: &mut HashSet<uint>, node: Handle) {
             live.insert(node.ptr as uint);

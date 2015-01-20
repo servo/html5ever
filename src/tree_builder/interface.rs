@@ -41,41 +41,42 @@ pub enum NodeOrText<Handle> {
 }
 
 /// Types which can process tree modifications from the tree builder.
-///
-/// `Handle` is a reference to a DOM node.  The tree builder requires
-/// that a `Handle` implements `Clone` to get another reference to
-/// the same node.
-pub trait TreeSink<Handle> {
+pub trait TreeSink {
+    /// `Handle` is a reference to a DOM node.  The tree builder requires
+    /// that a `Handle` implements `Clone` to get another reference to
+    /// the same node.
+    type Handle: Clone;
+
     /// Signal a parse error.
     fn parse_error(&mut self, msg: CowString<'static>);
 
     /// Get a handle to the `Document` node.
-    fn get_document(&mut self) -> Handle;
+    fn get_document(&mut self) -> Self::Handle;
 
     /// Do two handles refer to the same node?
-    fn same_node(&self, x: Handle, y: Handle) -> bool;
+    fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
 
     /// What is the name of this element?
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name(&self, target: Handle) -> QualName;
+    fn elem_name(&self, target: Self::Handle) -> QualName;
 
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
     /// Create an element.
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle;
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;
 
     /// Create a comment node.
-    fn create_comment(&mut self, text: String) -> Handle;
+    fn create_comment(&mut self, text: String) -> Self::Handle;
 
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
     /// instead.
     ///
     /// The child node will not already have a parent.
-    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>);
+    fn append(&mut self, parent: Self::Handle, child: NodeOrText<Self::Handle>);
 
     /// Append a node as the sibling immediately before the given node.  If that node
     /// has no parent, do nothing and return Err(new_node).
@@ -87,29 +88,31 @@ pub trait TreeSink<Handle> {
     ///
     /// NB: `new_node` may have an old parent, from which it should be removed.
     fn append_before_sibling(&mut self,
-        sibling: Handle,
-        new_node: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>>;
+        sibling: Self::Handle,
+        new_node: NodeOrText<Self::Handle>) -> Result<(), NodeOrText<Self::Handle>>;
 
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);
 
     /// Add each attribute to the given element, if no attribute
     /// with that name already exists.
-    fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>);
+    fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
 
     /// Detach the given node from its parent.
-    fn remove_from_parent(&mut self, target: Handle);
+    fn remove_from_parent(&mut self, target: Self::Handle);
 
     /// Mark a HTML `<script>` element as "already started".
-    fn mark_script_already_started(&mut self, node: Handle);
+    fn mark_script_already_started(&mut self, node: Self::Handle);
 
     /// Indicate that a `<script>` element is complete.
-    fn complete_script(&mut self, _node: Handle) { }
+    fn complete_script(&mut self, _node: Self::Handle) { }
 }
 
 /// Trace hooks for a garbage-collected DOM.
-pub trait Tracer<Handle> {
+pub trait Tracer {
+    type Handle;
+
     /// Upon a call to `trace_handles`, the tree builder will call this method
     /// for each handle in its internal state.
-    fn trace_handle(&self, node: Handle);
+    fn trace_handle(&self, node: Self::Handle);
 }

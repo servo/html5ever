@@ -142,7 +142,10 @@ pub struct TreeBuilder<Handle, Sink> {
     // FIXME: Auto-generate the trace hooks like Servo does.
 }
 
-impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
+impl<Handle, Sink> TreeBuilder<Handle, Sink>
+    where Handle: Clone,
+          Sink: TreeSink<Handle=Handle>,
+{
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
     /// The tree builder is also a `TokenSink`.
@@ -182,7 +185,7 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
-    pub fn trace_handles(&self, tracer: &Tracer<Handle>) {
+    pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
         tracer.trace_handle(self.doc_handle.clone());
         for e in self.open_elems.iter() {
             tracer.trace_handle(e.clone());
@@ -270,7 +273,11 @@ impl<Handle: Clone, Sink: TreeSink<Handle>> TreeBuilder<Handle, Sink> {
     }
 }
 
-impl<Handle: Clone, Sink: TreeSink<Handle>> TokenSink for TreeBuilder<Handle, Sink> {
+impl<Handle, Sink> TokenSink
+    for TreeBuilder<Handle, Sink>
+    where Handle: Clone,
+          Sink: TreeSink<Handle=Handle>,
+{
     fn process_token(&mut self, token: tokenizer::Token) {
         let ignore_lf = replace(&mut self.ignore_lf, false);
 

@@ -121,7 +121,9 @@ pub struct RcDom {
     pub quirks_mode: QuirksMode,
 }
 
-impl TreeSink<Handle> for RcDom {
+impl TreeSink for RcDom {
+    type Handle = Handle;
+
     fn parse_error(&mut self, msg: CowString<'static>) {
         self.errors.push(msg);
     }
@@ -241,7 +243,9 @@ impl Default for RcDom {
     }
 }
 
-impl ParseResult<RcDom> for RcDom {
+impl ParseResult for RcDom {
+    type Sink = RcDom;
+
     fn get_result(sink: RcDom) -> RcDom {
         sink
     }
