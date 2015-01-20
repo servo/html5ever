@@ -37,7 +37,9 @@ impl Sink {
     }
 }
 
-impl TreeSink<uint> for Sink {
+impl TreeSink for Sink {
+    type Handle = uint;
+
     fn parse_error(&mut self, msg: CowString<'static>) {
         println!("Parse error: {}", msg);
     }

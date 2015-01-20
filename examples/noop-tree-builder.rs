@@ -37,7 +37,9 @@ impl Sink {
     }
 }
 
-impl TreeSink<uint> for Sink {
+impl TreeSink for Sink {
+    type Handle = uint;
+
     fn get_document(&mut self) -> uint {
         0
     }
