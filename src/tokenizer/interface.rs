@@ -25,7 +25,7 @@ pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Doctype {
     pub name: Option<String>,
     pub public_id: Option<String>,
@@ -50,20 +50,20 @@ impl Doctype {
 /// The tokenizer creates all attributes this way, but the tree
 /// builder will adjust certain attribute names inside foreign
 /// content (MathML, SVG).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Attribute {
     pub name: QualName,
     pub value: String,
 }
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Show)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum TagKind {
     StartTag,
     EndTag,
 }
 
 /// A tag token.
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Tag {
     pub kind: TagKind,
     pub name: Atom,
@@ -88,7 +88,7 @@ impl Tag {
     }
 }
 
-#[derive(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),

@@ -20,19 +20,19 @@ pub use self::RawKind::*;
 pub use self::AttrValueKind::*;
 pub use self::State::*;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum ScriptEscapeKind {
     Escaped,
     DoubleEscaped,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum DoctypeIdKind {
     Public,
     System,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum RawKind {
     Rcdata,
     Rawtext,
@@ -40,14 +40,14 @@ pub enum RawKind {
     ScriptDataEscaped(ScriptEscapeKind),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum AttrValueKind {
     Unquoted,
     SingleQuoted,
     DoubleQuoted,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Show)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum State {
     Data,
     Plaintext,

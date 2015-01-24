@@ -30,7 +30,7 @@ use util::str::to_escaped_string;
 use core::mem::replace;
 use core::iter::{Rev, Enumerate};
 use core::slice;
-use core::fmt::Show;
+use core::fmt::Debug;
 use collections::vec::Vec;
 use collections::string::String;
 use std::borrow::Cow::Borrowed;
@@ -60,7 +60,7 @@ pub enum PushFlag {
 
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
-    fn unexpected<T: Show>(&mut self, thing: &T) -> ProcessResult;
+    fn unexpected<T: Debug>(&mut self, thing: &T) -> ProcessResult;
     fn assert_named(&mut self, node: Handle, name: Atom);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
@@ -115,7 +115,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn unexpected<T: Show>(&mut self, _thing: &T) -> ProcessResult {
+    fn unexpected<T: Debug>(&mut self, _thing: &T) -> ProcessResult {
         self.sink.parse_error(format_if!(
             self.opts.exact_errors,
             "Unexpected token",
