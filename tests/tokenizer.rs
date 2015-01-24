@@ -43,8 +43,8 @@ fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
     // do this with iterators?
     let mut out = vec!();
     for p in points.into_iter() {
-        let y = s.slice_from(p);
-        for mut x in splits(s.slice_to(p), n-1).into_iter() {
+        let y = &s[p..];
+        for mut x in splits(&s[..p], n-1).into_iter() {
             x.push(y.to_string());
             out.push(x);
         }
@@ -189,7 +189,7 @@ impl JsonExt for Json {
 fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
-    let args: Vec<&Json> = parts.slice_from(1).iter().collect();
+    let args: Vec<&Json> = parts[1..].iter().collect();
     match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
             name: name.get_nullable_str(),
