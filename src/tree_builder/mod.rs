@@ -206,7 +206,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn dump_state(&self, label: String) {
         use string_cache::QualName;
 
-        println!("dump_state on {}", label);
+        println!("dump_state on {:?}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
@@ -225,7 +225,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        h5e_debug!("processing {:?} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
@@ -261,11 +261,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
-                        String::from_str(buf.slice_to(len)));
+                        String::from_str(&buf[..len]));
 
                     if len < buf.len() {
                         more_tokens.push_back(
-                            CharacterTokens(NotSplit, String::from_str(buf.slice_from(len))));
+                            CharacterTokens(NotSplit, String::from_str(&buf[len..])));
                     }
                 }
             }

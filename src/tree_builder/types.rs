@@ -21,7 +21,7 @@ pub use self::Token::*;
 pub use self::ProcessResult::*;
 pub use self::FormatEntry::*;
 
-#[derive(PartialEq, Eq, Copy, Clone, Show)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum InsertionMode {
     Initial,
     BeforeHtml,
@@ -48,7 +48,7 @@ pub enum InsertionMode {
     AfterAfterFrameset,
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Show)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum SplitStatus {
     NotSplit,
     Whitespace,
@@ -57,7 +57,7 @@ pub enum SplitStatus {
 
 /// A subset/refinement of `tokenizer::Token`.  Everything else is handled
 /// specially at the beginning of `process_token`.
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {
     TagToken(Tag),
     CommentToken(String),
