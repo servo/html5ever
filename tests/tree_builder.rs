@@ -78,7 +78,7 @@ fn serialize(buf: &mut String, indent: uint, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name.as_slice());
             if !public.is_empty() || !system.is_empty() {
-                buf.push_str(format!(" \"{}\" \"{}\"", public, system).as_slice());
+                buf.push_str(format!(" \"{:?}\" \"{:?}\"", public, system).as_slice());
             }
             buf.push_str(">\n");
         }
@@ -143,7 +143,7 @@ fn make_test(
 
     let data = get_field("data");
     let expected = get_field("document");
-    let name = format!("tb: {}-{}", path_str, idx);
+    let name = format!("tb: {:?}-{:?}", path_str, idx);
     let ignore = ignores.contains(&name)
         || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
 

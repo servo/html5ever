@@ -31,26 +31,26 @@ use html5ever::{parse, one_input};
 fn walk(indent: uint, handle: Handle) {
     let node = handle.borrow();
     // FIXME: don't allocate
-    print!("{}", repeat(" ").take(indent).collect::<String>());
+    print!("{:?}", repeat(" ").take(indent).collect::<String>());
     match node.node {
         Document
             => println!("#Document"),
 
         Doctype(ref name, ref public, ref system)
-            => println!("<!DOCTYPE {} \"{}\" \"{}\">", *name, *public, *system),
+            => println!("<!DOCTYPE {:?} \"{:?}\" \"{:?}\">", *name, *public, *system),
 
         Text(ref text)
-            => println!("#text: {}", text.escape_default()),
+            => println!("#text: {:?}", text.escape_default()),
 
         Comment(ref text)
-            => println!("<!-- {} -->", text.escape_default()),
+            => println!("<!-- {:?} -->", text.escape_default()),
 
         Element(ref name, ref attrs) => {
             assert!(name.ns == ns!(html));
-            print!("<{}", name.local.as_slice());
+            print!("<{:?}", name.local.as_slice());
             for attr in attrs.iter() {
                 assert!(attr.name.ns == ns!(""));
-                print!(" {}=\"{}\"", attr.name.local.as_slice(), attr.value);
+                print!(" {:?}=\"{:?}\"", attr.name.local.as_slice(), attr.value);
             }
             println!(">");
         }
@@ -69,7 +69,7 @@ fn main() {
     if !dom.errors.is_empty() {
         println!("\nParse errors:");
         for err in dom.errors.into_iter() {
-            println!("    {}", err);
+            println!("    {:?}", err);
         }
     }
 }

@@ -279,7 +279,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.emit_error(msg);
         }
 
-        h5e_debug!("got character {}", c);
+        h5e_debug!("got character {:?}", c);
         self.current_char = c;
         Some(c)
     }
