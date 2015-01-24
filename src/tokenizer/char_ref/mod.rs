@@ -350,7 +350,7 @@ impl<Sink: TokenSink> CharRefTokenizer {
                     self.finish_none()
                 } else {
                     tokenizer.unconsume(String::from_str(
-                        self.name_buf().as_slice().slice_from(name_len)));
+                        &self.name_buf().as_slice()[name_len..]));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
