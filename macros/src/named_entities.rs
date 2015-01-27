@@ -53,7 +53,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
 
         // Slice off the initial '&'
         assert!(k.as_slice().char_at(0) == '&');
-        map.insert(k.as_slice().slice_from(1).to_string(), codepoint_pair);
+        map.insert(k[1..].to_string(), codepoint_pair);
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.
@@ -61,7 +61,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
     let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
     for k in keys.into_iter() {
         for n in range(1, k.len()) {
-            let pfx = k.as_slice().slice_to(n).to_string();
+            let pfx = k[..n].to_string();
             if !map.contains_key(&pfx) {
                 map.insert(pfx, [0, 0]);
             }

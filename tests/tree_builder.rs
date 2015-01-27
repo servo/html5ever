@@ -52,8 +52,7 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
                     if line.as_slice() == "#data\n" {
                         finish_test!();
                     }
-                    key = Some(line.as_slice().slice_from(1)
-                        .trim_right_matches('\n').to_string());
+                    key = Some(line[1..].trim_right_matches('\n').to_string());
                 } else {
                     val.push_str(line.as_slice());
                 }

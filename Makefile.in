@@ -78,11 +78,9 @@ check-internal: html5ever-test
 check-external: html5ever-external-test
 	HTML5EVER_SRC_DIR=$(VPATH) ./html5ever-external-test
 
-METRICS ?= metrics.json
-
 .PHONY: bench
 bench: html5ever-external-bench
-	./html5ever-external-bench --bench --save-metrics $(METRICS)
+	./html5ever-external-bench --bench
 
 .PHONY: clean
 clean:
