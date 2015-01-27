@@ -37,7 +37,7 @@ pub enum Status {
     Done,
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 enum State {
     Begin,
     Octothorpe,

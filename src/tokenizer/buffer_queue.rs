@@ -26,7 +26,7 @@ struct Buffer {
 }
 
 /// Result from `pop_except_from`.
-#[derive(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum SetResult {
     FromSet(char),
     NotFromSet(String),
