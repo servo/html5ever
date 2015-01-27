@@ -957,7 +957,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
             InColumnGroup => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment_to_html(text),
+                CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
 
