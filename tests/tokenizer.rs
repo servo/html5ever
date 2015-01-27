@@ -291,7 +291,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -300,6 +300,8 @@ fn mk_test(desc: String, insplits: Vec<Vec<String>>, expect: Vec<Token>, opts: T
             should_fail: No,
         },
         testfn: DynTestFn(Thunk::new(move || {
+            // Split up the input at different points to test incremental tokenization.
+            let insplits = splits(input.as_slice(), 3);
             for input in insplits.into_iter() {
                 // Clone 'input' so we have it for the failure message.
                 // Also clone opts.  If we don't, we get the wrong
@@ -332,9 +334,6 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
         expect = unescape_json(&expect);
     }
 
-    // Split up the input at different points to test incremental tokenization.
-    let insplits = splits(input.as_slice(), 3);
-
     // Some tests have a last start tag name.
     let start_tag = obj.get(&"lastStartTag".to_string()).map(|s| s.get_str());
 
@@ -364,7 +363,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
             }
 
             let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc, insplits.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc, input.clone(), expect_toks, TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
