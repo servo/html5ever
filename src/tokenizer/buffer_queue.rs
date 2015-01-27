@@ -104,10 +104,10 @@ impl BufferQueue {
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let n = set.nonmember_prefix_len(buf.as_slice().slice_from(*pos));
+                let n = set.nonmember_prefix_len(&buf[*pos..]);
                 if n > 0 {
                     let new_pos = *pos + n;
-                    let out = String::from_str(buf.as_slice().slice(*pos, new_pos));
+                    let out = String::from_str(&buf[*pos..new_pos]);
                     *pos = new_pos;
                     (Some(NotFromSet(out)), new_pos >= buf.len())
                 } else {
