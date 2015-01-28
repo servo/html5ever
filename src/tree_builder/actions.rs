@@ -112,8 +112,9 @@ pub trait TreeBuilderActions<Handle> {
     fn stop_parsing(&mut self) -> ProcessResult;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle>;
-    fn process_end_tag_in_body(&mut self, tag: Tag);
+    fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool;
     fn position_in_active_formatting(&self, element: &Handle) -> Option<usize>;
+    fn process_end_tag_in_body(&mut self, tag: Tag);
     fn handle_misnested_a_tags(&mut self, tag: &Tag);
 }
 
@@ -433,9 +434,53 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.open_elems = open_elems;
     }
 
+    fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
+        match *entry {
+            Marker => true,
+            Element(ref node, _) => {
+                self.open_elems.iter()
+                    .rev()
+                    .any(|n| self.sink.same_node(n.clone(), node.clone()))
+            }
+        }
+    }
+
     /// Reconstruct the active formatting elements.
     fn reconstruct_formatting(&mut self) {
-        // FIXME
+        {
+            let last = unwrap_or_return!(self.active_formatting.last(), ());
+            if self.is_marker_or_open(last) {
+                return
+            }
+        }
+
+        let mut entry_index = self.active_formatting.len() - 1;
+        loop {
+            if entry_index == 0 {
+                break
+            }
+            entry_index -= 1;
+            if self.is_marker_or_open(&self.active_formatting[entry_index]) {
+                entry_index += 1;
+                break
+            }
+        }
+
+        loop {
+            let tag = match self.active_formatting[entry_index] {
+                Element(_, ref t) => t.clone(),
+                Marker => panic!("Found marker during formatting element reconstruction"),
+            };
+
+            // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
+            // once as part of t.clone() above)?
+            let new_element = self.insert_element(Push, tag.name.clone(), tag.attrs.clone());
+            self.active_formatting[entry_index] = Element(new_element, tag);
+            if entry_index == self.active_formatting.len() - 1 {
+                break
+            }
+            entry_index += 1;
+        }
     }
 
     /// Get the first element on the stack, which will be the <html> element.
