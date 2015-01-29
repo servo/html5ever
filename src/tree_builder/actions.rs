@@ -704,6 +704,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         if self.pop_until(td_th) != 1 {
             self.sink.parse_error(Borrowed("expected to close <td> or <th> with cell"));
         }
+        self.clear_active_formatting_to_marker();
     }
 
     fn append_text(&mut self, text: String) -> ProcessResult {
