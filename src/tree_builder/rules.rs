@@ -139,7 +139,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     if self.opts.fragment {
                         self.sink.mark_script_already_started(elem.clone());
                     }
-                    self.insert_appropriately(AppendNode(elem.clone()));
+                    self.insert_appropriately(AppendNode(elem.clone()), None);
                     self.open_elems.push(elem);
                     self.to_raw_text_mode(ScriptData);
                     Done

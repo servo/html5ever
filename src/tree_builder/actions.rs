@@ -68,7 +68,7 @@ pub trait TreeBuilderActions<Handle> {
     fn append_comment(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
-    fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
@@ -175,9 +175,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     // Insert at the "appropriate place for inserting a node".
-    fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>) {
         declare_tag_set!(foster_target = table tbody tfoot thead tr);
-        let target = self.current_node();
+        let target = override_target.unwrap_or_else(|| self.current_node());
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
             // No foster parenting (the common case).
             return self.sink.append(target, child);
@@ -462,13 +462,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn append_text(&mut self, text: String) -> ProcessResult {
-        self.insert_appropriately(AppendText(text));
+        self.insert_appropriately(AppendText(text), None);
         Done
     }
 
     fn append_comment(&mut self, text: String) -> ProcessResult {
         let comment = self.sink.create_comment(text);
-        self.insert_appropriately(AppendNode(comment));
+        self.insert_appropriately(AppendNode(comment), None);
         Done
     }
 
@@ -497,7 +497,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
             -> Handle {
         let elem = self.sink.create_element(QualName::new(ns!(HTML), name), attrs);
-        self.insert_appropriately(AppendNode(elem.clone()));
+        self.insert_appropriately(AppendNode(elem.clone()), None);
         match push {
             Push => self.push(&elem),
             NoPush => (),
