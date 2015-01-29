@@ -107,6 +107,7 @@ pub trait TreeBuilderActions<Handle> {
     fn stop_parsing(&mut self) -> ProcessResult;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle>;
+    fn process_end_tag_in_body(&mut self, tag: Tag);
 }
 
 #[doc(hidden)]
@@ -546,5 +547,40 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 _ => (),
             }
         }
+    }
+
+    fn process_end_tag_in_body(&mut self, tag: Tag) {
+        // Look back for a matching open element.
+        let mut match_idx = None;
+        for (i, elem) in self.open_elems.iter().enumerate().rev() {
+            if self.html_elem_named(elem.clone(), tag.name.clone()) {
+                match_idx = Some(i);
+                break;
+            }
+
+            if self.elem_in(elem.clone(), special_tag) {
+                self.sink.parse_error(Borrowed("Found special tag while closing generic tag"));
+                return;
+            }
+        }
+
+        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+        let match_idx = match match_idx {
+            None => {
+                // I believe this is impossible, because the root
+                // <html> element is in special_tag.
+                self.unexpected(&tag);
+                return;
+            }
+            Some(x) => x,
+        };
+
+        self.generate_implied_end_except(tag.name.clone());
+
+        if match_idx != self.open_elems.len() - 1 {
+            // mis-nested tags
+            self.unexpected(&tag);
+        }
+        self.open_elems.truncate(match_idx);
     }
 }
