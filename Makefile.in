@@ -17,22 +17,17 @@ RUSTC_CMD := $(RUSTC) -D warnings -C rpath $(RUST_DIRS) --extern time=`find $(VP
 # We build the library itself using Cargo.
 CARGO_SOURCES := $(shell find $(VPATH)/src $(VPATH)/macros/src -type f -name '*.rs')
 
-EXT_TEST_TOP_SRC := $(VPATH)/tests/html5ever-external-test.rs
-EXT_TEST_ALL_SRC := $(shell find $(VPATH)/tests -type f -name '*.rs')
-
 EXT_BENCH_TOP_SRC := $(VPATH)/bench/bin.rs
 EXT_BENCH_ALL_SRC := $(shell find $(VPATH)/bench -type f -name '*.rs')
 
 LIB := libhtml5ever.dummy
 
-EXAMPLES := tokenize noop-tokenize print-tree-actions \
-    print-rcdom html2html noop-tree-builder
-
 .PHONY: all
 all: $(LIB)
 
 .PHONY: examples
-examples: $(EXAMPLES)
+examples:
+	(cd $(VPATH) && cargo test --no-run)
 
 $(LIB): $(CARGO_SOURCES)
 	(cd $(VPATH) && cargo build)
@@ -44,39 +39,16 @@ for_c: libhtml5ever_for_c.a
 libhtml5ever_for_c.a: $(LIB) $(CARGO_SOURCES)
 	$(RUSTC_CMD) -o $@ --cfg for_c --crate-type staticlib $(VPATH)/src/lib.rs
 
-define DEF_EXAMPLE
-$(1): $$(VPATH)/examples/$(1).rs $$(LIB)
-	$$(RUSTC_CMD) $$<
-endef
-
-$(foreach example,$(EXAMPLES),\
-$(eval $(call DEF_EXAMPLE,$(example))))
-
-# Run #[test] functions
-html5ever-test: $(LIB)
-	$(RUSTC_CMD) -o $@ --test $(VPATH)/src/lib.rs
-
-# Run external tests loaded from JSON
-html5ever-external-test: $(EXT_TEST_ALL_SRC) $(LIB)
-	$(RUSTC_CMD) $(EXT_TEST_TOP_SRC)
-
 # Run benchmarks
 html5ever-external-bench: $(EXT_BENCH_ALL_SRC) $(LIB)
 	$(RUSTC_CMD) $(EXT_BENCH_TOP_SRC)
 
 .PHONY: check
-check: check-build check-internal check-external
+check: check-build
+	(cd $(VPATH) && cargo test)
 
 .PHONY: check-build
-check-build: all examples html5ever-test html5ever-external-test html5ever-external-bench
-
-.PHONY: check-internal
-check-internal: html5ever-test
-	./html5ever-test
-
-.PHONY: check-external
-check-external: html5ever-external-test
-	HTML5EVER_SRC_DIR=$(VPATH) ./html5ever-external-test
+check-build: all examples html5ever-external-bench
 
 .PHONY: bench
 bench: html5ever-external-bench
@@ -85,7 +57,7 @@ bench: html5ever-external-bench
 .PHONY: clean
 clean:
 	(cd $(VPATH) && cargo clean)
-	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-test *-bench $(EXAMPLES)
+	rm -f *.o *.a *.so *.dylib *.dll *.dummy *-bench
 
 .PHONY: docs
 docs:

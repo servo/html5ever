@@ -7,9 +7,20 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::foreach_html5lib_test;
+#![feature(core, env, int_uint, io, path, plugin, rustc_private, start, std_misc, test)]
 
-use std::{num, char};
+#![plugin(string_cache_plugin)]
+
+extern crate test;
+extern crate serialize;
+extern crate string_cache;
+
+extern crate html5ever;
+extern crate test_util;
+
+use test_util::foreach_html5lib_test;
+
+use std::{num, char, env, rt};
 use std::mem::replace;
 use std::default::Default;
 use std::old_path::Path;
@@ -20,7 +31,6 @@ use serialize::json;
 use serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
-use std::vec::IntoIter;
 
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
@@ -378,7 +388,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     }
 }
 
-pub fn tests(src_dir: Path) -> IntoIter<TestDescAndFn> {
+fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tokenizer", ".test", |path_str, mut file| {
@@ -397,5 +407,15 @@ pub fn tests(src_dir: Path) -> IntoIter<TestDescAndFn> {
         }
     });
 
-    tests.into_iter()
+    tests
+}
+
+#[start]
+fn start(argc: int, argv: *const *const u8) -> int {
+    unsafe {
+        rt::args::init(argc, argv);
+    }
+    let args: Vec<_> = env::args().collect();
+    test::test_main(args.as_slice(), tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    0
 }

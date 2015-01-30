@@ -7,8 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![feature(io, path)]
+
 use std::old_io as io;
-use std::old_path::Path;
+use std::old_path::{GenericPath,Path};
+use std::ops::FnMut;
+use std::str::StrExt;
 
 pub fn foreach_html5lib_test<Mk>(
         src_dir: Path,
