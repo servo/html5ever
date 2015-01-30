@@ -512,26 +512,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 tag @ <a> => {
-                    let mut to_remove = vec!();
-                    for (i, handle, _) in self.active_formatting_end_to_marker() {
-                        if self.html_elem_named(handle.clone(), atom!(a)) {
-                            to_remove.push((i, handle.clone()));
-                        }
-                    }
-
-                    if !to_remove.is_empty() {
-                        self.unexpected(&tag);
-                        self.adoption_agency(atom!(a));
-                        // FIXME: quadratic time
-                        for (i, handle) in to_remove.into_iter() {
-                            self.remove_from_stack(&handle);
-                            self.active_formatting.remove(i);
-                            // We iterated backwards from the end above, so
-                            // we don't need to adjust the indices after each
-                            // removal.
-                        }
-                    }
-
+                    self.handle_misnested_a_tags(&tag);
                     self.reconstruct_formatting();
                     self.create_formatting_element_for(tag);
                     Done

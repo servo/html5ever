@@ -228,6 +228,18 @@ impl TreeSink for RcDom {
         remove_from_parent(&target);
     }
 
+    fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
+        let children = &mut node.borrow_mut().children;
+        let new_children = &mut new_parent.borrow_mut().children;
+        for child in children.iter() {
+            // FIXME: It would be nice to assert that the child's parent is node, but I haven't
+            // found a way to do that that doesn't create overlapping borrows of RefCells.
+            let parent = &mut child.borrow_mut().parent;
+            *parent = Some(new_parent.downgrade());
+        }
+        new_children.append(children);
+    }
+
     fn mark_script_already_started(&mut self, node: Handle) {
         node.borrow_mut().script_already_started = true;
     }

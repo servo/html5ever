@@ -287,6 +287,10 @@ impl TreeSink for Sink {
         self.unparent(target);
     }
 
+    fn reparent_children(&mut self, mut node: Handle, mut new_parent: Handle) {
+        new_parent.children.append(&mut node.children);
+    }
+
     fn mark_script_already_started(&mut self, _node: Handle) { }
 }
 

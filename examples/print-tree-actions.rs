@@ -112,6 +112,10 @@ impl TreeSink for Sink {
         println!("Remove {} from parent", target);
     }
 
+    fn reparent_children(&mut self, node: usize, new_parent: usize) {
+        println!("Move children from {} to {}", node, new_parent);
+    }
+
     fn mark_script_already_started(&mut self, node: usize) {
         println!("Mark script {} as already started", node);
     }
