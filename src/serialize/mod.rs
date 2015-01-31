@@ -9,7 +9,7 @@
 
 use core::prelude::*;
 
-use std::io::{Writer, IoResult};
+use std::old_io::{Writer, IoResult};
 use core::default::Default;
 use collections::vec::Vec;
 

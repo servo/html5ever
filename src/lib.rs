@@ -12,7 +12,7 @@
 
 #![feature(plugin, old_impl_check, int_uint, box_syntax)]
 #![deny(warnings)]
-#![allow(unused_parens, unstable)]
+#![allow(unused_parens)]
 
 // Don't implicitly pull in things from std::*
 // This helps us make a C-friendly library.

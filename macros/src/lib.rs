@@ -12,7 +12,6 @@
 
 #![feature(plugin_registrar, quote, old_orphan_check)]
 #![deny(warnings)]
-#![allow(unstable)]
 
 extern crate syntax;
 extern crate rustc;
