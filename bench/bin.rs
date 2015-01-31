@@ -11,7 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(box_syntax)]
-#![allow(unstable)]
+#![feature(core, collections, io, os, path, test)]
 
 extern crate test;
 

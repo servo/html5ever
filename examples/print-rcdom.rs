@@ -7,8 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin)]
-#![allow(unstable)]
+#![feature(plugin, io)]
 
 extern crate html5ever;
 
@@ -17,7 +16,7 @@ extern crate string_cache;
 #[macro_use]
 extern crate string_cache_macros;
 
-use std::io;
+use std::old_io as io;
 use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
@@ -28,7 +27,7 @@ use html5ever::{parse, one_input};
 
 // This is not proper HTML serialization, of course.
 
-fn walk(indent: uint, handle: Handle) {
+fn walk(indent: usize, handle: Handle) {
     let node = handle.borrow();
     // FIXME: don't allocate
     print!("{}", repeat(" ").take(indent).collect::<String>());

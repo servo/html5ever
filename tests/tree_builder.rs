@@ -9,7 +9,7 @@
 
 use util::foreach_html5lib_test;
 
-use std::io;
+use std::old_io as io;
 use std::iter::repeat;
 use std::mem::replace;
 use std::default::Default;
@@ -65,7 +65,7 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
     tests
 }
 
-fn serialize(buf: &mut String, indent: uint, handle: Handle) {
+fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(repeat(" ").take(indent).collect::<String>().as_slice());
 
@@ -127,7 +127,7 @@ fn make_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
         path_str: &str,
-        idx: uint,
+        idx: usize,
         fields: HashMap<String, String>) {
 
     let get_field = |&:key| {

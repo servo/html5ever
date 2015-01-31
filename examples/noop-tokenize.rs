@@ -9,12 +9,13 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
-#![allow(unstable)]
+#![feature(core, os, io, test, path)]
 
 extern crate test;
 extern crate html5ever;
 
-use std::{io, os};
+use std::old_io as io;
+use std::os;
 use std::default::Default;
 
 use test::black_box;

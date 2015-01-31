@@ -28,7 +28,7 @@ use alloc::rc::{Rc, Weak};
 use collections::vec::Vec;
 use collections::string::String;
 use std::string::CowString;
-use std::io::{Writer, IoResult};
+use std::old_io::{Writer, IoResult};
 use std::ops::DerefMut;
 
 use string_cache::QualName;
