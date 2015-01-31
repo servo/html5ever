@@ -9,7 +9,7 @@
 
 #![allow(unused_imports)]  // for quotes
 
-use std::io;
+use std::old_io;
 use std::path;
 use std::str::FromStr;
 use serialize::json;
@@ -101,7 +101,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     let json_path = mod_path.dir_path().join(json_filename);
 
     // Open the JSON file, parse it, and build the map from names to characters.
-    let mut json_file = expect!(cx, sp, io::File::open(&json_path).ok(),
+    let mut json_file = expect!(cx, sp, old_io::File::open(&json_path).ok(),
         "can't open JSON file");
     let js = expect!(cx, sp, json::from_reader(&mut json_file as &mut Reader).ok(),
         "can't parse JSON file");
