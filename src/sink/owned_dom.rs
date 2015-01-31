@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unused_attributes)]
 #![experimental="This module uses unsafe code, has not been thoroughly \
                  audited, and the performance gains vs. RcDom have not \
                  been demonstrated"]
@@ -37,7 +38,7 @@ use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
 use std::string::CowString;
-use std::io::{Writer, IoResult};
+use std::old_io::{Writer, IoResult};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 
