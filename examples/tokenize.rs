@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(unstable)]
+#![feature(core, io)]
 
 extern crate html5ever;
 
-use std::io;
+use std::old_io as io;
 use std::default::Default;
 
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};

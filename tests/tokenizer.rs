@@ -32,12 +32,12 @@ use string_cache::{Atom, QualName};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
-fn splits(s: &str, n: uint) -> Vec<Vec<String>> {
+fn splits(s: &str, n: usize) -> Vec<Vec<String>> {
     if n == 1 {
         return vec!(vec!(s.to_string()));
     }
 
-    let mut points: Vec<uint> = s.char_indices().map(|(n,_)| n).collect();
+    let mut points: Vec<usize> = s.char_indices().map(|(n,_)| n).collect();
     points.push(s.len());
 
     // do this with iterators?

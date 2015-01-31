@@ -7,7 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{io, os, cmp};
+use std::old_io as io;
+use std::{os, cmp};
 use std::default::Default;
 use std::vec::IntoIter;
 
@@ -36,7 +37,7 @@ struct Bench {
 }
 
 impl Bench {
-    fn new(name: &str, size: Option<uint>, clone_only: bool,
+    fn new(name: &str, size: Option<usize>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
         let mut path = os::self_exe_path().expect("can't get exe path");
         path.push("../data/bench/");
@@ -51,7 +52,7 @@ impl Bench {
         // Break the input into chunks of 1024 chars (= a few kB).
         // This simulates reading from the network.
         let mut input = vec![];
-        let mut total = 0u;
+        let mut total = 0us;
         while total < size {
             // The by_ref() call is important, otherwise we get wrong results!
             // See rust-lang/rust#18045.
@@ -90,7 +91,7 @@ impl TDynBenchFn for Bench {
     }
 }
 
-fn make_bench(name: &str, size: Option<uint>, clone_only: bool,
+fn make_bench(name: &str, size: Option<usize>, clone_only: bool,
               opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {

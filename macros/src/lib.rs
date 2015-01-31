@@ -11,12 +11,12 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote, old_orphan_check)]
+#![feature(rustc_private, std_misc, core, hash, collections, path, io)]
 #![deny(warnings)]
-#![allow(unstable)]
 
 extern crate syntax;
 extern crate rustc;
-extern crate serialize;
+extern crate "serialize" as rustc_serialize;
 
 use rustc::plugin::Registry;
 

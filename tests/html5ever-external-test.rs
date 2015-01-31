@@ -11,7 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(plugin)]
-#![allow(unstable)]
+#![feature(rustc_private, core, collections, io, os, path, std_misc, test)]
 
 extern crate test;
 extern crate serialize;
@@ -22,7 +22,8 @@ extern crate string_cache_macros;
 
 extern crate html5ever;
 
-use std::{io, os};
+use std::old_io as io;
+use std::os;
 use std::str::FromStr;
 use std::collections::HashSet;
 use test::test_main;

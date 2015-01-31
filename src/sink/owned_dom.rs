@@ -7,9 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![experimental="This module uses unsafe code, has not been thoroughly \
-                 audited, and the performance gains vs. RcDom have not \
-                 been demonstrated"]
+#![unstable(feature="string_cache_namespace",
+    reason="This module uses unsafe code, has not been thoroughly \
+            audited, and the performance gains vs. RcDom have not \
+            been demonstrated")]
 
 //! A simple DOM where every node is owned by its parent.
 //!
@@ -37,7 +38,7 @@ use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
 use std::string::CowString;
-use std::io::{Writer, IoResult};
+use std::old_io::{Writer, IoResult};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 

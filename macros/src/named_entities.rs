@@ -9,14 +9,14 @@
 
 #![allow(unused_imports)]  // for quotes
 
-use std::io;
+use std::old_io as io;
 use std::path;
 use std::str::FromStr;
-use serialize::json;
-use serialize::json::Json;
-use serialize::Decodable;
 use std::collections::HashMap;
 
+use rustc_serialize::json;
+use rustc_serialize::json::Json;
+use rustc_serialize::Decodable;
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, Lit_, TokenTree, TtToken};
 use syntax::parse::token;
@@ -25,7 +25,7 @@ use syntax::ext::source_util::expand_file;
 
 // A struct matching the entries in entities.json.
 // Simplifies JSON parsing because we can use Decodable.
-#[derive(Decodable)]
+#[derive(RustcDecodable)]
 struct CharRef {
     codepoints: Vec<u32>,
     //characters: String,  // Present in the file but we don't need it

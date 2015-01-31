@@ -7,13 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(unstable)]
+#![feature(io)]
 
 extern crate string_cache;
 
 extern crate html5ever;
 
-use std::io;
+use std::old_io as io;
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
@@ -25,12 +25,12 @@ use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 
 struct Sink {
-    next_id: uint,
-    names: HashMap<uint, QualName>,
+    next_id: usize,
+    names: HashMap<usize, QualName>,
 }
 
 impl Sink {
-    fn get_id(&mut self) -> uint {
+    fn get_id(&mut self) -> usize {
         let id = self.next_id;
         self.next_id += 1;
         id
@@ -38,13 +38,13 @@ impl Sink {
 }
 
 impl TreeSink for Sink {
-    type Handle = uint;
+    type Handle = usize;
 
     fn parse_error(&mut self, msg: CowString<'static>) {
         println!("Parse error: {}", msg);
     }
 
-    fn get_document(&mut self) -> uint {
+    fn get_document(&mut self) -> usize {
         0
     }
 
@@ -52,28 +52,28 @@ impl TreeSink for Sink {
         println!("Set quirks mode to {:?}", mode);
     }
 
-    fn same_node(&self, x: uint, y: uint) -> bool {
+    fn same_node(&self, x: usize, y: usize) -> bool {
         x == y
     }
 
-    fn elem_name(&self, target: uint) -> QualName {
+    fn elem_name(&self, target: usize) -> QualName {
         self.names.get(&target).expect("not an element").clone()
     }
 
-    fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> uint {
+    fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {
         let id = self.get_id();
         println!("Created {:?} as {}", name, id);
         self.names.insert(id, name);
         id
     }
 
-    fn create_comment(&mut self, text: String) -> uint {
+    fn create_comment(&mut self, text: String) -> usize {
         let id = self.get_id();
         println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
     }
 
-    fn append(&mut self, parent: uint, child: NodeOrText<uint>) {
+    fn append(&mut self, parent: usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n)
                 => println!("Append node {} to {}", n, parent),
@@ -83,8 +83,8 @@ impl TreeSink for Sink {
     }
 
     fn append_before_sibling(&mut self,
-            sibling: uint,
-            new_node: NodeOrText<uint>) -> Result<(), NodeOrText<uint>> {
+            sibling: usize,
+            new_node: NodeOrText<usize>) -> Result<(), NodeOrText<usize>> {
         match new_node {
             AppendNode(n)
                 => println!("Append node {} before {}", n, sibling),
@@ -101,18 +101,18 @@ impl TreeSink for Sink {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
-    fn add_attrs_if_missing(&mut self, target: uint, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&mut self, target: usize, attrs: Vec<Attribute>) {
         println!("Add missing attributes to {}:", target);
         for attr in attrs.into_iter() {
             println!("    {:?} = {}", attr.name, attr.value);
         }
     }
 
-    fn remove_from_parent(&mut self, target: uint) {
+    fn remove_from_parent(&mut self, target: usize) {
         println!("Remove {} from parent", target);
     }
 
-    fn mark_script_already_started(&mut self, node: uint) {
+    fn mark_script_already_started(&mut self, node: usize) {
         println!("Mark script {} as already started", node);
     }
 }
