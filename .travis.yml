@@ -11,7 +11,7 @@ script:
   - mkdir build
   - cd build
   - ../configure
-  - make check docs for_c
+  - make check docs for_c | ../scripts/shrink-test-output.py
 after_script:
   - cd /home/travis/build/servo/html5ever/target
   - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
