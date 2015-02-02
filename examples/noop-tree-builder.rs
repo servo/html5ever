@@ -77,6 +77,7 @@ impl TreeSink for Sink {
     fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
     fn add_attrs_if_missing(&mut self, _target: usize, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: usize) { }
+    fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
     fn mark_script_already_started(&mut self, _node: usize) { }
 }
 

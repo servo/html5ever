@@ -101,6 +101,9 @@ pub trait TreeSink {
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: Self::Handle);
 
+    /// Remove all the children from node and append them to new_parent.
+    fn reparent_children(&mut self, node: Self::Handle, new_parent: Self::Handle);
+
     /// Mark a HTML `<script>` element as "already started".
     fn mark_script_already_started(&mut self, node: Self::Handle);
 

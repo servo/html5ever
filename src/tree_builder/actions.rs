@@ -19,7 +19,7 @@ use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag};
+use tokenizer::{Attribute, Tag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::AsciiExt;
@@ -58,6 +58,11 @@ pub enum PushFlag {
     NoPush,
 }
 
+enum Bookmark<Handle> {
+    Replace(Handle),
+    InsertAfter(Handle),
+}
+
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: Debug>(&mut self, thing: &T) -> ProcessResult;
@@ -68,7 +73,7 @@ pub trait TreeBuilderActions<Handle> {
     fn append_comment(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
     fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
-    fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
@@ -107,6 +112,10 @@ pub trait TreeBuilderActions<Handle> {
     fn stop_parsing(&mut self) -> ProcessResult;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle>;
+    fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool;
+    fn position_in_active_formatting(&self, element: &Handle) -> Option<usize>;
+    fn process_end_tag_in_body(&mut self, tag: Tag);
+    fn handle_misnested_a_tags(&mut self, tag: &Tag);
 }
 
 #[doc(hidden)]
@@ -133,6 +142,17 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         ActiveFormattingIter {
             iter: self.active_formatting.iter().enumerate().rev(),
         }
+    }
+
+    fn position_in_active_formatting(&self, element: &Handle) -> Option<usize> {
+        self.active_formatting
+            .iter()
+            .position(|n| {
+                match n {
+                    &Marker => false,
+                    &Element(ref handle, _) => self.sink.same_node(handle.clone(), element.clone())
+                }
+            })
     }
 
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
@@ -175,9 +195,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     // Insert at the "appropriate place for inserting a node".
-    fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>) {
         declare_tag_set!(foster_target = table tbody tfoot thead tr);
-        let target = self.current_node();
+        let target = override_target.unwrap_or_else(|| self.current_node());
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
             // No foster parenting (the common case).
             return self.sink.append(target, child);
@@ -213,9 +233,190 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn adoption_agency(&mut self, subject: Atom) {
-        // FIXME: this is not right
-        if self.current_node_named(subject) {
-            self.pop();
+        // 1.
+        if self.current_node_named(subject.clone()) {
+            if self.position_in_active_formatting(&self.current_node()).is_none() {
+                self.pop();
+                return;
+            }
+        }
+
+        // 2. 3. 4.
+        for _ in 0..8 {
+            // 5.
+            let (fmt_elem_index, fmt_elem, fmt_elem_tag) = unwrap_or_return!(
+                // We clone the Handle and Tag so they don't cause an immutable borrow of self.
+                self.active_formatting_end_to_marker()
+                    .filter(|&(_, _, tag)| tag.name == subject)
+                    .next()
+                    .map(|(i, h, t)| (i, h.clone(), t.clone())),
+
+                {
+                    self.process_end_tag_in_body(Tag {
+                        kind: EndTag,
+                        name: subject,
+                        self_closing: false,
+                        attrs: vec!(),
+                    });
+                }
+            );
+
+            let fmt_elem_stack_index = unwrap_or_return!(
+                self.open_elems.iter()
+                    .rposition(|n| self.sink.same_node(n.clone(), fmt_elem.clone())),
+
+                {
+                    self.sink.parse_error(Borrowed("Formatting element not open"));
+                    self.active_formatting.remove(fmt_elem_index);
+                }
+            );
+
+            // 7.
+            if !self.in_scope(default_scope, |n| self.sink.same_node(n.clone(), fmt_elem.clone())) {
+                self.sink.parse_error(Borrowed("Formatting element not in scope"));
+                return;
+            }
+
+            // 8.
+            if !self.sink.same_node(self.current_node(), fmt_elem.clone()) {
+                self.sink.parse_error(Borrowed("Formatting element not current node"));
+            }
+
+            // 9.
+            let (furthest_block_index, furthest_block) = unwrap_or_return!(
+                self.open_elems.iter()
+                    .enumerate()
+                    .skip(fmt_elem_stack_index)
+                    .filter(|&(_, open_element)| self.elem_in(open_element.clone(), special_tag))
+                    .next()
+                    .map(|(i, h)| (i, h.clone())),
+
+                // 10.
+                {
+                    self.open_elems.truncate(fmt_elem_stack_index);
+                    self.active_formatting.remove(fmt_elem_index);
+                }
+            );
+
+            // 11.
+            let common_ancestor = self.open_elems[fmt_elem_stack_index - 1].clone();
+
+            // 12.
+            let mut bookmark = Bookmark::Replace(fmt_elem.clone());
+
+            // 13.
+            let mut node;
+            let mut node_index = furthest_block_index;
+            let mut last_node = furthest_block.clone();
+
+            // 13.1.
+            let mut inner_counter = 0;
+            loop {
+                // 13.2.
+                inner_counter += 1;
+
+                // 13.3.
+                node_index -= 1;
+                node = self.open_elems[node_index].clone();
+
+                // 13.4.
+                if self.sink.same_node(node.clone(), fmt_elem.clone()) {
+                    break;
+                }
+
+                // 13.5.
+                if inner_counter > 3 {
+                    self.position_in_active_formatting(&node)
+                        .map(|position| self.active_formatting.remove(position));
+                    self.open_elems.remove(node_index);
+                    continue;
+                }
+
+                let node_formatting_index = unwrap_or_else!(
+                    self.position_in_active_formatting(&node),
+
+                    // 13.6.
+                    {
+                        self.open_elems.remove(node_index);
+                        continue;
+                    }
+                );
+
+                // 13.7.
+                let tag = match self.active_formatting[node_formatting_index] {
+                    Element(ref h, ref t) => {
+                        assert!(self.sink.same_node(h.clone(), node.clone()));
+                        t.clone()
+                    }
+                    Marker => panic!("Found marker during adoption agency"),
+                };
+                // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
+                // own, once as part of t.clone() above)?
+                let new_element = self.sink.create_element(
+                    QualName::new(ns!(HTML), tag.name.clone()), tag.attrs.clone());
+                self.open_elems[node_index] = new_element.clone();
+                self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
+                node = new_element;
+
+                // 13.8.
+                if self.sink.same_node(last_node.clone(), furthest_block.clone()) {
+                    bookmark = Bookmark::InsertAfter(node.clone());
+                }
+
+                // 13.9.
+                self.sink.remove_from_parent(last_node.clone());
+                self.sink.append(node.clone(), AppendNode(last_node.clone()));
+
+                // 13.10.
+                last_node = node.clone();
+
+                // 13.11.
+            }
+
+            // 14.
+            self.sink.remove_from_parent(last_node.clone());
+            self.insert_appropriately(AppendNode(last_node.clone()), Some(common_ancestor));
+
+            // 15.
+            // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
+            // once as part of t.clone() above)?
+            let new_element = self.sink.create_element(
+                QualName::new(ns!(HTML), fmt_elem_tag.name.clone()), fmt_elem_tag.attrs.clone());
+            let new_entry = Element(new_element.clone(), fmt_elem_tag);
+
+            // 16.
+            self.sink.reparent_children(furthest_block.clone(), new_element.clone());
+
+            // 17.
+            self.sink.append(furthest_block.clone(), AppendNode(new_element.clone()));
+
+            // 18.
+            // FIXME: We could probably get rid of the position_in_active_formatting() calls here
+            // if we had a more clever Bookmark representation.
+            match bookmark {
+                Bookmark::Replace(to_replace) => {
+                    let index = self.position_in_active_formatting(&to_replace)
+                        .expect("bookmark not found in active formatting elements");
+                    self.active_formatting[index] = new_entry;
+                }
+                Bookmark::InsertAfter(previous) => {
+                    let index = self.position_in_active_formatting(&previous)
+                        .expect("bookmark not found in active formatting elements") + 1;
+                    self.active_formatting.insert(index, new_entry);
+                    let old_index = self.position_in_active_formatting(&fmt_elem)
+                        .expect("formatting element not found in active formatting elements");
+                    self.active_formatting.remove(old_index);
+                }
+            }
+
+            // 19.
+            self.remove_from_stack(&fmt_elem);
+            let new_furthest_block_index = self.open_elems.iter()
+                .position(|n| self.sink.same_node(n.clone(), furthest_block.clone()))
+                .expect("furthest block missing from open element stack");
+            self.open_elems.insert(new_furthest_block_index + 1, new_element);
+
+            // 20.
         }
     }
 
@@ -233,9 +434,53 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.open_elems = open_elems;
     }
 
+    fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
+        match *entry {
+            Marker => true,
+            Element(ref node, _) => {
+                self.open_elems.iter()
+                    .rev()
+                    .any(|n| self.sink.same_node(n.clone(), node.clone()))
+            }
+        }
+    }
+
     /// Reconstruct the active formatting elements.
     fn reconstruct_formatting(&mut self) {
-        // FIXME
+        {
+            let last = unwrap_or_return!(self.active_formatting.last(), ());
+            if self.is_marker_or_open(last) {
+                return
+            }
+        }
+
+        let mut entry_index = self.active_formatting.len() - 1;
+        loop {
+            if entry_index == 0 {
+                break
+            }
+            entry_index -= 1;
+            if self.is_marker_or_open(&self.active_formatting[entry_index]) {
+                entry_index += 1;
+                break
+            }
+        }
+
+        loop {
+            let tag = match self.active_formatting[entry_index] {
+                Element(_, ref t) => t.clone(),
+                Marker => panic!("Found marker during formatting element reconstruction"),
+            };
+
+            // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
+            // once as part of t.clone() above)?
+            let new_element = self.insert_element(Push, tag.name.clone(), tag.attrs.clone());
+            self.active_formatting[entry_index] = Element(new_element, tag);
+            if entry_index == self.active_formatting.len() - 1 {
+                break
+            }
+            entry_index += 1;
+        }
     }
 
     /// Get the first element on the stack, which will be the <html> element.
@@ -459,16 +704,17 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         if self.pop_until(td_th) != 1 {
             self.sink.parse_error(Borrowed("expected to close <td> or <th> with cell"));
         }
+        self.clear_active_formatting_to_marker();
     }
 
     fn append_text(&mut self, text: String) -> ProcessResult {
-        self.insert_appropriately(AppendText(text));
+        self.insert_appropriately(AppendText(text), None);
         Done
     }
 
     fn append_comment(&mut self, text: String) -> ProcessResult {
         let comment = self.sink.create_comment(text);
-        self.insert_appropriately(AppendNode(comment));
+        self.insert_appropriately(AppendNode(comment), None);
         Done
     }
 
@@ -497,7 +743,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
             -> Handle {
         let elem = self.sink.create_element(QualName::new(ns!(HTML), name), attrs);
-        self.insert_appropriately(AppendNode(elem.clone()));
+        self.insert_appropriately(AppendNode(elem.clone()), None);
         match push {
             Push => self.push(&elem),
             NoPush => (),
@@ -546,5 +792,57 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 _ => (),
             }
         }
+    }
+
+    fn process_end_tag_in_body(&mut self, tag: Tag) {
+        // Look back for a matching open element.
+        let mut match_idx = None;
+        for (i, elem) in self.open_elems.iter().enumerate().rev() {
+            if self.html_elem_named(elem.clone(), tag.name.clone()) {
+                match_idx = Some(i);
+                break;
+            }
+
+            if self.elem_in(elem.clone(), special_tag) {
+                self.sink.parse_error(Borrowed("Found special tag while closing generic tag"));
+                return;
+            }
+        }
+
+        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+        let match_idx = match match_idx {
+            None => {
+                // I believe this is impossible, because the root
+                // <html> element is in special_tag.
+                self.unexpected(&tag);
+                return;
+            }
+            Some(x) => x,
+        };
+
+        self.generate_implied_end_except(tag.name.clone());
+
+        if match_idx != self.open_elems.len() - 1 {
+            // mis-nested tags
+            self.unexpected(&tag);
+        }
+        self.open_elems.truncate(match_idx);
+    }
+
+    fn handle_misnested_a_tags(&mut self, tag: &Tag) {
+        let node = unwrap_or_return!(
+            self.active_formatting_end_to_marker()
+                .filter(|&(_, n, _)| self.html_elem_named(n.clone(), atom!(a)))
+                .next()
+                .map(|(_, n, _)| n.clone()),
+
+            ()
+        );
+
+        self.unexpected(tag);
+        self.adoption_agency(atom!(a));
+        self.position_in_active_formatting(&node)
+            .map(|index| self.active_formatting.remove(index));
+        self.remove_from_stack(&node);
     }
 }

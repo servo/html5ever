@@ -211,8 +211,22 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         for node in self.open_elems.iter() {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
-                ns!(HTML) => print!(" {:?}", local),
+                ns!(HTML) => print!(" {}", local.as_slice()),
                 _ => panic!(),
+            }
+        }
+        println!("");
+        print!("    active_formatting:");
+        for entry in self.active_formatting.iter() {
+            match entry {
+                &Marker => print!(" Marker"),
+                &Element(ref h, _) => {
+                    let QualName { ns, local } = self.sink.elem_name(h.clone());
+                    match ns {
+                        ns!(HTML) => print!(" {}", local.as_slice()),
+                        _ => panic!(),
+                    }
+                }
             }
         }
         println!("");
