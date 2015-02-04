@@ -89,7 +89,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
     pub fn start_elem<'a, AttrIter: Iterator<Item=AttrRef<'a>>>(
         &mut self,
         name: QualName,
-        mut attrs: AttrIter) -> IoResult<()> {
+        attrs: AttrIter) -> IoResult<()> {
 
         let html_name = match name.ns {
             ns!(HTML) => Some(name.local.clone()),

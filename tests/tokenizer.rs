@@ -259,7 +259,7 @@ fn unescape(s: &str) -> Option<String> {
                 }
                 drop(it.next());
                 let hex: String = it.by_ref().take(4).collect();
-                match num::from_str_radix(hex.as_slice(), 16)
+                match num::from_str_radix(hex.as_slice(), 16).ok()
                           .and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
                     // way to represent them in the UTF-8 input to our parser.

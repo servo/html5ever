@@ -96,7 +96,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     }, "unexpected result from file!()");
 
     // Combine those to get an absolute path to entities.json.
-    let mod_path: path::Path = expect!(cx, sp, FromStr::from_str(mod_filename.as_slice()),
+    let mod_path: path::Path = expect!(cx, sp, FromStr::from_str(mod_filename.as_slice()).ok(),
         "can't parse module filename");
     let json_path = mod_path.dir_path().join(json_filename);
 

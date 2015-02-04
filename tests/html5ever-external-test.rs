@@ -11,7 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(plugin)]
-#![feature(rustc_private, core, collections, io, os, path, std_misc, test)]
+#![feature(rustc_private, core, io, os, path, std_misc, test)]
 
 extern crate test;
 extern crate serialize;
@@ -37,7 +37,7 @@ mod util;
 fn main() {
     let src_dir: Path = FromStr::from_str(
         os::getenv("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set").as_slice()
-    ).expect("HTML5EVER_SRC_DIR invalid");
+    ).ok().expect("HTML5EVER_SRC_DIR invalid");
 
     let mut ignores = HashSet::new();
     {

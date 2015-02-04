@@ -36,7 +36,7 @@ pub fn tokenize_to<
         It: Iterator<Item=String>
     >(
         sink: Sink,
-        mut input: It,
+        input: It,
         opts: TokenizerOpts) -> Sink {
 
     let mut tok = Tokenizer::new(sink, opts);
@@ -70,7 +70,7 @@ pub fn parse_to<
         It: Iterator<Item=String>
     >(
         sink: Sink,
-        mut input: It,
+        input: It,
         opts: ParseOpts) -> Sink {
 
     let tb = TreeBuilder::new(sink, opts.tree_builder);
