@@ -7,11 +7,7 @@ env:
   global:
       - secure: uytPp0Fs+LT3QDEhDM3LJWiLvT2AHbdWnXrPEs+bYshQwt9wST+KQnYLyRfBuGg2ux3pkZwsRUFexvN8pQ3ab4aU2P21Xo98TzdXRwXurNYePgk/3tykEH+JrL52DfjCWB1VsjzzFrP02XU0XtB30qWC/n+fxeMWT7JT2GVh/OE=
 language: rust
-script:
-  - mkdir build
-  - cd build
-  - ../configure
-  - make check docs for_c
+script: scripts/travis-build.sh
 after_script:
   - cd /home/travis/build/servo/html5ever/target
   - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
