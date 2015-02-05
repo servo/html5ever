@@ -10,7 +10,7 @@
 #![allow(unused_imports)]  // for quotes
 
 use std::old_io as io;
-use std::path;
+use std::old_path as path;
 use std::str::FromStr;
 use std::collections::HashMap;
 
