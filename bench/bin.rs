@@ -11,13 +11,13 @@
 #![crate_type="bin"]
 
 #![feature(box_syntax)]
-#![feature(core, io, os, path, test)]
+#![feature(core, env, io, os, path, test)]
 
 extern crate test;
 
 extern crate html5ever;
 
-use std::os;
+use std::env;
 use test::test_main;
 
 mod tokenizer;
@@ -28,5 +28,7 @@ fn main() {
     tests.extend(tokenizer::tests());
     // more to follow
 
-    test_main(os::args().as_slice(), tests);
+    let args: Vec<_> = env::args().map(|v| v.into_string().unwrap())
+                                  .collect();
+    test_main(&args, tests);
 }

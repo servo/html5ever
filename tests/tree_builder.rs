@@ -13,7 +13,7 @@ use std::old_io as io;
 use std::iter::repeat;
 use std::mem::replace;
 use std::default::Default;
-use std::path::Path;
+use std::old_path::Path;
 use std::collections::{HashSet, HashMap};
 use std::vec::IntoIter;
 use std::thunk::Thunk;

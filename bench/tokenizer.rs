@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use std::old_io as io;
-use std::{os, cmp};
+use std::{cmp, env};
 use std::default::Default;
 use std::vec::IntoIter;
 
@@ -39,7 +39,8 @@ struct Bench {
 impl Bench {
     fn new(name: &str, size: Option<usize>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
-        let mut path = os::self_exe_path().expect("can't get exe path");
+        let mut path = env::current_exe().ok().expect("can't get exe path");
+        path.pop();
         path.push("../data/bench/");
         path.push(name);
         let mut file = io::File::open(&path).ok().expect("can't open file");
@@ -113,7 +114,7 @@ pub fn tests() -> IntoIter<TestDescAndFn> {
     let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = vec!(Default::default());
-    if os::getenv("BENCH_EXACT_ERRORS").is_some() {
+    if env::var("BENCH_EXACT_ERRORS").is_some() {
         opts_vec.push(TokenizerOpts {
             exact_errors: true,
             .. Default::default()
@@ -131,7 +132,7 @@ pub fn tests() -> IntoIter<TestDescAndFn> {
             tests.push(make_bench(file, None, false, opts.clone()));
         }
 
-        if os::getenv("BENCH_UNCOMMITTED").is_some() {
+        if env::var("BENCH_UNCOMMITTED").is_some() {
             // Not checked into the repo, so don't include by default.
             for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
                 let name = format!("uncommitted/{}", file);
