@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use std::old_io as io;
-use std::path::Path;
+use std::old_path::Path;
 
 pub fn foreach_html5lib_test<Mk>(
         src_dir: Path,
