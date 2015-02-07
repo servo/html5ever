@@ -8,6 +8,7 @@ authors = [ "The html5ever Project Developers" ]
 phf = "0"
 phf_macros = "0"
 time = "0"
+log = "0"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"
