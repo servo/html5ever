@@ -39,7 +39,7 @@ extern crate collections;
 extern crate log;
 
 #[plugin] #[no_link]
-extern crate phf_mac;
+extern crate phf_macros;
 
 #[plugin] #[no_link] #[macro_use]
 extern crate string_cache_macros;

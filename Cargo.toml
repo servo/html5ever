@@ -6,7 +6,7 @@ authors = [ "The html5ever Project Developers" ]
 
 [dependencies]
 phf = "0"
-phf_mac = "0"
+phf_macros = "0"
 time = "0"
 
 [dependencies.string_cache]
