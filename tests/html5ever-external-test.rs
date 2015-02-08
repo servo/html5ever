@@ -23,7 +23,7 @@ extern crate string_cache_macros;
 extern crate html5ever;
 
 use std::old_io as io;
-use std::os;
+use std::env;
 use std::str::FromStr;
 use std::collections::HashSet;
 use test::test_main;
@@ -36,7 +36,8 @@ mod util;
 #[allow(dead_code)]
 fn main() {
     let src_dir: Path = FromStr::from_str(
-        os::getenv("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set").as_slice()
+        env::var("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set")
+                                     .into_string().unwrap().as_slice()
     ).ok().expect("HTML5EVER_SRC_DIR invalid");
 
     let mut ignores = HashSet::new();
@@ -50,14 +51,14 @@ fn main() {
 
     let mut tests = vec!();
 
-    if os::getenv("HTML5EVER_NO_TOK_TEST").is_none() {
+    if env::var("HTML5EVER_NO_TOK_TEST").is_none() {
         tests.extend(tokenizer::tests(src_dir.clone()));
     }
 
-    if os::getenv("HTML5EVER_NO_TB_TEST").is_none() {
+    if env::var("HTML5EVER_NO_TB_TEST").is_none() {
         tests.extend(tree_builder::tests(src_dir, &ignores));
     }
 
-    let args: Vec<String> = os::args().into_iter().collect();
+    let args: Vec<String> = env::args().map(|x| x.into_string().unwrap()).collect();
     test_main(args.as_slice(), tests);
 }

@@ -87,7 +87,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     let mod_filename = expect!(cx, sp, match expand_file(cx, sp, &[]).make_expr() {
         Some(e) => match e.node {
             ExprLit(ref s) => match s.node {
-                Lit_::LitStr(ref s, _) => Some(s.get().to_string()),
+                Lit_::LitStr(ref s, _) => Some(s.to_string()),
                 _ => None,
             },
             _ => None,

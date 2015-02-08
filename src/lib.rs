@@ -12,7 +12,7 @@
 
 #![feature(plugin, int_uint, box_syntax)]
 #![feature(core, hash, collections, alloc)]
-#![cfg_attr(not(for_c), feature(rustc_private, io))]
+#![cfg_attr(not(for_c), feature(io))]
 #![cfg_attr(for_c, feature(libc))]
 #![deny(warnings)]
 #![allow(unused_parens)]
@@ -39,7 +39,7 @@ extern crate collections;
 extern crate log;
 
 #[plugin] #[no_link]
-extern crate phf_mac;
+extern crate phf_macros;
 
 #[plugin] #[no_link] #[macro_use]
 extern crate string_cache_macros;

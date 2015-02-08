@@ -12,7 +12,7 @@ use util::foreach_html5lib_test;
 use std::{num, char};
 use std::mem::replace;
 use std::default::Default;
-use std::path::Path;
+use std::old_path::Path;
 use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldFail::No;

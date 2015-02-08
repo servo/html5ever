@@ -17,7 +17,7 @@ extern crate test;
 
 extern crate html5ever;
 
-use std::os;
+use std::env;
 use test::test_main;
 
 mod tokenizer;
@@ -28,5 +28,6 @@ fn main() {
     tests.extend(tokenizer::tests());
     // more to follow
 
-    test_main(os::args().as_slice(), tests);
+    test_main(env::args().map(|a| a.into_string().unwrap())
+                              .collect::<Vec<_>>().as_slice(), tests);
 }

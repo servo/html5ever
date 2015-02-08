@@ -15,7 +15,7 @@ extern crate test;
 extern crate html5ever;
 
 use std::old_io as io;
-use std::os;
+use std::env;
 use std::default::Default;
 
 use test::black_box;
@@ -34,9 +34,9 @@ impl TokenSink for Sink {
 }
 
 fn main() {
-    let mut path = os::self_exe_path().expect("can't get exe path");
+    let mut path = env::current_exe().ok().expect("can't get exe path");
     path.push("../data/bench/");
-    path.push(os::args()[1].as_slice());
+    path.push(env::args().nth(1).unwrap().into_string().unwrap().as_slice());
 
     let mut file = io::File::open(&path).ok().expect("can't open file");
     let file_input = file.read_to_string().ok().expect("can't read file");
