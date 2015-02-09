@@ -9,7 +9,7 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
-#![feature(core, os, io, test, path)]
+#![feature(core, env, os, io, test, path)]
 
 extern crate test;
 extern crate html5ever;
