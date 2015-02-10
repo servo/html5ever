@@ -49,7 +49,7 @@ extern crate phf;
 extern crate time;
 
 pub use tokenizer::Attribute;
-pub use driver::{one_input, ParseOpts, parse_to, parse};
+pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
 
 #[cfg(not(for_c))]
 pub use serialize::serialize;

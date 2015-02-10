@@ -18,6 +18,8 @@ use core::default::Default;
 use core::option;
 use collections::string::String;
 
+use string_cache::{Atom, QualName};
+
 /// Convenience function to turn a single `String` into an iterator.
 pub fn one_input(x: String) -> option::IntoIter<String> {
     Some(x).into_iter()
@@ -82,6 +84,40 @@ pub fn parse_to<
     tok.unwrap().unwrap()
 }
 
+/// Parse an HTML fragment and send results to a `TreeSink`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let mut sink = MySink;
+/// parse_fragment_to(&mut sink, one_input(my_str), context_token, Default::default());
+/// ```
+pub fn parse_fragment_to<
+        Sink: TreeSink,
+        It: Iterator<Item=String>
+    >(
+        sink: Sink,
+        input: It,
+        context: String,
+        opts: ParseOpts) -> Sink {
+
+    let mut sink = sink;
+    let context_elem = sink.create_element(QualName::new(ns!(HTML),
+                                                         Atom::from_slice(context.as_slice())),
+                                           vec!());
+    let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
+    let tok_opts = TokenizerOpts {
+        initial_state: Some(tb.tokenizer_state_for_context_elem()),
+        .. opts.tokenizer
+    };
+    let mut tok = Tokenizer::new(tb, tok_opts);
+    for s in input {
+        tok.feed(s);
+    }
+    tok.end();
+    tok.unwrap().unwrap()
+}
+
 /// Results which can be extracted from a `TreeSink`.
 ///
 /// Implement this for your parse tree data type so that it
@@ -103,5 +139,20 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
           It: Iterator<Item=String>,
 {
     let sink = parse_to(Default::default(), input, opts);
+    ParseResult::get_result(sink)
+}
+
+/// Parse an HTML fragment into a type which implements `ParseResult`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let dom: RcDom = parse_fragment(one_input(my_str), context_token, Default::default());
+/// ```
+pub fn parse_fragment<Output, It>(input: It, context: String, opts: ParseOpts) -> Output
+    where Output: ParseResult,
+          It: Iterator<Item=String>,
+{
+    let sink = parse_fragment_to(Default::default(), input, context, opts);
     ParseResult::get_result(sink)
 }

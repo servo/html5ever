@@ -665,14 +665,17 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
     }
 
+    // https://html.spec.whatwg.org/multipage/syntax.html#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&mut self) -> InsertionMode {
-        for (i, node) in self.open_elems.iter().enumerate().rev() {
+        for (i, mut node) in self.open_elems.iter().enumerate().rev() {
+            let last = i == 0u;
+            if last && self.is_fragment() {
+                node = self.context_elem.as_ref().expect("no context element");
+            }
             let name = match self.sink.elem_name(node.clone()) {
                 QualName { ns: ns!(HTML), local } => local,
                 _ => continue,
             };
-            let last = i == 0u;
-            // FIXME: fragment case context element
             match name {
                 // FIXME: <select> sub-steps
                 atom!(select) => return InSelect,
