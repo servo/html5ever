@@ -11,7 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(plugin)]
-#![feature(rustc_private, core, io, os, path, std_misc, test)]
+#![feature(rustc_private, core, env, io, os, path, std_misc, test)]
 
 extern crate test;
 extern crate serialize;
