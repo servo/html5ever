@@ -44,8 +44,8 @@ pub struct ActiveFormattingIter<'a, Handle: 'a> {
 }
 
 impl<'a, Handle> Iterator for ActiveFormattingIter<'a, Handle> {
-    type Item = (uint, &'a Handle, &'a Tag);
-    fn next(&mut self) -> Option<(uint, &'a Handle, &'a Tag)> {
+    type Item = (usize, &'a Handle, &'a Tag);
+    fn next(&mut self) -> Option<(usize, &'a Handle, &'a Tag)> {
         match self.iter.next() {
             None | Some((_, &Marker)) => None,
             Some((i, &Element(ref h, ref t))) => Some((i, h, t)),
@@ -87,8 +87,8 @@ pub trait TreeBuilderActions<Handle> {
     fn close_p_element_in_button_scope(&mut self);
     fn close_p_element(&mut self);
     fn expect_to_close(&mut self, name: Atom);
-    fn pop_until_named(&mut self, name: Atom) -> uint;
-    fn pop_until<TagSet>(&mut self, pred: TagSet) -> uint where TagSet: Fn(QualName) -> bool;
+    fn pop_until_named(&mut self, name: Atom) -> usize;
+    fn pop_until<TagSet>(&mut self, pred: TagSet) -> usize where TagSet: Fn(QualName) -> bool;
     fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
     fn generate_implied_end_except(&mut self, except: Atom);
     fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(QualName) -> bool;
@@ -594,7 +594,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
-    fn pop_until<P>(&mut self, pred: P) -> uint
+    fn pop_until<P>(&mut self, pred: P) -> usize
         where P: Fn(QualName) -> bool
     {
         let mut n = 0;
@@ -608,7 +608,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         n
     }
 
-    fn pop_until_named(&mut self, name: Atom) -> uint {
+    fn pop_until_named(&mut self, name: Atom) -> usize {
         self.pop_until(|p| p == QualName::new(ns!(HTML), name.clone()))
     }
 
@@ -671,7 +671,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 QualName { ns: ns!(HTML), local } => local,
                 _ => continue,
             };
-            let last = i == 0u;
+            let last = i == 0us;
             // FIXME: fragment case context element
             match name {
                 // FIXME: <select> sub-steps
@@ -768,7 +768,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
         // FIXME: This really wants unit tests.
         let mut first_match = None;
-        let mut matches = 0u;
+        let mut matches = 0us;
         for (i, _, old_tag) in self.active_formatting_end_to_marker() {
             if tag.equiv_modulo_attr_order(old_tag) {
                 first_match = Some(i);

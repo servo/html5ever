@@ -125,7 +125,7 @@ fn append(mut new_parent: Handle, mut child: Handle) {
     *parent = new_parent
 }
 
-fn get_parent_and_index(child: Handle) -> Option<(Handle, uint)> {
+fn get_parent_and_index(child: Handle) -> Option<(Handle, usize)> {
     if child.parent.is_null() {
         return None;
     }
@@ -296,7 +296,7 @@ impl TreeSink for Sink {
 
 pub struct Node {
     pub node: NodeEnum,
-    _parent_not_accessible: uint,
+    _parent_not_accessible: usize,
     pub children: Vec<Box<Node>>,
 }
 
@@ -310,8 +310,8 @@ impl ParseResult for OwnedDom {
     type Sink = Sink;
 
     fn get_result(sink: Sink) -> OwnedDom {
-        fn walk(live: &mut HashSet<uint>, node: Handle) {
-            live.insert(node.ptr as uint);
+        fn walk(live: &mut HashSet<usize>, node: Handle) {
+            live.insert(node.ptr as usize);
             for &child in node.deref().children.iter() {
                 walk(live, child);
             }
@@ -326,7 +326,7 @@ impl ParseResult for OwnedDom {
         // aren't in the tree.
         for node in sink.nodes.into_iter() {
             let ptr: *const UnsafeCell<SquishyNode> = &*node;
-            if live.contains(&(ptr as uint)) {
+            if live.contains(&(ptr as usize)) {
                 unsafe {
                     mem::forget(node);
                 }

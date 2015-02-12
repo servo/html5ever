@@ -97,12 +97,12 @@ impl Ascii {
 
     #[inline]
     pub fn to_lowercase(self) -> Ascii {
-        Ascii { chr: ASCII_LOWER_MAP[self.chr as uint] }
+        Ascii { chr: ASCII_LOWER_MAP[self.chr as usize] }
     }
 
     #[inline]
     pub fn eq_ignore_case(self, other: Ascii) -> bool {
-        ASCII_LOWER_MAP[self.chr as uint] == ASCII_LOWER_MAP[other.chr as uint]
+        ASCII_LOWER_MAP[self.chr as usize] == ASCII_LOWER_MAP[other.chr as usize]
     }
 }
 
@@ -112,7 +112,7 @@ pub trait AsciiCast {
 
 impl AsciiCast for char {
     fn to_ascii_opt(&self) -> Option<Ascii> {
-        let n = *self as uint;
+        let n = *self as u32;
         if n < 0x80 {
             Some(Ascii { chr: n as u8 })
         } else {
@@ -129,15 +129,15 @@ pub trait AsciiExt<T> {
 impl<'a> AsciiExt<Vec<u8>> for &'a [u8] {
     #[inline]
     fn to_ascii_lower(&self) -> Vec<u8> {
-        self.iter().map(|&byte| ASCII_LOWER_MAP[byte as uint]).collect()
+        self.iter().map(|&byte| ASCII_LOWER_MAP[byte as usize]).collect()
     }
 
     #[inline]
     fn eq_ignore_ascii_case(&self, other: &[u8]) -> bool {
         self.len() == other.len() && self.iter().zip(other.iter()).all(
             |(byte_self, byte_other)| {
-                ASCII_LOWER_MAP[*byte_self as uint] ==
-                    ASCII_LOWER_MAP[*byte_other as uint]
+                ASCII_LOWER_MAP[*byte_self as usize] ==
+                    ASCII_LOWER_MAP[*byte_other as usize]
             }
         )
     }
@@ -194,7 +194,7 @@ pub fn is_ascii_whitespace(c: char) -> bool {
 /// and also return whether they match.
 ///
 /// Returns `None` on an empty string.
-pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(uint, bool)> {
+pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(usize, bool)> {
     let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
     let matches = pred.matches(first);
 

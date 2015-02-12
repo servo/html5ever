@@ -37,7 +37,7 @@ impl h5e_buf {
     }
 
     pub unsafe fn as_slice(&self) -> &str {
-        str::from_utf8_unchecked(slice::from_raw_parts(self.data, self.len as uint))
+        str::from_utf8_unchecked(slice::from_raw_parts(self.data, self.len as usize))
     }
 }
 

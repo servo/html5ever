@@ -20,7 +20,7 @@ pub use self::SetResult::{FromSet, NotFromSet};
 
 struct Buffer {
     /// Byte position within the buffer.
-    pub pos: uint,
+    pub pos: usize,
     /// The buffer.
     pub buf: String,
 }
@@ -61,7 +61,7 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     /// 'pos' can be non-zero to remove that many bytes
     /// from the beginning.
-    pub fn push_back(&mut self, buf: String, pos: uint) {
+    pub fn push_back(&mut self, buf: String, pos: usize) {
         if pos >= buf.len() {
             return;
         }
@@ -134,7 +134,7 @@ impl BufferQueue {
     // If they do not match, return Some(false).
     // If not enough characters are available to know, return None.
     pub fn eat(&mut self, pat: &str) -> Option<bool> {
-        let mut buffers_exhausted = 0u;
+        let mut buffers_exhausted = 0us;
         let mut consumed_from_last = match self.buffers.front() {
             None => return None,
             Some(ref buf) => buf.pos,

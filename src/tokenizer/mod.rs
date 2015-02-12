@@ -1205,7 +1205,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         for i in range(0, num_chars) {
-            let c = chars[i as uint];
+            let c = chars[i as usize];
             match self.state {
                 states::Data | states::RawData(states::Rcdata)
                     => go!(self: emit c),

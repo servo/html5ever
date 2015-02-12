@@ -30,7 +30,7 @@ macro_rules! addrs_of ( ($obj:expr => $($field:ident),+) => (
     ( // make a tuple
         $(
             unsafe {
-                ::core::mem::transmute::<_, uint>(&$obj.$field)
+                ::core::mem::transmute::<_, usize>(&$obj.$field)
             }
         ),+
     )
