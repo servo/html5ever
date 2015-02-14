@@ -11,7 +11,7 @@
 #![crate_type="bin"]
 
 #![feature(box_syntax)]
-#![feature(core, io, os, path, test)]
+#![feature(core, io, env, path, test)]
 
 extern crate test;
 
@@ -28,6 +28,6 @@ fn main() {
     tests.extend(tokenizer::tests());
     // more to follow
 
-    test_main(env::args().map(|a| a.into_string().unwrap())
-                              .collect::<Vec<_>>().as_slice(), tests);
+    let args: Vec<_> = env::args().collect();
+    test_main(&args, tests);
 }

@@ -9,7 +9,7 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
-#![feature(core, env, os, io, test, path)]
+#![feature(core, env, io, test, path)]
 
 extern crate test;
 extern crate html5ever;
@@ -36,7 +36,7 @@ impl TokenSink for Sink {
 fn main() {
     let mut path = env::current_exe().ok().expect("can't get exe path");
     path.push("../data/bench/");
-    path.push(env::args().nth(1).unwrap().into_string().unwrap().as_slice());
+    path.push(env::args().nth(1).unwrap().as_slice());
 
     let mut file = io::File::open(&path).ok().expect("can't open file");
     let file_input = file.read_to_string().ok().expect("can't read file");

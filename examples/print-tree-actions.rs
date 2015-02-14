@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(io, core)]
+#![feature(io)]
 
 extern crate string_cache;
 

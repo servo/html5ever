@@ -82,11 +82,13 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, uint)> {
     let child = target.borrow();
     let parent = unwrap_or_return!(child.parent.as_ref(), None)
         .upgrade().expect("dangling weak pointer");
-    match parent.borrow_mut().children.iter().enumerate()
+
+    let i = match parent.borrow_mut().children.iter().enumerate()
                 .find(|&(_, n)| same_node(n, target)) {
-        Some((i, _)) => Some((parent, i)),
+        Some((i, _)) => i,
         None => panic!("have parent but couldn't find in parent's children!"),
-    }
+    };
+    Some((parent, i))
 }
 
 fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
@@ -141,10 +143,11 @@ impl TreeSink for RcDom {
     }
 
     fn elem_name(&self, target: Handle) -> QualName {
-        match target.borrow().node {
+        // FIXME: rust-lang/rust#22252
+        return match target.borrow().node {
             Element(ref name, _) => name.clone(),
             _ => panic!("not an element!"),
-        }
+        };
     }
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {

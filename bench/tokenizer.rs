@@ -113,7 +113,7 @@ pub fn tests() -> IntoIter<TestDescAndFn> {
     let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = vec!(Default::default());
-    if env::var("BENCH_EXACT_ERRORS").is_some() {
+    if env::var("BENCH_EXACT_ERRORS").is_ok() {
         opts_vec.push(TokenizerOpts {
             exact_errors: true,
             .. Default::default()
@@ -131,7 +131,7 @@ pub fn tests() -> IntoIter<TestDescAndFn> {
             tests.push(make_bench(file, None, false, opts.clone()));
         }
 
-        if env::var("BENCH_UNCOMMITTED").is_some() {
+        if env::var("BENCH_UNCOMMITTED").is_ok() {
             // Not checked into the repo, so don't include by default.
             for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
                 let name = format!("uncommitted/{}", file);

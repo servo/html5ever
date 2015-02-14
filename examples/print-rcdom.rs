@@ -7,14 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, io, core)]
+#![feature(plugin, io)]
+#![plugin(string_cache_macros)]
 
 extern crate html5ever;
 
-extern crate string_cache;
-#[plugin]
 #[macro_use]
-extern crate string_cache_macros;
+extern crate string_cache;
 
 use std::old_io as io;
 use std::iter::repeat;

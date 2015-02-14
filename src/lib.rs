@@ -13,9 +13,12 @@
 #![feature(plugin, int_uint, box_syntax, no_std)]
 #![feature(core, hash, collections, alloc)]
 #![cfg_attr(not(for_c), feature(io))]
-#![cfg_attr(for_c, feature(libc))]
 #![deny(warnings)]
 #![allow(unused_parens)]
+
+#![plugin(phf_macros)]
+#![plugin(string_cache_macros)]
+#![plugin(html5ever_macros)]
 
 // FIXME(#63): switch back to using std
 #![no_std]
@@ -38,16 +41,8 @@ extern crate collections;
 #[macro_use]
 extern crate log;
 
-#[plugin] #[no_link]
-extern crate phf_macros;
-
-#[plugin] #[no_link] #[macro_use]
-extern crate string_cache_macros;
-
+#[macro_use]
 extern crate string_cache;
-
-#[plugin] #[no_link]
-extern crate html5ever_macros;
 
 extern crate phf;
 

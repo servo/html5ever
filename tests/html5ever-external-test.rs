@@ -11,14 +11,14 @@
 #![crate_type="bin"]
 
 #![feature(plugin)]
-#![feature(rustc_private, core, env, io, os, path, std_misc, test)]
+#![feature(rustc_private, core, env, io, path, std_misc, test)]
+#![plugin(string_cache_macros)]
 
 extern crate test;
 extern crate serialize;
-extern crate string_cache;
-#[plugin]
+
 #[macro_use]
-extern crate string_cache_macros;
+extern crate string_cache;
 
 extern crate html5ever;
 
@@ -36,8 +36,7 @@ mod util;
 #[allow(dead_code)]
 fn main() {
     let src_dir: Path = FromStr::from_str(
-        env::var("HTML5EVER_SRC_DIR").expect("HTML5EVER_SRC_DIR not set")
-                                     .into_string().unwrap().as_slice()
+        env::var("HTML5EVER_SRC_DIR").unwrap().as_slice()
     ).ok().expect("HTML5EVER_SRC_DIR invalid");
 
     let mut ignores = HashSet::new();
@@ -51,14 +50,14 @@ fn main() {
 
     let mut tests = vec!();
 
-    if env::var("HTML5EVER_NO_TOK_TEST").is_none() {
+    if env::var("HTML5EVER_NO_TOK_TEST").is_err() {
         tests.extend(tokenizer::tests(src_dir.clone()));
     }
 
-    if env::var("HTML5EVER_NO_TB_TEST").is_none() {
+    if env::var("HTML5EVER_NO_TB_TEST").is_err() {
         tests.extend(tree_builder::tests(src_dir, &ignores));
     }
 
-    let args: Vec<String> = env::args().map(|x| x.into_string().unwrap()).collect();
-    test_main(args.as_slice(), tests);
+    let args: Vec<String> = env::args().collect();
+    test_main(&args, tests);
 }
