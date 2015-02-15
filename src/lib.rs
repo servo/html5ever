@@ -17,7 +17,7 @@
 #![allow(unused_parens)]
 
 #![plugin(phf_macros)]
-#![plugin(string_cache_macros)]
+#![plugin(string_cache_plugin)]
 #![plugin(html5ever_macros)]
 
 // FIXME(#63): switch back to using std
