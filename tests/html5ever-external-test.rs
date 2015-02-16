@@ -12,7 +12,7 @@
 
 #![feature(plugin)]
 #![feature(rustc_private, core, env, io, path, std_misc, test)]
-#![plugin(string_cache_macros)]
+#![plugin(string_cache_plugin)]
 
 extern crate test;
 extern crate serialize;

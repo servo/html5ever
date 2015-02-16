@@ -8,7 +8,7 @@
 // except according to those terms.
 
 #![feature(plugin, io)]
-#![plugin(string_cache_macros)]
+#![plugin(string_cache_plugin)]
 
 extern crate html5ever;
 
