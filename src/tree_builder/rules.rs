@@ -935,10 +935,10 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 token => {
                     if self.current_node_named(atom!(colgroup)) {
                         self.pop();
+                        Reprocess(InTable, token)
                     } else {
-                        self.unexpected(&token);
+                        self.unexpected(&token)
                     }
-                    Reprocess(InTable, token)
                 }
             }),
 
