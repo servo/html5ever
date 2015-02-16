@@ -7,15 +7,25 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::foreach_html5lib_test;
+#![feature(core, env, int_uint, io, path, plugin, start, std_misc, test)]
+
+#![plugin(string_cache_plugin)]
+
+extern crate test;
+extern crate string_cache;
+
+extern crate html5ever;
+extern crate test_util;
+
+use test_util::foreach_html5lib_test;
 
 use std::old_io as io;
+use std::{env, rt};
 use std::iter::repeat;
 use std::mem::replace;
 use std::default::Default;
 use std::old_path::Path;
 use std::collections::{HashSet, HashMap};
-use std::vec::IntoIter;
 use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldFail::No;
@@ -47,7 +57,7 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
         match lines.next() {
             None => break,
             Some(line) => {
-                if line.as_slice().starts_with("#") {
+                if line.starts_with("#") {
                     finish_val!();
                     if line.as_slice() == "#data\n" {
                         finish_test!();
@@ -170,7 +180,7 @@ fn make_test(
     });
 }
 
-pub fn tests(src_dir: Path, ignores: &HashSet<String>) -> IntoIter<TestDescAndFn> {
+fn tests(src_dir: Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tree-construction", ".dat", |path_str, file| {
@@ -184,5 +194,25 @@ pub fn tests(src_dir: Path, ignores: &HashSet<String>) -> IntoIter<TestDescAndFn
         }
     });
 
-    tests.into_iter()
+    tests
+}
+
+#[start]
+fn start(argc: int, argv: *const *const u8) -> int {
+    unsafe {
+        rt::args::init(argc, argv);
+    }
+    let args: Vec<_> = env::args().collect();
+    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut ignores = HashSet::new();
+    {
+        let f = io::File::open(&src_dir.join("data/test/ignore")).unwrap();
+        let mut r = io::BufferedReader::new(f);
+        for ln in r.lines() {
+            ignores.insert(ln.unwrap().as_slice().trim_right().to_string());
+        }
+    }
+
+    test::test_main(args.as_slice(), tests(src_dir, &ignores));
+    0
 }

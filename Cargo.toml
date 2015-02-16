@@ -18,5 +18,5 @@ git = "https://github.com/servo/string-cache"
 [dependencies.html5ever_macros]
 path = "macros"
 
-[[test]]
-name = "html5ever-external-test"
+[dev-dependencies.test_util]
+path = "test_util"

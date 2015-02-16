@@ -7,10 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![feature(box_syntax, core, env, int_uint, io, path, std_misc, start, test)]
+
+extern crate test;
+extern crate html5ever;
+
 use std::old_io as io;
-use std::{env, cmp};
+use std::{env, cmp, rt};
 use std::default::Default;
-use std::vec::IntoIter;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
@@ -39,8 +43,8 @@ struct Bench {
 impl Bench {
     fn new(name: &str, size: Option<usize>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
-        let mut path = env::current_exe().ok().expect("can't get exe path");
-        path.push("../data/bench/");
+        let mut path = Path::new(env!("CARGO_MANIFEST_DIR"));
+        path.push("data/bench/");
         path.push(name);
         let mut file = io::File::open(&path).ok().expect("can't open file");
 
@@ -109,7 +113,7 @@ fn make_bench(name: &str, size: Option<usize>, clone_only: bool,
     }
 }
 
-pub fn tests() -> IntoIter<TestDescAndFn> {
+fn tests() -> Vec<TestDescAndFn> {
     let mut tests = vec!(make_bench("lipsum.html", Some(1024*1024), true, Default::default()));
 
     let mut opts_vec = vec!(Default::default());
@@ -140,5 +144,15 @@ pub fn tests() -> IntoIter<TestDescAndFn> {
         }
     }
 
-    tests.into_iter()
+    tests
+}
+
+#[start]
+fn start(argc: int, argv: *const *const u8) -> int {
+    unsafe {
+        rt::args::init(argc, argv);
+    }
+    let args: Vec<_> = env::args().collect();
+    test::test_main(args.as_slice(), tests());
+    0
 }
