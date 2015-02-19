@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, env, int_uint, io, path, plugin, start, std_misc, test)]
+#![feature(core, env, io, path, plugin, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
@@ -212,7 +212,7 @@ fn tests(src_dir: Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
 }
 
 #[start]
-fn start(argc: int, argv: *const *const u8) -> int {
+fn start(argc: isize, argv: *const *const u8) -> isize {
     unsafe {
         rt::args::init(argc, argv);
     }
