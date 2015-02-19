@@ -32,7 +32,9 @@ use test::ShouldFail::No;
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
-use html5ever::{parse, one_input};
+use html5ever::{parse, parse_fragment, one_input};
+
+use string_cache::Atom;
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
@@ -145,13 +147,10 @@ fn make_test(
         field.as_slice().trim_right_matches('\n').to_string()
     };
 
-    if fields.get("document-fragment").is_some() {
-        // FIXME
-        return;
-    }
-
     let data = get_field("data");
     let expected = get_field("document");
+    let context = fields.get("document-fragment")
+                        .map(|field| Atom::from_slice(field.as_slice().trim_right_matches('\n')));
     let name = format!("tb: {}-{}", path_str, idx);
     let ignore = ignores.contains(&name)
         || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
@@ -163,12 +162,27 @@ fn make_test(
             should_fail: No,
         },
         testfn: DynTestFn(Thunk::new(move || {
-            let dom: RcDom = parse(one_input(data.clone()), Default::default());
-
             let mut result = String::new();
-            for child in dom.document.borrow().children.iter() {
-                serialize(&mut result, 1, child.clone());
-            }
+            match context {
+                None => {
+                    let dom: RcDom = parse(one_input(data.clone()), Default::default());
+                    for child in dom.document.borrow().children.iter() {
+                        serialize(&mut result, 1, child.clone());
+                    }
+                },
+                Some(context) => {
+                    let dom: RcDom = parse_fragment(one_input(data.clone()),
+                                                    context,
+                                                    Default::default());
+                    // fragment case: serialize children of the html element
+                    // rather than children of the document
+                    let doc = dom.document.borrow();
+                    let root = doc.children[0].borrow();
+                    for child in root.children.iter() {
+                        serialize(&mut result, 1, child.clone());
+                    }
+                },
+            };
             let len = result.len();
             result.truncate(len - 1);  // drop the trailing newline
 

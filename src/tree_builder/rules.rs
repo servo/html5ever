@@ -136,7 +136,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 tag @ <script> => {
                     let elem = self.sink.create_element(qualname!(HTML, script), tag.attrs);
-                    if self.opts.fragment {
+                    if self.is_fragment() {
                         self.sink.mark_script_already_started(elem.clone());
                     }
                     self.insert_appropriately(AppendNode(elem.clone()), None);
@@ -1204,7 +1204,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 <html> => self.step(InBody, token),
 
                 </html> => {
-                    if self.opts.fragment {
+                    if self.is_fragment() {
                         self.unexpected(&token);
                     } else {
                         self.mode = AfterAfterBody;
@@ -1238,7 +1238,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                         self.unexpected(&token);
                     } else {
                         self.pop();
-                        if !self.opts.fragment && !self.current_node_named(atom!(frameset)) {
+                        if !self.is_fragment() && !self.current_node_named(atom!(frameset)) {
                             self.mode = AfterFrameset;
                         }
                     }

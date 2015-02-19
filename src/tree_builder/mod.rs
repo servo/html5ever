@@ -19,9 +19,12 @@ use self::types::*;
 use self::actions::TreeBuilderActions;
 use self::rules::TreeBuilderStep;
 
+use string_cache::QualName;
+
 use tokenizer;
 use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
+use tokenizer::states as tok_state;
 
 use util::str::{is_ascii_whitespace, char_run};
 
@@ -33,7 +36,8 @@ use std::borrow::Cow::Borrowed;
 use collections::RingBuf;
 
 #[macro_use] mod tag_sets;
-mod interface;
+// "pub" is a workaround for rust#18241 (?)
+pub mod interface;
 mod data;
 mod types;
 mod actions;
@@ -51,9 +55,6 @@ pub struct TreeBuilderOpts {
 
     /// Is this an `iframe srcdoc` document?
     pub iframe_srcdoc: bool,
-
-    /// Are we parsing a HTML fragment?
-    pub fragment: bool,
 
     /// Should we drop the DOCTYPE (if any) from the tree?
     pub drop_doctype: bool,
@@ -75,7 +76,6 @@ impl Default for TreeBuilderOpts {
             exact_errors: false,
             scripting_enabled: true,
             iframe_srcdoc: false,
-            fragment: false,
             drop_doctype: false,
             ignore_missing_rules: false,
         }
@@ -135,6 +135,9 @@ pub struct TreeBuilder<Handle, Sink> {
     /// Is foster parenting enabled?
     foster_parenting: bool,
 
+    /// The context element for the fragment parsing algorithm.
+    context_elem: Option<Handle>,
+
     // WARNING: If you add new fields that contain Handles, you
     // must add them to trace_handles() below to preserve memory
     // safety!
@@ -168,6 +171,77 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             frameset_ok: true,
             ignore_lf: false,
             foster_parenting: false,
+            context_elem: None,
+        }
+    }
+
+    /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
+    /// This is for parsing fragments.
+    ///
+    /// The tree builder is also a `TokenSink`.
+    pub fn new_for_fragment(mut sink: Sink,
+                            context_elem: Handle,
+                            form_elem: Option<Handle>,
+                            opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
+        let doc_handle = sink.get_document();
+        let context_is_template =
+            sink.elem_name(context_elem.clone()) == qualname!(HTML, template);
+        let mut tb = TreeBuilder {
+            opts: opts,
+            sink: sink,
+            mode: Initial,
+            orig_mode: None,
+            template_modes: if context_is_template { vec![InTemplate] } else { vec![] },
+            pending_table_text: vec!(),
+            quirks_mode: NoQuirks, // FIXME(#96) set this to match the sink's document
+            doc_handle: doc_handle,
+            open_elems: vec!(),
+            active_formatting: vec!(),
+            head_elem: None,
+            form_elem: form_elem,
+            next_tokenizer_state: None,
+            frameset_ok: true,
+            ignore_lf: false,
+            foster_parenting: false,
+            context_elem: Some(context_elem),
+        };
+
+        // https://html.spec.whatwg.org/multipage/syntax.html#parsing-html-fragments
+        // 5. Let root be a new html element with no attributes.
+        // 6. Append the element root to the Document node created above.
+        // 7. Set up the parser's stack of open elements so that it contains just the single element root.
+        tb.create_root(vec!());
+        // 10. Reset the parser's insertion mode appropriately.
+        tb.mode = tb.reset_insertion_mode();
+
+        tb
+    }
+
+    // https://html.spec.whatwg.org/multipage/syntax.html#concept-frag-parse-context
+    // Step 4. Set the state of the HTML parser's tokenization stage as follows:
+    pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
+        let elem = self.context_elem.clone().expect("no context element");
+        let name = match self.sink.elem_name(elem) {
+            QualName { ns: ns!(HTML), local } => local,
+            _ => return tok_state::Data
+        };
+        match name {
+            atom!(title) | atom!(textarea) => tok_state::RawData(tok_state::Rcdata),
+
+            atom!(style) | atom!(xmp) | atom!(iframe)
+                | atom!(noembed) | atom!(noframes) => tok_state::RawData(tok_state::Rawtext),
+
+            atom!(script) => tok_state::RawData(tok_state::ScriptData),
+
+            atom!(noscript) => if self.opts.scripting_enabled {
+                tok_state::RawData(tok_state::Rawtext)
+            } else {
+                tok_state::Data
+            },
+
+            atom!(plaintext) => tok_state::Plaintext,
+
+            _ => tok_state::Data
         }
     }
 
@@ -198,6 +272,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
         self.head_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
         self.form_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
+        self.context_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
     }
 
     // Debug helper
@@ -284,6 +359,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 }
             }
         }
+    }
+
+    /// Are we parsing a HTML fragment?
+    pub fn is_fragment(&self) -> bool {
+        self.context_elem.is_some()
     }
 }
 
