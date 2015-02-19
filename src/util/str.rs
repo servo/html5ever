@@ -19,7 +19,7 @@ use core::fmt::Debug;
 #[cfg(not(for_c))]
 pub fn to_escaped_string<T: Debug>(x: &T) -> String {
     use collections::str::StrExt;
-    use core::fmt::Writer;
+    use core::fmt::Write;
 
     // FIXME: don't allocate twice
     let mut buf = String::new();

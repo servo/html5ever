@@ -170,7 +170,7 @@ impl CharRefTokenizer {
 
     fn do_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match c.to_digit(base as uint) {
+        match c.to_digit(base as u32) {
             Some(n) => {
                 tokenizer.discard_char();
                 self.num *= base;
