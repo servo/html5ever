@@ -98,13 +98,11 @@ pub fn parse_fragment_to<
     >(
         sink: Sink,
         input: It,
-        context: String,
+        context: Atom,
         opts: ParseOpts) -> Sink {
 
     let mut sink = sink;
-    let context_elem = sink.create_element(QualName::new(ns!(HTML),
-                                                         Atom::from_slice(context.as_slice())),
-                                           vec!());
+    let context_elem = sink.create_element(QualName::new(ns!(HTML), context), vec!());
     let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
@@ -149,7 +147,7 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
 /// ```ignore
 /// let dom: RcDom = parse_fragment(one_input(my_str), context_token, Default::default());
 /// ```
-pub fn parse_fragment<Output, It>(input: It, context: String, opts: ParseOpts) -> Output
+pub fn parse_fragment<Output, It>(input: It, context: Atom, opts: ParseOpts) -> Output
     where Output: ParseResult,
           It: Iterator<Item=String>,
 {

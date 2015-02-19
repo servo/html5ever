@@ -669,8 +669,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         for (i, mut node) in self.open_elems.iter().enumerate().rev() {
             let last = i == 0u;
-            if last && self.is_fragment() {
-                node = self.context_elem.as_ref().expect("no context element");
+            if let (true, Some(ctx)) = (last, self.context_elem.as_ref()) {
+                node = ctx;
             }
             let name = match self.sink.elem_name(node.clone()) {
                 QualName { ns: ns!(HTML), local } => local,

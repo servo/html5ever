@@ -24,7 +24,7 @@ use string_cache::QualName;
 use tokenizer;
 use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
-use tokenizer::states::{State, RawData, Rcdata, Rawtext, ScriptData, Data, Plaintext};
+use tokenizer::states as tok_state;
 
 use util::str::{is_ascii_whitespace, char_run};
 
@@ -185,7 +185,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                             opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template =
-            sink.elem_name(context_elem.clone()) == QualName::new(ns!(HTML), atom!(template));
+            sink.elem_name(context_elem.clone()) == qualname!(HTML, template);
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
@@ -193,7 +193,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             orig_mode: None,
             template_modes: if context_is_template { vec![InTemplate] } else { vec![] },
             pending_table_text: vec!(),
-            quirks_mode: NoQuirks, // XXX set this to match the sink's document
+            quirks_mode: NoQuirks, // FIXME(#96) set this to match the sink's document
             doc_handle: doc_handle,
             open_elems: vec!(),
             active_formatting: vec!(),
@@ -219,24 +219,29 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     // https://html.spec.whatwg.org/multipage/syntax.html#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
-    pub fn tokenizer_state_for_context_elem(&self) -> State {
+    pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.clone().expect("no context element");
-        match self.sink.elem_name(elem) {
-            QualName { ns: ns!(HTML), local } => match local {
-                atom!(title) | atom!(textarea) => RawData(Rcdata),
+        let name = match self.sink.elem_name(elem) {
+            QualName { ns: ns!(HTML), local } => local,
+            _ => return tok_state::Data
+        };
+        match name {
+            atom!(title) | atom!(textarea) => tok_state::RawData(tok_state::Rcdata),
 
-                atom!(style) | atom!(xmp) | atom!(iframe)
-                    | atom!(noembed) | atom!(noframes) => RawData(Rawtext),
+            atom!(style) | atom!(xmp) | atom!(iframe)
+                | atom!(noembed) | atom!(noframes) => tok_state::RawData(tok_state::Rawtext),
 
-                atom!(script) => RawData(ScriptData),
+            atom!(script) => tok_state::RawData(tok_state::ScriptData),
 
-                atom!(noscript) => if self.opts.scripting_enabled { RawData(Rawtext) } else { Data },
-
-                atom!(plaintext) => Plaintext,
-
-                _ => Data
+            atom!(noscript) => if self.opts.scripting_enabled {
+                tok_state::RawData(tok_state::Rawtext)
+            } else {
+                tok_state::Data
             },
-            _ => Data
+
+            atom!(plaintext) => tok_state::Plaintext,
+
+            _ => tok_state::Data
         }
     }
 

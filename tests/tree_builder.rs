@@ -34,6 +34,8 @@ use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, parse_fragment, one_input};
 
+use string_cache::Atom;
+
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
     let mut test = HashMap::new();
@@ -148,7 +150,7 @@ fn make_test(
     let data = get_field("data");
     let expected = get_field("document");
     let context = fields.get("document-fragment")
-                        .map(|field| field.as_slice().trim_right_matches('\n').to_string());
+                        .map(|field| Atom::from_slice(field.as_slice().trim_right_matches('\n')));
     let name = format!("tb: {}-{}", path_str, idx);
     let ignore = ignores.contains(&name)
         || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
