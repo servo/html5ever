@@ -59,7 +59,7 @@ pub struct CharRefTokenizer {
 
     name_buf_opt: Option<String>,
     name_match: Option<&'static [u32; 2]>,
-    name_len: uint,
+    name_len: usize,
 }
 
 impl CharRefTokenizer {
@@ -222,7 +222,7 @@ impl CharRefTokenizer {
             n if (n > 0x10FFFF) || self.num_too_big => ('\u{fffd}', true),
             0x00 | 0xD800...0xDFFF => ('\u{fffd}', true),
 
-            0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as uint] {
+            0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as usize] {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },

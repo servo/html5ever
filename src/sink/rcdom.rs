@@ -78,7 +78,7 @@ fn append(new_parent: &Handle, child: Handle) {
     *parent = Some(new_parent.downgrade());
 }
 
-fn get_parent_and_index(target: &Handle) -> Option<(Handle, uint)> {
+fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
     let child = target.borrow();
     let parent = unwrap_or_return!(child.parent.as_ref(), None)
         .upgrade().expect("dangling weak pointer");

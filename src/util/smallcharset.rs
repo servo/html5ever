@@ -18,13 +18,13 @@ pub struct SmallCharSet {
 impl SmallCharSet {
     #[inline]
     fn contains(&self, n: u8) -> bool {
-        0 != (self.bits & (1 << (n as uint)))
+        0 != (self.bits & (1 << (n as usize)))
     }
 
     /// Count the number of bytes of characters at the beginning
     /// of `buf` which are not in the set.
     /// See `tokenizer::buffer_queue::pop_except_from`.
-    pub fn nonmember_prefix_len(&self, buf: &str) -> uint {
+    pub fn nonmember_prefix_len(&self, buf: &str) -> usize {
         let mut n = 0;
         for b in buf.bytes() {
             if b >= 64 || !self.contains(b) {
@@ -39,7 +39,7 @@ impl SmallCharSet {
 
 macro_rules! small_char_set ( ($($e:expr)+) => (
     ::util::smallcharset::SmallCharSet {
-        bits: $( (1 << ($e as uint)) )|+
+        bits: $( (1 << ($e as usize)) )|+
     }
 ));
 
@@ -52,8 +52,8 @@ mod test {
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {
-            for x in range(0, 48u) {
-                for y in range(0, 48u) {
+            for x in range(0, 48us) {
+                for y in range(0, 48us) {
                     let mut s = repeat("x").take(x).collect::<String>();
                     s.push(c);
                     s.push_str(repeat("x").take(y).collect::<String>().as_slice());
