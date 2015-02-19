@@ -54,4 +54,4 @@ html5ever exclusively uses UTF-8 to represent strings.  In the future it will su
 
 The code is cross-referenced with the WHATWG syntax spec, and eventually we will have a way to present code and spec side-by-side.
 
-We will track the Rust nightly builds until Rust 1.0, at which point there will be a stable 1.0 branch (details TBD).
+html5ever tracks Rust nightly, for now.  Support for the stable Rust 1.x compilers is planned, however.
