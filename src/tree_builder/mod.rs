@@ -68,6 +68,9 @@ pub struct TreeBuilderOpts {
     /// **Warning**: This may produce extremely incorrect results
     /// on some documents!
     pub ignore_missing_rules: bool,
+
+    /// Initial TreeBuilder quirks mode. Default: NoQuirks
+    pub quirks_mode: QuirksMode,
 }
 
 impl Default for TreeBuilderOpts {
@@ -78,6 +81,7 @@ impl Default for TreeBuilderOpts {
             iframe_srcdoc: false,
             drop_doctype: false,
             ignore_missing_rules: false,
+            quirks_mode: NoQuirks,
         }
     }
 }
@@ -161,7 +165,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             orig_mode: None,
             template_modes: vec!(),
             pending_table_text: vec!(),
-            quirks_mode: NoQuirks,
+            quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
             open_elems: vec!(),
             active_formatting: vec!(),
@@ -193,7 +197,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             orig_mode: None,
             template_modes: if context_is_template { vec![InTemplate] } else { vec![] },
             pending_table_text: vec!(),
-            quirks_mode: NoQuirks, // FIXME(#96) set this to match the sink's document
+            quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
             open_elems: vec!(),
             active_formatting: vec!(),
