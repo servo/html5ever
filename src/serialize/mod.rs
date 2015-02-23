@@ -24,19 +24,23 @@ pub fn serialize<Wr: Writer, T: Serializable>
     (writer: &mut Wr, node: &T, opts: SerializeOpts) -> IoResult<()> {
 
     let mut ser = Serializer::new(writer, opts);
-    node.serialize(&mut ser, false)
+    node.serialize(&mut ser, opts.include_root)
 }
 
 #[derive(Copy)]
 pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,
+
+    /// Serialize the root node? Default: false
+    pub include_root: bool,
 }
 
 impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
+            include_root: false,
         }
     }
 }
