@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, env, io, path, plugin, rustc_private, start, std_misc, test)]
+#![feature(core, env, old_io, old_path, plugin, rustc_private, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
@@ -311,7 +311,7 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
         },
         testfn: DynTestFn(Thunk::new(move || {
             // Split up the input at different points to test incremental tokenization.
-            let insplits = splits(input.as_slice(), 3);
+            let insplits = splits(&input, 3);
             for input in insplits.into_iter() {
                 // Clone 'input' so we have it for the failure message.
                 // Also clone opts.  If we don't, we get the wrong

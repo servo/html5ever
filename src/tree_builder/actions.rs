@@ -668,7 +668,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     // https://html.spec.whatwg.org/multipage/syntax.html#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         for (i, mut node) in self.open_elems.iter().enumerate().rev() {
-            let last = i == 0us;
+            let last = i == 0usize;
             if let (true, Some(ctx)) = (last, self.context_elem.as_ref()) {
                 node = ctx;
             }
@@ -771,7 +771,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle {
         // FIXME: This really wants unit tests.
         let mut first_match = None;
-        let mut matches = 0us;
+        let mut matches = 0usize;
         for (i, _, old_tag) in self.active_formatting_end_to_marker() {
             if tag.equiv_modulo_attr_order(old_tag) {
                 first_match = Some(i);

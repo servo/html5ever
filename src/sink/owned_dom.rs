@@ -37,7 +37,7 @@ use core::ptr;
 use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
-use std::string::CowString;
+use std::borrow::Cow;
 use std::old_io::{Writer, IoResult};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
@@ -150,7 +150,7 @@ fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
 pub struct Sink {
     nodes: Vec<Box<UnsafeCell<SquishyNode>>>,
     document: Handle,
-    errors: Vec<CowString<'static>>,
+    errors: Vec<Cow<'static, str>>,
     quirks_mode: QuirksMode,
 }
 
@@ -186,7 +186,7 @@ impl Sink {
 impl TreeSink for Sink {
     type Handle = Handle;
 
-    fn parse_error(&mut self, msg: CowString<'static>) {
+    fn parse_error(&mut self, msg: Cow<'static, str>) {
         self.errors.push(msg);
     }
 
@@ -302,7 +302,7 @@ pub struct Node {
 
 pub struct OwnedDom {
     pub document: Box<Node>,
-    pub errors: Vec<CowString<'static>>,
+    pub errors: Vec<Cow<'static, str>>,
     pub quirks_mode: QuirksMode,
 }
 

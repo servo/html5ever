@@ -31,12 +31,12 @@ fn any_not_whitespace(x: &String) -> bool {
 }
 
 // This goes in a trait so that we can control visibility.
-pub trait TreeBuilderStep<Handle> {
+pub trait TreeBuilderStep {
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult;
 }
 
 #[doc(hidden)]
-impl<Handle, Sink> TreeBuilderStep<Handle>
+impl<Handle, Sink> TreeBuilderStep
     for super::TreeBuilder<Handle, Sink>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,

@@ -14,7 +14,7 @@ use util::smallcharset::SmallCharSet;
 
 use core::str::CharRange;
 use collections::string::String;
-use collections::RingBuf;
+use collections::VecDeque;
 
 pub use self::SetResult::{FromSet, NotFromSet};
 
@@ -36,14 +36,14 @@ pub enum SetResult {
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    buffers: RingBuf<Buffer>,
+    buffers: VecDeque<Buffer>,
 }
 
 impl BufferQueue {
     /// Create an empty BufferQueue.
     pub fn new() -> BufferQueue {
         BufferQueue {
-            buffers: RingBuf::with_capacity(3),
+            buffers: VecDeque::with_capacity(3),
         }
     }
 
@@ -134,7 +134,7 @@ impl BufferQueue {
     // If they do not match, return Some(false).
     // If not enough characters are available to know, return None.
     pub fn eat(&mut self, pat: &str) -> Option<bool> {
-        let mut buffers_exhausted = 0us;
+        let mut buffers_exhausted = 0usize;
         let mut consumed_from_last = match self.buffers.front() {
             None => return None,
             Some(ref buf) => buf.pos,

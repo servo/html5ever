@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(io)]
+#![feature(old_io)]
 
 extern crate string_cache;
 
@@ -17,7 +17,7 @@ use std::old_io as io;
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
-use std::string::CowString;
+use std::borrow::Cow;
 use string_cache::QualName;
 
 use html5ever::{parse_to, one_input};
@@ -70,7 +70,7 @@ impl TreeSink for Sink {
         Ok(())
     }
 
-    fn parse_error(&mut self, _msg: CowString<'static>) { }
+    fn parse_error(&mut self, _msg: Cow<'static, str>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: usize, _child: NodeOrText<usize>) { }
 

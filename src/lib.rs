@@ -11,8 +11,8 @@
 #![crate_type="dylib"]
 
 #![feature(plugin, box_syntax, no_std)]
-#![feature(core, hash, collections, alloc)]
-#![cfg_attr(not(for_c), feature(io))]
+#![feature(core, collections, alloc)]
+#![cfg_attr(not(for_c), feature(old_io))]
 #![deny(warnings)]
 #![allow(unused_parens)]
 

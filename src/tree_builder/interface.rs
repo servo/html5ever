@@ -16,7 +16,7 @@ use tokenizer::Attribute;
 
 use collections::vec::Vec;
 use collections::string::String;
-use std::string::CowString;
+use std::borrow::Cow;
 
 use string_cache::QualName;
 
@@ -48,7 +48,7 @@ pub trait TreeSink {
     type Handle: Clone;
 
     /// Signal a parse error.
-    fn parse_error(&mut self, msg: CowString<'static>);
+    fn parse_error(&mut self, msg: Cow<'static, str>);
 
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Self::Handle;
