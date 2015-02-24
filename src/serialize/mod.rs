@@ -195,4 +195,12 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         try!(self.writer.write_str(name));
         self.writer.write_char('\n')
     }
+
+    pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> IoResult<()> {
+        try!(self.writer.write_str("<?"));
+        try!(self.writer.write_str(target));
+        try!(self.writer.write_char(' '));
+        try!(self.writer.write_str(data));
+        self.writer.write_char('>')
+    }
 }
