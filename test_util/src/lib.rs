@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(io, path)]
+#![feature(old_io, old_path)]
 
 use std::old_io as io;
 use std::old_path::{GenericPath,Path};

@@ -12,8 +12,8 @@ use core::prelude::*;
 use core::ptr;
 use core::slice;
 use core::str;
-use core::marker::ContravariantLifetime;
-use collections::string::CowString;
+use core::marker::PhantomData;
+use std::borrow::Cow;
 use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
@@ -43,7 +43,7 @@ impl h5e_buf {
 
 pub struct LifetimeBuf<'a> {
     buf: h5e_buf,
-    marker: ContravariantLifetime<'a>,
+    marker: PhantomData<&'a [u8]>,
 }
 
 impl<'a> LifetimeBuf<'a> {
@@ -53,14 +53,14 @@ impl<'a> LifetimeBuf<'a> {
                 data: x.as_bytes().as_ptr(),
                 len: x.len() as size_t,
             },
-            marker: ContravariantLifetime,
+            marker: PhantomData,
         }
     }
 
     pub fn null() -> LifetimeBuf<'a> {
         LifetimeBuf {
             buf: h5e_buf::null(),
-            marker: ContravariantLifetime,
+            marker: PhantomData,
         }
     }
 
@@ -88,7 +88,7 @@ impl AsLifetimeBuf for Atom {
     }
 }
 
-impl<'b> AsLifetimeBuf for CowString<'b> {
+impl<'b> AsLifetimeBuf for Cow<'b, str> {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
         LifetimeBuf::from_str(self.as_slice())
     }

@@ -15,7 +15,8 @@ use tokenizer::states;
 use collections::vec::Vec;
 use collections::slice::SliceExt;
 use collections::string::String;
-use std::string::CowString;
+use std::borrow::Cow;
+use std::marker::Send;
 
 use string_cache::{Atom, QualName};
 
@@ -96,8 +97,11 @@ pub enum Token {
     CharacterTokens(String),
     NullCharacterToken,
     EOFToken,
-    ParseError(CowString<'static>),
+    ParseError(Cow<'static, str>),
 }
+
+// FIXME: rust-lang/rust#22629
+unsafe impl Send for Token { }
 
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {

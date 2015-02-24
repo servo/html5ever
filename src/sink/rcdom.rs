@@ -27,7 +27,7 @@ use core::default::Default;
 use alloc::rc::{Rc, Weak};
 use collections::vec::Vec;
 use collections::string::String;
-use std::string::CowString;
+use std::borrow::Cow;
 use std::old_io::{Writer, IoResult};
 use std::ops::DerefMut;
 
@@ -117,7 +117,7 @@ pub struct RcDom {
     pub document: Handle,
 
     /// Errors that occurred during parsing.
-    pub errors: Vec<CowString<'static>>,
+    pub errors: Vec<Cow<'static, str>>,
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
@@ -126,7 +126,7 @@ pub struct RcDom {
 impl TreeSink for RcDom {
     type Handle = Handle;
 
-    fn parse_error(&mut self, msg: CowString<'static>) {
+    fn parse_error(&mut self, msg: Cow<'static, str>) {
         self.errors.push(msg);
     }
 

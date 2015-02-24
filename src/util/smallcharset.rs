@@ -52,8 +52,8 @@ mod test {
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {
-            for x in range(0, 48us) {
-                for y in range(0, 48us) {
+            for x in range(0, 48usize) {
+                for y in range(0, 48usize) {
                     let mut s = repeat("x").take(x).collect::<String>();
                     s.push(c);
                     s.push_str(repeat("x").take(y).collect::<String>().as_slice());

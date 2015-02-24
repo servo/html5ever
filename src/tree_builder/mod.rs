@@ -33,7 +33,7 @@ use core::mem::replace;
 use collections::vec::Vec;
 use collections::string::String;
 use std::borrow::Cow::Borrowed;
-use collections::RingBuf;
+use collections::VecDeque;
 
 #[macro_use] mod tag_sets;
 // "pub" is a workaround for rust#18241 (?)
@@ -324,7 +324,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn process_to_completion(&mut self, mut token: Token) {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
-        let mut more_tokens = RingBuf::new();
+        let mut more_tokens = VecDeque::new();
 
         loop {
             let is_self_closing = match token {

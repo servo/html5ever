@@ -42,8 +42,7 @@ use collections::vec::Vec;
 use collections::slice::SliceExt;
 use collections::string::{String, ToString};
 use collections::str::StrExt;
-use std::string::CowString;
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
 use string_cache::{Atom, QualName};
@@ -537,7 +536,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.input_buffers.push_front(buf);
     }
 
-    fn emit_error(&mut self, error: CowString<'static>) {
+    fn emit_error(&mut self, error: Cow<'static, str>) {
         self.process_token(ParseError(error));
     }
 }

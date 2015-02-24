@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(io)]
+#![feature(old_io)]
 
 //! Parse and re-serialize a HTML5 document.
 //!
