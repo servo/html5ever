@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, core, env, io, path, std_misc, start, test)]
+#![feature(box_syntax, core, env, old_io, old_path, std_misc, start, test)]
 
 extern crate test;
 extern crate html5ever;
@@ -56,7 +56,7 @@ impl Bench {
         // Break the input into chunks of 1024 chars (= a few kB).
         // This simulates reading from the network.
         let mut input = vec![];
-        let mut total = 0us;
+        let mut total = 0usize;
         while total < size {
             // The by_ref() call is important, otherwise we get wrong results!
             // See rust-lang/rust#18045.
