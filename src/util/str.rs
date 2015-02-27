@@ -12,11 +12,8 @@ use core::prelude::*;
 use core::str::CharEq;
 use collections::vec::Vec;
 use collections::string::String;
-
-#[cfg(not(for_c))]
 use core::fmt::Debug;
 
-#[cfg(not(for_c))]
 pub fn to_escaped_string<T: Debug>(x: &T) -> String {
     use collections::str::StrExt;
     use core::fmt::Write;

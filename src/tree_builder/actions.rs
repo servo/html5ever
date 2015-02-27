@@ -22,10 +22,7 @@ use tree_builder::rules::TreeBuilderStep;
 use tokenizer::{Attribute, Tag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
-use util::str::AsciiExt;
-
-#[cfg(not(for_c))]
-use util::str::to_escaped_string;
+use util::str::{AsciiExt, to_escaped_string};
 
 use core::mem::replace;
 use core::iter::{Rev, Enumerate};

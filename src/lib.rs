@@ -44,6 +44,9 @@ extern crate log;
 #[macro_use]
 extern crate string_cache;
 
+#[macro_use]
+extern crate mac;
+
 extern crate phf;
 
 extern crate time;

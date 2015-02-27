@@ -7,68 +7,29 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-macro_rules! unwrap_or_else ( ($opt:expr, $else_block:block) => (
-    match $opt {
-        None => $else_block,
-        Some(x) => x,
+macro_rules! unwrap_or_else {
+    ($opt:expr, $else_block:block) => {
+        match $opt {
+            None => $else_block,
+            Some(x) => x,
+        }
     }
-));
+}
 
-macro_rules! unwrap_or_return ( ($opt:expr, $retval:expr) => (
-    unwrap_or_else!($opt, { return $retval })
-));
-
-macro_rules! test_eq ( ($name:ident, $left:expr, $right:expr) => (
-    #[test]
-    fn $name() {
-        assert_eq!($left, $right);
+macro_rules! unwrap_or_return {
+    ($opt:expr, $retval:expr) => {
+        unwrap_or_else!($opt, { return $retval })
     }
-));
+}
 
-/// Make a tuple of the addresses of some of a struct's fields.
-macro_rules! addrs_of ( ($obj:expr => $($field:ident),+) => (
-    ( // make a tuple
-        $(
-            unsafe {
-                ::core::mem::transmute::<_, usize>(&$obj.$field)
-            }
-        ),+
-    )
-));
-
-// No format!() without libstd... just use the static message.
-#[cfg(for_c)]
-macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
-    ::std::borrow::Cow::Borrowed($msg_static)
-));
-
-#[cfg(not(for_c))]
-macro_rules! format_if ( ($pred:expr, $msg_static:expr, $msg_fmt:expr, $($arg:expr),*) => (
-    if $pred {
-        ::std::borrow::Cow::Owned(format!($msg_fmt, $($arg),*))
-    } else {
-        ::std::borrow::Cow::Borrowed($msg_static)
-    }
-));
-
-macro_rules! time ( ($e:expr) => ({
-    let t0 = ::time::precise_time_ns();
-    let result = $e;
-    let dt = ::time::precise_time_ns() - t0;
-    (result, dt)
-}));
-
-/// FIXME(rust-lang/rust#16806): copied from libcollections/macros.rs
-#[cfg(for_c)]
-macro_rules! vec(
-    ($($e:expr),*) => ({
-        // leading _ to allow empty construction without a warning.
-        let mut _temp = ::collections::vec::Vec::new();
-        $(_temp.push($e);)*
-        _temp
-    });
-    ($($e:expr),+,) => (vec!($($e),+))
-);
+macro_rules! time {
+    ($e:expr) => {{
+        let t0 = ::time::precise_time_ns();
+        let result = $e;
+        let dt = ::time::precise_time_ns() - t0;
+        (result, dt)
+    }}
+}
 
 // Disable logging when building without the runtime.
 #[cfg(for_c)]
