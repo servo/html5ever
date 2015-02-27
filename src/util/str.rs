@@ -9,7 +9,6 @@
 
 use core::prelude::*;
 
-use core::str::CharEq;
 use collections::vec::Vec;
 use collections::string::String;
 use core::fmt::Debug;
@@ -191,12 +190,14 @@ pub fn is_ascii_whitespace(c: char) -> bool {
 /// and also return whether they match.
 ///
 /// Returns `None` on an empty string.
-pub fn char_run<Pred: CharEq>(mut pred: Pred, buf: &str) -> Option<(usize, bool)> {
+pub fn char_run<Pred>(mut pred: Pred, buf: &str) -> Option<(usize, bool)>
+    where Pred: FnMut(char) -> bool,
+{
     let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
-    let matches = pred.matches(first);
+    let matches = pred(first);
 
     for (idx, ch) in rest.char_indices() {
-        if matches != pred.matches(ch) {
+        if matches != pred(ch) {
             return Some((idx + first.len_utf8(), matches));
         }
     }

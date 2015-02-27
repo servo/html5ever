@@ -9,13 +9,13 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
-#![feature(core, env, old_io, test, old_path)]
+#![feature(core, env, test, io, path, fs)]
 
 extern crate test;
 extern crate html5ever;
 
-use std::old_io as io;
-use std::env;
+use std::{fs, env};
+use std::io::prelude::*;
 use std::default::Default;
 
 use test::black_box;
@@ -34,12 +34,13 @@ impl TokenSink for Sink {
 }
 
 fn main() {
-    let mut path = env::current_exe().ok().expect("can't get exe path");
+    let mut path = env::current_exe().unwrap();
     path.push("../data/bench/");
     path.push(env::args().nth(1).unwrap().as_slice());
 
-    let mut file = io::File::open(&path).ok().expect("can't open file");
-    let file_input = file.read_to_string().ok().expect("can't read file");
+    let mut file = fs::File::open(&path).unwrap();
+    let mut file_input = String::new();
+    file.read_to_string(&mut file_input).unwrap();
 
     tokenize_to(Sink, one_input(file_input), TokenizerOpts {
         profile: true,
