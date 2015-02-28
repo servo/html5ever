@@ -20,6 +20,8 @@ use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder;
 use serialize::{Serializable, Serializer};
+use serialize::TraversalScope;
+use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
 use core::cell::RefCell;
@@ -267,39 +269,40 @@ impl ParseResult for RcDom {
 }
 
 impl Serializable for Handle {
-    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>, incl_self: bool) -> IoResult<()> {
+    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>,
+                                  traversal_scope: TraversalScope) -> IoResult<()> {
         let node = self.borrow();
-        match (incl_self, &node.node) {
+        match (traversal_scope, &node.node) {
             (_, &Element(ref name, ref attrs)) => {
-                if incl_self {
+                if traversal_scope == IncludeNode {
                     try!(serializer.start_elem(name.clone(),
                         attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
                 }
 
                 for handle in node.children.iter() {
-                    try!(handle.clone().serialize(serializer, true));
+                    try!(handle.clone().serialize(serializer, IncludeNode));
                 }
 
-                if incl_self {
+                if traversal_scope == IncludeNode {
                     try!(serializer.end_elem(name.clone()));
                 }
                 Ok(())
             }
 
-            (false, &Document) => {
+            (ChildrenOnly, &Document) => {
                 for handle in node.children.iter() {
-                    try!(handle.clone().serialize(serializer, true));
+                    try!(handle.clone().serialize(serializer, IncludeNode));
                 }
                 Ok(())
             }
 
-            (false, _) => Ok(()),
+            (ChildrenOnly, _) => Ok(()),
 
-            (true, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
-            (true, &Text(ref text)) => serializer.write_text(text.as_slice()),
-            (true, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
+            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
+            (IncludeNode, &Text(ref text)) => serializer.write_text(text.as_slice()),
+            (IncludeNode, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
 
-            (true, &Document) => panic!("Can't serialize Document node itself"),
+            (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }
     }
 }

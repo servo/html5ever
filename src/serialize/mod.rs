@@ -16,15 +16,22 @@ use collections::vec::Vec;
 use string_cache::{Atom, QualName};
 
 //§ serializing-html-fragments
+#[derive(Copy, PartialEq)]
+pub enum TraversalScope {
+    IncludeNode,
+    ChildrenOnly
+}
+
 pub trait Serializable {
-    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>, incl_self: bool) -> IoResult<()>;
+    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>,
+                                  traversal_scope: TraversalScope) -> IoResult<()>;
 }
 
 pub fn serialize<Wr: Writer, T: Serializable>
     (writer: &mut Wr, node: &T, opts: SerializeOpts) -> IoResult<()> {
 
     let mut ser = Serializer::new(writer, opts);
-    node.serialize(&mut ser, opts.include_root)
+    node.serialize(&mut ser, opts.traversal_scope)
 }
 
 #[derive(Copy)]
@@ -32,15 +39,15 @@ pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,
 
-    /// Serialize the root node? Default: false
-    pub include_root: bool,
+    /// Serialize the root node? Default: ChildrenOnly
+    pub traversal_scope: TraversalScope,
 }
 
 impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
-            include_root: false,
+            traversal_scope: TraversalScope::ChildrenOnly,
         }
     }
 }
