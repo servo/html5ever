@@ -45,7 +45,7 @@ use std::ops::{Deref, DerefMut};
 use string_cache::QualName;
 
 /// The internal type we use for nodes during parsing.
-struct SquishyNode {
+pub struct SquishyNode {
     node: NodeEnum,
     parent: Handle,
     children: Vec<Handle>,
@@ -61,7 +61,7 @@ impl SquishyNode {
     }
 }
 
-struct Handle {
+pub struct Handle {
     ptr: *const UnsafeCell<SquishyNode>,
 }
 

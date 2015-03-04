@@ -169,17 +169,19 @@ impl CharRefTokenizer {
     }
 
     fn do_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
+        use std::num::wrapping::WrappingOps;
+
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match c.to_digit(base as u32) {
             Some(n) => {
                 tokenizer.discard_char();
-                self.num *= base;
+                self.num = self.num.wrapping_mul(base);
                 if self.num > 0x10FFFF {
                     // We might overflow, and the character is definitely invalid.
                     // We still parse digits and semicolon, but don't use the result.
                     self.num_too_big = true;
                 }
-                self.num += n as u32;
+                self.num = self.num.wrapping_add(n as u32);
                 self.seen_digit = true;
                 Progress
             }

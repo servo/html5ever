@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, env, old_io, old_path, plugin, rustc_private, start, std_misc, test)]
+#![feature(core, old_io, old_path, plugin, rustc_private, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
