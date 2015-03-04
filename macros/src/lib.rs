@@ -18,11 +18,10 @@ extern crate syntax;
 extern crate rustc;
 extern crate "serialize" as rustc_serialize;
 
-use rustc::plugin::Registry;
-
-// Internal macros for use in defining other macros.
 #[macro_use]
-mod internal;
+extern crate mac;
+
+use rustc::plugin::Registry;
 
 // Make these public so that rustdoc will generate documentation for them.
 pub mod named_entities;
