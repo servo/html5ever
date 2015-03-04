@@ -20,7 +20,7 @@ use rustc_serialize::Decodable;
 use syntax::codemap::Span;
 use syntax::ast::{Path, ExprLit, Lit_, TokenTree, TtToken};
 use syntax::parse::token;
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 use syntax::ext::source_util::expand_file;
 
 // A struct matching the entries in entities.json.
@@ -115,5 +115,5 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
         let k = k.as_slice();
         (quote_tokens!(&mut *cx, $k => [$c0, $c1],)).into_iter()
     }).collect();
-    MacExpr::new(quote_expr!(&mut *cx, phf_map!($toks)))
+    MacEager::expr(quote_expr!(&mut *cx, phf_map!($toks)))
 }

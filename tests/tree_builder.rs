@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, env, old_io, old_path, plugin, start, std_misc, test)]
+#![feature(core, old_io, old_path, plugin, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
@@ -142,7 +142,7 @@ fn make_test(
         idx: usize,
         fields: HashMap<String, String>) {
 
-    let get_field = |&:key| {
+    let get_field = |key| {
         let field = fields.get(key).expect("missing field");
         field.as_slice().trim_right_matches('\n').to_string()
     };

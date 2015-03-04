@@ -106,7 +106,7 @@ use syntax::ast;
 use syntax::parse::parser::Parser;
 use syntax::parse::{token, parser, classify};
 use syntax::parse;
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 
 use self::TagKind::{StartTag, EndTag};
 use self::LHS::{Pat, Tags};
@@ -454,7 +454,7 @@ pub fn expand(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree]) -> Box<MacR
     }
 
     // Put it all together!
-    MacExpr::new(quote_expr!(&mut *cx,
+    MacEager::expr(quote_expr!(&mut *cx,
         match $discriminant {
             $arm_code
 
