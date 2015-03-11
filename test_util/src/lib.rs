@@ -7,27 +7,30 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(old_io, old_path)]
+#![feature(path)]
 
-use std::old_io as io;
-use std::old_path::{GenericPath,Path};
+use std::fs;
+use std::ffi::OsStr;
+use std::path::Path;
 use std::ops::FnMut;
-use std::str::StrExt;
 
 pub fn foreach_html5lib_test<Mk>(
-        src_dir: Path,
+        src_dir: &Path,
         subdir: &'static str,
-        ext: &'static str,
+        ext: &'static OsStr,
         mut mk: Mk)
-    where Mk: FnMut(&str, io::File)
+    where Mk: FnMut(&Path, fs::File)
 {
-    let test_dir_path = src_dir.join_many(&["html5lib-tests", subdir]);
-    let test_files = io::fs::readdir(&test_dir_path).unwrap();
-    for path in test_files.into_iter() {
-        let path_str = path.filename_str().unwrap();
-        if path_str.ends_with(ext) {
-            let file = io::File::open(&path).unwrap();
-            mk(path_str, file);
+    let mut test_dir_path = src_dir.to_path_buf();
+    test_dir_path.push("html5lib-tests");
+    test_dir_path.push(subdir);
+
+    let test_files = fs::read_dir(&test_dir_path).unwrap();
+    for entry in test_files {
+        let path = entry.unwrap().path();
+        if path.extension() == Some(ext) {
+            let file = fs::File::open(&path).unwrap();
+            mk(&path, file);
         }
     }
 }

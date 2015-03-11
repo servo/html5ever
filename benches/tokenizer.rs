@@ -7,18 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, core, old_io, old_path, std_misc, start, test)]
+#![feature(box_syntax, core, std_misc, start, test, io, path)]
 
 extern crate test;
 extern crate html5ever;
 
-use std::old_io as io;
-use std::{env, cmp, rt};
+use std::{fs, env, cmp, rt};
+use std::path::PathBuf;
+use std::io::Read;
 use std::default::Default;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
-use test::ShouldFail::No;
+use test::ShouldPanic::No;
 
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
@@ -43,13 +44,14 @@ struct Bench {
 impl Bench {
     fn new(name: &str, size: Option<usize>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
-        let mut path = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut path = PathBuf::new(env!("CARGO_MANIFEST_DIR"));
         path.push("data/bench/");
         path.push(name);
-        let mut file = io::File::open(&path).ok().expect("can't open file");
+        let mut file = fs::File::open(&path).ok().expect("can't open file");
 
         // Read the file and treat it as an infinitely repeating sequence of characters.
-        let file_input = file.read_to_string().ok().expect("can't read file");
+        let mut file_input = String::new();
+        file.read_to_string(&mut file_input).ok().expect("can't read file");
         let size = size.unwrap_or(file_input.len());
         let mut stream = file_input.as_slice().chars().cycle();
 
@@ -107,7 +109,7 @@ fn make_bench(name: &str, size: Option<usize>, clone_only: bool,
                 (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
             ].concat().to_string()),
             ignore: false,
-            should_fail: No,
+            should_panic: No,
         },
         testfn: DynBenchFn(box Bench::new(name, size, clone_only, opts)),
     }

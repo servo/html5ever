@@ -9,5 +9,8 @@ authors = [ "The html5ever Project Developers" ]
 name = "html5ever_macros"
 plugin = true
 
+[dependencies]
+rustc-serialize = "0"
+
 [dependencies.mac]
 git = "https://github.com/reem/rust-mac"

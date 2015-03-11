@@ -11,12 +11,12 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote)]
-#![feature(rustc_private, core, collections, old_path, old_io, std_misc)]
+#![feature(rustc_private, core, collections, std_misc, path)]
 #![deny(warnings)]
 
 extern crate syntax;
 extern crate rustc;
-extern crate "serialize" as rustc_serialize;
+extern crate "rustc-serialize" as rustc_serialize;
 
 #[macro_use]
 extern crate mac;
