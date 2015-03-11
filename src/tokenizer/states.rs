@@ -90,4 +90,5 @@ pub enum State {
     BetweenDoctypePublicAndSystemIdentifiers,
     BogusDoctype,
     CdataSection,
+    Quiescent,
 }

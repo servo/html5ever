@@ -328,8 +328,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    // Run the state machine for as long as we can.
-    fn run(&mut self) {
+    /// Run the state machine for as long as we can.
+    pub fn run(&mut self) {
         if self.opts.profile {
             loop {
                 let state = self.state;
@@ -410,11 +410,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         });
         self.process_token(token);
 
-        if self.current_tag_kind == StartTag {
-            match self.sink.query_state_change() {
-                None => (),
-                Some(s) => self.state = s,
-            }
+        match self.sink.query_state_change() {
+            None => (),
+            Some(s) => self.state = s,
         }
     }
 
@@ -651,6 +649,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         h5e_debug!("processing in state {:?}", self.state);
         match self.state {
+            // Reachable only through `query_state_change`. The tree builder wants
+            // the tokenizer to suspend processing.
+            states::Quiescent => {
+                self.state = states::Data;
+                return false;
+            }
+
             //§ data-state
             states::Data => loop {
                 match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
@@ -1271,7 +1276,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         h5e_debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
-            | states::RawData(ScriptData) | states::Plaintext
+            | states::RawData(ScriptData) | states::Plaintext | states::Quiescent
                 => go!(self: eof),
 
             states::TagName | states::RawData(ScriptDataEscaped(_))

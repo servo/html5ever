@@ -108,7 +108,7 @@ pub trait TokenSink {
     /// Process a token.
     fn process_token(&mut self, token: Token);
 
-    /// The tokenizer will call this after emitting any start tag.
+    /// The tokenizer will call this after emitting any tag.
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.
     fn query_state_change(&mut self) -> Option<states::State> {
