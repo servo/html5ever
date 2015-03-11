@@ -7,12 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, old_io, old_path, plugin, rustc_private, start, std_misc, test)]
+#![feature(core, plugin, start, std_misc, test, path)]
 
 #![plugin(string_cache_plugin)]
 
 extern crate test;
-extern crate serialize;
+extern crate "rustc-serialize" as rustc_serialize;
 extern crate string_cache;
 
 extern crate html5ever;
@@ -21,14 +21,14 @@ extern crate test_util;
 use test_util::foreach_html5lib_test;
 
 use std::{num, char, env, rt};
+use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
-use std::old_path::Path;
+use std::path::Path;
 use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldFail::No;
-use serialize::json;
-use serialize::json::Json;
+use test::ShouldPanic::No;
+use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
 
@@ -307,7 +307,7 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
         desc: TestDesc {
             name: DynTestName(desc),
             ignore: false,
-            should_fail: No,
+            should_panic: No,
         },
         testfn: DynTestFn(Thunk::new(move || {
             // Split up the input at different points to test incremental tokenization.
@@ -327,12 +327,12 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
     }
 }
 
-fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
+fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").unwrap().get_str();
     let mut expect = js.find("output").unwrap().clone();
     let desc = format!("tok: {}: {}",
-        path_str, js.find("description").unwrap().get_str());
+        filename, js.find("description").unwrap().get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
@@ -388,17 +388,17 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, path_str: &str, js: &Json) {
     }
 }
 
-fn tests(src_dir: Path) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
-    foreach_html5lib_test(src_dir, "tokenizer", ".test", |path_str, mut file| {
-        let js = json::from_reader(&mut file as &mut Reader)
-            .ok().expect("json parse error");
+    foreach_html5lib_test(src_dir, "tokenizer",
+                          OsStr::from_str("test"), |path, mut file| {
+        let js = Json::from_reader(&mut file).ok().expect("json parse error");
 
         match js.get_obj().get(&"tests".to_string()) {
             Some(&Json::Array(ref lst)) => {
                 for test in lst.iter() {
-                    mk_tests(&mut tests, path_str.as_slice(), test);
+                    mk_tests(&mut tests, path.file_name().unwrap().to_str().unwrap(), test);
                 }
             }
 

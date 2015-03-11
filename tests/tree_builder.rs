@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, old_io, old_path, plugin, start, std_misc, test)]
+#![feature(core, plugin, start, std_misc, test, io, path)]
 
 #![plugin(string_cache_plugin)]
 
@@ -19,16 +19,17 @@ extern crate test_util;
 
 use test_util::foreach_html5lib_test;
 
-use std::old_io as io;
-use std::{env, rt};
+use std::{fs, io, env, rt};
+use std::io::BufReadExt;
+use std::ffi::OsStr;
 use std::iter::repeat;
 use std::mem::replace;
 use std::default::Default;
-use std::old_path::Path;
+use std::path::Path;
 use std::collections::{HashSet, HashMap};
 use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldFail::No;
+use test::ShouldPanic::No;
 
 use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever::sink::rcdom::{RcDom, Handle};
@@ -45,7 +46,9 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
     macro_rules! finish_val ( () => (
         match key.take() {
             None => (),
-            Some(key) => assert!(test.insert(key, replace(&mut val, String::new())).is_none()),
+            Some(key) => {
+                assert!(test.insert(key, replace(&mut val, String::new())).is_none());
+            }
         }
     ));
 
@@ -61,12 +64,13 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
             Some(line) => {
                 if line.starts_with("#") {
                     finish_val!();
-                    if line.as_slice() == "#data\n" {
+                    if line.as_slice() == "#data" {
                         finish_test!();
                     }
-                    key = Some(line[1..].trim_right_matches('\n').to_string());
+                    key = Some(line[1..].to_string());
                 } else {
                     val.push_str(line.as_slice());
+                    val.push('\n');
                 }
             }
         }
@@ -138,7 +142,7 @@ static IGNORE_SUBSTRS: &'static [&'static str]
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
-        path_str: &str,
+        filename: &str,
         idx: usize,
         fields: HashMap<String, String>) {
 
@@ -151,7 +155,7 @@ fn make_test(
     let expected = get_field("document");
     let context = fields.get("document-fragment")
                         .map(|field| Atom::from_slice(field.as_slice().trim_right_matches('\n')));
-    let name = format!("tb: {}-{}", path_str, idx);
+    let name = format!("tb: {}-{}", filename, idx);
     let ignore = ignores.contains(&name)
         || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
 
@@ -159,7 +163,7 @@ fn make_test(
         desc: TestDesc {
             name: DynTestName(name),
             ignore: ignore,
-            should_fail: No,
+            should_panic: No,
         },
         testfn: DynTestFn(Thunk::new(move || {
             let mut result = String::new();
@@ -194,17 +198,19 @@ fn make_test(
     });
 }
 
-fn tests(src_dir: Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
-    foreach_html5lib_test(src_dir, "tree-construction", ".dat", |path_str, file| {
-        let mut buf = io::BufferedReader::new(file);
+    foreach_html5lib_test(src_dir, "tree-construction",
+                          OsStr::from_str("dat"), |path, file| {
+        let buf = io::BufReader::new(file);
         let lines = buf.lines()
             .map(|res| res.ok().expect("couldn't read"));
         let data = parse_tests(lines);
 
         for (i, test) in data.into_iter().enumerate() {
-            make_test(&mut tests, ignores, path_str, i, test);
+            make_test(&mut tests, ignores, path.file_name().unwrap().to_str().unwrap(),
+                      i, test);
         }
     });
 
@@ -220,8 +226,8 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     {
-        let f = io::File::open(&src_dir.join("data/test/ignore")).unwrap();
-        let mut r = io::BufferedReader::new(f);
+        let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();
+        let r = io::BufReader::new(f);
         for ln in r.lines() {
             ignores.insert(ln.unwrap().as_slice().trim_right().to_string());
         }
