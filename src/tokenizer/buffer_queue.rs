@@ -161,7 +161,7 @@ impl BufferQueue {
         }
 
         // We have a match. Commit changes to the BufferQueue.
-        for _ in range(0, buffers_exhausted) {
+        for _ in 0 .. buffers_exhausted {
             self.buffers.pop_front();
         }
 
