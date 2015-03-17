@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(old_io)]
-
 //! Parse and re-serialize a HTML5 document.
 //!
 //! This is meant to produce the exact same output (ignoring stderr) as
@@ -19,7 +17,7 @@
 
 extern crate html5ever;
 
-use std::old_io as io;
+use std::io::{self, Read, Write};
 use std::default::Default;
 
 use html5ever::sink::rcdom::RcDom;
@@ -28,7 +26,8 @@ use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
 
 fn main() {
-    let input = io::stdin().read_to_string().unwrap();
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
     let dom: RcDom = parse(one_input(input), ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,
@@ -38,7 +37,7 @@ fn main() {
     });
 
     // The validator.nu HTML2HTML always prints a doctype at the very beginning.
-    io::stdout().write_str("<!DOCTYPE html>\n")
+    io::stdout().write_all(b"<!DOCTYPE html>\n")
         .ok().expect("writing DOCTYPE failed");
     serialize(&mut io::stdout(), &dom.document, Default::default())
         .ok().expect("serialization failed");

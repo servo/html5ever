@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, old_io, collections)]
+#![feature(core, collections)]
 
 extern crate html5ever;
 
-use std::old_io as io;
+use std::io::{self, Read};
 use std::default::Default;
 
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
@@ -80,7 +80,8 @@ fn main() {
     let mut sink = TokenPrinter {
         in_char_run: false,
     };
-    let input = io::stdin().read_to_string().unwrap();
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
     tokenize_to(sink, one_input(input), TokenizerOpts {
         profile: true,
         .. Default::default()

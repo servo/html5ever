@@ -40,7 +40,7 @@ use alloc::boxed::Box;
 use collections::vec::Vec;
 use collections::string::String;
 use std::borrow::Cow;
-use std::old_io::{Writer, IoResult};
+use std::io::{self, Write};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 
@@ -355,9 +355,9 @@ impl ParseResult for OwnedDom {
 }
 
 impl Serializable for Node {
-    fn serialize<'wr, Wr: Writer>(&self,
+    fn serialize<'wr, Wr: Write>(&self,
             serializer: &mut Serializer<'wr, Wr>,
-            traversal_scope: TraversalScope) -> IoResult<()> {
+            traversal_scope: TraversalScope) -> io::Result<()> {
 
         match (traversal_scope, &self.node) {
             (_, &Element(ref name, ref attrs)) => {

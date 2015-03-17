@@ -12,7 +12,6 @@
 
 #![feature(plugin, box_syntax, no_std)]
 #![feature(core, collections, alloc)]
-#![cfg_attr(not(for_c), feature(old_io))]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
