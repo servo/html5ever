@@ -39,9 +39,7 @@ use core::mem::replace;
 use core::default::Default;
 use alloc::boxed::Box;
 use collections::vec::Vec;
-use collections::slice::SliceExt;
 use collections::string::{String, ToString};
-use collections::str::StrExt;
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 

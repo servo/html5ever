@@ -13,7 +13,6 @@ use core::clone::Clone;
 use tokenizer::states;
 
 use collections::vec::Vec;
-use collections::slice::SliceExt;
 use collections::string::String;
 use std::borrow::Cow;
 use std::marker::Send;
