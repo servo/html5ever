@@ -14,7 +14,6 @@ use collections::string::String;
 use core::fmt::Debug;
 
 pub fn to_escaped_string<T: Debug>(x: &T) -> String {
-    use collections::str::StrExt;
     use core::fmt::Write;
 
     // FIXME: don't allocate twice
