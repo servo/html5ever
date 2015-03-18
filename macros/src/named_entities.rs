@@ -60,7 +60,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
     map.insert("".to_string(), [0, 0]);
     let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
     for k in keys.into_iter() {
-        for n in range(1, k.len()) {
+        for n in 1 .. k.len() {
             let pfx = k[..n].to_string();
             if !map.contains_key(&pfx) {
                 map.insert(pfx, [0, 0]);

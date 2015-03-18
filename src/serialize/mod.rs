@@ -9,7 +9,7 @@
 
 use core::prelude::*;
 
-use std::old_io::{Writer, IoResult};
+use std::io::{self, Write};
 use core::default::Default;
 use collections::vec::Vec;
 
@@ -23,12 +23,12 @@ pub enum TraversalScope {
 }
 
 pub trait Serializable {
-    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>,
-                                  traversal_scope: TraversalScope) -> IoResult<()>;
+    fn serialize<'wr, Wr: Write>(&self, serializer: &mut Serializer<'wr, Wr>,
+                                  traversal_scope: TraversalScope) -> io::Result<()>;
 }
 
-pub fn serialize<Wr: Writer, T: Serializable>
-    (writer: &mut Wr, node: &T, opts: SerializeOpts) -> IoResult<()> {
+pub fn serialize<Wr: Write, T: Serializable>
+    (writer: &mut Wr, node: &T, opts: SerializeOpts) -> io::Result<()> {
 
     let mut ser = Serializer::new(writer, opts);
     node.serialize(&mut ser, opts.traversal_scope)
@@ -66,7 +66,7 @@ pub struct Serializer<'wr, Wr:'wr> {
     stack: Vec<ElemInfo>,
 }
 
-impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
+impl<'wr, Wr: Write> Serializer<'wr, Wr> {
     fn new(writer: &'wr mut Wr, opts: SerializeOpts) -> Serializer<'wr, Wr> {
         Serializer {
             writer: writer,
@@ -83,15 +83,15 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         self.stack.last_mut().expect("no parent ElemInfo")
     }
 
-    fn write_escaped(&mut self, text: &str, attr_mode: bool) -> IoResult<()> {
+    fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
         for c in text.chars() {
             try!(match c {
-                '&' => self.writer.write_str("&amp;"),
-                '\u{00A0}' => self.writer.write_str("&nbsp;"),
-                '"' if attr_mode => self.writer.write_str("&quot;"),
-                '<' if !attr_mode => self.writer.write_str("&lt;"),
-                '>' if !attr_mode => self.writer.write_str("&gt;"),
-                c => self.writer.write_char(c),
+                '&' => self.writer.write_all(b"&amp;"),
+                '\u{00A0}' => self.writer.write_all(b"&nbsp;"),
+                '"' if attr_mode => self.writer.write_all(b"&quot;"),
+                '<' if !attr_mode => self.writer.write_all(b"&lt;"),
+                '>' if !attr_mode => self.writer.write_all(b"&gt;"),
+                c => self.writer.write_fmt(format_args!("{}", c)),
             });
         }
         Ok(())
@@ -100,7 +100,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
     pub fn start_elem<'a, AttrIter: Iterator<Item=AttrRef<'a>>>(
         &mut self,
         name: QualName,
-        attrs: AttrIter) -> IoResult<()> {
+        attrs: AttrIter) -> io::Result<()> {
 
         let html_name = match name.ns {
             ns!(HTML) => Some(name.local.clone()),
@@ -116,18 +116,18 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
             return Ok(());
         }
 
-        try!(self.writer.write_char('<'));
-        try!(self.writer.write_str(name.local.as_slice()));
+        try!(self.writer.write_all(b"<"));
+        try!(self.writer.write_all(name.local.as_slice().as_bytes()));
         for (name, value) in attrs {
-            try!(self.writer.write_char(' '));
+            try!(self.writer.write_all(b" "));
             // FIXME: qualified names
             assert!(name.ns == ns!(""));
-            try!(self.writer.write_str(name.local.as_slice()));
-            try!(self.writer.write_str("=\""));
+            try!(self.writer.write_all(name.local.as_slice().as_bytes()));
+            try!(self.writer.write_all(b"=\""));
             try!(self.write_escaped(value, true));
-            try!(self.writer.write_char('"'));
+            try!(self.writer.write_all(b"\""));
         }
-        try!(self.writer.write_char('>'));
+        try!(self.writer.write_all(b">"));
 
         let ignore_children = name.ns == ns!(HTML) && match name.local {
             atom!(area) | atom!(base) | atom!(basefont) | atom!(bgsound) | atom!(br)
@@ -149,19 +149,19 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         Ok(())
     }
 
-    pub fn end_elem(&mut self, name: QualName) -> IoResult<()> {
+    pub fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         let info = self.stack.pop().expect("no ElemInfo");
         if info.ignore_children {
             return Ok(());
         }
 
         // FIXME: Handle qualified tag names
-        try!(self.writer.write_str("</"));
-        try!(self.writer.write_str(name.local.as_slice()));
-        self.writer.write_char('>')
+        try!(self.writer.write_all(b"</"));
+        try!(self.writer.write_all(name.local.as_slice().as_bytes()));
+        self.writer.write_all(b">")
     }
 
-    pub fn write_text(&mut self, text: &str) -> IoResult<()> {
+    pub fn write_text(&mut self, text: &str) -> io::Result<()> {
         let prepend_lf = text.starts_with("\n") && {
             let parent = self.parent();
             !parent.processed_first_child && match parent.html_name {
@@ -171,7 +171,7 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         };
 
         if prepend_lf {
-            try!(self.writer.write_char('\n'));
+            try!(self.writer.write_all(b"\n"));
         }
 
         let escape = match self.parent().html_name {
@@ -187,27 +187,27 @@ impl<'wr, Wr: Writer> Serializer<'wr, Wr> {
         if escape {
             self.write_escaped(text, false)
         } else {
-            self.writer.write_str(text)
+            self.writer.write_all(text.as_bytes())
         }
     }
 
-    pub fn write_comment(&mut self, text: &str) -> IoResult<()> {
-        try!(self.writer.write_str("<!--"));
-        try!(self.writer.write_str(text));
-        self.writer.write_str("-->")
+    pub fn write_comment(&mut self, text: &str) -> io::Result<()> {
+        try!(self.writer.write_all(b"<!--"));
+        try!(self.writer.write_all(text.as_bytes()));
+        self.writer.write_all(b"-->")
     }
 
-    pub fn write_doctype(&mut self, name: &str) -> IoResult<()> {
-        try!(self.writer.write_str("<!DOCTYPE "));
-        try!(self.writer.write_str(name));
-        self.writer.write_char('\n')
+    pub fn write_doctype(&mut self, name: &str) -> io::Result<()> {
+        try!(self.writer.write_all(b"<!DOCTYPE "));
+        try!(self.writer.write_all(name.as_bytes()));
+        self.writer.write_all(b"\n")
     }
 
-    pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> IoResult<()> {
-        try!(self.writer.write_str("<?"));
-        try!(self.writer.write_str(target));
-        try!(self.writer.write_char(' '));
-        try!(self.writer.write_str(data));
-        self.writer.write_char('>')
+    pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
+        try!(self.writer.write_all(b"<?"));
+        try!(self.writer.write_all(target.as_bytes()));
+        try!(self.writer.write_all(b" "));
+        try!(self.writer.write_all(data.as_bytes()));
+        self.writer.write_all(b">")
     }
 }

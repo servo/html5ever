@@ -30,7 +30,7 @@ use alloc::rc::{Rc, Weak};
 use collections::vec::Vec;
 use collections::string::String;
 use std::borrow::Cow;
-use std::old_io::{Writer, IoResult};
+use std::io::{self, Write};
 use std::ops::DerefMut;
 
 use string_cache::QualName;
@@ -269,8 +269,8 @@ impl ParseResult for RcDom {
 }
 
 impl Serializable for Handle {
-    fn serialize<'wr, Wr: Writer>(&self, serializer: &mut Serializer<'wr, Wr>,
-                                  traversal_scope: TraversalScope) -> IoResult<()> {
+    fn serialize<'wr, Wr: Write>(&self, serializer: &mut Serializer<'wr, Wr>,
+                                  traversal_scope: TraversalScope) -> io::Result<()> {
         let node = self.borrow();
         match (traversal_scope, &node.node) {
             (_, &Element(ref name, ref attrs)) => {

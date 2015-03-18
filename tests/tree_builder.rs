@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, plugin, start, std_misc, test, io, path)]
+#![feature(core, plugin, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
@@ -20,7 +20,7 @@ extern crate test_util;
 use test_util::foreach_html5lib_test;
 
 use std::{fs, io, env, rt};
-use std::io::BufReadExt;
+use std::io::BufRead;
 use std::ffi::OsStr;
 use std::iter::repeat;
 use std::mem::replace;

@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, old_io, collections)]
+#![feature(plugin, collections)]
 #![plugin(string_cache_plugin)]
 
 extern crate html5ever;
@@ -15,7 +15,7 @@ extern crate html5ever;
 #[macro_use]
 extern crate string_cache;
 
-use std::old_io as io;
+use std::io::{self, Read};
 use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
@@ -60,7 +60,8 @@ fn walk(indent: usize, handle: Handle) {
 }
 
 fn main() {
-    let input = io::stdin().read_to_string().unwrap();
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
     let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 

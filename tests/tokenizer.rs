@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, plugin, start, std_misc, test, path)]
+#![feature(core, plugin, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 

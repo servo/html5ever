@@ -7,13 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(old_io, collections)]
+#![feature(collections)]
 
 extern crate string_cache;
 
 extern crate html5ever;
 
-use std::old_io as io;
+use std::io::{self, Read};
 use std::default::Default;
 use std::string::String;
 use std::collections::HashMap;
@@ -127,6 +127,7 @@ fn main() {
         names: HashMap::new(),
     };
 
-    let input = io::stdin().read_to_string().unwrap();
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
     parse_to(sink, one_input(input), Default::default());
 }
