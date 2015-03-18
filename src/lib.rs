@@ -10,8 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, no_std)]
-#![feature(core, collections, alloc)]
+#![feature(plugin, box_syntax, no_std, core, collections, alloc)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
