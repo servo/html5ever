@@ -529,6 +529,7 @@ macro_rules! shorthand (
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
     ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push($c);                       );
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
+    ( $me:ident : discard_char                     ) => ( $me.discard_char();                                  );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push($c);                               );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
@@ -611,6 +612,10 @@ macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) 
 // from the function where it is used.
 macro_rules! get_char ( ($me:expr) => (
     unwrap_or_return!($me.get_char(), false)
+));
+
+macro_rules! peek ( ($me:expr) => (
+    unwrap_or_return!($me.peek(), false)
 ));
 
 macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
@@ -912,18 +917,16 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ before-attribute-value-state
-            states::BeforeAttributeValue => loop { match get_char!(self) {
-                '\t' | '\n' | '\x0C' | ' ' => (),
-                '"'  => go!(self: to AttributeValue DoubleQuoted),
-                '&'  => go!(self: reconsume AttributeValue Unquoted),
-                '\'' => go!(self: to AttributeValue SingleQuoted),
-                '\0' => go!(self: error; push_value '\u{fffd}'; to AttributeValue Unquoted),
-                '>'  => go!(self: error; emit_tag Data),
-                c => {
-                    go_match!(self: c,
-                        '<' , '=' , '`' => error);
-                    go!(self: push_value c; to AttributeValue Unquoted);
-                }
+            // Use peek so we can handle the first attr character along with the rest,
+            // hopefully in the same zero-copy buffer.
+            states::BeforeAttributeValue => loop { match peek!(self) {
+                '\t' | '\n' | '\r' | '\x0C' | ' ' => go!(self: discard_char),
+                '"'  => go!(self: discard_char; to AttributeValue DoubleQuoted),
+                '&'  => go!(self: to AttributeValue Unquoted),
+                '\'' => go!(self: discard_char; to AttributeValue SingleQuoted),
+                '\0' => go!(self: discard_char; error; push_value '\u{fffd}'; to AttributeValue Unquoted),
+                '>'  => go!(self: discard_char; error; emit_tag Data),
+                _    => go!(self: to AttributeValue Unquoted),
             }},
 
             //§ attribute-value-(double-quoted)-state
