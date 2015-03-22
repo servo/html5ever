@@ -10,6 +10,7 @@
 #![feature(box_syntax, std_misc, start, test)]
 
 extern crate test;
+extern crate tendril;
 extern crate html5ever;
 
 use std::{fs, env, cmp, rt};
@@ -21,6 +22,7 @@ use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 use test::ShouldPanic::No;
 
+use tendril::{ByteTendril, StrTendril, ReadExt, SliceExt};
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
 struct Sink;
@@ -36,7 +38,7 @@ impl TokenSink for Sink {
 // This could almost be the TokenSink too, but it's not
 // mut within run().
 struct Bench {
-    input: Vec<String>,
+    input: Vec<StrTendril>,
     clone_only: bool,
     opts: TokenizerOpts,
 }
@@ -50,8 +52,9 @@ impl Bench {
         let mut file = fs::File::open(&path).ok().expect("can't open file");
 
         // Read the file and treat it as an infinitely repeating sequence of characters.
-        let mut file_input = String::new();
-        file.read_to_string(&mut file_input).ok().expect("can't read file");
+        let mut file_input = ByteTendril::new();
+        file.read_to_tendril(&mut file_input).ok().expect("can't read file");
+        let file_input: StrTendril = file_input.try_reinterpret().unwrap();
         let size = size.unwrap_or(file_input.len());
         let mut stream = file_input.chars().cycle();
 
@@ -63,7 +66,7 @@ impl Bench {
             // The by_ref() call is important, otherwise we get wrong results!
             // See rust-lang/rust#18045.
             let sz = cmp::min(1024, size - total);
-            input.push(stream.by_ref().take(sz).collect());
+            input.push(stream.by_ref().take(sz).collect::<String>().to_tendril());
             total += sz;
         }
 

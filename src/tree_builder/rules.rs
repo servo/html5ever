@@ -23,7 +23,9 @@ use std::mem::replace;
 use std::borrow::Cow::Borrowed;
 use std::borrow::ToOwned;
 
-fn any_not_whitespace(x: &String) -> bool {
+use tendril::{StrTendril, SliceExt};
+
+fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
     x.chars().any(|c| !is_ascii_whitespace(c))
 }
@@ -1314,7 +1316,7 @@ impl<Handle, Sink> TreeBuilderStep
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
-                self.append_text("\u{fffd}".to_owned())
+                self.append_text("\u{fffd}".to_tendril())
             }
 
             CharacterTokens(_, text) => {

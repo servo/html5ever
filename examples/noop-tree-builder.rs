@@ -8,15 +8,16 @@
 // except according to those terms.
 
 extern crate string_cache;
-
+extern crate tendril;
 extern crate html5ever;
 
-use std::io::{self, Read};
+use std::io;
 use std::default::Default;
-use std::string::String;
 use std::collections::HashMap;
 use std::borrow::Cow;
 use string_cache::QualName;
+
+use tendril::{StrTendril, ByteTendril, ReadExt};
 
 use html5ever::{parse_to, one_input};
 use html5ever::tokenizer::Attribute;
@@ -56,7 +57,7 @@ impl TreeSink for Sink {
         id
     }
 
-    fn create_comment(&mut self, _text: String) -> usize {
+    fn create_comment(&mut self, _text: StrTendril) -> usize {
         self.get_id()
     }
 
@@ -72,7 +73,7 @@ impl TreeSink for Sink {
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: usize, _child: NodeOrText<usize>) { }
 
-    fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
+    fn append_doctype_to_document(&mut self, _: StrTendril, _: StrTendril, _: StrTendril) { }
     fn add_attrs_if_missing(&mut self, _target: usize, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: usize) { }
     fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
@@ -85,7 +86,8 @@ fn main() {
         names: HashMap::new(),
     };
 
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
     parse_to(sink, one_input(input), Default::default());
 }

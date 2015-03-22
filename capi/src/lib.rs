@@ -9,6 +9,7 @@
 
 extern crate libc;
 extern crate string_cache;
+extern crate tendril;
 extern crate html5ever;
 
 use std::{ptr, slice, str};
@@ -18,6 +19,8 @@ use std::borrow::Cow;
 use libc::{size_t, c_int, c_char, strlen};
 
 use string_cache::Atom;
+
+use tendril::StrTendril;
 
 #[repr(C)]
 pub struct h5e_buf {
@@ -81,6 +84,12 @@ pub trait AsLifetimeBuf {
 }
 
 impl AsLifetimeBuf for String {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
+        LifetimeBuf::from_str(self)
+    }
+}
+
+impl AsLifetimeBuf for StrTendril {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
         LifetimeBuf::from_str(self)
     }

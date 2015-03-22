@@ -13,6 +13,7 @@
 
 extern crate test;
 extern crate string_cache;
+extern crate tendril;
 
 extern crate html5ever;
 extern crate html5ever_dom_sink;
@@ -36,6 +37,7 @@ use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 use string_cache::Atom;
+use tendril::StrTendril;
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
@@ -175,6 +177,8 @@ fn make_test(
             should_panic: No,
         },
         testfn: DynTestFn(Box::new(move || {
+            // Do this here because Tendril isn't Send.
+            let data = StrTendril::from_slice(&data);
             let mut result = String::new();
             match context {
                 None => {

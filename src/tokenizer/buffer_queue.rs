@@ -13,77 +13,61 @@ use util::smallcharset::SmallCharSet;
 use std::str::CharRange;
 use std::collections::VecDeque;
 
-pub use self::SetResult::{FromSet, NotFromSet};
+use tendril::StrTendril;
 
-struct Buffer {
-    /// Byte position within the buffer.
-    pub pos: usize,
-    /// The buffer.
-    pub buf: String,
-}
+pub use self::SetResult::{FromSet, NotFromSet};
 
 /// Result from `pop_except_from`.
 #[derive(PartialEq, Eq, Debug)]
 pub enum SetResult {
     FromSet(char),
-    NotFromSet(String),
+    NotFromSet(StrTendril),
 }
 
 /// A queue of owned string buffers, which supports incrementally
 /// consuming characters.
 pub struct BufferQueue {
     /// Buffers to process.
-    buffers: VecDeque<Buffer>,
+    buffers: VecDeque<StrTendril>,
 }
 
 impl BufferQueue {
     /// Create an empty BufferQueue.
     pub fn new() -> BufferQueue {
         BufferQueue {
-            buffers: VecDeque::with_capacity(3),
+            buffers: VecDeque::with_capacity(16),
         }
     }
 
     /// Add a buffer to the beginning of the queue.
-    pub fn push_front(&mut self, buf: String) {
-        if buf.len() == 0 {
+    pub fn push_front(&mut self, buf: StrTendril) {
+        if buf.len32() == 0 {
             return;
         }
-        self.buffers.push_front(Buffer {
-            pos: 0,
-            buf: buf,
-        });
+        self.buffers.push_front(buf);
     }
 
     /// Add a buffer to the end of the queue.
-    /// 'pos' can be non-zero to remove that many bytes
-    /// from the beginning.
-    pub fn push_back(&mut self, buf: String, pos: usize) {
-        if pos >= buf.len() {
+    pub fn push_back(&mut self, buf: StrTendril) {
+        if buf.len32() == 0 {
             return;
         }
-        self.buffers.push_back(Buffer {
-            pos: pos,
-            buf: buf,
-        });
+        self.buffers.push_back(buf);
     }
 
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
-        match self.buffers.front() {
-            Some(&Buffer { pos, ref buf }) => Some(buf.char_at(pos)),
-            None => None,
-        }
+        // Invariant: all buffers in the queue are non-empty.
+        self.buffers.front().map(|b| b.char_at(0))
     }
 
     /// Get the next character, if one is available.
     pub fn next(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
-            Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let CharRange { ch, next } = buf.char_range_at(*pos);
-                *pos = next;
-                (Some(ch), next >= buf.len())
+            Some(buf) => {
+                let c = buf.pop_front_char().expect("empty buffer in queue");
+                (Some(c), buf.is_empty())
             }
         };
 
@@ -95,25 +79,26 @@ impl BufferQueue {
     }
 
     /// Pops and returns either a single character from the given set, or
-    /// a `String` of characters none of which are in the set.  The set
+    /// a `StrTendril` of characters none of which are in the set.  The set
     /// is represented as a bitmask and so can only contain the first 64
     /// ASCII characters.
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
-            Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let n = set.nonmember_prefix_len(&buf[*pos..]);
+            None => (None, false),
+            Some(buf) => {
+                let n = set.nonmember_prefix_len(&buf);
                 if n > 0 {
-                    let new_pos = *pos + n;
-                    let out = String::from(&buf[*pos..new_pos]);
-                    *pos = new_pos;
-                    (Some(NotFromSet(out)), new_pos >= buf.len())
+                    let out;
+                    unsafe {
+                        out = buf.unsafe_subtendril(0, n);
+                        buf.unsafe_pop_front(n);
+                    }
+                    (Some(NotFromSet(out)), buf.is_empty())
                 } else {
-                    let CharRange { ch, next } = buf.char_range_at(*pos);
-                    *pos = next;
-                    (Some(FromSet(ch)), next >= buf.len())
+                    let c = buf.pop_front_char().expect("empty buffer in queue");
+                    (Some(FromSet(c)), buf.is_empty())
                 }
             }
-            _ => (None, false),
         };
 
         // Unborrow self for this part.
@@ -131,11 +116,11 @@ impl BufferQueue {
     // If they do not match, return Some(false).
     // If not enough characters are available to know, return None.
     pub fn eat(&mut self, pat: &str) -> Option<bool> {
-        let mut buffers_exhausted = 0usize;
-        let mut consumed_from_last = match self.buffers.front() {
-            None => return None,
-            Some(ref buf) => buf.pos,
-        };
+        let mut buffers_exhausted = 0;
+        let mut consumed_from_last = 0;
+        if self.buffers.front().is_none() {
+            return None;
+        }
 
         for c in pat.chars() {
             if buffers_exhausted >= self.buffers.len() {
@@ -143,7 +128,7 @@ impl BufferQueue {
             }
             let ref buf = self.buffers[buffers_exhausted];
 
-            let d = buf.buf.char_at(consumed_from_last);
+            let d = buf.char_at(consumed_from_last);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
                 (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
                 _ => return Some(false),
@@ -151,7 +136,7 @@ impl BufferQueue {
 
             // d was an ASCII character; size must be 1 byte
             consumed_from_last += 1;
-            if consumed_from_last >= buf.buf.len() {
+            if consumed_from_last >= buf.len() {
                 buffers_exhausted += 1;
                 consumed_from_last = 0;
             }
@@ -164,7 +149,7 @@ impl BufferQueue {
 
         match self.buffers.front_mut() {
             None => assert_eq!(consumed_from_last, 0),
-            Some(ref mut buf) => buf.pos = consumed_from_last,
+            Some(ref mut buf) => buf.pop_front(consumed_from_last as u32),
         }
 
         Some(true)
@@ -174,6 +159,7 @@ impl BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
+    use tendril::{StrTendril, SliceExt};
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]
@@ -182,7 +168,7 @@ mod test {
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
-        bq.push_back(String::from("abc"), 0);
+        bq.push_back("abc".to_tendril());
         assert_eq!(bq.peek(), Some('a'));
         assert_eq!(bq.next(), Some('a'));
         assert_eq!(bq.peek(), Some('b'));
@@ -197,10 +183,10 @@ mod test {
     #[test]
     fn can_unconsume() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from("abc"), 0);
+        bq.push_back("abc".to_tendril());
         assert_eq!(bq.next(), Some('a'));
 
-        bq.push_front(String::from("xy"));
+        bq.push_front("xy".to_tendril());
         assert_eq!(bq.next(), Some('x'));
         assert_eq!(bq.next(), Some('y'));
         assert_eq!(bq.next(), Some('b'));
@@ -211,21 +197,12 @@ mod test {
     #[test]
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from("abc&def"), 0);
+        bq.push_back("abc&def".to_tendril());
         let mut pop = || bq.pop_except_from(small_char_set!('&'));
-        assert_eq!(pop(), Some(NotFromSet(String::from("abc"))));
+        assert_eq!(pop(), Some(NotFromSet("abc".to_tendril())));
         assert_eq!(pop(), Some(FromSet('&')));
-        assert_eq!(pop(), Some(NotFromSet(String::from("def"))));
+        assert_eq!(pop(), Some(NotFromSet("def".to_tendril())));
         assert_eq!(pop(), None);
-    }
-
-    #[test]
-    fn can_push_truncated() {
-        let mut bq = BufferQueue::new();
-        bq.push_back(String::from("abc"), 1);
-        assert_eq!(bq.next(), Some('b'));
-        assert_eq!(bq.next(), Some('c'));
-        assert_eq!(bq.next(), None);
     }
 
     #[test]
@@ -234,8 +211,8 @@ mod test {
         // integration tests for more thorough testing with many
         // different input buffer splits.
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from("a"), 0);
-        bq.push_back(String::from("bc"), 0);
+        bq.push_back("a".to_tendril());
+        bq.push_back("bc".to_tendril());
         assert_eq!(bq.eat("abcd"), None);
         assert_eq!(bq.eat("ax"), Some(false));
         assert_eq!(bq.eat("ab"), Some(true));
