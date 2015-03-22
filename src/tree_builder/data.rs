@@ -11,6 +11,8 @@ use tokenizer::Doctype;
 use tree_builder::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 use util::str::AsciiExt;
 
+use tendril::StrTendril;
+
 // These should all be lowercase, for ASCII-case-insensitive matching.
 static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//advasoft ltd//dtd html 3.0 aswedit + extensions//",
@@ -90,17 +92,24 @@ static HTML4_PUBLIC_PREFIXES: &'static [&'static str] = &[
 ];
 
 pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool, QuirksMode) {
-    fn opt_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
+    fn opt_string_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
         x.as_ref().map(|y| &y[..])
+    }
+
+    fn opt_tendril_as_slice<'t>(x: &'t Option<StrTendril>) -> Option<&'t str> {
+        match *x {
+            Some(ref t) => Some(t),
+            None => None,
+        }
     }
 
     fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {
         x.map(|y| y.to_ascii_lower())
     }
 
-    let name = opt_as_slice(&doctype.name);
-    let public = opt_as_slice(&doctype.public_id);
-    let system = opt_as_slice(&doctype.system_id);
+    let name = opt_tendril_as_slice(&doctype.name);
+    let public = opt_tendril_as_slice(&doctype.public_id);
+    let system = opt_tendril_as_slice(&doctype.system_id);
 
     let err = match (name, public, system) {
           (Some("html"), None, None)
@@ -126,7 +135,7 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
     let public = opt_to_ascii_lower(public);
     let system = opt_to_ascii_lower(system);
 
-    let quirk = match (opt_as_slice(&public), opt_as_slice(&system)) {
+    let quirk = match (opt_string_as_slice(&public), opt_string_as_slice(&system)) {
         _ if doctype.force_quirks => Quirks,
         _ if name != Some("html") => Quirks,
 

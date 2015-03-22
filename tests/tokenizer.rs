@@ -13,6 +13,7 @@
 extern crate test;
 extern crate rustc_serialize;
 extern crate string_cache;
+extern crate tendril;
 
 extern crate html5ever;
 extern crate test_util;
@@ -37,12 +38,13 @@ use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 use string_cache::{Atom, QualName};
+use tendril::{StrTendril, SliceExt};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
-fn splits(s: &str, n: usize) -> Vec<Vec<String>> {
+fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
     if n == 1 {
-        return vec!(vec!(s.to_string()));
+        return vec!(vec!(s.to_tendril()));
     }
 
     let mut points: Vec<usize> = s.char_indices().map(|(n,_)| n).collect();
@@ -53,7 +55,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<String>> {
     for p in points.into_iter() {
         let y = &s[p..];
         for mut x in splits(&s[..p], n-1).into_iter() {
-            x.push(y.to_string());
+            x.push(y.to_tendril());
             out.push(x);
         }
     }
@@ -64,7 +66,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<String>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
-    current_str: String,
+    current_str: StrTendril,
     exact_errors: bool,
 }
 
@@ -72,7 +74,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: vec!(),
-            current_str: String::new(),
+            current_str: StrTendril::new(),
             exact_errors: exact_errors,
         }
     }
@@ -85,7 +87,7 @@ impl TokenLogger {
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, String::new());
+            let s = replace(&mut self.current_str, StrTendril::new());
             self.tokens.push(CharacterTokens(s));
         }
     }
@@ -100,11 +102,11 @@ impl TokenSink for TokenLogger {
     fn process_token(&mut self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                self.current_str.push_str(&b);
+                self.current_str.push_slice(&b);
             }
 
             NullCharacterToken => {
-                self.current_str.push('\0');
+                self.current_str.push_char('\0');
             }
 
             ParseError(_) => if self.exact_errors {
@@ -132,7 +134,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
+fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
     for chunk in input.into_iter() {
@@ -144,7 +146,8 @@ fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
 
 trait JsonExt {
     fn get_str(&self) -> String;
-    fn get_nullable_str(&self) -> Option<String>;
+    fn get_tendril(&self) -> StrTendril;
+    fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
@@ -159,11 +162,18 @@ impl JsonExt for Json {
         }
     }
 
-    fn get_nullable_str(&self) -> Option<String> {
+    fn get_tendril(&self) -> StrTendril {
+        match *self {
+            Json::String(ref s) => s.to_tendril(),
+            _ => panic!("Json::get_tendril: not a String"),
+        }
+    }
+
+    fn get_nullable_tendril(&self) -> Option<StrTendril> {
         match *self {
             Json::Null => None,
-            Json::String(ref s) => Some(s.to_string()),
-            _ => panic!("Json::get_nullable_str: not a String"),
+            Json::String(ref s) => Some(s.to_tendril()),
+            _ => panic!("Json::get_nullable_tendril: not a String"),
         }
     }
 
@@ -200,9 +210,9 @@ fn json_to_token(js: &Json) -> Token {
     let args: Vec<&Json> = parts[1..].iter().collect();
     match (&parts[0].get_str()[..], &args[..]) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
-            name: name.get_nullable_str(),
-            public_id: public_id.get_nullable_str(),
-            system_id: system_id.get_nullable_str(),
+            name: name.get_nullable_tendril(),
+            public_id: public_id.get_nullable_tendril(),
+            system_id: system_id.get_nullable_tendril(),
             force_quirks: !correct.get_bool(),
         }),
 
@@ -212,7 +222,7 @@ fn json_to_token(js: &Json) -> Token {
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(&k)),
-                    value: v.get_str()
+                    value: v.get_tendril()
                 }
             }).collect(),
             self_closing: match rest {
@@ -228,9 +238,9 @@ fn json_to_token(js: &Json) -> Token {
             self_closing: false
         }),
 
-        ("Comment", [txt]) => CommentToken(txt.get_str()),
+        ("Comment", [txt]) => CommentToken(txt.get_tendril()),
 
-        ("Character", [txt]) => CharacterTokens(txt.get_str()),
+        ("Character", [txt]) => CharacterTokens(txt.get_tendril()),
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.

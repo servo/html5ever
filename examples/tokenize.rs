@@ -9,10 +9,13 @@
 
 #![feature(collections)]
 
+extern crate tendril;
 extern crate html5ever;
 
 use std::io::{self, Read};
 use std::default::Default;
+
+use tendril::{ByteTendril, ReadExt};
 
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
@@ -80,8 +83,9 @@ fn main() {
     let mut sink = TokenPrinter {
         in_char_run: false,
     };
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
     tokenize_to(sink, one_input(input), TokenizerOpts {
         profile: true,
         .. Default::default()

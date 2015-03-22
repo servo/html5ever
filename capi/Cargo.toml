@@ -18,3 +18,6 @@ path = "../"
 git = "https://github.com/servo/string-cache"
 [dependencies.string_cache_plugin]
 git = "https://github.com/servo/string-cache"
+
+[dependencies.tendril]
+git = "https://github.com/kmcallister/tendril"

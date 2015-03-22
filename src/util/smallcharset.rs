@@ -22,7 +22,7 @@ impl SmallCharSet {
     /// Count the number of bytes of characters at the beginning
     /// of `buf` which are not in the set.
     /// See `tokenizer::buffer_queue::pop_except_from`.
-    pub fn nonmember_prefix_len(&self, buf: &str) -> usize {
+    pub fn nonmember_prefix_len(&self, buf: &str) -> u32 {
         let mut n = 0;
         for b in buf.bytes() {
             if b >= 64 || !self.contains(b) {
@@ -48,11 +48,11 @@ mod test {
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {
-            for x in 0 .. 48usize {
-                for y in 0 .. 48usize {
-                    let mut s = repeat("x").take(x).collect::<String>();
+            for x in 0 .. 48u32 {
+                for y in 0 .. 48u32 {
+                    let mut s = repeat("x").take(x as usize).collect::<String>();
                     s.push(c);
-                    s.push_str(&repeat("x").take(y).collect::<String>());
+                    s.push_str(&repeat("x").take(y as usize).collect::<String>());
                     let set = small_char_set!('&' '\0');
 
                     assert_eq!(x, set.nonmember_prefix_len(&s));

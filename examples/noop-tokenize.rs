@@ -13,12 +13,14 @@
 
 extern crate test;
 extern crate html5ever;
+extern crate tendril;
 
 use std::io;
-use std::io::prelude::*;
 use std::default::Default;
 
 use test::black_box;
+
+use tendril::{ByteTendril, ReadExt};
 
 use html5ever::tokenizer::{TokenSink, Token};
 use html5ever::driver::{tokenize_to, one_input};
@@ -34,8 +36,9 @@ impl TokenSink for Sink {
 }
 
 fn main() {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
 
     tokenize_to(Sink, one_input(input), Default::default());
 }

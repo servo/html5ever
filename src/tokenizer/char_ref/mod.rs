@@ -9,7 +9,9 @@
 
 use super::{Tokenizer, TokenSink};
 
-use util::str::{is_ascii_alnum, empty_str};
+use util::str::{is_ascii_alnum};
+
+use tendril::StrTendril;
 
 use std::char::from_u32;
 use std::borrow::Cow::Borrowed;
@@ -54,7 +56,7 @@ pub struct CharRefTokenizer {
     seen_digit: bool,
     hex_marker: Option<char>,
 
-    name_buf_opt: Option<String>,
+    name_buf_opt: Option<StrTendril>,
     name_match: Option<&'static [u32; 2]>,
     name_len: usize,
 }
@@ -83,12 +85,12 @@ impl CharRefTokenizer {
         self.result.expect("get_result called before done")
     }
 
-    fn name_buf<'t>(&'t self) -> &'t String {
+    fn name_buf<'t>(&'t self) -> &'t StrTendril {
         self.name_buf_opt.as_ref()
             .expect("name_buf missing in named character reference")
     }
 
-    fn name_buf_mut<'t>(&'t mut self) -> &'t mut String {
+    fn name_buf_mut<'t>(&'t mut self) -> &'t mut StrTendril {
         self.name_buf_opt.as_mut()
             .expect("name_buf missing in named character reference")
     }
@@ -142,7 +144,7 @@ impl CharRefTokenizer {
 
             _ => {
                 self.state = Named;
-                self.name_buf_opt = Some(empty_str());
+                self.name_buf_opt = Some(StrTendril::new());
                 Progress
             }
         }
@@ -199,9 +201,9 @@ impl CharRefTokenizer {
     }
 
     fn unconsume_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let mut unconsume = String::from_str("#");
+        let mut unconsume = StrTendril::from_char('#');
         match self.hex_marker {
-            Some(c) => unconsume.push(c),
+            Some(c) => unconsume.push_char(c),
             None => (),
         }
 
@@ -245,7 +247,7 @@ impl CharRefTokenizer {
 
     fn do_named<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push(c);
+        self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
             // We have either a full match or a prefix of one.
             Some(m) => {
@@ -345,7 +347,7 @@ impl CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(String::from_str(&self.name_buf()[name_len..]));
+                    tokenizer.unconsume(StrTendril::from_slice(&self.name_buf()[name_len..]));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -358,7 +360,7 @@ impl CharRefTokenizer {
 
     fn do_bogus_name<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
-        self.name_buf_mut().push(c);
+        self.name_buf_mut().push_char(c);
         match c {
             _ if is_ascii_alnum(c) => return Progress,
             ';' => self.emit_name_error(tokenizer),
@@ -389,7 +391,7 @@ impl CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(String::from_str("#"));
+                    tokenizer.unconsume(StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
                 }

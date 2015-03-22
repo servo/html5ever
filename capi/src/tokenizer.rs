@@ -14,6 +14,7 @@ use {LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
 use html5ever::tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
 use html5ever::tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
 use html5ever::tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
+use html5ever::Tendril;
 
 use std::mem;
 use std::default::Default;
@@ -71,7 +72,7 @@ impl TokenSink for *mut h5e_token_sink {
             ($name:ident) => (call!($name,)); // bleh
         }
 
-        fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
+        fn opt_str_to_buf<'a>(s: &'a Option<Tendril>) -> LifetimeBuf<'a> {
             match *s {
                 None => LifetimeBuf::null(),
                 Some(ref s) => s.as_lifetime_buf(),
