@@ -26,7 +26,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
-use util::str::{lower_ascii, lower_ascii_letter, empty_str};
+use util::str::{lower_ascii, lower_ascii_letter};
 use util::smallcharset::SmallCharSet;
 
 use std::mem::replace;
@@ -35,24 +35,17 @@ use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
 use string_cache::{Atom, QualName};
+use tendril::StrTendril;
 
 pub mod states;
 mod interface;
 mod char_ref;
 mod buffer_queue;
 
-fn option_push(opt_str: &mut Option<String>, c: char) {
+fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
     match *opt_str {
-        Some(ref mut s) => s.push(c),
-        None => *opt_str = Some(c.to_string()),
-    }
-}
-
-fn append_strings(lhs: &mut String, rhs: String) {
-    if lhs.is_empty() {
-        *lhs = rhs;
-    } else {
-        lhs.push_str(&rhs);
+        Some(ref mut s) => s.push_char(c),
+        None => *opt_str = Some(StrTendril::from_char(c)),
     }
 }
 
@@ -77,6 +70,9 @@ pub struct TokenizerOpts {
 
     /// Last start tag.  Only the test runner should use a
     /// non-`None` value!
+    ///
+    /// FIXME: Can't use Tendril because we want TokenizerOpts
+    /// to be Send.
     pub last_start_tag_name: Option<String>,
 }
 
@@ -132,7 +128,7 @@ pub struct Tokenizer<Sink> {
     current_tag_kind: TagKind,
 
     /// Current tag name.
-    current_tag_name: String,
+    current_tag_name: StrTendril,
 
     /// Current tag is self-closing?
     current_tag_self_closing: bool,
@@ -141,13 +137,13 @@ pub struct Tokenizer<Sink> {
     current_tag_attrs: Vec<Attribute>,
 
     /// Current attribute name.
-    current_attr_name: String,
+    current_attr_name: StrTendril,
 
     /// Current attribute value.
-    current_attr_value: String,
+    current_attr_value: StrTendril,
 
     /// Current comment.
-    current_comment: String,
+    current_comment: StrTendril,
 
     /// Current doctype token.
     current_doctype: Doctype,
@@ -156,7 +152,7 @@ pub struct Tokenizer<Sink> {
     last_start_tag_name: Option<Atom>,
 
     /// The "temporary buffer" mentioned in the spec.
-    temp_buf: String,
+    temp_buf: StrTendril,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
     state_profile: BTreeMap<states::State, u64>,
@@ -184,15 +180,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             ignore_lf: false,
             discard_bom: discard_bom,
             current_tag_kind: StartTag,
-            current_tag_name: empty_str(),
+            current_tag_name: StrTendril::new(),
             current_tag_self_closing: false,
             current_tag_attrs: vec!(),
-            current_attr_name: empty_str(),
-            current_attr_value: empty_str(),
-            current_comment: empty_str(),
+            current_attr_name: StrTendril::new(),
+            current_attr_value: StrTendril::new(),
+            current_comment: StrTendril::new(),
             current_doctype: Doctype::new(),
             last_start_tag_name: start_tag_name,
-            temp_buf: empty_str(),
+            temp_buf: StrTendril::new(),
             state_profile: BTreeMap::new(),
             time_in_sink: 0,
         }
@@ -211,19 +207,16 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: String) {
-        if input.len() == 0 {
+    pub fn feed(&mut self, mut input: StrTendril) {
+        if input.is_empty() {
             return;
         }
 
-        let pos = if self.discard_bom && input.char_at(0) == '\u{feff}' {
-            self.discard_bom = false;
-            3  // length of BOM in UTF-8
-        } else {
-            0
+        if self.discard_bom && input.char_at(0) == '\u{feff}' {
+            input.pop_front(3);
         };
 
-        self.input_buffers.push_back(input, pos);
+        self.input_buffers.push_back(input);
         self.run();
     }
 
@@ -357,20 +350,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn emit_char(&mut self, c: char) {
         self.process_token(match c {
             '\0' => NullCharacterToken,
-            _ => CharacterTokens(c.to_string()),
+            _ => CharacterTokens(StrTendril::from_char(c)),
         });
     }
 
     // The string must not contain '\0'!
-    fn emit_chars(&mut self, b: String) {
+    fn emit_chars(&mut self, b: StrTendril) {
         self.process_token(CharacterTokens(b));
     }
 
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
-        let name = replace(&mut self.current_tag_name, String::new());
-        let name = Atom::from_slice(&name);
+        let name = Atom::from_slice(&self.current_tag_name);
+        self.current_tag_name.clear();
 
         match self.current_tag_kind {
             StartTag => {
@@ -401,29 +394,29 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_temp_buf(&mut self) {
         // FIXME: Make sure that clearing on emit is spec-compatible.
-        let buf = replace(&mut self.temp_buf, empty_str());
+        let buf = replace(&mut self.temp_buf, StrTendril::new());
         self.emit_chars(buf);
     }
 
     fn clear_temp_buf(&mut self) {
         // Do this without a new allocation.
-        self.temp_buf.truncate(0);
+        self.temp_buf.clear();
     }
 
     fn emit_current_comment(&mut self) {
-        let comment = replace(&mut self.current_comment, empty_str());
+        let comment = replace(&mut self.current_comment, StrTendril::new());
         self.process_token(CommentToken(comment));
     }
 
     fn discard_tag(&mut self) {
-        self.current_tag_name = String::new();
+        self.current_tag_name.clear();
         self.current_tag_self_closing = false;
         self.current_tag_attrs = vec!();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
         self.discard_tag();
-        self.current_tag_name.push(c);
+        self.current_tag_name.push_char(c);
         self.current_tag_kind = kind;
     }
 
@@ -439,7 +432,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn create_attribute(&mut self, c: char) {
         self.finish_attribute();
 
-        self.current_attr_name.push(c);
+        self.current_attr_name.push_char(c);
     }
 
     fn finish_attribute(&mut self) {
@@ -451,21 +444,22 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // FIXME: the spec says we should error as soon as the name is finished.
         // FIXME: linear time search, do we care?
         let dup = {
-            let name = &self.current_attr_name[..];
+            let name = &*self.current_attr_name;
             self.current_tag_attrs.iter().any(|a| &*a.name.local == name)
         };
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
-            self.current_attr_name.truncate(0);
-            self.current_attr_value.truncate(0);
+            self.current_attr_name.clear();
+            self.current_attr_value.clear();
         } else {
-            let name = replace(&mut self.current_attr_name, String::new());
+            let name = Atom::from_slice(&self.current_attr_name);
+            self.current_attr_name.clear();
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(""), Atom::from_slice(&name)),
-                value: replace(&mut self.current_attr_value, empty_str()),
+                name: QualName::new(ns!(""), name),
+                value: replace(&mut self.current_attr_value, StrTendril::new()),
             });
         }
     }
@@ -475,7 +469,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token(DoctypeToken(doctype));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<String> {
+    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,
@@ -485,8 +479,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn clear_doctype_id(&mut self, kind: DoctypeIdKind) {
         let id = self.doctype_id(kind);
         match *id {
-            Some(ref mut s) => s.truncate(0),
-            None => *id = Some(empty_str()),
+            Some(ref mut s) => s.clear(),
+            None => *id = Some(StrTendril::new()),
         }
     }
 
@@ -513,7 +507,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, buf: String) {
+    fn unconsume(&mut self, buf: StrTendril) {
         self.input_buffers.push_front(buf);
     }
 
@@ -527,20 +521,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 macro_rules! shorthand (
     ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c);                                   );
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push($c);                       );
+    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c);                  );
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
     ( $me:ident : discard_char                     ) => ( $me.discard_char();                                  );
-    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push($c);                               );
+    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c);                          );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
     ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c);                            );
-    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push($c);                      );
-    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push($c);                     );
-    ( $me:ident : append_value $c:expr             ) => ( append_strings(&mut $me.current_attr_value, $c);     );
-    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push($c);                        );
-    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_str($c);                    );
+    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c);                 );
+    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c);                );
+    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c);             );
+    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c);                   );
+    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c);                  );
     ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment();                          );
-    ( $me:ident : clear_comment                    ) => ( $me.current_comment.truncate(0);                     );
+    ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear();                         );
     ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new();                );
     ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c);      );
     ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
@@ -805,7 +799,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf == "script" { DoubleEscaped } else { Escaped };
+                        let esc = if &*self.temp_buf == "script" { DoubleEscaped } else { Escaped };
                         go!(self: emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -855,7 +849,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf == "script" { Escaped } else { DoubleEscaped };
+                        let esc = if &*self.temp_buf == "script" { Escaped } else { DoubleEscaped };
                         go!(self: emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -936,7 +930,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     FromSet('&')  => go!(self: consume_char_ref '"'),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c)    => go!(self: push_value c),
-                    NotFromSet(b) => go!(self: append_value b),
+                    NotFromSet(ref b) => go!(self: append_value b),
                 }
             },
 
@@ -947,7 +941,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     FromSet('&')  => go!(self: consume_char_ref '\''),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c)    => go!(self: push_value c),
-                    NotFromSet(b) => go!(self: append_value b),
+                    NotFromSet(ref b) => go!(self: append_value b),
                 }
             },
 
@@ -964,7 +958,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             '"' , '\'' , '<' , '=' , '`' => error);
                         go!(self: push_value c);
                     }
-                    NotFromSet(b) => go!(self: append_value b),
+                    NotFromSet(ref b) => go!(self: append_value b),
                 }
             },
 
@@ -1324,46 +1318,27 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use super::{option_push, append_strings}; // private items
+    use super::option_push; // private items
+    use tendril::{StrTendril, SliceExt};
 
     #[test]
     fn push_to_None_gives_singleton() {
-        let mut s: Option<String> = None;
+        let mut s: Option<StrTendril> = None;
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from("x")));
+        assert_eq!(s, Some("x".to_tendril()));
     }
 
     #[test]
     fn push_to_empty_appends() {
-        let mut s: Option<String> = Some(String::new());
+        let mut s: Option<StrTendril> = Some(StrTendril::new());
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from("x")));
+        assert_eq!(s, Some("x".to_tendril()));
     }
 
     #[test]
     fn push_to_nonempty_appends() {
-        let mut s: Option<String> = Some(String::from("y"));
+        let mut s: Option<StrTendril> = Some(StrTendril::from_slice("y"));
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from("yx")));
-    }
-
-    #[test]
-    fn append_appends() {
-        let mut s = String::from("foo");
-        append_strings(&mut s, String::from("bar"));
-        assert_eq!(s, String::from("foobar"));
-    }
-
-    #[test]
-    fn append_to_empty_does_not_copy() {
-        let mut lhs: String = String::from("");
-        let rhs: Vec<u8> = vec![b'f', b'o', b'o'];
-        let ptr_old = rhs[0] as *const u8;
-
-        append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
-        assert_eq!(lhs, String::from("foo"));
-
-        let ptr_new = lhs.into_bytes()[0] as *const u8;
-        assert_eq!(ptr_old, ptr_new);
+        assert_eq!(s, Some("yx".to_tendril()));
     }
 }

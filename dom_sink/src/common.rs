@@ -10,6 +10,7 @@
 use html5ever::tokenizer::Attribute;
 
 use string_cache::QualName;
+use tendril::StrTendril;
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
 
@@ -20,13 +21,13 @@ pub enum NodeEnum {
     Document,
 
     /// A `DOCTYPE` with name, public id, and system id.
-    Doctype(String, String, String),
+    Doctype(StrTendril, StrTendril, StrTendril),
 
     /// A text node.
-    Text(String),
+    Text(StrTendril),
 
     /// A comment.
-    Comment(String),
+    Comment(StrTendril),
 
     /// An element with attributes.
     Element(QualName, Vec<Attribute>),

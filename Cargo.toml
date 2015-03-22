@@ -22,6 +22,9 @@ phf_macros = "0.7"
 string_cache = "0"
 string_cache_plugin = "0"
 mac = "0"
+[dependencies.tendril]
+git = "https://github.com/kmcallister/tendril"
+
 
 [dependencies.html5ever_macros]
 version = "0.1.0"

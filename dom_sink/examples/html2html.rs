@@ -15,20 +15,25 @@
 //!
 //! where htmlparser-1.4.jar comes from http://about.validator.nu/htmlparser/
 
+extern crate tendril;
 extern crate html5ever;
 extern crate html5ever_dom_sink;
 
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::default::Default;
 
+use tendril::{ByteTendril, ReadExt};
+
+use html5ever::sink::rcdom::RcDom;
 use html5ever::driver::ParseOpts;
 use html5ever_dom_sink::rcdom::RcDom;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
 
 fn main() {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
     let dom: RcDom = parse(one_input(input), ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,

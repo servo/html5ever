@@ -15,12 +15,14 @@ extern crate html5ever_dom_sink;
 
 #[macro_use]
 extern crate string_cache;
+extern crate tendril;
 
 use std::io::{self, Read};
 use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
 
+use tendril::{ByteTendril, ReadExt};
 use html5ever::{parse, one_input};
 use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
 use html5ever_dom_sink::rcdom::{RcDom, Handle};
@@ -61,8 +63,9 @@ fn walk(indent: usize, handle: Handle) {
 }
 
 fn main() {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
     let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 

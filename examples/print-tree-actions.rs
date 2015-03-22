@@ -10,15 +10,16 @@
 #![feature(str_escape)]
 
 extern crate string_cache;
-
+extern crate tendril;
 extern crate html5ever;
 
-use std::io::{self, Read};
+use std::io;
 use std::default::Default;
-use std::string::String;
 use std::collections::HashMap;
 use std::borrow::Cow;
 use string_cache::QualName;
+
+use tendril::{ByteTendril, StrTendril, ReadExt};
 
 use html5ever::{parse_to, one_input};
 use html5ever::tokenizer::Attribute;
@@ -67,7 +68,7 @@ impl TreeSink for Sink {
         id
     }
 
-    fn create_comment(&mut self, text: String) -> usize {
+    fn create_comment(&mut self, text: StrTendril) -> usize {
         let id = self.get_id();
         println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
@@ -97,7 +98,10 @@ impl TreeSink for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self,
+                                  name: StrTendril,
+                                  public_id: StrTendril,
+                                  system_id: StrTendril) {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
@@ -127,7 +131,8 @@ fn main() {
         names: HashMap::new(),
     };
 
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let mut input = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut input).unwrap();
+    let input = input.try_reinterpret().unwrap();
     parse_to(sink, one_input(input), Default::default());
 }
