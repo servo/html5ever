@@ -65,7 +65,7 @@ pub static ASCII_LOWER_MAP: [u8; 256] = [
     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
 ];
 
-#[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Ascii {
     chr: u8,
 }
@@ -73,6 +73,10 @@ pub struct Ascii {
 impl Ascii {
     pub fn to_char(self) -> char {
         self.chr as char
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self.chr
     }
 
     #[inline]
@@ -106,6 +110,7 @@ pub trait AsciiCast {
 }
 
 impl AsciiCast for char {
+    #[inline]
     fn to_ascii_opt(&self) -> Option<Ascii> {
         let n = *self as u32;
         if n < 0x80 {
@@ -170,11 +175,6 @@ pub fn is_ascii_alnum(c: char) -> bool {
     c.to_ascii_opt().map_or(false, |a| a.is_alphanumeric())
 }
 
-/// Allocate an empty string with a small non-zero capacity.
-pub fn empty_str() -> String {
-    String::with_capacity(4)
-}
-
 /// ASCII whitespace characters, as defined by
 /// tree construction modes that treat them specially.
 pub fn is_ascii_whitespace(c: char) -> bool {
@@ -184,30 +184,11 @@ pub fn is_ascii_whitespace(c: char) -> bool {
     }
 }
 
-/// Count how many bytes at the beginning of the string
-/// either all match or all don't match the predicate,
-/// and also return whether they match.
-///
-/// Returns `None` on an empty string.
-pub fn char_run<Pred>(mut pred: Pred, buf: &str) -> Option<(usize, bool)>
-    where Pred: FnMut(char) -> bool,
-{
-    let (first, rest) = unwrap_or_return!(buf.slice_shift_char(), None);
-    let matches = pred(first);
-
-    for (idx, ch) in rest.char_indices() {
-        if matches != pred(ch) {
-            return Some((idx + first.len_utf8(), matches));
-        }
-    }
-    Some((buf.len(), matches))
-}
-
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
-    use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
+    use super::{is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));
     test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'));
@@ -224,22 +205,4 @@ mod test {
     test_eq!(is_alnum_1, is_ascii_alnum('1'), true);
     test_eq!(is_not_alnum_symbol, is_ascii_alnum('!'), false);
     test_eq!(is_not_alnum_nonascii, is_ascii_alnum('\u{a66e}'), false);
-
-    macro_rules! test_char_run ( ($name:ident, $input:expr, $expect:expr) => (
-        test_eq!($name, char_run(is_ascii_whitespace, $input), $expect);
-    ));
-
-    test_char_run!(run_empty, "", None);
-    test_char_run!(run_one_t, " ", Some((1, true)));
-    test_char_run!(run_one_f, "x", Some((1, false)));
-    test_char_run!(run_t, "  \t  \n", Some((6, true)));
-    test_char_run!(run_f, "xyzzy", Some((5, false)));
-    test_char_run!(run_tf, "   xyzzy", Some((3, true)));
-    test_char_run!(run_ft, "xyzzy   ", Some((5, false)));
-    test_char_run!(run_tft, "   xyzzy  ", Some((3, true)));
-    test_char_run!(run_ftf, "xyzzy   hi", Some((5, false)));
-    test_char_run!(run_multibyte_0, "中 ", Some((3, false)));
-    test_char_run!(run_multibyte_1, " 中 ", Some((1, true)));
-    test_char_run!(run_multibyte_2, "  中 ", Some((2, true)));
-    test_char_run!(run_multibyte_3, "   中 ", Some((3, true)));
 }

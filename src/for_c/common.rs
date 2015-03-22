@@ -20,6 +20,8 @@ use libc::{size_t, c_int, c_char, strlen};
 
 use string_cache::Atom;
 
+use util::tendril::Tendril;
+
 #[repr(C)]
 pub struct h5e_buf {
     data: *const u8,
@@ -77,6 +79,12 @@ pub trait AsLifetimeBuf {
 }
 
 impl AsLifetimeBuf for String {
+    fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
+        LifetimeBuf::from_str(self.as_slice())
+    }
+}
+
+impl AsLifetimeBuf for Tendril {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
         LifetimeBuf::from_str(self.as_slice())
     }

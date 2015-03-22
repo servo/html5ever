@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::borrow::Cow;
 use string_cache::QualName;
 
-use html5ever::{parse_to, one_input};
+use html5ever::{parse_to, one_input, Tendril};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 
@@ -67,7 +67,7 @@ impl TreeSink for Sink {
         id
     }
 
-    fn create_comment(&mut self, text: String) -> usize {
+    fn create_comment(&mut self, text: Tendril) -> usize {
         let id = self.get_id();
         println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
@@ -97,7 +97,7 @@ impl TreeSink for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self, name: Tendril, public_id: Tendril, system_id: Tendril) {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 

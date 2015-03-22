@@ -7,21 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-// Run a single benchmark once.  For use with profiling tools.
-
 #![feature(test)]
 
 extern crate test;
 extern crate html5ever;
 
 use std::io;
-use std::io::prelude::*;
 use std::default::Default;
 
 use test::black_box;
 
+use html5ever::TendrilReader;
 use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts};
-use html5ever::driver::{tokenize_to, one_input};
+use html5ever::driver::tokenize_to;
 
 struct Sink;
 
@@ -34,10 +32,10 @@ impl TokenSink for Sink {
 }
 
 fn main() {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    let reader = TendrilReader::from_utf8(16384, io::stdin())
+        .map(|r| r.unwrap());
 
-    tokenize_to(Sink, one_input(input), TokenizerOpts {
+    tokenize_to(Sink, reader, TokenizerOpts {
         profile: true,
         .. Default::default()
     });

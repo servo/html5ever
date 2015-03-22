@@ -23,6 +23,7 @@ use core::prelude::*;
 
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
+use util::tendril::Tendril;
 use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder;
@@ -38,7 +39,6 @@ use core::mem;
 use core::ptr;
 use alloc::boxed::Box;
 use collections::vec::Vec;
-use collections::string::String;
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::collections::HashSet;
@@ -215,7 +215,7 @@ impl TreeSink for Sink {
         self.new_node(Element(name, attrs))
     }
 
-    fn create_comment(&mut self, text: String) -> Handle {
+    fn create_comment(&mut self, text: Tendril) -> Handle {
         self.new_node(Comment(text))
     }
 
@@ -269,7 +269,7 @@ impl TreeSink for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self, name: Tendril, public_id: Tendril, system_id: Tendril) {
         append(self.document, self.new_node(Doctype(name, public_id, system_id)));
     }
 

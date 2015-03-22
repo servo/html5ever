@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, no_std, core, collections, alloc)]
+#![feature(plugin, box_syntax, no_std, core, collections, alloc, str_char)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
@@ -49,6 +49,9 @@ extern crate phf;
 
 extern crate time;
 
+extern crate iobuf;
+
+pub use util::tendril::{Tendril, TendrilReader, TendrilReaderError, IntoTendril};
 pub use tokenizer::Attribute;
 pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
 
@@ -61,6 +64,7 @@ mod macros;
 #[macro_use]
 mod util {
     pub mod str;
+    pub mod tendril;
     #[macro_use] pub mod smallcharset;
 }
 

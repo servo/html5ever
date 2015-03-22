@@ -19,6 +19,8 @@ use std::marker::Send;
 
 use string_cache::{Atom, QualName};
 
+use util::tendril::Tendril;
+
 pub use self::TagKind::{StartTag, EndTag};
 pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
 pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
@@ -27,9 +29,9 @@ pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
 // FIXME: already exists in Servo DOM
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Doctype {
-    pub name: Option<String>,
-    pub public_id: Option<String>,
-    pub system_id: Option<String>,
+    pub name: Option<Tendril>,
+    pub public_id: Option<Tendril>,
+    pub system_id: Option<Tendril>,
     pub force_quirks: bool,
 }
 
@@ -53,7 +55,7 @@ impl Doctype {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Attribute {
     pub name: QualName,
-    pub value: String,
+    pub value: Tendril,
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -92,8 +94,8 @@ impl Tag {
 pub enum Token {
     DoctypeToken(Doctype),
     TagToken(Tag),
-    CommentToken(String),
-    CharacterTokens(String),
+    CommentToken(Tendril),
+    CharacterTokens(Tendril),
     NullCharacterToken,
     EOFToken,
     ParseError(Cow<'static, str>),

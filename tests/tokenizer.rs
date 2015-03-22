@@ -32,6 +32,7 @@ use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
 
+use html5ever::Tendril;
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -64,18 +65,25 @@ fn splits(s: &str, n: usize) -> Vec<Vec<String>> {
     out
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Mode {
+    Normal,
+    ExactErrors,
+    ZeroCopy,
+}
+
 struct TokenLogger {
     tokens: Vec<Token>,
     current_str: String,
-    exact_errors: bool,
+    mode: Mode,
 }
 
 impl TokenLogger {
-    fn new(exact_errors: bool) -> TokenLogger {
+    fn new(mode: Mode) -> TokenLogger {
         TokenLogger {
             tokens: vec!(),
             current_str: String::new(),
-            exact_errors: exact_errors,
+            mode: mode,
         }
     }
 
@@ -88,7 +96,7 @@ impl TokenLogger {
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
             let s = replace(&mut self.current_str, String::new());
-            self.tokens.push(CharacterTokens(s));
+            self.tokens.push(CharacterTokens(Tendril::owned(s)));
         }
     }
 
@@ -109,7 +117,7 @@ impl TokenSink for TokenLogger {
                 self.current_str.push('\0');
             }
 
-            ParseError(_) => if self.exact_errors {
+            ParseError(_) => if self.mode == Mode::ExactErrors {
                 self.push(ParseError(Borrowed("")));
             },
 
@@ -134,11 +142,15 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
-    let sink = TokenLogger::new(opts.exact_errors);
+fn tokenize(input: Vec<String>, mode: Mode, opts: TokenizerOpts) -> Vec<Token> {
+    let sink = TokenLogger::new(mode);
     let mut tok = Tokenizer::new(sink, opts);
     for chunk in input.into_iter() {
-        tok.feed(chunk);
+        tok.feed(if mode == Mode::ZeroCopy {
+            Tendril::shared_copy(&chunk)
+        } else {
+            Tendril::owned(chunk)
+        });
     }
     tok.end();
     tok.unwrap().get_tokens()
@@ -147,6 +159,7 @@ fn tokenize(input: Vec<String>, opts: TokenizerOpts) -> Vec<Token> {
 trait JsonExt {
     fn get_str(&self) -> String;
     fn get_nullable_str(&self) -> Option<String>;
+    fn get_nullable_tendril(&self) -> Option<Tendril>;
     fn get_bool(&self) -> bool;
     fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
@@ -167,6 +180,10 @@ impl JsonExt for Json {
             Json::String(ref s) => Some(s.to_string()),
             _ => panic!("Json::get_nullable_str: not a String"),
         }
+    }
+
+    fn get_nullable_tendril(&self) -> Option<Tendril> {
+        self.get_nullable_str().map(Tendril::owned)
     }
 
     fn get_bool(&self) -> bool {
@@ -202,9 +219,9 @@ fn json_to_token(js: &Json) -> Token {
     let args: Vec<&Json> = parts[1..].iter().collect();
     match (parts[0].get_str().as_slice(), args.as_slice()) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
-            name: name.get_nullable_str(),
-            public_id: public_id.get_nullable_str(),
-            system_id: system_id.get_nullable_str(),
+            name: name.get_nullable_tendril(),
+            public_id: public_id.get_nullable_tendril(),
+            system_id: system_id.get_nullable_tendril(),
             force_quirks: !correct.get_bool(),
         }),
 
@@ -214,7 +231,7 @@ fn json_to_token(js: &Json) -> Token {
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(k.as_slice())),
-                    value: v.get_str()
+                    value: Tendril::owned(v.get_str()),
                 }
             }).collect(),
             self_closing: match rest {
@@ -230,9 +247,9 @@ fn json_to_token(js: &Json) -> Token {
             self_closing: false
         }),
 
-        ("Comment", [txt]) => CommentToken(txt.get_str()),
+        ("Comment", [txt]) => CommentToken(Tendril::owned(txt.get_str())),
 
-        ("Character", [txt]) => CharacterTokens(txt.get_str()),
+        ("Character", [txt]) => CharacterTokens(Tendril::owned(txt.get_str())),
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
@@ -242,10 +259,10 @@ fn json_to_token(js: &Json) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
+fn json_to_tokens(js: &Json, mode: Mode) -> Vec<Token> {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
-    let mut sink = TokenLogger::new(exact_errors);
+    let mut sink = TokenLogger::new(mode);
     for tok in js.get_list().iter() {
         match *tok {
             Json::String(ref s)
@@ -301,7 +318,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: String, input: String, expect: Vec<Token>, mode: Mode, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -317,7 +334,7 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
                 // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize(input.clone(), opts.clone());
+                let output = tokenize(input.clone(), mode, opts.clone());
                 if output != expect {
                     panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
@@ -362,19 +379,21 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
 
     // Build the tests.
     for state in state_overrides.into_iter() {
-        for &exact_errors in [false, true].iter() {
+        for &mode in &[Mode::Normal, Mode::ExactErrors, Mode::ZeroCopy] {
             let mut newdesc = desc.clone();
             match state {
                 Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
                 None  => (),
             };
-            if exact_errors {
-                newdesc = format!("{} (exact errors)", newdesc);
+            match mode {
+                Mode::Normal => (),
+                Mode::ExactErrors => newdesc = format!("{} (exact errors)", newdesc),
+                Mode::ZeroCopy => newdesc = format!("{} (zero copy)", newdesc),
             }
 
-            let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc, input.clone(), expect_toks, TokenizerOpts {
-                exact_errors: exact_errors,
+            let expect_toks = json_to_tokens(&expect, mode);
+            tests.push(mk_test(newdesc, input.clone(), expect_toks, mode, TokenizerOpts {
+                exact_errors: mode == Mode::ExactErrors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
 

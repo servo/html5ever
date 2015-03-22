@@ -10,6 +10,7 @@
 use core::prelude::*;
 
 use util::str::AsciiCast;
+use util::tendril::Tendril;
 use util::smallcharset::SmallCharSet;
 
 use core::str::CharRange;
@@ -20,16 +21,16 @@ pub use self::SetResult::{FromSet, NotFromSet};
 
 struct Buffer {
     /// Byte position within the buffer.
-    pub pos: usize,
+    pub pos: u32,
     /// The buffer.
-    pub buf: String,
+    pub buf: Tendril,
 }
 
 /// Result from `pop_except_from`.
 #[derive(PartialEq, Eq, Debug)]
 pub enum SetResult {
     FromSet(char),
-    NotFromSet(String),
+    NotFromSet(Tendril),
 }
 
 /// A queue of owned string buffers, which supports incrementally
@@ -43,12 +44,12 @@ impl BufferQueue {
     /// Create an empty BufferQueue.
     pub fn new() -> BufferQueue {
         BufferQueue {
-            buffers: VecDeque::with_capacity(3),
+            buffers: VecDeque::with_capacity(16),
         }
     }
 
     /// Add a buffer to the beginning of the queue.
-    pub fn push_front(&mut self, buf: String) {
+    pub fn push_front(&mut self, buf: Tendril) {
         if buf.len() == 0 {
             return;
         }
@@ -61,8 +62,8 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     /// 'pos' can be non-zero to remove that many bytes
     /// from the beginning.
-    pub fn push_back(&mut self, buf: String, pos: usize) {
-        if pos >= buf.len() {
+    pub fn push_back(&mut self, buf: Tendril, pos: u32) {
+        if pos as usize >= buf.len() {
             return;
         }
         self.buffers.push_back(Buffer {
@@ -74,7 +75,7 @@ impl BufferQueue {
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
         match self.buffers.front() {
-            Some(&Buffer { pos, ref buf }) => Some(buf.as_slice().char_at(pos)),
+            Some(&Buffer { pos, ref buf }) => Some(buf.as_slice().char_at(pos as usize)),
             None => None,
         }
     }
@@ -84,8 +85,8 @@ impl BufferQueue {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
-                *pos = next;
+                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos as usize);
+                *pos = next as u32;
                 (Some(ch), next >= buf.len())
             }
         };
@@ -98,22 +99,24 @@ impl BufferQueue {
     }
 
     /// Pops and returns either a single character from the given set, or
-    /// a `String` of characters none of which are in the set.  The set
+    /// a `Tendril` of characters none of which are in the set.  The set
     /// is represented as a bitmask and so can only contain the first 64
     /// ASCII characters.
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let n = set.nonmember_prefix_len(&buf[*pos..]);
+                let n = set.nonmember_prefix_len(&buf[*pos as usize..]);
                 if n > 0 {
                     let new_pos = *pos + n;
-                    let out = String::from_str(&buf[*pos..new_pos]);
+                    let out = unsafe {
+                        buf.subtendril(*pos, new_pos)
+                    };
                     *pos = new_pos;
-                    (Some(NotFromSet(out)), new_pos >= buf.len())
+                    (Some(NotFromSet(out)), new_pos as usize >= buf.len())
                 } else {
-                    let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
-                    *pos = next;
-                    (Some(FromSet(ch)), next >= buf.len())
+                    let CharRange { ch, next } = buf.as_slice().char_range_at(*pos as usize);
+                    *pos = next as u32;
+                    (Some(FromSet(ch)), next as usize >= buf.len())
                 }
             }
             _ => (None, false),
@@ -146,7 +149,7 @@ impl BufferQueue {
             }
             let ref buf = self.buffers[buffers_exhausted];
 
-            let d = buf.buf.as_slice().char_at(consumed_from_last);
+            let d = buf.buf.as_slice().char_at(consumed_from_last as usize);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
                 (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
                 _ => return Some(false),
@@ -154,7 +157,7 @@ impl BufferQueue {
 
             // d was an ASCII character; size must be 1 byte
             consumed_from_last += 1;
-            if consumed_from_last >= buf.buf.len() {
+            if consumed_from_last as usize >= buf.buf.len() {
                 buffers_exhausted += 1;
                 consumed_from_last = 0;
             }
@@ -178,7 +181,7 @@ impl BufferQueue {
 #[allow(non_snake_case)]
 mod test {
     use core::prelude::*;
-    use collections::string::String;
+    use util::tendril::Tendril;
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]
@@ -187,7 +190,7 @@ mod test {
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
-        bq.push_back(String::from_str("abc"), 0);
+        bq.push_back(Tendril::owned_copy("abc"), 0);
         assert_eq!(bq.peek(), Some('a'));
         assert_eq!(bq.next(), Some('a'));
         assert_eq!(bq.peek(), Some('b'));
@@ -202,10 +205,10 @@ mod test {
     #[test]
     fn can_unconsume() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc"), 0);
+        bq.push_back(Tendril::owned_copy("abc"), 0);
         assert_eq!(bq.next(), Some('a'));
 
-        bq.push_front(String::from_str("xy"));
+        bq.push_front(Tendril::owned_copy("xy"));
         assert_eq!(bq.next(), Some('x'));
         assert_eq!(bq.next(), Some('y'));
         assert_eq!(bq.next(), Some('b'));
@@ -216,18 +219,18 @@ mod test {
     #[test]
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc&def"), 0);
+        bq.push_back(Tendril::owned_copy("abc&def"), 0);
         let mut pop = || bq.pop_except_from(small_char_set!('&'));
-        assert_eq!(pop(), Some(NotFromSet(String::from_str("abc"))));
+        assert_eq!(pop(), Some(NotFromSet(Tendril::owned_copy("abc"))));
         assert_eq!(pop(), Some(FromSet('&')));
-        assert_eq!(pop(), Some(NotFromSet(String::from_str("def"))));
+        assert_eq!(pop(), Some(NotFromSet(Tendril::owned_copy("def"))));
         assert_eq!(pop(), None);
     }
 
     #[test]
     fn can_push_truncated() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc"), 1);
+        bq.push_back(Tendril::owned_copy("abc"), 1);
         assert_eq!(bq.next(), Some('b'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
@@ -239,8 +242,8 @@ mod test {
         // integration tests for more thorough testing with many
         // different input buffer splits.
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("a"), 0);
-        bq.push_back(String::from_str("bc"), 0);
+        bq.push_back(Tendril::owned_copy("a"), 0);
+        bq.push_back(Tendril::owned_copy("bc"), 0);
         assert_eq!(bq.eat("abcd"), None);
         assert_eq!(bq.eat("ax"), Some(false));
         assert_eq!(bq.eat("ab"), Some(true));
