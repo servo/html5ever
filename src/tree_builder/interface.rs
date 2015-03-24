@@ -65,7 +65,7 @@ pub trait TreeSink {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name(&self, target: Self::Handle) -> QualName;
+    fn elem_name(&self, target: &Self::Handle) -> QualName;
 
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);

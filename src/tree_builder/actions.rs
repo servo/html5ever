@@ -202,7 +202,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool 
         where TagSet: Fn(QualName) -> bool
     {
-        set(self.sink.elem_name(self.current_node()))
+        set(self.sink.elem_name(&self.current_node()))
     }
 
     // Insert at the "appropriate place for inserting a node".
@@ -522,7 +522,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             thead tr body html);
 
         for elem in self.open_elems.iter() {
-            let name = self.sink.elem_name(elem.clone());
+            let name = self.sink.elem_name(&elem);
             if !body_end_ok(name.clone()) {
                 self.sink.parse_error(format_if!(self.opts.exact_errors,
                     "Unexpected open tag at end of body",
@@ -541,7 +541,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             if pred(node.clone()) {
                 return true;
             }
-            if scope(self.sink.elem_name(node.clone())) {
+            if scope(self.sink.elem_name(&node)) {
                 return false;
             }
         }
@@ -554,11 +554,11 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool 
         where TagSet: Fn(QualName) -> bool
     {
-        set(self.sink.elem_name(elem))
+        set(self.sink.elem_name(&elem))
     }
 
     fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
-        self.sink.elem_name(elem) == QualName::new(ns!(HTML), name)
+        self.sink.elem_name(&elem) == QualName::new(ns!(HTML), name)
     }
 
     fn current_node_named(&self, name: Atom) -> bool {
@@ -578,7 +578,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     {
         loop {
             let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
-            let nsname = self.sink.elem_name(elem);
+            let nsname = self.sink.elem_name(&elem);
             if !set(nsname) { return; }
             self.pop();
         }
@@ -614,7 +614,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             n += 1;
             match self.open_elems.pop() {
                 None => break,
-                Some(elem) => if pred(self.sink.elem_name(elem)) { break; },
+                Some(ref elem) => if pred(self.sink.elem_name(elem)) { break; },
             }
         }
         n
@@ -684,7 +684,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             if let (true, Some(ctx)) = (last, self.context_elem.as_ref()) {
                 node = ctx;
             }
-            let name = match self.sink.elem_name(node.clone()) {
+            let name = match self.sink.elem_name(&node) {
                 QualName { ns: ns!(HTML), local } => local,
                 _ => continue,
             };
@@ -871,7 +871,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             return false;
         }
 
-        let name = self.sink.elem_name(self.adjusted_current_node());
+        let name = self.sink.elem_name(&self.adjusted_current_node());
         if let ns!(HTML) = name.ns {
             return false;
         }
@@ -1064,7 +1064,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult {
-        let cur = self.sink.elem_name(self.adjusted_current_node());
+        let cur = self.sink.elem_name(&self.adjusted_current_node());
         match cur.ns {
             ns!(MathML) => self.adjust_mathml_attributes(&mut tag),
             ns!(SVG) => {

@@ -147,7 +147,7 @@ impl TreeSink for RcDom {
         same_node(&x, &y)
     }
 
-    fn elem_name(&self, target: Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QualName {
         // FIXME: rust-lang/rust#22252
         return match target.borrow().node {
             Element(ref name, _) => name.clone(),

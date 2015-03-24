@@ -395,7 +395,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                     let mut to_close = None;
                     for node in self.open_elems.iter().rev() {
-                        let name = self.sink.elem_name(node.clone());
+                        let name = self.sink.elem_name(&node);
                         if can_close(name.clone()) {
                             to_close = Some(name.local);
                             break;
@@ -1360,7 +1360,7 @@ impl<Handle, Sink> TreeBuilderStep
                     }
 
                     let node = self.open_elems[stack_idx].clone();
-                    let node_name = self.sink.elem_name(node);
+                    let node_name = self.sink.elem_name(&node);
                     if !first && node_name.ns == ns!(HTML) {
                         let mode = self.mode;
                         return self.step(mode, TagToken(tag));

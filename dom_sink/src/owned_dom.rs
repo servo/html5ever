@@ -197,7 +197,7 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QualName {
         match target.node {
             Element(ref name, _) => name.clone(),
             _ => panic!("not an element!"),

@@ -185,7 +185,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                             opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template =
-            sink.elem_name(context_elem.clone()) == qualname!(HTML, template);
+            sink.elem_name(&context_elem) == qualname!(HTML, template);
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
@@ -221,7 +221,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.clone().expect("no context element");
-        let name = match self.sink.elem_name(elem) {
+        let name = match self.sink.elem_name(&elem) {
             QualName { ns: ns!(HTML), local } => local,
             _ => return tok_state::Data
         };
@@ -282,7 +282,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { ns, local } = self.sink.elem_name(node.clone());
+            let QualName { ns, local } = self.sink.elem_name(&node);
             match ns {
                 ns!(HTML) => print!(" {}", &local[..]),
                 _ => panic!(),
@@ -294,7 +294,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             match entry {
                 &Marker => print!(" Marker"),
                 &Element(ref h, _) => {
-                    let QualName { ns, local } = self.sink.elem_name(h.clone());
+                    let QualName { ns, local } = self.sink.elem_name(&h);
                     match ns {
                         ns!(HTML) => print!(" {}", &local[..]),
                         _ => panic!(),

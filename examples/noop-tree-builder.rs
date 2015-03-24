@@ -46,8 +46,8 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: usize) -> QualName {
-        self.names.get(&target).expect("not an element").clone()
+    fn elem_name(&self, target: &usize) -> QualName {
+        self.names.get(target).expect("not an element").clone()
     }
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {
