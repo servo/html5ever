@@ -20,12 +20,12 @@ use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
 use util::str::is_ascii_whitespace;
+use util::tendril::Tendril;
 
 use core::mem::replace;
-use collections::string::String;
 use std::borrow::Cow::Borrowed;
 
-fn any_not_whitespace(x: &String) -> bool {
+fn any_not_whitespace(x: &Tendril) -> bool {
     // FIXME: this might be much faster as a byte scan
     x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
 }

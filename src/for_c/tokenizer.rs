@@ -11,6 +11,7 @@
 
 use core::prelude::*;
 
+use util::tendril::Tendril;
 use for_c::common::{LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
 
 use tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
@@ -64,7 +65,7 @@ impl TokenSink for *mut h5e_token_sink {
             ($name:ident) => (call!($name,)); // bleh
         }
 
-        fn opt_str_to_buf<'a>(s: &'a Option<String>) -> LifetimeBuf<'a> {
+        fn opt_str_to_buf<'a>(s: &'a Option<Tendril>) -> LifetimeBuf<'a> {
             match *s {
                 None => LifetimeBuf::null(),
                 Some(ref s) => s.as_lifetime_buf(),

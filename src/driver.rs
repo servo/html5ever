@@ -11,17 +11,17 @@
 
 use core::prelude::*;
 
+use util::tendril::IntoTendril;
 use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use core::default::Default;
 use core::option;
-use collections::string::String;
 
 use string_cache::{Atom, QualName};
 
-/// Convenience function to turn a single `String` into an iterator.
-pub fn one_input(x: String) -> option::IntoIter<String> {
+/// Convenience function to turn a single value into an iterator.
+pub fn one_input<T>(x: T) -> option::IntoIter<T> {
     Some(x).into_iter()
 }
 
@@ -33,14 +33,11 @@ pub fn one_input(x: String) -> option::IntoIter<String> {
 /// let mut sink = MySink;
 /// tokenize_to(&mut sink, one_input(my_str), Default::default());
 /// ```
-pub fn tokenize_to<
-        Sink: TokenSink,
-        It: Iterator<Item=String>
-    >(
-        sink: Sink,
-        input: It,
-        opts: TokenizerOpts) -> Sink {
-
+pub fn tokenize_to<Sink, T, It>(sink: Sink, input: It, opts: TokenizerOpts) -> Sink
+    where Sink: TokenSink,
+          T: IntoTendril,
+          It: Iterator<Item=T>,
+{
     let mut tok = Tokenizer::new(sink, opts);
     for s in input {
         tok.feed(s);
@@ -67,14 +64,11 @@ pub struct ParseOpts {
 /// let mut sink = MySink;
 /// parse_to(&mut sink, one_input(my_str), Default::default());
 /// ```
-pub fn parse_to<
-        Sink: TreeSink,
-        It: Iterator<Item=String>
-    >(
-        sink: Sink,
-        input: It,
-        opts: ParseOpts) -> Sink {
-
+pub fn parse_to<Sink, T, It>(sink: Sink, input: It, opts: ParseOpts) -> Sink
+    where Sink: TreeSink,
+          T: IntoTendril,
+          It: Iterator<Item=T>,
+{
     let tb = TreeBuilder::new(sink, opts.tree_builder);
     let mut tok = Tokenizer::new(tb, opts.tokenizer);
     for s in input {
@@ -92,15 +86,14 @@ pub fn parse_to<
 /// let mut sink = MySink;
 /// parse_fragment_to(&mut sink, one_input(my_str), context_token, Default::default());
 /// ```
-pub fn parse_fragment_to<
-        Sink: TreeSink,
-        It: Iterator<Item=String>
-    >(
-        sink: Sink,
-        input: It,
-        context: Atom,
-        opts: ParseOpts) -> Sink {
-
+pub fn parse_fragment_to<Sink, T, It>(sink: Sink,
+                                      input: It,
+                                      context: Atom,
+                                      opts: ParseOpts) -> Sink
+    where Sink: TreeSink,
+          T: IntoTendril,
+          It: Iterator<Item=T>
+{
     let mut sink = sink;
     let context_elem = sink.create_element(QualName::new(ns!(HTML), context), vec!());
     let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
@@ -132,9 +125,10 @@ pub trait ParseResult {
 /// ```ignore
 /// let dom: RcDom = parse(one_input(my_str), Default::default());
 /// ```
-pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
+pub fn parse<Output, T, It>(input: It, opts: ParseOpts) -> Output
     where Output: ParseResult,
-          It: Iterator<Item=String>,
+          T: IntoTendril,
+          It: Iterator<Item=T>,
 {
     let sink = parse_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
@@ -147,9 +141,10 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
 /// ```ignore
 /// let dom: RcDom = parse_fragment(one_input(my_str), context_token, Default::default());
 /// ```
-pub fn parse_fragment<Output, It>(input: It, context: Atom, opts: ParseOpts) -> Output
+pub fn parse_fragment<Output, T, It>(input: It, context: Atom, opts: ParseOpts) -> Output
     where Output: ParseResult,
-          It: Iterator<Item=String>,
+          T: IntoTendril,
+          It: Iterator<Item=T>,
 {
     let sink = parse_fragment_to(Default::default(), input, context, opts);
     ParseResult::get_result(sink)

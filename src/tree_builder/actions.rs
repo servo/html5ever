@@ -23,13 +23,13 @@ use tokenizer::{Attribute, Tag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::{AsciiExt, to_escaped_string};
+use util::tendril::Tendril;
 
 use core::mem::replace;
 use core::iter::{Rev, Enumerate};
 use core::slice;
 use core::fmt::Debug;
 use collections::vec::Vec;
-use collections::string::String;
 use std::borrow::Cow::Borrowed;
 
 use string_cache::{Atom, QualName};
@@ -66,10 +66,10 @@ pub trait TreeBuilderActions<Handle> {
     fn assert_named(&mut self, node: Handle, name: Atom);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
-    fn append_text(&mut self, text: String) -> ProcessResult;
-    fn append_comment(&mut self, text: String) -> ProcessResult;
-    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult;
-    fn append_comment_to_html(&mut self, text: String) -> ProcessResult;
+    fn append_text(&mut self, text: Tendril) -> ProcessResult;
+    fn append_comment(&mut self, text: Tendril) -> ProcessResult;
+    fn append_comment_to_doc(&mut self, text: Tendril) -> ProcessResult;
+    fn append_comment_to_html(&mut self, text: Tendril) -> ProcessResult;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
@@ -707,25 +707,25 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.clear_active_formatting_to_marker();
     }
 
-    fn append_text(&mut self, text: String) -> ProcessResult {
+    fn append_text(&mut self, text: Tendril) -> ProcessResult {
         self.insert_appropriately(AppendText(text), None);
         Done
     }
 
-    fn append_comment(&mut self, text: String) -> ProcessResult {
+    fn append_comment(&mut self, text: Tendril) -> ProcessResult {
         let comment = self.sink.create_comment(text);
         self.insert_appropriately(AppendNode(comment), None);
         Done
     }
 
-    fn append_comment_to_doc(&mut self, text: String) -> ProcessResult {
+    fn append_comment_to_doc(&mut self, text: Tendril) -> ProcessResult {
         let target = self.doc_handle.clone();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
     }
 
-    fn append_comment_to_html(&mut self, text: String) -> ProcessResult {
+    fn append_comment_to_html(&mut self, text: Tendril) -> ProcessResult {
         let target = self.html_elem();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));

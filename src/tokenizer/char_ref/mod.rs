@@ -9,9 +9,10 @@
 
 use core::prelude::*;
 
-use super::{Tokenizer, TokenSink};
+use super::{Tokenizer, TokenSink, name_buffer};
 
-use util::str::{is_ascii_alnum, empty_str};
+use util::str::{is_ascii_alnum};
+use util::tendril::Tendril;
 
 use core::char::from_u32;
 use std::borrow::Cow::Borrowed;
@@ -145,7 +146,7 @@ impl CharRefTokenizer {
 
             _ => {
                 self.state = Named;
-                self.name_buf_opt = Some(empty_str());
+                self.name_buf_opt = Some(name_buffer());
                 Progress
             }
         }
@@ -204,7 +205,7 @@ impl CharRefTokenizer {
     }
 
     fn unconsume_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let mut unconsume = String::from_str("#");
+        let mut unconsume = Tendril::from_char('#');
         match self.hex_marker {
             Some(c) => unconsume.push(c),
             None => (),
@@ -276,7 +277,7 @@ impl CharRefTokenizer {
     }
 
     fn unconsume_name<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) {
-        tokenizer.unconsume(self.name_buf_opt.take().unwrap());
+        tokenizer.unconsume(Tendril::owned(self.name_buf_opt.take().unwrap()));
     }
 
     fn finish_named<Sink: TokenSink>(&mut self,
@@ -350,7 +351,7 @@ impl CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(String::from_str(&self.name_buf()[name_len..]));
+                    tokenizer.unconsume(Tendril::owned_copy(&self.name_buf()[name_len..]));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -394,7 +395,7 @@ impl CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(String::from_str("#"));
+                    tokenizer.unconsume(Tendril::owned_copy("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
                 }

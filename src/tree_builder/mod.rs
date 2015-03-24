@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(warnings)]
+
 //! The HTML5 tree builder.
 
 use core::prelude::*;
@@ -26,7 +28,8 @@ use tokenizer::{Doctype, Tag};
 use tokenizer::TokenSink;
 use tokenizer::states as tok_state;
 
-use util::str::{is_ascii_whitespace, char_run};
+use util::str::is_ascii_whitespace;
+use util::tendril::Tendril;
 
 use core::default::Default;
 use core::mem::replace;
@@ -104,7 +107,7 @@ pub struct TreeBuilder<Handle, Sink> {
     template_modes: Vec<InsertionMode>,
 
     /// Pending table character tokens.
-    pending_table_text: Vec<(SplitStatus, String)>,
+    pending_table_text: Vec<(SplitStatus, Tendril)>,
 
     /// Quirks mode as set by the parser.
     /// FIXME: can scripts etc. change this?
@@ -347,18 +350,16 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     token = t;
                 }
                 SplitWhitespace(buf) => {
-                    let buf = buf.as_slice();
-
-                    let (len, is_ws) = unwrap_or_return!(
-                        char_run(is_ascii_whitespace, buf), ());
+                    let (len, is_ws) = unwrap_or_return!(buf.char_run(is_ascii_whitespace), ());
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
-                        String::from_str(&buf[..len]));
+                        unsafe { buf.subtendril(0, len) });
 
-                    if len < buf.len() {
+                    if len < buf.len32() {
                         more_tokens.push_back(
-                            CharacterTokens(NotSplit, String::from_str(&buf[len..])));
+                            CharacterTokens(NotSplit,
+                                unsafe { buf.subtendril(len, buf.len32()) }));
                     }
                 }
             }
@@ -397,9 +398,9 @@ impl<Handle, Sink> TokenSink
                 let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
                 if !self.opts.drop_doctype {
                     self.sink.append_doctype_to_document(
-                        name.unwrap_or(String::new()),
-                        public_id.unwrap_or(String::new()),
-                        system_id.unwrap_or(String::new())
+                        name.unwrap_or(Tendril::new()),
+                        public_id.unwrap_or(Tendril::new()),
+                        system_id.unwrap_or(Tendril::new())
                     );
                 }
                 self.set_quirks_mode(quirk);
@@ -420,8 +421,8 @@ impl<Handle, Sink> TokenSink
             tokenizer::EOFToken => EOFToken,
 
             tokenizer::CharacterTokens(mut x) => {
-                if ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
-                    x.remove(0);
+                if ignore_lf {
+                    x.pop_front_lf();
                 }
                 if x.is_empty() {
                     return;

@@ -11,9 +11,8 @@
 
 use core::prelude::*;
 
+use util::tendril::Tendril;
 use tokenizer::Tag;
-
-use collections::string::String;
 
 pub use self::InsertionMode::*;
 pub use self::SplitStatus::*;
@@ -60,8 +59,8 @@ pub enum SplitStatus {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {
     TagToken(Tag),
-    CommentToken(String),
-    CharacterTokens(SplitStatus, String),
+    CommentToken(Tendril),
+    CharacterTokens(SplitStatus, Tendril),
     NullCharacterToken,
     EOFToken,
 }
@@ -69,7 +68,7 @@ pub enum Token {
 pub enum ProcessResult {
     Done,
     DoneAckSelfClosing,
-    SplitWhitespace(String),
+    SplitWhitespace(Tendril),
     Reprocess(InsertionMode, Token),
 }
 

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::borrow::Cow;
 use string_cache::QualName;
 
-use html5ever::{parse_to, one_input};
+use html5ever::{parse_to, one_input, Tendril};
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 
@@ -56,7 +56,7 @@ impl TreeSink for Sink {
         id
     }
 
-    fn create_comment(&mut self, _text: String) -> usize {
+    fn create_comment(&mut self, _text: Tendril) -> usize {
         self.get_id()
     }
 
@@ -72,7 +72,7 @@ impl TreeSink for Sink {
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: usize, _child: NodeOrText<usize>) { }
 
-    fn append_doctype_to_document(&mut self, _name: String, _public_id: String, _system_id: String) { }
+    fn append_doctype_to_document(&mut self, _name: Tendril, _public_id: Tendril, _system_id: Tendril) { }
     fn add_attrs_if_missing(&mut self, _target: usize, _attrs: Vec<Attribute>) { }
     fn remove_from_parent(&mut self, _target: usize) { }
     fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }

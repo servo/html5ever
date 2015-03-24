@@ -15,10 +15,11 @@ use core::prelude::*;
 use tokenizer::Attribute;
 
 use collections::vec::Vec;
-use collections::string::String;
 use std::borrow::Cow;
 
 use string_cache::QualName;
+
+use util::tendril::Tendril;
 
 pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
@@ -37,7 +38,7 @@ pub enum QuirksMode {
 /// the sink may not want to allocate a `Handle` for each.
 pub enum NodeOrText<Handle> {
     AppendNode(Handle),
-    AppendText(String),
+    AppendText(Tendril),
 }
 
 /// Types which can process tree modifications from the tree builder.
@@ -69,7 +70,7 @@ pub trait TreeSink {
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;
 
     /// Create a comment node.
-    fn create_comment(&mut self, text: String) -> Self::Handle;
+    fn create_comment(&mut self, text: Tendril) -> Self::Handle;
 
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
@@ -92,7 +93,7 @@ pub trait TreeSink {
         new_node: NodeOrText<Self::Handle>) -> Result<(), NodeOrText<Self::Handle>>;
 
     /// Append a `DOCTYPE` element to the `Document` node.
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String);
+    fn append_doctype_to_document(&mut self, name: Tendril, public_id: Tendril, system_id: Tendril);
 
     /// Add each attribute to the given element, if no attribute
     /// with that name already exists.

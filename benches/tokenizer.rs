@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, core, std_misc, start, test, io, path)]
+#![feature(box_syntax, core, std_misc, start, test)]
 
 extern crate test;
 extern crate html5ever;
@@ -21,6 +21,7 @@ use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 use test::ShouldPanic::No;
 
+use html5ever::Tendril;
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
 
 struct Sink;

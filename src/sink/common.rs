@@ -7,10 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use util::tendril::Tendril;
 use tokenizer::Attribute;
 
 use collections::vec::Vec;
-use collections::string::String;
 use string_cache::QualName;
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
@@ -22,13 +22,13 @@ pub enum NodeEnum {
     Document,
 
     /// A `DOCTYPE` with name, public id, and system id.
-    Doctype(String, String, String),
+    Doctype(Tendril, Tendril, Tendril),
 
     /// A text node.
-    Text(String),
+    Text(Tendril),
 
     /// A comment.
-    Comment(String),
+    Comment(Tendril),
 
     /// An element with attributes.
     Element(QualName, Vec<Attribute>),
