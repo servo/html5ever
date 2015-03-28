@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::fs;
 use std::str::FromStr;
 use std::collections::HashMap;
+use std::convert::From;
 
 use rustc_serialize::json;
 use rustc_serialize::json::Json;
@@ -52,7 +53,7 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
         }
 
         // Slice off the initial '&'
-        assert!(k.as_slice().char_at(0) == '&');
+        assert!(k.chars().next() == Some('&'));
         map.insert(k[1..].to_string(), codepoint_pair);
     }
 
@@ -95,7 +96,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     }, "unexpected result from file!()");
 
     // Combine those to get an absolute path to entities.json.
-    let mut path = PathBuf::new(&mod_filename);
+    let mut path: PathBuf = From::from(&mod_filename);
     path.pop();
     path.push(&json_filename);
 
@@ -111,7 +112,7 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     //
     //     phf_map!(k => v, k => v, ...)
     let toks: Vec<_> = map.into_iter().flat_map(|(k, [c0, c1])| {
-        let k = k.as_slice();
+        let k = &k[..];
         (quote_tokens!(&mut *cx, $k => [$c0, $c1],)).into_iter()
     }).collect();
     MacEager::expr(quote_expr!(&mut *cx, phf_map!($toks)))

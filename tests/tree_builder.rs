@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, plugin, start, std_misc, test)]
+#![feature(plugin, start, std_misc, test)]
 
 #![plugin(string_cache_plugin)]
 
@@ -64,12 +64,12 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
             Some(line) => {
                 if line.starts_with("#") {
                     finish_val!();
-                    if line.as_slice() == "#data" {
+                    if line == "#data" {
                         finish_test!();
                     }
                     key = Some(line[1..].to_string());
                 } else {
-                    val.push_str(line.as_slice());
+                    val.push_str(&line);
                     val.push('\n');
                 }
             }
@@ -83,7 +83,7 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
-    buf.push_str(repeat(" ").take(indent).collect::<String>().as_slice());
+    buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
     let node = handle.borrow();
     match node.node {
@@ -91,22 +91,22 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
         Doctype(ref name, ref public, ref system) => {
             buf.push_str("<!DOCTYPE ");
-            buf.push_str(name.as_slice());
+            buf.push_str(&name);
             if !public.is_empty() || !system.is_empty() {
-                buf.push_str(format!(" \"{}\" \"{}\"", public, system).as_slice());
+                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
             }
             buf.push_str(">\n");
         }
 
         Text(ref text) => {
             buf.push_str("\"");
-            buf.push_str(text.as_slice());
+            buf.push_str(&text);
             buf.push_str("\"\n");
         }
 
         Comment(ref text) => {
             buf.push_str("<!-- ");
-            buf.push_str(text.as_slice());
+            buf.push_str(&text);
             buf.push_str(" -->\n");
         }
 
@@ -123,9 +123,9 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             for attr in attrs.into_iter() {
                 assert!(attr.name.ns == ns!(""));
                 buf.push_str("|");
-                buf.push_str(repeat(" ").take(indent+2).collect::<String>().as_slice());
-                buf.push_str(format!("{}=\"{}\"\n",
-                    attr.name.local.as_slice(), attr.value).as_slice());
+                buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
+                buf.push_str(&format!("{}=\"{}\"\n",
+                    attr.name.local.as_slice(), attr.value));
             }
         }
     }
@@ -148,16 +148,16 @@ fn make_test(
 
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
-        field.as_slice().trim_right_matches('\n').to_string()
+        field.trim_right_matches('\n').to_string()
     };
 
     let data = get_field("data");
     let expected = get_field("document");
     let context = fields.get("document-fragment")
-                        .map(|field| Atom::from_slice(field.as_slice().trim_right_matches('\n')));
+                        .map(|field| Atom::from_slice(field.trim_right_matches('\n')));
     let name = format!("tb: {}-{}", filename, idx);
     let ignore = ignores.contains(&name)
-        || IGNORE_SUBSTRS.iter().any(|&ig| data.as_slice().contains(ig));
+        || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
 
     tests.push(TestDescAndFn {
         desc: TestDesc {
@@ -229,10 +229,10 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
         let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();
         let r = io::BufReader::new(f);
         for ln in r.lines() {
-            ignores.insert(ln.unwrap().as_slice().trim_right().to_string());
+            ignores.insert(ln.unwrap().trim_right().to_string());
         }
     }
 
-    test::test_main(args.as_slice(), tests(src_dir, &ignores));
+    test::test_main(&args, tests(src_dir, &ignores));
     0
 }

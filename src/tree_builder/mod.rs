@@ -290,7 +290,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         for node in self.open_elems.iter() {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
-                ns!(HTML) => print!(" {}", local.as_slice()),
+                ns!(HTML) => print!(" {}", &local[..]),
                 _ => panic!(),
             }
         }
@@ -302,7 +302,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 &Element(ref h, _) => {
                     let QualName { ns, local } = self.sink.elem_name(h.clone());
                     match ns {
-                        ns!(HTML) => print!(" {}", local.as_slice()),
+                        ns!(HTML) => print!(" {}", &local[..]),
                         _ => panic!(),
                     }
                 }
@@ -347,10 +347,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     token = t;
                 }
                 SplitWhitespace(buf) => {
-                    let buf = buf.as_slice();
-
                     let (len, is_ws) = unwrap_or_return!(
-                        char_run(is_ascii_whitespace, buf), ());
+                        char_run(is_ascii_whitespace, &buf), ());
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
@@ -420,7 +418,7 @@ impl<Handle, Sink> TokenSink
             tokenizer::EOFToken => EOFToken,
 
             tokenizer::CharacterTokens(mut x) => {
-                if ignore_lf && x.len() >= 1 && x.as_slice().char_at(0) == '\n' {
+                if ignore_lf && x.len() >= 1 && x.char_at(0) == '\n' {
                     x.remove(0);
                 }
                 if x.is_empty() {

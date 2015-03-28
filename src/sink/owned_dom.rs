@@ -223,7 +223,7 @@ impl TreeSink for Sink {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.children.last() {
-                Some(h) => if append_to_existing_text(*h, text.as_slice()) { return; },
+                Some(h) => if append_to_existing_text(*h, &text) { return; },
                 _ => (),
             },
             _ => (),
@@ -247,7 +247,7 @@ impl TreeSink for Sink {
             // Look for a text node before the insertion point.
             (AppendText(text), i) => {
                 let prev = parent.children[i-1];
-                if append_to_existing_text(prev, text.as_slice()) {
+                if append_to_existing_text(prev, &text) {
                     return Ok(());
                 }
                 self.new_node(Text(text))
@@ -363,7 +363,7 @@ impl Serializable for Node {
             (_, &Element(ref name, ref attrs)) => {
                 if traversal_scope == IncludeNode {
                     try!(serializer.start_elem(name.clone(),
-                        attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
+                        attrs.iter().map(|at| (&at.name, &at.value[..]))));
                 }
 
                 for child in self.children.iter() {
@@ -385,9 +385,9 @@ impl Serializable for Node {
 
             (ChildrenOnly, _) => Ok(()),
 
-            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
-            (IncludeNode, &Text(ref text)) => serializer.write_text(text.as_slice()),
-            (IncludeNode, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
+            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
+            (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
+            (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
 
             (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }

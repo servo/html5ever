@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, collections)]
+#![feature(collections)]
 
 extern crate html5ever;
 
@@ -43,7 +43,7 @@ impl TokenSink for TokenPrinter {
     fn process_token(&mut self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                for c in b.as_slice().chars() {
+                for c in b.chars() {
                     self.do_char(c);
                 }
             }

@@ -635,7 +635,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn is_type_hidden(&self, tag: &Tag) -> bool {
         match tag.attrs.iter().find(|&at| at.name == qualname!("", "type")) {
             None => false,
-            Some(at) => at.value.as_slice().eq_ignore_ascii_case("hidden"),
+            Some(at) => (&*at.value).eq_ignore_ascii_case("hidden"),
         }
     }
 
