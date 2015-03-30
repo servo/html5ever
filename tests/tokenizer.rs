@@ -7,12 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, plugin, start, std_misc, test)]
+#![feature(core, plugin, start, std_misc, test, slice_patterns)]
 
 #![plugin(string_cache_plugin)]
 
 extern crate test;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate string_cache;
 
 extern crate html5ever;
@@ -102,7 +102,7 @@ impl TokenSink for TokenLogger {
     fn process_token(&mut self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                self.current_str.push_str(b.as_slice());
+                self.current_str.push_str(&b);
             }
 
             NullCharacterToken => {
@@ -200,7 +200,7 @@ fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts[1..].iter().collect();
-    match (parts[0].get_str().as_slice(), args.as_slice()) {
+    match (&parts[0].get_str()[..], &args[..]) {
         ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
             name: name.get_nullable_str(),
             public_id: public_id.get_nullable_str(),
@@ -210,10 +210,10 @@ fn json_to_token(js: &Json) -> Token {
 
         ("StartTag", [name, attrs, rest..]) => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from_slice(name.get_str().as_slice()),
+            name: Atom::from_slice(&name.get_str()),
             attrs: attrs.get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(""), Atom::from_slice(k.as_slice())),
+                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
                     value: v.get_str()
                 }
             }).collect(),
@@ -225,7 +225,7 @@ fn json_to_token(js: &Json) -> Token {
 
         ("EndTag", [name]) => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from_slice(name.get_str().as_slice()),
+            name: Atom::from_slice(&name.get_str()),
             attrs: vec!(),
             self_closing: false
         }),
@@ -249,7 +249,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             Json::String(ref s)
-                if s.as_slice() == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
+                if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
             _ => sink.process_token(json_to_token(tok)),
         }
     }
@@ -269,7 +269,7 @@ fn unescape(s: &str) -> Option<String> {
                 }
                 drop(it.next());
                 let hex: String = it.by_ref().take(4).collect();
-                match num::from_str_radix(hex.as_slice(), 16).ok()
+                match num::from_str_radix(&hex, 16).ok()
                           .and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
                     // way to represent them in the UTF-8 input to our parser.
@@ -288,7 +288,7 @@ fn unescape_json(js: &Json) -> Json {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        Json::String(ref s) => Json::String(unescape(s.as_slice()).unwrap()),
+        Json::String(ref s) => Json::String(unescape(&s).unwrap()),
         Json::Array(ref xs) => Json::Array(xs.iter().map(unescape_json).collect()),
         Json::Object(ref obj) => {
             let mut new_obj = BTreeMap::new();
@@ -337,7 +337,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     // "Double-escaped" tests require additional processing of
     // the input and output.
     if obj.get(&"doubleEscaped".to_string()).map_or(false, |j| j.get_bool()) {
-        match unescape(input.as_slice()) {
+        match unescape(&input) {
             None => return,
             Some(i) => input = i,
         }
@@ -350,7 +350,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.get(&"initialStates".to_string()) {
         Some(&Json::Array(ref xs)) => xs.iter().map(|s|
-            Some(match s.get_str().as_slice() {
+            Some(match &s.get_str()[..] {
                 "PLAINTEXT state" => Plaintext,
                 "RAWTEXT state"   => RawData(Rawtext),
                 "RCDATA state"    => RawData(Rcdata),
@@ -416,6 +416,6 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
         rt::args::init(argc, argv);
     }
     let args: Vec<_> = env::args().collect();
-    test::test_main(args.as_slice(), tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
     0
 }

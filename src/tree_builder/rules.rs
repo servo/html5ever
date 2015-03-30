@@ -27,7 +27,7 @@ use std::borrow::Cow::Borrowed;
 
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan
-    x.as_slice().chars().any(|c| !is_ascii_whitespace(c))
+    x.chars().any(|c| !is_ascii_whitespace(c))
 }
 
 // This goes in a trait so that we can control visibility.

@@ -56,10 +56,10 @@ mod test {
                 for y in 0 .. 48usize {
                     let mut s = repeat("x").take(x).collect::<String>();
                     s.push(c);
-                    s.push_str(repeat("x").take(y).collect::<String>().as_slice());
+                    s.push_str(&repeat("x").take(y).collect::<String>());
                     let set = small_char_set!('&' '\0');
 
-                    assert_eq!(x, set.nonmember_prefix_len(s.as_slice()));
+                    assert_eq!(x, set.nonmember_prefix_len(&s));
                 }
             }
         }

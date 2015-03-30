@@ -64,6 +64,7 @@ pub type Handle = Rc<RefCell<Node>>;
 /// Weak reference to a DOM node, used for parent pointers.
 pub type WeakHandle = Weak<RefCell<Node>>;
 
+#[allow(trivial_casts)]
 fn same_node(x: &Handle, y: &Handle) -> bool {
     // FIXME: This shouldn't really need to touch the borrow flags, right?
     (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
@@ -164,7 +165,7 @@ impl TreeSink for RcDom {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.borrow().children.last() {
-                Some(h) => if append_to_existing_text(h, text.as_slice()) { return; },
+                Some(h) => if append_to_existing_text(h, &text) { return; },
                 _ => (),
             },
             _ => (),
@@ -189,7 +190,7 @@ impl TreeSink for RcDom {
             (AppendText(text), i) => {
                 let parent = parent.borrow();
                 let prev = &parent.children[i-1];
-                if append_to_existing_text(prev, text.as_slice()) {
+                if append_to_existing_text(prev, &text) {
                     return Ok(());
                 }
                 new_node(Text(text))
@@ -276,7 +277,7 @@ impl Serializable for Handle {
             (_, &Element(ref name, ref attrs)) => {
                 if traversal_scope == IncludeNode {
                     try!(serializer.start_elem(name.clone(),
-                        attrs.iter().map(|at| (&at.name, at.value.as_slice()))));
+                        attrs.iter().map(|at| (&at.name, &at.value[..]))));
                 }
 
                 for handle in node.children.iter() {
@@ -298,9 +299,9 @@ impl Serializable for Handle {
 
             (ChildrenOnly, _) => Ok(()),
 
-            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(name.as_slice()),
-            (IncludeNode, &Text(ref text)) => serializer.write_text(text.as_slice()),
-            (IncludeNode, &Comment(ref text)) => serializer.write_comment(text.as_slice()),
+            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
+            (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
+            (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
 
             (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }

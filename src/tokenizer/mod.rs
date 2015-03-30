@@ -13,9 +13,8 @@
 
 use core::clone::Clone;
 use core::cmp::Ord;
-use core::iter::{range, IteratorExt};
+use core::iter::{range, Iterator};
 use core::option::Option::{self, Some, None};
-use core::str::Str;
 
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
@@ -61,7 +60,7 @@ fn append_strings(lhs: &mut String, rhs: String) {
     if lhs.is_empty() {
         *lhs = rhs;
     } else {
-        lhs.push_str(rhs.as_slice());
+        lhs.push_str(&rhs);
     }
 }
 
@@ -182,7 +181,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         let start_tag_name = opts.last_start_tag_name.take()
-            .map(|s| Atom::from_slice(s.as_slice()));
+            .map(|s| Atom::from_slice(&s));
         let state = opts.initial_state.unwrap_or(states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
@@ -229,7 +228,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return;
         }
 
-        let pos = if self.discard_bom && input.as_slice().char_at(0) == '\u{feff}' {
+        let pos = if self.discard_bom && input.char_at(0) == '\u{feff}' {
             self.discard_bom = false;
             3  // length of BOM in UTF-8
         } else {
@@ -385,7 +384,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.finish_attribute();
 
         let name = replace(&mut self.current_tag_name, String::new());
-        let name = Atom::from_slice(name.as_slice());
+        let name = Atom::from_slice(&name);
 
         match self.current_tag_kind {
             StartTag => {
@@ -448,7 +447,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         match self.last_start_tag_name.as_ref() {
             Some(last) =>
                 (self.current_tag_kind == EndTag)
-                && (self.current_tag_name.as_slice() == last.as_slice()),
+                && (self.current_tag_name == last.as_slice()),
             None => false,
         }
     }
@@ -468,7 +467,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // FIXME: the spec says we should error as soon as the name is finished.
         // FIXME: linear time search, do we care?
         let dup = {
-            let name = self.current_attr_name.as_slice();
+            let name = &self.current_attr_name[..];
             self.current_tag_attrs.iter().any(|a| a.name.local.as_slice() == name)
         };
 
@@ -481,7 +480,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(""), Atom::from_slice(name.as_slice())),
+                name: QualName::new(ns!(""), Atom::from_slice(&name)),
                 value: replace(&mut self.current_attr_value, empty_str()),
             });
         }
@@ -810,7 +809,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { DoubleEscaped } else { Escaped };
+                        let esc = if self.temp_buf == "script" { DoubleEscaped } else { Escaped };
                         go!(self: emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -860,7 +859,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if self.temp_buf.as_slice() == "script" { Escaped } else { DoubleEscaped };
+                        let esc = if self.temp_buf == "script" { Escaped } else { DoubleEscaped };
                         go!(self: emit c; to RawData ScriptDataEscaped esc);
                     }
                     _ => match lower_ascii_letter(c) {
@@ -1252,7 +1251,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         let mut results: Vec<(states::State, u64)>
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
-        results.as_mut_slice().sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+        results[..].sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");

@@ -172,7 +172,7 @@ impl CharRefTokenizer {
         use std::num::wrapping::WrappingOps;
 
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
-        match c.to_digit(base as u32) {
+        match c.to_digit(base) {
             Some(n) => {
                 tokenizer.discard_char();
                 self.num = self.num.wrapping_mul(base);
@@ -181,7 +181,7 @@ impl CharRefTokenizer {
                     // We still parse digits and semicolon, but don't use the result.
                     self.num_too_big = true;
                 }
-                self.num = self.num.wrapping_add(n as u32);
+                self.num = self.num.wrapping_add(n);
                 self.seen_digit = true;
                 Progress
             }
@@ -251,7 +251,7 @@ impl CharRefTokenizer {
     fn do_named<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(), Stuck);
         self.name_buf_mut().push(c);
-        match data::NAMED_ENTITIES.get(self.name_buf().as_slice()) {
+        match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
             // We have either a full match or a prefix of one.
             Some(m) => {
                 if m[0] != 0 {
@@ -271,7 +271,7 @@ impl CharRefTokenizer {
     fn emit_name_error<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) {
         let msg = format_if!(tokenizer.opts.exact_errors,
             "Invalid character reference",
-            "Invalid character reference &{}", self.name_buf().as_slice());
+            "Invalid character reference &{}", self.name_buf());
         tokenizer.emit_error(msg);
     }
 
@@ -313,14 +313,14 @@ impl CharRefTokenizer {
 
                 let name_len = self.name_len;
                 assert!(name_len > 0);
-                let last_matched = self.name_buf().as_slice().char_at(name_len-1);
+                let last_matched = self.name_buf().char_at(name_len-1);
 
                 // There might not be a next character after the match, if
                 // we had a full match and then hit EOF.
                 let next_after = if name_len == self.name_buf().len() {
                     None
                 } else {
-                    Some(self.name_buf().as_slice().char_at(name_len))
+                    Some(self.name_buf().char_at(name_len))
                 };
 
                 // "If the character reference is being consumed as part of an

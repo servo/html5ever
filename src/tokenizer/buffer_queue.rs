@@ -74,7 +74,7 @@ impl BufferQueue {
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
         match self.buffers.front() {
-            Some(&Buffer { pos, ref buf }) => Some(buf.as_slice().char_at(pos)),
+            Some(&Buffer { pos, ref buf }) => Some(buf.char_at(pos)),
             None => None,
         }
     }
@@ -84,7 +84,7 @@ impl BufferQueue {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(&mut Buffer { ref mut pos, ref buf }) => {
-                let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
+                let CharRange { ch, next } = buf.char_range_at(*pos);
                 *pos = next;
                 (Some(ch), next >= buf.len())
             }
@@ -111,7 +111,7 @@ impl BufferQueue {
                     *pos = new_pos;
                     (Some(NotFromSet(out)), new_pos >= buf.len())
                 } else {
-                    let CharRange { ch, next } = buf.as_slice().char_range_at(*pos);
+                    let CharRange { ch, next } = buf.char_range_at(*pos);
                     *pos = next;
                     (Some(FromSet(ch)), next >= buf.len())
                 }
@@ -146,7 +146,7 @@ impl BufferQueue {
             }
             let ref buf = self.buffers[buffers_exhausted];
 
-            let d = buf.buf.as_slice().char_at(consumed_from_last);
+            let d = buf.buf.char_at(consumed_from_last);
             match (c.to_ascii_opt(), d.to_ascii_opt()) {
                 (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
                 _ => return Some(false),
