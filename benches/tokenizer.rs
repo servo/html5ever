@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, core, std_misc, start, test, io, path)]
+#![feature(box_syntax, std_misc, start, test, convert)]
 
 extern crate test;
 extern crate html5ever;
@@ -44,7 +44,7 @@ struct Bench {
 impl Bench {
     fn new(name: &str, size: Option<usize>, clone_only: bool,
            opts: TokenizerOpts) -> Bench {
-        let mut path = PathBuf::new(env!("CARGO_MANIFEST_DIR"));
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("data/bench/");
         path.push(name);
         let mut file = fs::File::open(&path).ok().expect("can't open file");
@@ -53,7 +53,7 @@ impl Bench {
         let mut file_input = String::new();
         file.read_to_string(&mut file_input).ok().expect("can't read file");
         let size = size.unwrap_or(file_input.len());
-        let mut stream = file_input.as_slice().chars().cycle();
+        let mut stream = file_input.chars().cycle();
 
         // Break the input into chunks of 1024 chars (= a few kB).
         // This simulates reading from the network.
@@ -141,7 +141,7 @@ fn tests() -> Vec<TestDescAndFn> {
             // Not checked into the repo, so don't include by default.
             for &file in ["sina.com.cn.html", "wikipedia.html"].iter() {
                 let name = format!("uncommitted/{}", file);
-                tests.push(make_bench(name.as_slice(), None, false, opts.clone()));
+                tests.push(make_bench(&name, None, false, opts.clone()));
             }
         }
     }
@@ -155,6 +155,6 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
         rt::args::init(argc, argv);
     }
     let args: Vec<_> = env::args().collect();
-    test::test_main(args.as_slice(), tests());
+    test::test_main(&args, tests());
     0
 }

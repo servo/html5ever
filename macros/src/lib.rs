@@ -10,8 +10,7 @@
 #![crate_name="html5ever_macros"]
 #![crate_type="dylib"]
 
-#![feature(plugin_registrar, quote)]
-#![feature(rustc_private, convert)]
+#![feature(plugin_registrar, quote, rustc_private, convert, slice_patterns)]
 #![deny(warnings)]
 
 extern crate syntax;

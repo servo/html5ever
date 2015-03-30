@@ -13,7 +13,7 @@
 
 use core::clone::Clone;
 use core::cmp::Ord;
-use core::iter::{range, IteratorExt};
+use core::iter::{range, Iterator};
 use core::option::Option::{self, Some, None};
 
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
@@ -1251,7 +1251,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         let mut results: Vec<(states::State, u64)>
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
-        results.as_mut_slice().sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+        results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");

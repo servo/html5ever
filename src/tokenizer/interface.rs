@@ -81,8 +81,8 @@ impl Tag {
 
         let mut self_attrs = self.attrs.clone();
         let mut other_attrs = other.attrs.clone();
-        self_attrs.as_mut_slice().sort();
-        other_attrs.as_mut_slice().sort();
+        self_attrs.sort();
+        other_attrs.sort();
 
         self_attrs == other_attrs
     }

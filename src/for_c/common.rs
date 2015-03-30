@@ -78,19 +78,19 @@ pub trait AsLifetimeBuf {
 
 impl AsLifetimeBuf for String {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
-        LifetimeBuf::from_str(self.as_slice())
+        LifetimeBuf::from_str(self)
     }
 }
 
 impl AsLifetimeBuf for Atom {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
-        LifetimeBuf::from_str(self.as_slice())
+        LifetimeBuf::from_str(self)
     }
 }
 
 impl<'b> AsLifetimeBuf for Cow<'b, str> {
     fn as_lifetime_buf<'a>(&'a self) -> LifetimeBuf<'a> {
-        LifetimeBuf::from_str(self.as_slice())
+        LifetimeBuf::from_str(self)
     }
 }
 
