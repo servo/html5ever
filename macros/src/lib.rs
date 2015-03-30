@@ -11,7 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote)]
-#![feature(rustc_private, convert)]
+#![feature(rustc_private, convert, slice_patterns)]
 #![deny(warnings)]
 
 extern crate syntax;
