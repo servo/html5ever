@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core, plugin, start, std_misc, test, slice_patterns)]
+#![feature(plugin, start, std_misc, test, slice_patterns)]
 
 #![plugin(string_cache_plugin)]
 
@@ -20,7 +20,7 @@ extern crate test_util;
 
 use test_util::foreach_html5lib_test;
 
-use std::{num, char, env, rt};
+use std::{char, env, rt};
 use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
@@ -269,7 +269,7 @@ fn unescape(s: &str) -> Option<String> {
                 }
                 drop(it.next());
                 let hex: String = it.by_ref().take(4).collect();
-                match num::from_str_radix(&hex, 16).ok()
+                match u32::from_str_radix(&hex, 16).ok()
                           .and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
                     // way to represent them in the UTF-8 input to our parser.

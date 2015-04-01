@@ -169,8 +169,6 @@ impl CharRefTokenizer {
     }
 
     fn do_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>, base: u32) -> Status {
-        use std::num::wrapping::WrappingOps;
-
         let c = unwrap_or_return!(tokenizer.peek(), Stuck);
         match c.to_digit(base) {
             Some(n) => {
