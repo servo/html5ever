@@ -5,7 +5,4 @@ branches:
 
 language: rust
 script: scripts/travis-build.sh
-after_success: scripts/travis-doc-upload.sh
-env:
-  global:
-    secure: eWwjnHQiN7dA17RUPD2ZzsBl3vg1f5+jkcXdCCUGPZxg/T5XIN382XqrwOXTI4uOv2ex8uMnm0JkTSb6eG25Fun7pOEgvKcY02nMQWXImi3NlDunwQN6lHS/WX0gr5KBx6ktvCk46xNDw4URy1vS+SNaWJ04pv/vNCqoNid4D40=
+after_success: curl https://raw.githubusercontent.com/kmcallister/travis-doc-upload/master/travis-doc-upload.sh | sh
