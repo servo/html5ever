@@ -20,7 +20,7 @@ Add html5ever as a dependency in your [`Cargo.toml`](http://crates.io/) file:
 git = "https://github.com/servo/html5ever"
 ```
 
-Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation online](http://www.rust-ci.org/servo/html5ever/doc/html5ever/).
+Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation online](https://servo.github.io/html5ever).
 
 
 ## Getting started in other languages
