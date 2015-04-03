@@ -41,6 +41,11 @@ pub struct h5e_token_ops {
 }
 
 impl Copy for h5e_token_ops { }
+impl Clone for h5e_token_ops {
+    fn clone(&self) -> h5e_token_ops {
+        *self
+    }
+}
 
 #[repr(C)]
 pub struct h5e_token_sink {
@@ -49,6 +54,11 @@ pub struct h5e_token_sink {
 }
 
 impl Copy for h5e_token_sink { }
+impl Clone for h5e_token_sink {
+    fn clone(&self) -> h5e_token_sink {
+        *self
+    }
+}
 
 impl TokenSink for *mut h5e_token_sink {
     fn process_token(&mut self, token: Token) {

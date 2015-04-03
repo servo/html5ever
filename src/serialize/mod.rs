@@ -16,7 +16,7 @@ use collections::vec::Vec;
 use string_cache::{Atom, QualName};
 
 //§ serializing-html-fragments
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum TraversalScope {
     IncludeNode,
     ChildrenOnly
@@ -34,7 +34,7 @@ pub fn serialize<Wr: Write, T: Serializable>
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,

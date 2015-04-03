@@ -18,7 +18,7 @@ use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
 use html5ever::driver::{tokenize_to, one_input};
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 struct TokenPrinter {
     in_char_run: bool,
 }
