@@ -8,7 +8,6 @@
 // except according to those terms.
 
 #![feature(plugin, start, std_misc, test, slice_patterns)]
-
 #![plugin(string_cache_plugin)]
 
 extern crate test;
@@ -25,7 +24,6 @@ use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
-use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 use rustc_serialize::json::Json;
@@ -309,7 +307,7 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
             ignore: false,
             should_panic: No,
         },
-        testfn: DynTestFn(Thunk::new(move || {
+        testfn: DynTestFn(Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
             for input in insplits.into_iter() {

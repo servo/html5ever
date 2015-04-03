@@ -13,7 +13,7 @@
 
 use core::clone::Clone;
 use core::cmp::Ord;
-use core::iter::{range, Iterator};
+use core::iter::Iterator;
 use core::option::Option::{self, Some, None};
 
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};

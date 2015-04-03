@@ -27,7 +27,6 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
-use std::thunk::Thunk;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 
@@ -165,7 +164,7 @@ fn make_test(
             ignore: ignore,
             should_panic: No,
         },
-        testfn: DynTestFn(Thunk::new(move || {
+        testfn: DynTestFn(Box::new(move || {
             let mut result = String::new();
             match context {
                 None => {
@@ -174,9 +173,9 @@ fn make_test(
                         serialize(&mut result, 1, child.clone());
                     }
                 },
-                Some(context) => {
+                Some(ref context) => {
                     let dom: RcDom = parse_fragment(one_input(data.clone()),
-                                                    context,
+                                                    context.clone(),
                                                     Default::default());
                     // fragment case: serialize children of the html element
                     // rather than children of the document

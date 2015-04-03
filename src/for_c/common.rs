@@ -27,6 +27,11 @@ pub struct h5e_buf {
 }
 
 impl Copy for h5e_buf { }
+impl Clone for h5e_buf {
+    fn clone(&self) -> h5e_buf {
+        *self
+    }
+}
 
 impl h5e_buf {
     pub fn null() -> h5e_buf {
