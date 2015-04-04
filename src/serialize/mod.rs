@@ -104,7 +104,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
 
         let html_name = match name.ns {
             ns!(HTML) => Some(name.local.clone()),
-            _ => panic!("FIXME: Handle qualified tag names"),
+            _ => panic!("FIXME(#14): Handle qualified tag names"),
         };
 
         if self.parent().ignore_children {
@@ -120,7 +120,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         try!(self.writer.write_all(name.local.as_slice().as_bytes()));
         for (name, value) in attrs {
             try!(self.writer.write_all(b" "));
-            // FIXME: qualified names
+            // FIXME(#14): qualified names
             assert!(name.ns == ns!(""));
             try!(self.writer.write_all(name.local.as_slice().as_bytes()));
             try!(self.writer.write_all(b"=\""));

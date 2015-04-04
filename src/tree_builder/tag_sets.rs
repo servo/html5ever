@@ -46,7 +46,6 @@ macro_rules! declare_tag_set (
 #[inline(always)] pub fn empty_set(_: QualName) -> bool { false }
 #[inline(always)] pub fn full_set(_: QualName) -> bool { true }
 
-// FIXME: MathML, SVG
 declare_tag_set!(pub default_scope = applet caption html table td th marquee object template);
 
 declare_tag_set!(pub list_item_scope = default_scope + ol ul);
@@ -73,3 +72,14 @@ declare_tag_set!(pub special_tag =
     param plaintext pre script section select source style summary table tbody td template
     textarea tfoot th thead title tr track ul wbr xmp);
 //§ END
+
+pub fn mathml_text_integration_point(p: QualName) -> bool {
+    matches!(p, qualname!(MathML, mi) | qualname!(MathML, mo) | qualname!(MathML, mn)
+        | qualname!(MathML, ms) | qualname!(MathML, mtext))
+}
+
+pub fn html_integration_point(p: QualName) -> bool {
+    // FIXME(#119): HTML integration points in MathML
+    matches!(p, qualname!(SVG, foreignObject) | qualname!(SVG, desc)
+        | qualname!(SVG, title))
+}
