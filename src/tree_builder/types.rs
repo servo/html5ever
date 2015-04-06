@@ -71,6 +71,7 @@ pub enum ProcessResult {
     DoneAckSelfClosing,
     SplitWhitespace(String),
     Reprocess(InsertionMode, Token),
+    ReprocessForeign(Token),
 }
 
 pub enum FormatEntry<Handle> {

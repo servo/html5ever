@@ -110,8 +110,12 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         }
 
         Element(ref name, ref attrs) => {
-            assert!(name.ns == ns!(HTML));
             buf.push_str("<");
+            match name.ns {
+                ns!(SVG) => buf.push_str("svg "),
+                ns!(MathML) => buf.push_str("math "),
+                _ => (),
+            }
             buf.push_str(name.local.as_slice());
             buf.push_str(">\n");
 
@@ -120,9 +124,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             // FIXME: sort by UTF-16 code unit
 
             for attr in attrs.into_iter() {
-                assert!(attr.name.ns == ns!(""));
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
+                match attr.name.ns {
+                    ns!(XLink) => buf.push_str("xlink "),
+                    ns!(XML) => buf.push_str("xml "),
+                    ns!(XMLNS) => buf.push_str("xmlns "),
+                    _ => (),
+                }
                 buf.push_str(&format!("{}=\"{}\"\n",
                     attr.name.local.as_slice(), attr.value));
             }
@@ -136,7 +145,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
 // Ignore tests containing these strings; we don't support these features yet.
 static IGNORE_SUBSTRS: &'static [&'static str]
-    = &["<math", "<svg", "<template"];
+    = &["<template"];
 
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,

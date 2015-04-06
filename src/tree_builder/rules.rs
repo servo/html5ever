@@ -19,11 +19,12 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
-use util::str::is_ascii_whitespace;
+use util::str::{AsciiExt, is_ascii_whitespace};
 
 use core::mem::replace;
 use collections::string::String;
 use std::borrow::Cow::Borrowed;
+use std::borrow::ToOwned;
 
 fn any_not_whitespace(x: &String) -> bool {
     // FIXME: this might be much faster as a byte scan
@@ -33,6 +34,7 @@ fn any_not_whitespace(x: &String) -> bool {
 // This goes in a trait so that we can control visibility.
 pub trait TreeBuilderStep {
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult;
+    fn step_foreign(&mut self, token: Token) -> ProcessResult;
 }
 
 #[doc(hidden)]
@@ -676,16 +678,9 @@ impl<Handle, Sink> TreeBuilderStep
                     Done
                 }
 
-                tag @ <math> <svg> => {
-                    if self.opts.ignore_missing_rules {
-                        self.sink.parse_error(Borrowed("Ignoring unimplemented rules for <math> or <svg>"));
-                        self.reconstruct_formatting();
-                        self.insert_element_for(tag);
-                        Done
-                    } else {
-                        panic!("FIXME: MathML and SVG are not implemented");
-                    }
-                }
+                tag @ <math> => self.enter_foreign(tag, ns!(MathML)),
+
+                tag @ <svg> => self.enter_foreign(tag, ns!(SVG)),
 
                 <caption> <col> <colgroup> <frame> <head>
                   <tbody> <td> <tfoot> <th> <thead> <tr> => {
@@ -1314,5 +1309,80 @@ impl<Handle, Sink> TreeBuilderStep
             }),
             //§ END
         }
+    }
+
+    fn step_foreign(&mut self, token: Token) -> ProcessResult {
+        match_token!(token {
+            NullCharacterToken => {
+                self.unexpected(&token);
+                self.append_text("\u{fffd}".to_owned())
+            }
+
+            CharacterTokens(_, text) => {
+                if any_not_whitespace(&text) {
+                    self.frameset_ok = false;
+                }
+                self.append_text(text)
+            }
+
+            CommentToken(text) => self.append_comment(text),
+
+            tag @ <b> <big> <blockquote> <body> <br> <center> <code> <dd> <div> <dl>
+                <dt> <em> <embed> <h1> <h2> <h3> <h4> <h5> <h6> <head> <hr> <i>
+                <img> <li> <listing> <menu> <meta> <nobr> <ol> <p> <pre> <ruby>
+                <s> <small> <span> <strong> <strike> <sub> <sup> <table> <tt>
+                <u> <ul> <var>
+            => {
+                self.unexpected(&tag);
+                if self.is_fragment() {
+                    self.foreign_start_tag(tag)
+                } else {
+                    self.pop();
+                    while !self.current_node_in(|n| {
+                        n.ns == ns!(HTML) || mathml_text_integration_point(n.clone())
+                            || html_integration_point(n)
+                    }) {
+                        self.pop();
+                    }
+                    ReprocessForeign(TagToken(tag))
+                }
+            }
+
+            tag @ <_> => self.foreign_start_tag(tag),
+
+            // FIXME(#118): </script> in SVG
+
+            tag @ </_> => {
+                let mut first = true;
+                let mut stack_idx = self.open_elems.len() - 1;
+                loop {
+                    if stack_idx == 0 {
+                        return Done;
+                    }
+
+                    let node = self.open_elems[stack_idx].clone();
+                    let node_name = self.sink.elem_name(node);
+                    if !first && node_name.ns == ns!(HTML) {
+                        let mode = self.mode;
+                        return self.step(mode, TagToken(tag));
+                    }
+
+                    if (&*node_name.local).eq_ignore_ascii_case(&*tag.name) {
+                        self.open_elems.truncate(stack_idx);
+                        return Done;
+                    }
+
+                    if first {
+                        self.unexpected(&tag);
+                        first = false;
+                    }
+                    stack_idx -= 1;
+                }
+            }
+
+            // FIXME: This should be unreachable, but match_token! requires a
+            // catch-all case.
+            _ => panic!("impossible case in foreign content"),
+        })
     }
 }

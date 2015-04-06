@@ -331,8 +331,13 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 TagToken(Tag { self_closing: c, .. }) => c,
                 _ => false,
             };
-            let mode = self.mode;
-            match self.step(mode, token) {
+            let result = if self.is_foreign(&token) {
+                self.step_foreign(token)
+            } else {
+                let mode = self.mode;
+                self.step(mode, token)
+            };
+            match result {
                 Done => {
                     if is_self_closing {
                         self.sink.parse_error(Borrowed("Unacknowledged self-closing tag"));
@@ -344,6 +349,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 }
                 Reprocess(m, t) => {
                     self.mode = m;
+                    token = t;
+                }
+                ReprocessForeign(t) => {
                     token = t;
                 }
                 SplitWhitespace(buf) => {

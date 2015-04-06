@@ -19,7 +19,7 @@ use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag, EndTag};
+use tokenizer::{Attribute, Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::{AsciiExt, to_escaped_string};
@@ -32,7 +32,7 @@ use collections::vec::Vec;
 use collections::string::String;
 use std::borrow::Cow::Borrowed;
 
-use string_cache::{Atom, QualName};
+use string_cache::{Atom, Namespace, QualName};
 
 pub use self::PushFlag::*;
 
@@ -74,7 +74,7 @@ pub trait TreeBuilderActions<Handle> {
     fn insert_phantom(&mut self, name: Atom) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
-    fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>) -> Handle;
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
     fn create_root(&mut self, attrs: Vec<Attribute>);
     fn close_the_cell(&mut self);
     fn reset_insertion_mode(&mut self) -> InsertionMode;
@@ -104,6 +104,7 @@ pub trait TreeBuilderActions<Handle> {
     fn adoption_agency(&mut self, subject: Atom);
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
+    fn adjusted_current_node(&self) -> Handle;
     fn parse_raw_data(&mut self, tag: Tag, k: RawKind);
     fn to_raw_text_mode(&mut self, k: RawKind);
     fn stop_parsing(&mut self) -> ProcessResult;
@@ -113,6 +114,15 @@ pub trait TreeBuilderActions<Handle> {
     fn position_in_active_formatting(&self, element: &Handle) -> Option<usize>;
     fn process_end_tag_in_body(&mut self, tag: Tag);
     fn handle_misnested_a_tags(&mut self, tag: &Tag);
+    fn is_foreign(&mut self, token: &Token) -> bool;
+    fn enter_foreign(&mut self, tag: Tag, ns: Namespace) -> ProcessResult;
+    fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
+        where F: FnMut(Atom) -> Option<QualName>;
+    fn adjust_svg_tag_name(&mut self, tag: &mut Tag);
+    fn adjust_svg_attributes(&mut self, tag: &mut Tag);
+    fn adjust_mathml_attributes(&mut self, tag: &mut Tag);
+    fn adjust_foreign_attributes(&mut self, tag: &mut Tag);
+    fn foreign_start_tag(&mut self, tag: Tag) -> ProcessResult;
 }
 
 #[doc(hidden)]
@@ -183,6 +193,15 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     fn current_node(&self) -> Handle {
         self.open_elems.last().expect("no current element").clone()
+    }
+
+    fn adjusted_current_node(&self) -> Handle {
+        if self.open_elems.len() == 1 {
+            if let Some(ctx) = self.context_elem.as_ref() {
+                return ctx.clone();
+            }
+        }
+        self.current_node()
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool 
@@ -471,7 +490,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
-            let new_element = self.insert_element(Push, tag.name.clone(), tag.attrs.clone());
+            let new_element = self.insert_element(Push, ns!(HTML), tag.name.clone(),
+                                                  tag.attrs.clone());
             self.active_formatting[entry_index] = Element(new_element, tag);
             if entry_index == self.active_formatting.len() - 1 {
                 break
@@ -740,9 +760,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // FIXME: application cache selection algorithm
     }
 
-    fn insert_element(&mut self, push: PushFlag, name: Atom, attrs: Vec<Attribute>)
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>)
             -> Handle {
-        let elem = self.sink.create_element(QualName::new(ns!(HTML), name), attrs);
+        let elem = self.sink.create_element(QualName::new(ns, name), attrs);
         self.insert_appropriately(AppendNode(elem.clone()), None);
         match push {
             Push => self.push(&elem),
@@ -753,15 +773,15 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn insert_element_for(&mut self, tag: Tag) -> Handle {
-        self.insert_element(Push, tag.name, tag.attrs)
+        self.insert_element(Push, ns!(HTML), tag.name, tag.attrs)
     }
 
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle {
-        self.insert_element(NoPush, tag.name, tag.attrs)
+        self.insert_element(NoPush, ns!(HTML), tag.name, tag.attrs)
     }
 
     fn insert_phantom(&mut self, name: Atom) -> Handle {
-        self.insert_element(Push, name, vec!())
+        self.insert_element(Push, ns!(HTML), name, vec!())
     }
     //§ END
 
@@ -780,7 +800,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             self.active_formatting.remove(first_match.expect("matches with no index"));
         }
 
-        let elem = self.insert_element(Push, tag.name.clone(), tag.attrs.clone());
+        let elem = self.insert_element(Push, ns!(HTML), tag.name.clone(), tag.attrs.clone());
         self.active_formatting.push(Element(elem.clone(), tag));
         elem
     }
@@ -844,5 +864,228 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.position_in_active_formatting(&node)
             .map(|index| self.active_formatting.remove(index));
         self.remove_from_stack(&node);
+    }
+
+    //§ tree-construction
+    fn is_foreign(&mut self, token: &Token) -> bool {
+        if let EOFToken = *token {
+            return false;
+        }
+
+        if self.open_elems.len() == 0 {
+            return false;
+        }
+
+        let name = self.sink.elem_name(self.adjusted_current_node());
+        if let ns!(HTML) = name.ns {
+            return false;
+        }
+
+        if mathml_text_integration_point(name.clone()) {
+            match *token {
+                CharacterTokens(..) => return false,
+                TagToken(Tag { kind: StartTag, ref name, .. })
+                    if !matches!(*name, atom!(mglyph) | atom!(malignmark)) => return false,
+                _ => (),
+            }
+        }
+
+        if let qualname!(MathML, "annotation-xml") = name {
+            if let TagToken(Tag { kind: StartTag, name: atom!(svg), .. }) = *token {
+                return false;
+            }
+        }
+
+        if html_integration_point(name.clone()) {
+            match *token {
+                CharacterTokens(..) => return false,
+                TagToken(Tag { kind: StartTag, .. }) => return false,
+                _ => (),
+            }
+        }
+
+        true
+    }
+    //§ END
+
+    fn enter_foreign(&mut self, mut tag: Tag, ns: Namespace) -> ProcessResult {
+        match ns {
+            ns!(MathML) => self.adjust_mathml_attributes(&mut tag),
+            ns!(SVG) => self.adjust_svg_attributes(&mut tag),
+            _ => (),
+        }
+        self.adjust_foreign_attributes(&mut tag);
+
+        if tag.self_closing {
+            self.insert_element(NoPush, ns, tag.name, tag.attrs);
+            DoneAckSelfClosing
+        } else {
+            self.insert_element(Push, ns, tag.name, tag.attrs);
+            Done
+        }
+    }
+
+    fn adjust_svg_tag_name(&mut self, tag: &mut Tag) {
+        let Tag { ref mut name, .. } = *tag;
+        match *name {
+            atom!(altglyph) => *name = atom!(altGlyph),
+            atom!(altglyphdef) => *name = atom!(altGlyphDef),
+            atom!(altglyphitem) => *name = atom!(altGlyphItem),
+            atom!(animatecolor) => *name = atom!(animateColor),
+            atom!(animatemotion) => *name = atom!(animateMotion),
+            atom!(animatetransform) => *name = atom!(animateTransform),
+            atom!(clippath) => *name = atom!(clipPath),
+            atom!(feblend) => *name = atom!(feBlend),
+            atom!(fecolormatrix) => *name = atom!(feColorMatrix),
+            atom!(fecomponenttransfer) => *name = atom!(feComponentTransfer),
+            atom!(fecomposite) => *name = atom!(feComposite),
+            atom!(feconvolvematrix) => *name = atom!(feConvolveMatrix),
+            atom!(fediffuselighting) => *name = atom!(feDiffuseLighting),
+            atom!(fedisplacementmap) => *name = atom!(feDisplacementMap),
+            atom!(fedistantlight) => *name = atom!(feDistantLight),
+            atom!(fedropshadow) => *name = atom!(feDropShadow),
+            atom!(feflood) => *name = atom!(feFlood),
+            atom!(fefunca) => *name = atom!(feFuncA),
+            atom!(fefuncb) => *name = atom!(feFuncB),
+            atom!(fefuncg) => *name = atom!(feFuncG),
+            atom!(fefuncr) => *name = atom!(feFuncR),
+            atom!(fegaussianblur) => *name = atom!(feGaussianBlur),
+            atom!(feimage) => *name = atom!(feImage),
+            atom!(femerge) => *name = atom!(feMerge),
+            atom!(femergenode) => *name = atom!(feMergeNode),
+            atom!(femorphology) => *name = atom!(feMorphology),
+            atom!(feoffset) => *name = atom!(feOffset),
+            atom!(fepointlight) => *name = atom!(fePointLight),
+            atom!(fespecularlighting) => *name = atom!(feSpecularLighting),
+            atom!(fespotlight) => *name = atom!(feSpotLight),
+            atom!(fetile) => *name = atom!(feTile),
+            atom!(feturbulence) => *name = atom!(feTurbulence),
+            atom!(foreignobject) => *name = atom!(foreignObject),
+            atom!(glyphref) => *name = atom!(glyphRef),
+            atom!(lineargradient) => *name = atom!(linearGradient),
+            atom!(radialgradient) => *name = atom!(radialGradient),
+            atom!(textpath) => *name = atom!(textPath),
+            _ => (),
+        }
+    }
+
+    fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
+        where F: FnMut(Atom) -> Option<QualName>,
+    {
+        for &mut Attribute { ref mut name, .. } in &mut tag.attrs {
+            if let Some(replacement) = map(name.local.clone()) {
+                *name = replacement;
+            }
+        }
+    }
+
+    fn adjust_svg_attributes(&mut self, tag: &mut Tag) {
+        self.adjust_attributes(tag, |k| match k {
+            atom!(attributename) => Some(qualname!("", attributeName)),
+            atom!(attributetype) => Some(qualname!("", attributeType)),
+            atom!(basefrequency) => Some(qualname!("", baseFrequency)),
+            atom!(baseprofile) => Some(qualname!("", baseProfile)),
+            atom!(calcmode) => Some(qualname!("", calcMode)),
+            atom!(clippathunits) => Some(qualname!("", clipPathUnits)),
+            atom!(diffuseconstant) => Some(qualname!("", diffuseConstant)),
+            atom!(edgemode) => Some(qualname!("", edgeMode)),
+            atom!(filterunits) => Some(qualname!("", filterUnits)),
+            atom!(glyphref) => Some(qualname!("", glyphRef)),
+            atom!(gradienttransform) => Some(qualname!("", gradientTransform)),
+            atom!(gradientunits) => Some(qualname!("", gradientUnits)),
+            atom!(kernelmatrix) => Some(qualname!("", kernelMatrix)),
+            atom!(kernelunitlength) => Some(qualname!("", kernelUnitLength)),
+            atom!(keypoints) => Some(qualname!("", keyPoints)),
+            atom!(keysplines) => Some(qualname!("", keySplines)),
+            atom!(keytimes) => Some(qualname!("", keyTimes)),
+            atom!(lengthadjust) => Some(qualname!("", lengthAdjust)),
+            atom!(limitingconeangle) => Some(qualname!("", limitingConeAngle)),
+            atom!(markerheight) => Some(qualname!("", markerHeight)),
+            atom!(markerunits) => Some(qualname!("", markerUnits)),
+            atom!(markerwidth) => Some(qualname!("", markerWidth)),
+            atom!(maskcontentunits) => Some(qualname!("", maskContentUnits)),
+            atom!(maskunits) => Some(qualname!("", maskUnits)),
+            atom!(numoctaves) => Some(qualname!("", numOctaves)),
+            atom!(pathlength) => Some(qualname!("", pathLength)),
+            atom!(patterncontentunits) => Some(qualname!("", patternContentUnits)),
+            atom!(patterntransform) => Some(qualname!("", patternTransform)),
+            atom!(patternunits) => Some(qualname!("", patternUnits)),
+            atom!(pointsatx) => Some(qualname!("", pointsAtX)),
+            atom!(pointsaty) => Some(qualname!("", pointsAtY)),
+            atom!(pointsatz) => Some(qualname!("", pointsAtZ)),
+            atom!(preservealpha) => Some(qualname!("", preserveAlpha)),
+            atom!(preserveaspectratio) => Some(qualname!("", preserveAspectRatio)),
+            atom!(primitiveunits) => Some(qualname!("", primitiveUnits)),
+            atom!(refx) => Some(qualname!("", refX)),
+            atom!(refy) => Some(qualname!("", refY)),
+            atom!(repeatcount) => Some(qualname!("", repeatCount)),
+            atom!(repeatdur) => Some(qualname!("", repeatDur)),
+            atom!(requiredextensions) => Some(qualname!("", requiredExtensions)),
+            atom!(requiredfeatures) => Some(qualname!("", requiredFeatures)),
+            atom!(specularconstant) => Some(qualname!("", specularConstant)),
+            atom!(specularexponent) => Some(qualname!("", specularExponent)),
+            atom!(spreadmethod) => Some(qualname!("", spreadMethod)),
+            atom!(startoffset) => Some(qualname!("", startOffset)),
+            atom!(stddeviation) => Some(qualname!("", stdDeviation)),
+            atom!(stitchtiles) => Some(qualname!("", stitchTiles)),
+            atom!(surfacescale) => Some(qualname!("", surfaceScale)),
+            atom!(systemlanguage) => Some(qualname!("", systemLanguage)),
+            atom!(tablevalues) => Some(qualname!("", tableValues)),
+            atom!(targetx) => Some(qualname!("", targetX)),
+            atom!(targety) => Some(qualname!("", targetY)),
+            atom!(textlength) => Some(qualname!("", textLength)),
+            atom!(viewbox) => Some(qualname!("", viewBox)),
+            atom!(viewtarget) => Some(qualname!("", viewTarget)),
+            atom!(xchannelselector) => Some(qualname!("", xChannelSelector)),
+            atom!(ychannelselector) => Some(qualname!("", yChannelSelector)),
+            atom!(zoomandpan) => Some(qualname!("", zoomAndPan)),
+            _ => None,
+        });
+    }
+
+    fn adjust_mathml_attributes(&mut self, tag: &mut Tag) {
+        self.adjust_attributes(tag, |k| match k {
+            atom!(definitionurl) => Some(qualname!("", definitionURL)),
+            _ => None,
+        });
+    }
+
+    fn adjust_foreign_attributes(&mut self, tag: &mut Tag) {
+        self.adjust_attributes(tag, |k| match k {
+            atom!("xlink:actuate") => Some(qualname!(XLink, actuate)),
+            atom!("xlink:arcrole") => Some(qualname!(XLink, arcrole)),
+            atom!("xlink:href") => Some(qualname!(XLink, href)),
+            atom!("xlink:role") => Some(qualname!(XLink, role)),
+            atom!("xlink:show") => Some(qualname!(XLink, show)),
+            atom!("xlink:title") => Some(qualname!(XLink, title)),
+            atom!("xlink:type") => Some(qualname!(XLink, "type")),
+            atom!("xml:base") => Some(qualname!(XML, base)),
+            atom!("xml:lang") => Some(qualname!(XML, lang)),
+            atom!("xml:space") => Some(qualname!(XML, space)),
+            atom!("xmlns") => Some(qualname!(XMLNS, xmlns)),
+            atom!("xmlns:xlink") => Some(qualname!(XMLNS, xlink)),
+            _ => None,
+        });
+    }
+
+    fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult {
+        let cur = self.sink.elem_name(self.adjusted_current_node());
+        match cur.ns {
+            ns!(MathML) => self.adjust_mathml_attributes(&mut tag),
+            ns!(SVG) => {
+                self.adjust_svg_tag_name(&mut tag);
+                self.adjust_svg_attributes(&mut tag);
+            }
+            _ => (),
+        }
+        self.adjust_foreign_attributes(&mut tag);
+        if tag.self_closing {
+            // FIXME(#118): <script /> in SVG
+            self.insert_element(NoPush, cur.ns, tag.name, tag.attrs);
+            DoneAckSelfClosing
+        } else {
+            self.insert_element(Push, cur.ns, tag.name, tag.attrs);
+            Done
+        }
     }
 }
