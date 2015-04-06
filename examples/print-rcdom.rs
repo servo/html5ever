@@ -45,10 +45,10 @@ fn walk(indent: usize, handle: Handle) {
 
         Element(ref name, ref attrs) => {
             assert!(name.ns == ns!(html));
-            print!("<{}", name.local.as_slice());
+            print!("<{}", name.local);
             for attr in attrs.iter() {
                 assert!(attr.name.ns == ns!(""));
-                print!(" {}=\"{}\"", attr.name.local.as_slice(), attr.value);
+                print!(" {}=\"{}\"", attr.name.local, attr.value);
             }
             println!(">");
         }

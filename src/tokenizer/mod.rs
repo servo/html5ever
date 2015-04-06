@@ -445,7 +445,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         match self.last_start_tag_name.as_ref() {
             Some(last) =>
                 (self.current_tag_kind == EndTag)
-                && (self.current_tag_name == last.as_slice()),
+                && (*self.current_tag_name == **last),
             None => false,
         }
     }
@@ -466,7 +466,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // FIXME: linear time search, do we care?
         let dup = {
             let name = &self.current_attr_name[..];
-            self.current_tag_attrs.iter().any(|a| a.name.local.as_slice() == name)
+            self.current_tag_attrs.iter().any(|a| &*a.name.local == name)
         };
 
         if dup {
