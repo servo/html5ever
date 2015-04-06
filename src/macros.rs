@@ -30,24 +30,3 @@ macro_rules! time {
         (result, dt)
     }}
 }
-
-// Disable logging when building without the runtime.
-#[cfg(for_c)]
-#[macro_use]
-mod log {
-    macro_rules! h5e_log   (($($x:tt)*) => (()));
-    macro_rules! h5e_debug (($($x:tt)*) => (()));
-    macro_rules! h5e_info  (($($x:tt)*) => (()));
-    macro_rules! h5e_warn  (($($x:tt)*) => (()));
-    macro_rules! h5e_error (($($x:tt)*) => (()));
-}
-
-#[cfg(not(for_c))]
-#[macro_use]
-mod log {
-    macro_rules! h5e_log   (($($x:tt)*) => (log!($($x)*)));
-    macro_rules! h5e_debug (($($x:tt)*) => (debug!($($x)*)));
-    macro_rules! h5e_info  (($($x:tt)*) => (info!($($x)*)));
-    macro_rules! h5e_warn  (($($x:tt)*) => (warn!($($x)*)));
-    macro_rules! h5e_error (($($x:tt)*) => (error!($($x)*)));
-}

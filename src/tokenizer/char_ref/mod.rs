@@ -119,7 +119,7 @@ impl CharRefTokenizer {
             return Done;
         }
 
-        h5e_debug!("char ref tokenizer stepping in state {:?}", self.state);
+        debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             Begin => self.do_begin(tokenizer),
             Octothorpe => self.do_octothorpe(tokenizer),

@@ -71,7 +71,7 @@ fn tagname(name: &QualName) -> Atom {
         ns!(HTML) | ns!(MathML) | ns!(SVG) => (),
         ref ns => {
             // FIXME(#122)
-            h5e_warn!("node with weird namespace {:?}", &*ns.0);
+            warn!("node with weird namespace {:?}", &*ns.0);
         }
     }
 
@@ -144,7 +144,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
                 ns!(XLink) => try!(self.writer.write_all(b"xlink:")),
                 ref ns => {
                     // FIXME(#122)
-                    h5e_warn!("attr with weird namespace {:?}", &*ns.0);
+                    warn!("attr with weird namespace {:?}", &*ns.0);
                     try!(self.writer.write_all(b"unknown_namespace:"));
                 }
             }

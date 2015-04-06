@@ -168,7 +168,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn stop_parsing(&mut self) -> ProcessResult {
-        h5e_warn!("stop_parsing not implemented, full speed ahead!");
+        warn!("stop_parsing not implemented, full speed ahead!");
         Done
     }
 
@@ -660,7 +660,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
-        h5e_warn!("foster parenting not implemented");
+        warn!("foster parenting not implemented");
         self.foster_parenting = true;
         let res = self.step(InBody, token);
         // FIXME: what if res is Reprocess?

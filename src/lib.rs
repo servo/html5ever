@@ -35,7 +35,6 @@ extern crate libc;
 #[macro_use]
 extern crate collections;
 
-#[cfg(not(for_c))]
 #[macro_use]
 extern crate log;
 
@@ -52,7 +51,6 @@ extern crate time;
 pub use tokenizer::Attribute;
 pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
 
-#[cfg(not(for_c))]
 pub use serialize::serialize;
 
 #[macro_use]
@@ -67,11 +65,9 @@ mod util {
 pub mod tokenizer;
 pub mod tree_builder;
 
-#[cfg(not(for_c))]
 pub mod serialize;
 
 /// Consumers of the parser API.
-#[cfg(not(for_c))]
 pub mod sink {
     pub mod common;
     pub mod rcdom;

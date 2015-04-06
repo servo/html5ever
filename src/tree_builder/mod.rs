@@ -279,8 +279,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         self.context_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
     }
 
-    // Debug helper
-    #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
         use string_cache::QualName;
@@ -311,14 +309,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("");
     }
 
-    #[cfg(for_c)]
-    fn debug_step(&self, _mode: InsertionMode, _token: &Token) {
-    }
-
-    #[cfg(not(for_c))]
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {

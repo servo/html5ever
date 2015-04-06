@@ -725,7 +725,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ </_> => {
                     let node = self.pop();
                     if tag.name == atom!(script) {
-                        h5e_warn!("FIXME: </script> not fully implemented");
+                        warn!("FIXME: </script> not fully implemented");
                         if self.sink.complete_script(node) == NextParserState::Suspend {
                             self.next_tokenizer_state = Some(Quiescent);
                         }
