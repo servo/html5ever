@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/servo/html5ever.svg?branch=master)](https://travis-ci.org/servo/html5ever)
 
+[API Documentation][API documentation]
+
 html5ever is an HTML parser developed as part of the [Servo](https://github.com/servo/servo) project.
 
 It can parse and serialize HTML according to the [WHATWG](https://whatwg.org/) specs (aka "HTML5").  There are some omissions at present, most of which are documented [in the bug tracker](https://github.com/servo/html5ever/issues?q=is%3Aopen+is%3Aissue+label%3Aweb-compat).  html5ever passes all tokenizer tests from [html5lib-tests](https://github.com/html5lib/html5lib-tests), and most tree builder tests outside of the unimplemented features.  The goal is to pass all html5lib tests, and also provide all hooks needed by a production web browser, e.g. `document.write`.
@@ -20,8 +22,7 @@ Add html5ever as a dependency in your [`Cargo.toml`](http://crates.io/) file:
 git = "https://github.com/servo/html5ever"
 ```
 
-Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation online](https://kmcallister.github.io/docs/html5ever).
-
+Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation][].
 
 ## Getting started in other languages
 
@@ -55,3 +56,5 @@ html5ever exclusively uses UTF-8 to represent strings.  In the future it will su
 The code is cross-referenced with the WHATWG syntax spec, and eventually we will have a way to present code and spec side-by-side.
 
 html5ever tracks Rust nightly, for now.  Support for the stable Rust 1.x compilers is planned, however.
+
+[API documentation]: https://kmcallister.github.io/docs/html5ever/html5ever/index.html
