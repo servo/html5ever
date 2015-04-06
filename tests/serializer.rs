@@ -88,3 +88,11 @@ test!(comment_1, r#"<p>hi <!--world--></p>"#);
 test!(comment_2, r#"<p>hi <!-- world--></p>"#);
 test!(comment_3, r#"<p>hi <!--world --></p>"#);
 test!(comment_4, r#"<p>hi <!-- world --></p>"#);
+
+// FIXME: test serialization of qualified tag/attribute names that can't be
+// parsed from HTML
+
+test!(attr_ns_1, r#"<svg xmlns="bleh"></svg>"#);
+test!(attr_ns_2, r#"<svg xmlns:foo="bleh"></svg>"#);
+test!(attr_ns_3, r#"<svg xmlns:xlink="bleh"></svg>"#);
+test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);

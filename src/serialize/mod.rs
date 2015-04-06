@@ -66,6 +66,18 @@ pub struct Serializer<'wr, Wr:'wr> {
     stack: Vec<ElemInfo>,
 }
 
+fn tagname(name: &QualName) -> Atom {
+    match name.ns {
+        ns!(HTML) | ns!(MathML) | ns!(SVG) => (),
+        ref ns => {
+            // FIXME(#122)
+            h5e_warn!("node with weird namespace {:?}", &*ns.0);
+        }
+    }
+
+    name.local.clone()
+}
+
 impl<'wr, Wr: Write> Serializer<'wr, Wr> {
     fn new(writer: &'wr mut Wr, opts: SerializeOpts) -> Serializer<'wr, Wr> {
         Serializer {
@@ -104,7 +116,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
 
         let html_name = match name.ns {
             ns!(HTML) => Some(name.local.clone()),
-            _ => panic!("FIXME(#14): Handle qualified tag names"),
+            _ => None,
         };
 
         if self.parent().ignore_children {
@@ -117,12 +129,27 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         }
 
         try!(self.writer.write_all(b"<"));
-        try!(self.writer.write_all(name.local.as_slice().as_bytes()));
+        try!(self.writer.write_all(tagname(&name).as_bytes()));
         for (name, value) in attrs {
             try!(self.writer.write_all(b" "));
-            // FIXME(#14): qualified names
-            assert!(name.ns == ns!(""));
-            try!(self.writer.write_all(name.local.as_slice().as_bytes()));
+
+            match name.ns {
+                ns!("") => (),
+                ns!(XML) => try!(self.writer.write_all(b"xml:")),
+                ns!(XMLNS) => {
+                    if name.local != atom!(xmlns) {
+                        try!(self.writer.write_all(b"xmlns:"));
+                    }
+                }
+                ns!(XLink) => try!(self.writer.write_all(b"xlink:")),
+                ref ns => {
+                    // FIXME(#122)
+                    h5e_warn!("attr with weird namespace {:?}", &*ns.0);
+                    try!(self.writer.write_all(b"unknown_namespace:"));
+                }
+            }
+
+            try!(self.writer.write_all(name.local.as_bytes()));
             try!(self.writer.write_all(b"=\""));
             try!(self.write_escaped(value, true));
             try!(self.writer.write_all(b"\""));
@@ -155,9 +182,8 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
             return Ok(());
         }
 
-        // FIXME: Handle qualified tag names
         try!(self.writer.write_all(b"</"));
-        try!(self.writer.write_all(name.local.as_slice().as_bytes()));
+        try!(self.writer.write_all(tagname(&name).as_bytes()));
         self.writer.write_all(b">")
     }
 
