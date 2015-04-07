@@ -7,15 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::option::Option::{self, None};
-use core::clone::Clone;
-
 use tokenizer::states;
 
-use collections::vec::Vec;
-use collections::string::String;
 use std::borrow::Cow;
-use std::marker::Send;
 
 use string_cache::{Atom, QualName};
 

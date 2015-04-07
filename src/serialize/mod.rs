@@ -7,11 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
-
 use std::io::{self, Write};
-use core::default::Default;
-use collections::vec::Vec;
+use std::default::Default;
 
 use string_cache::{Atom, QualName};
 

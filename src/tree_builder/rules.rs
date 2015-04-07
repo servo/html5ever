@@ -9,8 +9,6 @@
 
 //! The tree builder rules, as a single, enormous nested match expression.
 
-use core::prelude::*;
-
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::TreeBuilderActions;
@@ -21,8 +19,7 @@ use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext, Quiescent};
 
 use util::str::{AsciiExt, is_ascii_whitespace};
 
-use core::mem::replace;
-use collections::string::String;
+use std::mem::replace;
 use std::borrow::Cow::Borrowed;
 use std::borrow::ToOwned;
 

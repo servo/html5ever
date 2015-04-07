@@ -11,11 +11,6 @@
 
 #![allow(unused_imports)]
 
-use core::clone::Clone;
-use core::cmp::Ord;
-use core::iter::Iterator;
-use core::option::Option::{self, Some, None};
-
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -34,11 +29,8 @@ use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::smallcharset::SmallCharSet;
 
-use core::mem::replace;
-use core::default::Default;
-use alloc::boxed::Box;
-use collections::vec::Vec;
-use collections::string::{String, ToString};
+use std::mem::replace;
+use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
@@ -1329,9 +1321,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use core::prelude::*;
-    use collections::vec::Vec;
-    use collections::string::String;
     use super::{option_push, append_strings}; // private items
 
     #[test]

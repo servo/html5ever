@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, no_std, core, collections, alloc, str_char, slice_patterns)]
+#![feature(plugin, box_syntax, core, collections, alloc, str_char, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
@@ -18,22 +18,8 @@
 #![plugin(string_cache_plugin)]
 #![plugin(html5ever_macros)]
 
-// FIXME(#63): switch back to using std
-#![no_std]
-
-extern crate alloc;
-
-#[macro_use]
-extern crate core;
-
-#[macro_use]
-extern crate std;
-
 #[cfg(for_c)]
 extern crate libc;
-
-#[macro_use]
-extern crate collections;
 
 #[macro_use]
 extern crate log;

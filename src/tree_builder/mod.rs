@@ -9,8 +9,6 @@
 
 //! The HTML5 tree builder.
 
-use core::prelude::*;
-
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::{NodeOrText, AppendNode, AppendText};
 pub use self::interface::{TreeSink, Tracer, NextParserState};
@@ -28,12 +26,10 @@ use tokenizer::states as tok_state;
 
 use util::str::{is_ascii_whitespace, char_run};
 
-use core::default::Default;
-use core::mem::replace;
-use collections::vec::Vec;
-use collections::string::String;
+use std::default::Default;
+use std::mem::replace;
 use std::borrow::Cow::Borrowed;
-use collections::VecDeque;
+use std::collections::VecDeque;
 
 #[macro_use] mod tag_sets;
 // "pub" is a workaround for rust#18241 (?)

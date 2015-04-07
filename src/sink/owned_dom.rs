@@ -19,8 +19,6 @@
 //! This is believed to be memory safe, but if you want to be extra
 //! careful you can use `RcDom` instead.
 
-use core::prelude::*;
-
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
 use tokenizer::Attribute;
@@ -31,14 +29,10 @@ use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
-use core::cell::UnsafeCell;
-use core::default::Default;
-use core::mem::transmute;
-use core::mem;
-use core::ptr;
-use alloc::boxed::Box;
-use collections::vec::Vec;
-use collections::string::String;
+use std::{mem, ptr};
+use std::cell::UnsafeCell;
+use std::default::Default;
+use std::mem::transmute;
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::collections::HashSet;

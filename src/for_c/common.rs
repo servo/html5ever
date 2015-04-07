@@ -7,14 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
-
-use core::ptr;
-use core::slice;
-use core::str;
-use core::marker::PhantomData;
+use std::{ptr, slice, str};
+use std::marker::PhantomData;
 use std::borrow::Cow;
-use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
 

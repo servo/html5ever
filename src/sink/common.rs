@@ -9,8 +9,6 @@
 
 use tokenizer::Attribute;
 
-use collections::vec::Vec;
-use collections::string::String;
 use string_cache::QualName;
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
