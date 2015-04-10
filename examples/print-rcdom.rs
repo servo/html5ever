@@ -66,7 +66,9 @@ fn walk(indent: usize, handle: Handle) {
 fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
-    let dom: RcDom = parse_xml(one_input(input), Default::default());
+    // For parsing xml uncomment following line
+    // let dom: RcDom = parse_xml(one_input(input), Default::default());
+    let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 
     if !dom.errors.is_empty() {
