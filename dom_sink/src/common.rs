@@ -11,7 +11,7 @@ use html5ever::tokenizer::Attribute;
 
 use string_cache::QualName;
 
-pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
+pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -30,4 +30,7 @@ pub enum NodeEnum {
 
     /// An element with attributes.
     Element(QualName, Vec<Attribute>),
+
+    /// A Processing instruction.
+    PI(String, String),
 }

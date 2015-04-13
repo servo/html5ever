@@ -12,7 +12,7 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+use common::{NodeEnum, Document, Doctype, Text, Comment, Element,PI};
 
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
@@ -163,6 +163,10 @@ impl TreeSink for RcDom {
         new_node(Comment(text))
     }
 
+    fn create_pi(&mut self, target: String, data: String) -> Handle {
+        new_node(PI(target, data))
+    }
+
     fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
         match child {
@@ -304,6 +308,9 @@ impl Serializable for Handle {
             (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
             (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
             (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
+
+            (IncludeNode, &PI(ref target, ref data))
+                => serializer.write_processing_instruction(&target, &data),
 
             (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }

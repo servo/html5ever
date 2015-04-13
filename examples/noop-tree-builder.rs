@@ -60,6 +60,10 @@ impl TreeSink for Sink {
         self.get_id()
     }
 
+    fn create_pi(&mut self, _target: String, _data: String) -> usize {
+        self.get_id()
+    }
+
     fn append_before_sibling(&mut self,
             _sibling: usize,
             _new_node: NodeOrText<usize>) -> Result<(), NodeOrText<usize>> {

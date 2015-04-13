@@ -73,6 +73,12 @@ impl TreeSink for Sink {
         id
     }
 
+    fn create_pi(&mut self, target: String, data: String) -> usize {
+        let id = self.get_id();
+        println!("Created Processing Instruction: {} {}", target, data);
+        id
+    }
+
     fn append(&mut self, parent: usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n)

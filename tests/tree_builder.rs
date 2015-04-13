@@ -32,7 +32,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 
 use html5ever::{parse, parse_fragment, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element, PI};
 use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 use string_cache::Atom;
@@ -102,6 +102,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("\"");
             buf.push_str(&text);
             buf.push_str("\"\n");
+        }
+
+        PI(ref target, ref data) => {
+            buf.push_str("<?");
+            buf.push_str(&target);
+            buf.push_str(" ");
+            buf.push_str(&data);
+            buf.push_str("?>\n");
         }
 
         Comment(ref text) => {

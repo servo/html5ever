@@ -76,6 +76,9 @@ pub trait TreeSink {
     /// Create a comment node.
     fn create_comment(&mut self, text: String) -> Self::Handle;
 
+    /// Create a Processing Instruction node.
+    fn create_pi(&mut self, target: String, data: String) -> Self::Handle;
+
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
     /// instead.
