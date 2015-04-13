@@ -4,13 +4,17 @@ name = "html5ever"
 version = "0.0.0"
 authors = [ "The html5ever Project Developers" ]
 
+[lib]
+name = "html5ever"
+
+# https://github.com/rust-lang/cargo/issues/1512
+doctest = false
+
 [dependencies]
 time = "0"
 log = "0"
-
-# servo/string-cache#80
-phf = "0.6"
-phf_macros = "0.6"
+phf = "0.7"
+phf_macros = "0.7"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"

@@ -100,6 +100,7 @@ matching, by enforcing the following restrictions on its input:
 use std::collections::{HashSet, HashMap};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 
+use syntax::diagnostic::FatalError;
 use syntax::ptr::P;
 use syntax::codemap::{Span, Spanned, spanned};
 use syntax::ast;
@@ -171,46 +172,46 @@ fn push_all<T>(lhs: &mut Vec<T>, rhs: Vec<T>) {
     lhs.extend(rhs.into_iter());
 }
 
-fn parse_spanned_ident(parser: &mut Parser) -> ast::SpannedIdent {
+fn parse_spanned_ident(parser: &mut Parser) -> Result<ast::SpannedIdent, FatalError> {
     let lo = parser.span.lo;
-    let ident = parser.parse_ident();
+    let ident = try!(parser.parse_ident());
     let hi = parser.last_span.hi;
-    spanned(lo, hi, ident)
+    Ok(spanned(lo, hi, ident))
 }
 
-fn parse_tag(parser: &mut Parser) -> Spanned<Tag> {
+fn parse_tag(parser: &mut Parser) -> Result<Spanned<Tag>, FatalError> {
     let lo = parser.span.lo;
-    parser.expect(&token::Lt);
+    try!(parser.expect(&token::Lt));
 
-    let kind = match parser.eat(&token::BinOp(token::Slash)) {
+    let kind = match try!(parser.eat(&token::BinOp(token::Slash))) {
         true => EndTag,
         false => StartTag,
     };
-    let name = match parser.eat(&token::Underscore) {
+    let name = match try!(parser.eat(&token::Underscore)) {
         true => None,
-        false => Some(parser.parse_ident()),
+        false => Some(try!(parser.parse_ident())),
     };
 
-    parser.expect(&token::Gt);
-    spanned(lo, parser.last_span.hi, Tag {
+    try!(parser.expect(&token::Gt));
+    Ok(spanned(lo, parser.last_span.hi, Tag {
         kind: kind,
         name: name,
-    })
+    }))
 }
 
 /// Parse a `match_token!` invocation into the little AST defined above.
-fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
+fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError> {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), toks.to_vec());
 
-    let discriminant = parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL);
-    parser.commit_expr_expecting(&*discriminant, token::OpenDelim(token::Brace));
+    let discriminant = try!(parser.parse_expr_res(parser::RESTRICTION_NO_STRUCT_LITERAL));
+    try!(parser.commit_expr_expecting(&*discriminant, token::OpenDelim(token::Brace)));
 
     let mut arms: Vec<Arm> = Vec::new();
     while parser.token != token::CloseDelim(token::Brace) {
         let mut binding = None;
         if parser.look_ahead(1, |t| *t == token::At) {
-            binding = Some(parse_spanned_ident(&mut parser));
-            parser.bump(); // Consume the @
+            binding = Some(try!(parse_spanned_ident(&mut parser)));
+            try!(parser.bump()); // Consume the @
         }
 
         let lhs_lo = parser.span.lo;
@@ -219,23 +220,23 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
             token::Lt => {
                 let mut tags = Vec::new();
                 while parser.token != token::FatArrow {
-                    tags.push(parse_tag(&mut parser));
+                    tags.push(try!(parse_tag(&mut parser)));
                 }
                 Tags(tags)
             }
-            _ => parser.fatal("unrecognized pattern"),
+            _ => return Err(parser.fatal("unrecognized pattern")),
         };
         let lhs_hi = parser.last_span.hi;
 
-        parser.expect(&token::FatArrow);
+        try!(parser.expect(&token::FatArrow));
 
         let rhs_lo = parser.span.lo;
         let mut rhs_hi = parser.span.hi;
-        let rhs = if parser.eat_keyword(token::keywords::Else) {
-            parser.expect(&token::Comma);
+        let rhs = if try!(parser.eat_keyword(token::keywords::Else)) {
+            try!(parser.expect(&token::Comma));
             Else
         } else {
-            let expr = parser.parse_expr_res(parser::RESTRICTION_STMT_EXPR);
+            let expr = try!(parser.parse_expr_res(parser::RESTRICTION_STMT_EXPR));
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
@@ -243,9 +244,10 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
                 && parser.token != token::CloseDelim(token::Brace);
 
             if require_comma {
-                parser.commit_expr(&*expr, &[token::Comma], &[token::CloseDelim(token::Brace)]);
+                try!(parser.commit_expr(
+                    &*expr, &[token::Comma], &[token::CloseDelim(token::Brace)]));
             } else {
-                parser.eat(&token::Comma);
+                try!(parser.eat(&token::Comma));
             }
 
             Expr(expr)
@@ -259,12 +261,12 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Match {
     }
 
     // Consume the closing brace
-    parser.bump();
+    try!(parser.bump());
 
-    Match {
+    Ok(Match {
         discriminant: discriminant,
         arms: arms,
-    }
+    })
 }
 
 /// Description of a wildcard match arm.
@@ -292,7 +294,7 @@ fn make_tag_pattern(cx: &mut ExtCtxt, binding: Tokens, tag: Tag) -> Tokens {
 
 /// Expand the `match_token!` macro.
 pub fn expand(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree]) -> Box<MacResult+'static> {
-    let Match { discriminant, mut arms } = parse(cx, toks);
+    let Match { discriminant, mut arms } = panictry!(parse(cx, toks));
 
     // Handle the last arm specially at the end.
     let last_arm = match arms.pop() {

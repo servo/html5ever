@@ -210,7 +210,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tree-construction",
-                          OsStr::from_str("dat"), |path, file| {
+                          OsStr::new("dat"), |path, file| {
         let buf = io::BufReader::new(file);
         let lines = buf.lines()
             .map(|res| res.ok().expect("couldn't read"));

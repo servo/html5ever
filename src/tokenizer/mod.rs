@@ -1247,13 +1247,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     #[cfg(not(for_c))]
     fn dump_profile(&self) {
-        use core::iter::AdditiveIterator;
-
         let mut results: Vec<(states::State, u64)>
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
         results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
-        let total = results.iter().map(|&(_, t)| t).sum();
+        let total: u64 = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");
         println!("\n{:12}         total in token sink", self.time_in_sink);
         println!("\n{:12}         total in tokenizer", total);

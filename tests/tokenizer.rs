@@ -390,7 +390,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
     foreach_html5lib_test(src_dir, "tokenizer",
-                          OsStr::from_str("test"), |path, mut file| {
+                          OsStr::new("test"), |path, mut file| {
         let js = Json::from_reader(&mut file).ok().expect("json parse error");
 
         match js.get_obj().get(&"tests".to_string()) {

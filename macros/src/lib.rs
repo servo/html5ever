@@ -22,6 +22,16 @@ extern crate mac;
 
 use rustc::plugin::Registry;
 
+macro_rules! panictry {
+    ($e:expr) => ({
+        use syntax::diagnostic::FatalError;
+        match $e {
+            Ok(e) => e,
+            Err(FatalError) => panic!(FatalError)
+        }
+    })
+}
+
 // Make these public so that rustdoc will generate documentation for them.
 pub mod named_entities;
 pub mod match_token;
