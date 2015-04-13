@@ -17,6 +17,11 @@ pub use self::TagKind::{StartTag, EndTag};
 pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
 pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
 
+pub use self::XTagKind::{StartXTag, EndXTag, EmptyXTag, ShortXTag};
+pub use self::XToken::{DoctypeXToken, XTagToken, PIToken, CommentXToken};
+pub use self::XToken::{CharacterXTokens, EOFXToken, XParseError, NullCharacterXToken};
+
+
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -105,6 +110,73 @@ pub trait TokenSink {
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.
     fn query_state_change(&mut self) -> Option<states::State> {
+        None
+    }
+}
+
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum XTagKind {
+    StartXTag,
+    EndXTag,
+    EmptyXTag,
+    ShortXTag,
+}
+
+/// XML 5 Tag Token
+// FIXME: Possibly unify with Tag?
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct XTag {
+    pub kind: XTagKind,
+    pub name: Atom,
+    pub attrs: Vec<Attribute>
+}
+
+impl XTag {
+    pub fn equiv_modulo_attr_order(&self, other: &XTag) -> bool {
+        if (self.kind != other.kind) || (self.name != other.name) {
+            return false;
+        }
+
+        let mut self_attrs = self.attrs.clone();
+        let mut other_attrs = other.attrs.clone();
+        self_attrs.sort();
+        other_attrs.sort();
+
+        self_attrs == other_attrs
+    }
+}
+
+// FIXME: rust-lang/rust#22629
+unsafe impl Send for XToken { }
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct XPi {
+    pub target: String,
+    pub data: String,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum XToken {
+    DoctypeXToken(Doctype),
+    XTagToken(XTag),
+    PIToken(XPi),
+    CommentXToken(String),
+    CharacterXTokens(String),
+    EOFXToken,
+    NullCharacterXToken,
+    XParseError(Cow<'static, str>),
+}
+
+/// Types which can receive tokens from the tokenizer.
+pub trait XTokenSink {
+    /// Process a token.
+    fn process_token(&mut self, token: XToken);
+
+    /// The tokenizer will call this after emitting any start tag.
+    /// This allows the tree builder to change the tokenizer's state.
+    /// By default no state changes occur.
+    fn query_state_change(&mut self) -> Option<states::XmlState> {
         None
     }
 }

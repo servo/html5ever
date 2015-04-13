@@ -1,0 +1,102 @@
+#data
+<a></a>
+#document
+| <a>
+
+#data
+<!--COMMENT?--><a>
+#document
+| <!-- COMMENT? -->
+| <a>
+
+#data
+<!COMMENT?><a>
+#document
+| <!-- COMMENT? -->
+| <a>
+
+#data
+<?pix xml?><a>
+#document
+| <?pix xml?>
+| <a>
+
+#data
+<a/>
+#document
+| <a>
+
+#data
+<a>Text
+#document
+| <a>
+|   "Text"
+
+
+#data
+<a><b>
+#document
+| <a>
+|   <b>
+
+#data
+<a><b></b></a>
+#document
+| <a>
+|   <b>
+
+#data
+<a><b/></a>
+#document
+| <a>
+|   <b>
+
+#data
+<a><b/>
+#document
+| <a>
+|   <b>
+
+#data
+<a><b>Text
+#document
+| <a>
+|   <b>
+|     "Text"
+
+#data
+<a><b>Text</b>
+#document
+| <a>
+|   <b>
+|     "Text"
+
+#data
+<a><!--COMMENT-->
+#document
+| <a>
+|   <!-- COMMENT -->
+
+#data
+<a><?xslt dummy?>
+#document
+| <a>
+|   <?xslt dummy?>
+
+#data
+<a></a><?xslt dummy?>
+#document
+| <a>
+| <?xslt dummy?>
+
+#data
+<a></a><!--COMMENT-->
+#document
+| <a>
+| <!-- COMMENT -->
+
+#data
+<a><x></x></a><b>
+#document
+| <a>
+|   <x>
