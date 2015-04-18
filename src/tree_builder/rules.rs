@@ -14,10 +14,10 @@ use core::prelude::*;
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::TreeBuilderActions;
-use tree_builder::interface::{TreeSink, Quirks, AppendNode};
+use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 
 use tokenizer::{Tag, StartTag, EndTag};
-use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
+use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext, Quiescent};
 
 use util::str::{AsciiExt, is_ascii_whitespace};
 
@@ -726,7 +726,9 @@ impl<Handle, Sink> TreeBuilderStep
                     let node = self.pop();
                     if tag.name == atom!(script) {
                         h5e_warn!("FIXME: </script> not fully implemented");
-                        self.sink.complete_script(node);
+                        if self.sink.complete_script(node) == NextParserState::Suspend {
+                            self.next_tokenizer_state = Some(Quiescent);
+                        }
                     }
                     self.mode = self.orig_mode.take().unwrap();
                     Done

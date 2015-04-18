@@ -40,6 +40,15 @@ pub enum NodeOrText<Handle> {
     AppendText(String),
 }
 
+/// Whether to interrupt further parsing of the current input until
+/// the next explicit resumption of the tokenizer, or continue without
+/// any interruption.
+#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
+pub enum NextParserState {
+    Suspend,
+    Continue,
+}
+
 /// Types which can process tree modifications from the tree builder.
 pub trait TreeSink {
     /// `Handle` is a reference to a DOM node.  The tree builder requires
@@ -108,7 +117,9 @@ pub trait TreeSink {
     fn mark_script_already_started(&mut self, node: Self::Handle);
 
     /// Indicate that a `<script>` element is complete.
-    fn complete_script(&mut self, _node: Self::Handle) { }
+    fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
+        NextParserState::Continue
+    }
 }
 
 /// Trace hooks for a garbage-collected DOM.
