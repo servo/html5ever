@@ -9,11 +9,11 @@
 
 #![allow(non_camel_case_types)]
 
-use for_c::common::{LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
+use {LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
 
-use tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
-use tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
-use tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
+use html5ever::tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
+use html5ever::tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
+use html5ever::tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
 
 use std::mem;
 use std::default::Default;

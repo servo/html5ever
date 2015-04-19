@@ -14,11 +14,9 @@ The module structure is also documented in the output produced by `cargo doc`, a
 
 `src/sink/`: Types that html5ever can use to represent the DOM, if you do not provide your own DOM implementation.
 
-`src/for_c/`: Implementation of the C API for html5ever (as yet incomplete)
-
 `macros/`: Rust syntax extensions used within html5ever.  Users of the library do not need this crate.
 
-`capi/html5ever.h`: C header for the C API
+`capi/`: Implementation of the C API for html5ever (as yet incomplete)
 
 `tests/`: Integration tests. This is a single executable crate that runs html5ever on the various [html5lib-tests](https://github.com/html5lib/html5lib-tests). There are also unit tests throughout the library code. See `README.md` for information on running tests.
 

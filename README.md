@@ -33,18 +33,13 @@ Bindings for Python and other languages are much desired.
 
 ## Working on html5ever
 
-To build examples and tests, do something like
+To fetch the test suite, you need to run
 
 ```
-git submodule update --init  # to fetch html5lib-tests
-mkdir build && cd build
-../configure
-make examples check bench
+git submodule update --init
 ```
 
-This will invoke Cargo when necessary.
-
-Run `cargo doc` in the repository root (or `make docs` in the build directory) to build local documentation under `target/doc/`.
+Run `cargo doc` in the repository root to build local documentation under `target/doc/`.
 
 
 ## Details

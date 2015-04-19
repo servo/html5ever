@@ -18,9 +18,6 @@
 #![plugin(string_cache_plugin)]
 #![plugin(html5ever_macros)]
 
-#[cfg(for_c)]
-extern crate libc;
-
 #[macro_use]
 extern crate log;
 
@@ -61,9 +58,3 @@ pub mod sink {
 }
 
 pub mod driver;
-
-#[cfg(for_c)]
-pub mod for_c {
-    pub mod common;
-    pub mod tokenizer;
-}

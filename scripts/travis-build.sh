@@ -10,8 +10,11 @@
 
 set -ex
 
-mkdir build
-cd build
-../configure
-make check docs for_c | ../scripts/shrink-test-output.py
-exit ${PIPESTATUS[0]}
+cargo doc
+cargo test --no-run
+cargo test | ./scripts/shrink-test-output.py
+r=${PIPESTATUS[0]}
+if [ $r -ne 0 ]; then exit $r; fi
+
+cd capi
+cargo test
