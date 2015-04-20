@@ -9,14 +9,11 @@
 
 //! High-level interface to the parser.
 
-use core::prelude::*;
-
 use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
-use core::default::Default;
-use core::option;
-use collections::string::String;
+use std::option;
+use std::default::Default;
 
 use string_cache::{Atom, QualName};
 

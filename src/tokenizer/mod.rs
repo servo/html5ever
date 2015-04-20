@@ -11,11 +11,6 @@
 
 #![allow(unused_imports)]
 
-use core::clone::Clone;
-use core::cmp::Ord;
-use core::iter::Iterator;
-use core::option::Option::{self, Some, None};
-
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -34,11 +29,8 @@ use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use util::str::{lower_ascii, lower_ascii_letter, empty_str};
 use util::smallcharset::SmallCharSet;
 
-use core::mem::replace;
-use core::default::Default;
-use alloc::boxed::Box;
-use collections::vec::Vec;
-use collections::string::{String, ToString};
+use std::mem::replace;
+use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
@@ -176,10 +168,6 @@ pub struct Tokenizer<Sink> {
 impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
-        if opts.profile && cfg!(for_c) {
-            panic!("Can't profile tokenizer when built as a C library");
-        }
-
         let start_tag_name = opts.last_start_tag_name.take()
             .map(|s| Atom::from_slice(&s));
         let state = opts.initial_state.unwrap_or(states::Data);
@@ -269,13 +257,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             n if (n & 0xFFFE) == 0xFFFE => true,
             _ => false,
         } {
-            // format_if!(true) will still use the static error when built for C.
-            let msg = format_if!(true, "Bad character",
-                "Bad character {}", c);
-            self.emit_error(msg);
+            let msg = format!("Bad character {}", c);
+            self.emit_error(Cow::Owned(msg));
         }
 
-        h5e_debug!("got character {}", c);
+        debug!("got character {}", c);
         self.current_char = c;
         Some(c)
     }
@@ -302,7 +288,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         let d = self.input_buffers.pop_except_from(set);
-        h5e_debug!("got characters {:?}", d);
+        debug!("got characters {:?}", d);
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
 
@@ -445,7 +431,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         match self.last_start_tag_name.as_ref() {
             Some(last) =>
                 (self.current_tag_kind == EndTag)
-                && (self.current_tag_name == last.as_slice()),
+                && (*self.current_tag_name == **last),
             None => false,
         }
     }
@@ -466,7 +452,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // FIXME: linear time search, do we care?
         let dup = {
             let name = &self.current_attr_name[..];
-            self.current_tag_attrs.iter().any(|a| a.name.local.as_slice() == name)
+            self.current_tag_attrs.iter().any(|a| &*a.name.local == name)
         };
 
         if dup {
@@ -568,7 +554,7 @@ macro_rules! shorthand (
 // so it's behind a cfg flag.
 #[cfg(trace_tokenizer)]
 macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ({
-    h5e_debug!("  {:s}", stringify!($($cmds)*));
+    debug!("  {:s}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }));
 
@@ -644,7 +630,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return self.step_char_ref_tokenizer();
         }
 
-        h5e_debug!("processing in state {:?}", self.state);
+        debug!("processing in state {:?}", self.state);
         match self.state {
             // Reachable only through `query_state_change`. The tree builder wants
             // the tokenizer to suspend processing.
@@ -1245,12 +1231,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    #[cfg(for_c)]
-    fn dump_profile(&self) {
-        unreachable!();
-    }
-
-    #[cfg(not(for_c))]
     fn dump_profile(&self) {
         let mut results: Vec<(states::State, u64)>
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
@@ -1268,7 +1248,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn eof_step(&mut self) -> bool {
-        h5e_debug!("processing EOF in state {:?}", self.state);
+        debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
             | states::RawData(ScriptData) | states::Plaintext | states::Quiescent
@@ -1341,9 +1321,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use core::prelude::*;
-    use collections::vec::Vec;
-    use collections::string::String;
     use super::{option_push, append_strings}; // private items
 
     #[test]

@@ -12,8 +12,6 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use core::prelude::*;
-
 use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
 use tokenizer::Attribute;
@@ -24,11 +22,9 @@ use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
-use core::cell::RefCell;
-use core::default::Default;
-use alloc::rc::{Rc, Weak};
-use collections::vec::Vec;
-use collections::string::String;
+use std::cell::RefCell;
+use std::default::Default;
+use std::rc::{Rc, Weak};
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::ops::DerefMut;

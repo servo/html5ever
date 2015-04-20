@@ -9,11 +9,7 @@
 
 //! Types used within the tree builder code.  Not exported to users.
 
-use core::prelude::*;
-
 use tokenizer::Tag;
-
-use collections::string::String;
 
 pub use self::InsertionMode::*;
 pub use self::SplitStatus::*;

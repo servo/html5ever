@@ -12,8 +12,6 @@
 //! This is public for use by the tokenizer tests.  Other library
 //! users should not have to care about this.
 
-use core::prelude::*;
-
 pub use self::ScriptEscapeKind::*;
 pub use self::DoctypeIdKind::*;
 pub use self::RawKind::*;

@@ -9,18 +9,15 @@
 
 #![allow(non_camel_case_types)]
 
-use core::prelude::*;
+use {LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
 
-use for_c::common::{LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
+use html5ever::tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
+use html5ever::tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
+use html5ever::tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
 
-use tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
-use tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
-use tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
+use std::mem;
+use std::default::Default;
 
-use core::mem;
-use core::default::Default;
-use alloc::boxed::Box;
-use collections::String;
 use libc::{c_void, c_int, size_t};
 
 #[repr(C)]

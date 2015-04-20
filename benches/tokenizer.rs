@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, std_misc, start, test, convert)]
+#![feature(box_syntax, std_misc, start, test)]
 
 extern crate test;
 extern crate html5ever;

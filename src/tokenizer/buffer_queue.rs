@@ -7,14 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
-
 use util::str::AsciiCast;
 use util::smallcharset::SmallCharSet;
 
-use core::str::CharRange;
-use collections::string::String;
-use collections::VecDeque;
+use std::str::CharRange;
+use std::collections::VecDeque;
 
 pub use self::SetResult::{FromSet, NotFromSet};
 
@@ -177,8 +174,6 @@ impl BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use core::prelude::*;
-    use collections::string::String;
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]

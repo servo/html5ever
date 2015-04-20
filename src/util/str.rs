@@ -7,14 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
+use std::fmt;
 
-use collections::vec::Vec;
-use collections::string::String;
-use core::fmt::Debug;
-
-pub fn to_escaped_string<T: Debug>(x: &T) -> String {
-    use core::fmt::Write;
+pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
+    use std::fmt::Write;
 
     // FIXME: don't allocate twice
     let mut buf = String::new();
@@ -206,7 +202,6 @@ pub fn char_run<Pred>(mut pred: Pred, buf: &str) -> Option<(usize, bool)>
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use core::prelude::*;
     use super::{char_run, is_ascii_whitespace, is_ascii_alnum, lower_ascii, lower_ascii_letter};
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));

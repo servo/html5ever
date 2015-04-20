@@ -10,12 +10,8 @@
 //! The interface for consumers of the tree builder (and thus the
 //! parser overall).
 
-use core::prelude::*;
-
 use tokenizer::Attribute;
 
-use collections::vec::Vec;
-use collections::string::String;
 use std::borrow::Cow;
 
 use string_cache::QualName;

@@ -9,8 +9,6 @@
 
 //! The HTML5 tree builder.
 
-use core::prelude::*;
-
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::{NodeOrText, AppendNode, AppendText};
 pub use self::interface::{TreeSink, Tracer, NextParserState};
@@ -28,12 +26,10 @@ use tokenizer::states as tok_state;
 
 use util::str::{is_ascii_whitespace, char_run};
 
-use core::default::Default;
-use core::mem::replace;
-use collections::vec::Vec;
-use collections::string::String;
+use std::default::Default;
+use std::mem::replace;
 use std::borrow::Cow::Borrowed;
-use collections::VecDeque;
+use std::collections::VecDeque;
 
 #[macro_use] mod tag_sets;
 // "pub" is a workaround for rust#18241 (?)
@@ -279,8 +275,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         self.context_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
     }
 
-    // Debug helper
-    #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
         use string_cache::QualName;
@@ -311,14 +305,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("");
     }
 
-    #[cfg(for_c)]
-    fn debug_step(&self, _mode: InsertionMode, _token: &Token) {
-    }
-
-    #[cfg(not(for_c))]
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: Token) {

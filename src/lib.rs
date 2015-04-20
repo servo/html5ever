@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, no_std, core, collections, alloc, str_char, slice_patterns)]
+#![feature(plugin, box_syntax, core, collections, alloc, str_char, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
@@ -18,24 +18,6 @@
 #![plugin(string_cache_plugin)]
 #![plugin(html5ever_macros)]
 
-// FIXME(#63): switch back to using std
-#![no_std]
-
-extern crate alloc;
-
-#[macro_use]
-extern crate core;
-
-#[macro_use]
-extern crate std;
-
-#[cfg(for_c)]
-extern crate libc;
-
-#[macro_use]
-extern crate collections;
-
-#[cfg(not(for_c))]
 #[macro_use]
 extern crate log;
 
@@ -52,7 +34,6 @@ extern crate time;
 pub use tokenizer::Attribute;
 pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
 
-#[cfg(not(for_c))]
 pub use serialize::serialize;
 
 #[macro_use]
@@ -67,11 +48,9 @@ mod util {
 pub mod tokenizer;
 pub mod tree_builder;
 
-#[cfg(not(for_c))]
 pub mod serialize;
 
 /// Consumers of the parser API.
-#[cfg(not(for_c))]
 pub mod sink {
     pub mod common;
     pub mod rcdom;
@@ -79,9 +58,3 @@ pub mod sink {
 }
 
 pub mod driver;
-
-#[cfg(for_c)]
-pub mod for_c {
-    pub mod common;
-    pub mod tokenizer;
-}

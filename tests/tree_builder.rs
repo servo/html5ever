@@ -116,7 +116,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 ns!(MathML) => buf.push_str("math "),
                 _ => (),
             }
-            buf.push_str(name.local.as_slice());
+            buf.push_str(&*name.local);
             buf.push_str(">\n");
 
             let mut attrs = attrs.clone();
@@ -133,7 +133,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                     _ => (),
                 }
                 buf.push_str(&format!("{}=\"{}\"\n",
-                    attr.name.local.as_slice(), attr.value));
+                    attr.name.local, attr.value));
             }
         }
     }

@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
-
 /// Represents a set of "small characters", those with Unicode scalar
 /// values less than 64.
 pub struct SmallCharSet {
@@ -45,9 +43,7 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
 
 #[cfg(test)]
 mod test {
-    use core::prelude::*;
-    use core::iter::repeat;
-    use collections::string::String;
+    use std::iter::repeat;
 
     #[test]
     fn nonmember_prefix() {

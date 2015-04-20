@@ -1,4 +1,4 @@
-// Copyright 2014 The html5ever Project Developers. See the
+// Copyright 2014-2015 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,14 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
+extern crate libc;
+extern crate string_cache;
+extern crate html5ever;
 
-use core::ptr;
-use core::slice;
-use core::str;
-use core::marker::PhantomData;
+use std::{ptr, slice, str};
+use std::marker::PhantomData;
 use std::borrow::Cow;
-use collections::string::String;
 
 use libc::{size_t, c_int, c_char, strlen};
 

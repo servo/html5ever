@@ -7,15 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::prelude::*;
-
 use super::{Tokenizer, TokenSink};
 
 use util::str::{is_ascii_alnum, empty_str};
 
-use core::char::from_u32;
+use std::char::from_u32;
 use std::borrow::Cow::Borrowed;
-use collections::string::String;
 
 pub use self::Status::*;
 use self::State::*;
@@ -119,7 +116,7 @@ impl CharRefTokenizer {
             return Done;
         }
 
-        h5e_debug!("char ref tokenizer stepping in state {:?}", self.state);
+        debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             Begin => self.do_begin(tokenizer),
             Octothorpe => self.do_octothorpe(tokenizer),
