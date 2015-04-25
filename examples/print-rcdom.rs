@@ -11,6 +11,7 @@
 #![plugin(string_cache_plugin)]
 
 extern crate html5ever;
+extern crate html5ever_dom_sink;
 
 #[macro_use]
 extern crate string_cache;
@@ -20,9 +21,9 @@ use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
 
-use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, one_input};
+use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
 

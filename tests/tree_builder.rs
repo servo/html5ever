@@ -15,6 +15,7 @@ extern crate test;
 extern crate string_cache;
 
 extern crate html5ever;
+extern crate html5ever_dom_sink;
 extern crate test_util;
 
 use test_util::foreach_html5lib_test;
@@ -30,9 +31,9 @@ use std::collections::{HashSet, HashMap};
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 
-use html5ever::sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever::sink::rcdom::{RcDom, Handle};
 use html5ever::{parse, parse_fragment, one_input};
+use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 use string_cache::Atom;
 

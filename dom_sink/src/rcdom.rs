@@ -12,22 +12,22 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
-use tokenizer::Attribute;
-use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
-use tree_builder;
-use serialize::{Serializable, Serializer};
-use serialize::TraversalScope;
-use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
-use driver::ParseResult;
+use html5ever::tokenizer::Attribute;
+use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use html5ever::tree_builder;
+use html5ever::serialize::{Serializable, Serializer};
+use html5ever::serialize::TraversalScope;
+use html5ever::serialize::TraversalScope::{IncludeNode, ChildrenOnly};
+use html5ever::driver::ParseResult;
 
 use std::cell::RefCell;
 use std::default::Default;
 use std::rc::{Rc, Weak};
 use std::borrow::Cow;
 use std::io::{self, Write};
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 
 use string_cache::QualName;
 
@@ -55,7 +55,13 @@ impl Node {
 }
 
 /// Reference to a DOM node.
-pub type Handle = Rc<RefCell<Node>>;
+#[derive(Clone)]
+pub struct Handle(Rc<RefCell<Node>>);
+
+impl Deref for Handle {
+    type Target = Rc<RefCell<Node>>;
+    fn deref(&self) -> &Rc<RefCell<Node>> { &self.0 }
+}
 
 /// Weak reference to a DOM node, used for parent pointers.
 pub type WeakHandle = Weak<RefCell<Node>>;
@@ -67,7 +73,7 @@ fn same_node(x: &Handle, y: &Handle) -> bool {
 }
 
 fn new_node(node: NodeEnum) -> Handle {
-    Rc::new(RefCell::new(Node::new(node)))
+    Handle(Rc::new(RefCell::new(Node::new(node))))
 }
 
 fn append(new_parent: &Handle, child: Handle) {
@@ -87,7 +93,7 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
         Some((i, _)) => i,
         None => panic!("have parent but couldn't find in parent's children!"),
     };
-    Some((parent, i))
+    Some((Handle(parent), i))
 }
 
 fn append_to_existing_text(prev: &Handle, text: &str) -> bool {

@@ -12,13 +12,14 @@
 
 extern crate string_cache;
 extern crate html5ever;
+extern crate html5ever_dom_sink;
 
 use std::default::Default;
 use std::borrow::ToOwned;
 
-use html5ever::sink::rcdom::RcDom;
 use html5ever::driver::ParseOpts;
 use html5ever::{parse_fragment, one_input, serialize};
+use html5ever_dom_sink::rcdom::RcDom;
 
 fn parse_and_serialize(input: String) -> String {
     let dom: RcDom = parse_fragment(one_input(input), atom!(body), ParseOpts::default());

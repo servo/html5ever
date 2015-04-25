@@ -16,12 +16,13 @@
 //! where htmlparser-1.4.jar comes from http://about.validator.nu/htmlparser/
 
 extern crate html5ever;
+extern crate html5ever_dom_sink;
 
 use std::io::{self, Read, Write};
 use std::default::Default;
 
-use html5ever::sink::rcdom::RcDom;
 use html5ever::driver::ParseOpts;
+use html5ever_dom_sink::rcdom::RcDom;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
 
