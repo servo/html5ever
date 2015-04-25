@@ -18,15 +18,15 @@
 //! been thoroughly audited, and the performance gains vs. RcDom
 //! have not been demonstrated.
 
-use sink::common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
 
-use tokenizer::Attribute;
-use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
-use tree_builder;
-use serialize::{Serializable, Serializer};
-use serialize::TraversalScope;
-use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
-use driver::ParseResult;
+use html5ever::tokenizer::Attribute;
+use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use html5ever::tree_builder;
+use html5ever::serialize::{Serializable, Serializer};
+use html5ever::serialize::TraversalScope;
+use html5ever::serialize::TraversalScope::{IncludeNode, ChildrenOnly};
+use html5ever::driver::ParseResult;
 
 use std::{mem, ptr};
 use std::cell::UnsafeCell;

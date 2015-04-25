@@ -33,6 +33,9 @@ rustc-serialize = "0"
 [dev-dependencies.test_util]
 path = "test_util"
 
+[dev-dependencies.html5ever_dom_sink]
+path = "dom_sink"
+
 [profile.dev]
 debug = false
 

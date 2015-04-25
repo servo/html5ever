@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use tokenizer::Attribute;
+use html5ever::tokenizer::Attribute;
 
 use string_cache::QualName;
 

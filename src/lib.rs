@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, core, collections, alloc, str_char, slice_patterns)]
+#![feature(plugin, box_syntax, core, collections, str_char, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_parens)]
 
@@ -49,12 +49,5 @@ pub mod tokenizer;
 pub mod tree_builder;
 
 pub mod serialize;
-
-/// Consumers of the parser API.
-pub mod sink {
-    pub mod common;
-    pub mod rcdom;
-    pub mod owned_dom;
-}
 
 pub mod driver;
