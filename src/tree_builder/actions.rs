@@ -1242,7 +1242,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn stop_parsing(&mut self) -> XmlProcessResult {
-        h5e_warn!("stop_parsing for XML5 not implemented, full speed ahead!");
+        warn!("stop_parsing for XML5 not implemented, full speed ahead!");
         XDone
     }
 }

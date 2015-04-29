@@ -519,7 +519,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: XmlPhase, token: &XToken) {
         use util::str::to_escaped_string;
-        h5e_debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
     fn process_to_completion(&mut self, mut token: XToken) {

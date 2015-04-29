@@ -18,8 +18,6 @@ use std::default::Default;
 use tokenizer::{XmlTokenizerOpts, XmlTokenizer, XTokenSink};
 use tree_builder::{ XmlTreeBuilder};
 
-use collections::string::String;
-
 use string_cache::{Atom, QualName};
 
 /// Convenience function to turn a single `String` into an iterator.

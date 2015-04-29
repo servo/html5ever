@@ -729,7 +729,7 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
             c = '\u{FFFD}'
         }
 
-        h5e_debug!("got character {}", c);
+        debug!("got character {}", c);
         self.current_char = c;
         Some(c)
     }
@@ -752,7 +752,7 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
         }
 
         let d = self.input_buffers.pop_except_from(set);
-        h5e_debug!("got characters {:?}", d);
+        debug!("got characters {:?}", d);
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
 
@@ -2062,7 +2062,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
 
 
     fn eof_step(&mut self) -> bool {
-        h5e_debug!("processing EOF in state {:?}", self.state);
+        debug!("processing EOF in state {:?}", self.state);
         match self.state {
             XmlState::XData
                 => go!(self: eof),

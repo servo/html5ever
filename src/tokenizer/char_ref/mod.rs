@@ -22,8 +22,6 @@ use super::{XTokenSink, XmlTokenizer};
 pub use self::XRef::*;
 use self::XState::*;
 
-use collections::string::ToString;
-
 mod data;
 
 //§ tokenizing-character-references
@@ -476,7 +474,7 @@ impl XCharRefTokenizer {
             return Done;
         }
 
-        h5e_debug!("Xml char ref tokenizer stepping in state {:?}", self.state);
+        debug!("Xml char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             XBegin => self.do_begin(tokenizer),
             XNumeric(base) => self.do_numeric(tokenizer, base),
@@ -618,7 +616,7 @@ impl XCharRefTokenizer {
     fn finish_reference<Sink: XTokenSink>(&mut self,
         tokenizer: &mut XmlTokenizer<Sink>) -> Status {
 
-        use core::mem::replace;
+        use std::mem::replace;
 
         match self.name_buf_opt {
             Some(ref mut c) if c.len() > 0 => {
