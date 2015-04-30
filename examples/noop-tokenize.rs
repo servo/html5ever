@@ -20,7 +20,7 @@ use std::default::Default;
 
 use test::black_box;
 
-use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts};
+use html5ever::tokenizer::{TokenSink, Token};
 use html5ever::driver::{tokenize_to, one_input};
 
 struct Sink;
@@ -37,8 +37,5 @@ fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
 
-    tokenize_to(Sink, one_input(input), TokenizerOpts {
-        profile: true,
-        .. Default::default()
-    });
+    tokenize_to(Sink, one_input(input), Default::default());
 }
