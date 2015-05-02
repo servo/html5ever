@@ -197,6 +197,17 @@ impl TreeSink for Sink {
         x == y
     }
 
+    fn same_home_subtree(&self, _x: Handle, _y: Handle) -> bool {
+        true
+    }
+
+    fn associate_with_form(&mut self, _target: Handle, _form: Handle) {
+    }
+
+    fn has_parent_node(&self, node: Handle) -> bool {
+        !node.parent.is_null()
+    }
+
     fn elem_name(&self, target: Handle) -> QualName {
         match target.node {
             Element(ref name, _) => name.clone(),
@@ -230,8 +241,9 @@ impl TreeSink for Sink {
 
     fn append_before_sibling(&mut self,
             sibling: Handle,
-            child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
-        let (mut parent, i) = unwrap_or_return!(get_parent_and_index(sibling), Err(child));
+            child: NodeOrText<Handle>) {
+        let (mut parent, i) = get_parent_and_index(sibling)
+            .expect("append_before_sibling called on node without parent");
 
         let mut child = match (child, i) {
             // No previous node.
@@ -241,7 +253,7 @@ impl TreeSink for Sink {
             (AppendText(text), i) => {
                 let prev = parent.children[i-1];
                 if append_to_existing_text(prev, &text) {
-                    return Ok(());
+                    return;
                 }
                 self.new_node(Text(text))
             }
@@ -259,7 +271,6 @@ impl TreeSink for Sink {
 
         child.parent = parent;
         parent.children.insert(i, child);
-        Ok(())
     }
 
     fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
