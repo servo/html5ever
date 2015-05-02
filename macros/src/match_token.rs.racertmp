@@ -104,7 +104,7 @@ use syntax::diagnostic::FatalError;
 use syntax::ptr::P;
 use syntax::codemap::{Span, Spanned, spanned};
 use syntax::ast;
-use syntax::parse::parser::{Parser, Restrictions};
+use syntax::parse::parser::Parser;
 use syntax::parse::{token, parser, classify};
 use syntax::parse;
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
@@ -203,7 +203,7 @@ fn parse_tag(parser: &mut Parser) -> Result<Spanned<Tag>, FatalError> {
 fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError> {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), toks.to_vec());
 
-    let discriminant = try!(parser.parse_expr_res(Restrictions::RESTRICTION_NO_STRUCT_LITERAL));
+    let discriminant = try!(parser.parse_expr_res(parser::Restriction::RESTRICTION_NO_STRUCT_LITERAL));
     try!(parser.commit_expr_expecting(&*discriminant, token::OpenDelim(token::Brace)));
 
     let mut arms: Vec<Arm> = Vec::new();
@@ -236,7 +236,7 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
             try!(parser.expect(&token::Comma));
             Else
         } else {
-            let expr = try!(parser.parse_expr_res(Restrictions::RESTRICTION_STMT_EXPR));
+            let expr = try!(parser.parse_expr_res(parser::RESTRICTION_STMT_EXPR));
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
