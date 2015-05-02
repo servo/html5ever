@@ -210,40 +210,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     // Insert at the "appropriate place for inserting a node".
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>) {
-        declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
-        let target = override_target.unwrap_or_else(|| self.current_node());
-        if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
-            if self.html_elem_named(target.clone(), local_name!("template")) {
-                // No foster parenting (inside template).
-                let contents = self.sink.get_template_contents(target);
-                self.sink.append(contents, child);
-            } else {
-                // No foster parenting (the common case).
-                self.sink.append(target, child);
-            }
-            return;
-        }
-
-        // Foster parenting
-        let mut iter = self.open_elems.iter().rev().peekable();
-        while let Some(elem) = iter.next() {
-            if self.html_elem_named(elem.clone(), local_name!("template")) {
-                let contents = self.sink.get_template_contents(elem.clone());
-                self.sink.append(contents, child);
-                return;
-            } else if self.html_elem_named(elem.clone(), local_name!("table")) {
-                // Try inserting "inside last table's parent node, immediately before last table"
-                if let Err(child) = self.sink.append_before_sibling(elem.clone(), child) {
-                    // If last_table has no parent, we regain ownership of the child.
-                    // Insert "inside previous element, after its last child (if any)"
-                    let previous_element = (*iter.peek().unwrap()).clone();
-                    self.sink.append(previous_element, child);
-                }
-                return;
-            }
-        }
-        let html_elem = self.html_elem();
-        self.sink.append(html_elem, child);
+        let insertion_point = self.appropriate_place_for_insertion(override_target);
+        self.insert_at(insertion_point, child);
     }
 
     fn adoption_agency(&mut self, subject: LocalName) {
@@ -775,10 +743,40 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // FIXME: application cache selection algorithm
     }
 
+    // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
     fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
-        let elem = self.sink.create_element(QualName::new(ns, name), attrs);
-        self.insert_appropriately(AppendNode(elem.clone()), None);
+        declare_tag_set!(form_associatable =
+            "button" "fieldset" "input" "object"
+            "output" "select" "textarea" "img");
+
+        declare_tag_set!(listed = [form_associatable] - "img");
+
+        // Step 7.
+        let qname = QualName::new(ns, name);
+        let elem = self.sink.create_element(qname.clone(), attrs.clone());
+
+        let insertion_point = self.appropriate_place_for_insertion(None);
+        let tree_node = match insertion_point {
+            LastChild(ref p) |
+            BeforeSibling(ref p) => p.clone()
+        };
+
+        // Step 12.
+        if form_associatable(qname.clone()) &&
+           self.form_elem.is_some() &&
+           !self.in_html_elem_named(local_name!("template")) &&
+           !(listed(qname.clone()) &&
+                attrs.iter().any(|a| a.name == qualname!("","form"))) {
+
+               let form = self.form_elem.as_ref().unwrap().clone();
+               if self.sink.same_tree(tree_node, form.clone()) {
+                   self.sink.associate_with_form(elem.clone(), form)
+               }
+        }
+
+        self.insert_at(insertion_point, AppendNode(elem.clone()));
+
         match push {
             Push => self.push(&elem),
             NoPush => (),

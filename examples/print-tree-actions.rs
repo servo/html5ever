@@ -82,6 +82,12 @@ impl TreeSink for Sink {
         id
     }
 
+    fn has_parent_node(&self, _node: usize) -> bool  {
+        // `node` will have a parent unless a script moved it, and we're
+        // not running scripts.  Therefore we can aways return true
+        true
+    }
+
     fn append(&mut self, parent: usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n)
@@ -93,17 +99,13 @@ impl TreeSink for Sink {
 
     fn append_before_sibling(&mut self,
             sibling: usize,
-            new_node: NodeOrText<usize>) -> Result<(), NodeOrText<usize>> {
+            new_node: NodeOrText<usize>) {
         match new_node {
             AppendNode(n)
                 => println!("Append node {} before {}", n, sibling),
             AppendText(t)
                 => println!("Append text before {}: \"{}\"", sibling, escape_default(&t)),
         }
-
-        // `sibling` will have a parent unless a script moved it, and we're
-        // not running scripts.  Therefore we can aways return `Ok(())`.
-        Ok(())
     }
 
     fn append_doctype_to_document(&mut self,
@@ -119,6 +121,12 @@ impl TreeSink for Sink {
         for attr in attrs.into_iter() {
             println!("    {:?} = {}", attr.name, attr.value);
         }
+    }
+
+    fn associate_with_form(&mut self, _target: usize, _form: usize) {
+        // No form owner support. Since same_tree always returns
+        // true we cannot be sure that this associate_with_form call is
+        // valid
     }
 
     fn remove_from_parent(&mut self, target: usize) {

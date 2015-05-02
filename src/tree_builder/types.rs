@@ -19,6 +19,7 @@ pub use self::SplitStatus::*;
 pub use self::Token::*;
 pub use self::ProcessResult::*;
 pub use self::FormatEntry::*;
+pub use self::InsertionPoint::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum InsertionMode {
@@ -79,4 +80,11 @@ pub enum ProcessResult<Handle> {
 pub enum FormatEntry<Handle> {
     Element(Handle, Tag),
     Marker,
+}
+
+pub enum InsertionPoint<Handle> {
+    /// Insert as last child in this parent.
+    LastChild(Handle),
+    /// Insert before this following sibling.
+    BeforeSibling(Handle)
 }
