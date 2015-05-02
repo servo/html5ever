@@ -19,6 +19,7 @@ pub use self::SplitStatus::*;
 pub use self::Token::*;
 pub use self::ProcessResult::*;
 pub use self::FormatEntry::*;
+pub use self::InsertionPoint::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum InsertionMode {
@@ -79,4 +80,14 @@ pub enum ProcessResult<Handle> {
 pub enum FormatEntry<Handle> {
     Element(Handle, Tag),
     Marker,
+}
+
+pub enum InsertionPoint<Handle> {
+    /// Holds the parent
+    LastChild(Handle),
+    /// Holds the sibling before which the node will be inserted
+    /// TODO: Is the parent node needed? Is there a problem with using
+    /// the sibling to find if the form element is in the same home
+    /// subtree?
+    BeforeSibling(Handle)
 }
