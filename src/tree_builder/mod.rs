@@ -369,6 +369,48 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn is_fragment(&self) -> bool {
         self.context_elem.is_some()
     }
+
+    fn appropriate_place_for_insertion(&self, override_target: Option<Handle>) -> InsertionPoint<Handle> {
+        use self::tag_sets::*;
+
+        declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
+        let target = override_target.unwrap_or_else(|| self.current_node());
+        if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
+            // No foster parenting (the common case).
+            return LastChild(target)
+        }
+
+        // Foster parenting
+        // FIXME: <template>
+        let last_table = self.open_elems.iter()
+            .enumerate()
+            .rev()
+            .filter(|&(_, e)| self.html_elem_named(e.clone(), local_name!("table")))
+            .next();
+
+        match last_table {
+            None => {
+                LastChild(self.html_elem())
+            }
+            Some((idx, last_table)) => {
+                // Try inserting "inside last table's parent node, immediately before last table"
+                if self.sink.has_parent_node(last_table.clone()) {
+                    BeforeSibling(last_table.clone())
+                } else {
+                    // Insert "inside previous element, after its last child (if any)"
+                    let previous_element = self.open_elems[idx-1].clone();
+                    LastChild(previous_element)
+                }
+            }
+        }
+    }
+
+    fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
+        match insertion_point {
+            LastChild(parent) => self.sink.append(parent, child),
+            BeforeSibling(sibling) => self.sink.append_before_sibling(sibling, child)
+        }
+    }
 }
 
 impl<Handle, Sink> TokenSink
@@ -529,13 +571,18 @@ mod test {
             self.rcdom.create_comment(text)
         }
 
+        fn has_parent_node(&self, node: Handle) -> bool {
+            let node = node.borrow();
+            node.parent.is_some()
+        }
+
         fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
             self.rcdom.append(parent, child)
         }
 
         fn append_before_sibling(&mut self,
                 sibling: Handle,
-                child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
+                child: NodeOrText<Handle>) {
             self.rcdom.append_before_sibling(sibling, child)
         }
 

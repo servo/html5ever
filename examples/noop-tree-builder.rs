@@ -57,6 +57,10 @@ impl TreeSink for Sink {
         x == y
     }
 
+    fn same_home_subtree(&self, _x: usize, _y: usize) -> bool {
+        true
+    }
+
     fn elem_name(&self, target: usize) -> QualName {
         self.names.get(&target).expect("not an element").clone()
     }
@@ -71,13 +75,15 @@ impl TreeSink for Sink {
         self.get_id()
     }
 
+    fn has_parent_node(&self, _node: usize) -> bool {
+        // `node` will have a parent unless a script moved it, and we're
+        // not running scripts.  Therefore we can aways return true.
+        true
+    }
+
     fn append_before_sibling(&mut self,
             _sibling: usize,
-            _new_node: NodeOrText<usize>) -> Result<(), NodeOrText<usize>> {
-        // `sibling` will have a parent unless a script moved it, and we're
-        // not running scripts.  Therefore we can aways return `Ok(())`.
-        Ok(())
-    }
+            _new_node: NodeOrText<usize>) { }
 
     fn parse_error(&mut self, _msg: Cow<'static, str>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
@@ -87,6 +93,7 @@ impl TreeSink for Sink {
     fn add_attrs_if_missing(&mut self, target: usize, _attrs: Vec<Attribute>) {
         assert!(self.names.contains_key(&target), "not an element");
     }
+    fn associate_with_form(&mut self, _target: usize, _form: usize) { }
     fn remove_from_parent(&mut self, _target: usize) { }
     fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
     fn mark_script_already_started(&mut self, _node: usize) { }
