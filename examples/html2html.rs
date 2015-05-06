@@ -24,11 +24,10 @@ use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
 
-use html5ever::sink::rcdom::RcDom;
 use html5ever::driver::ParseOpts;
-use html5ever_dom_sink::rcdom::RcDom;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
+use html5ever_dom_sink::rcdom::RcDom;
 
 fn main() {
     let mut input = ByteTendril::new();

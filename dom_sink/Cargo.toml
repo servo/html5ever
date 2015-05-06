@@ -14,3 +14,6 @@ git = "https://github.com/reem/rust-mac"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"
+
+[dependencies.tendril]
+git = "https://github.com/kmcallister/tendril"

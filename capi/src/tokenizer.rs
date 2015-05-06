@@ -7,122 +7,96 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, raw_pointer_derive)]
 
-use {LifetimeBuf, AsLifetimeBuf, h5e_buf, c_bool};
+use c_bool;
 
 use html5ever::tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
 use html5ever::tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
 use html5ever::tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
-use html5ever::Tendril;
 
 use std::mem;
 use std::default::Default;
 
 use libc::{c_void, c_int, size_t};
+use string_cache::Atom;
+use tendril::{StrTendril, SliceExt};
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct h5e_token_ops {
-    do_doctype: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
-        public: h5e_buf, system: h5e_buf, force_quirks: c_int)>,
+    do_doctype: Option<extern "C" fn(user: *mut c_void, name: StrTendril,
+        public: StrTendril, system: StrTendril, force_quirks: c_int)>,
 
-    do_start_tag: Option<extern "C" fn(user: *mut c_void, name: h5e_buf,
+    do_start_tag: Option<extern "C" fn(user: *mut c_void, name: Atom,
         self_closing: c_int, num_attrs: size_t)>,
 
-    do_tag_attr:      Option<extern "C" fn(user: *mut c_void, name: h5e_buf, value: h5e_buf)>,
-    do_end_tag:       Option<extern "C" fn(user: *mut c_void, name: h5e_buf)>,
-    do_comment:       Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
-    do_chars:         Option<extern "C" fn(user: *mut c_void, text: h5e_buf)>,
+    do_tag_attr: Option<extern "C" fn(user: *mut c_void, name: Atom, value: StrTendril)>,
+
+    do_end_tag:       Option<extern "C" fn(user: *mut c_void, name: Atom)>,
+    do_comment:       Option<extern "C" fn(user: *mut c_void, text: StrTendril)>,
+    do_chars:         Option<extern "C" fn(user: *mut c_void, text: StrTendril)>,
     do_null_char:     Option<extern "C" fn(user: *mut c_void)>,
     do_eof:           Option<extern "C" fn(user: *mut c_void)>,
-    do_error:         Option<extern "C" fn(user: *mut c_void, message: h5e_buf)>,
-}
-
-impl Copy for h5e_token_ops { }
-impl Clone for h5e_token_ops {
-    fn clone(&self) -> h5e_token_ops {
-        *self
-    }
+    do_error:         Option<extern "C" fn(user: *mut c_void, message: StrTendril)>,
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct h5e_token_sink {
     ops: *const h5e_token_ops,
     user: *mut c_void,
 }
 
-impl Copy for h5e_token_sink { }
-impl Clone for h5e_token_sink {
-    fn clone(&self) -> h5e_token_sink {
-        *self
-    }
-}
-
-impl TokenSink for *mut h5e_token_sink {
+impl TokenSink for h5e_token_sink {
     fn process_token(&mut self, token: Token) {
         macro_rules! call {
             ($name:ident, $($arg:expr),*) => (
                 unsafe {
-                    match (*(**self).ops).$name {
+                    match (*self.ops).$name {
                         None => (),
-                        Some(f) => f((**self).user $(, $arg)*),
+                        Some(f) => f((*self).user $(, $arg)*),
                     }
                 }
             );
             ($name:ident) => (call!($name,)); // bleh
         }
 
-        fn opt_str_to_buf<'a>(s: &'a Option<Tendril>) -> LifetimeBuf<'a> {
-            match *s {
-                None => LifetimeBuf::null(),
-                Some(ref s) => s.as_lifetime_buf(),
-            }
-        }
-
         match token {
             DoctypeToken(Doctype { name, public_id, system_id, force_quirks }) => {
-                let name = opt_str_to_buf(&name);
-                let public_id = opt_str_to_buf(&public_id);
-                let system_id = opt_str_to_buf(&system_id);
-                call!(do_doctype, name.get(), public_id.get(), system_id.get(),
+                // Empty tendril doesn't allocate.
+                call!(do_doctype, name.unwrap_or(StrTendril::new()),
+                    public_id.unwrap_or(StrTendril::new()),
+                    system_id.unwrap_or(StrTendril::new()),
                     c_bool(force_quirks));
             }
 
             TagToken(Tag { kind, name, self_closing, attrs }) => {
-                let name = name.as_lifetime_buf();
                 match kind {
                     StartTag => {
-                        call!(do_start_tag, name.get(), c_bool(self_closing),
+                        call!(do_start_tag, name, c_bool(self_closing),
                             attrs.len() as size_t);
                         for attr in attrs.into_iter() {
                             // All attribute names from the tokenizer are local.
                             assert!(attr.name.ns == ns!(""));
-                            let name = attr.name.local.as_lifetime_buf();
-                            let value = attr.value.as_lifetime_buf();
-                            call!(do_tag_attr, name.get(), value.get());
+                            call!(do_tag_attr, attr.name.local, attr.value);
                         }
                     }
-                    EndTag => call!(do_end_tag, name.get()),
+                    EndTag => call!(do_end_tag, name),
                 }
             }
 
-            CommentToken(text) => {
-                let text = text.as_lifetime_buf();
-                call!(do_comment, text.get());
-            }
+            CommentToken(text) => call!(do_comment, text),
 
-            CharacterTokens(text) => {
-                let text = text.as_lifetime_buf();
-                call!(do_chars, text.get());
-            }
+            CharacterTokens(text) => call!(do_chars, text),
 
             NullCharacterToken => call!(do_null_char),
 
             EOFToken => call!(do_eof),
 
             ParseError(msg) => {
-                let msg = msg.as_lifetime_buf();
-                call!(do_error, msg.get());
+                let msg = msg.to_tendril();
+                call!(do_error, msg);
             }
         }
     }
@@ -131,26 +105,26 @@ impl TokenSink for *mut h5e_token_sink {
 pub type h5e_tokenizer_ptr = *const ();
 
 #[no_mangle]
-pub unsafe extern "C" fn h5e_tokenizer_new(sink: *mut h5e_token_sink) -> h5e_tokenizer_ptr {
-    let tok: Box<Tokenizer<*mut h5e_token_sink>>
-        = box Tokenizer::new(sink, Default::default());
+pub unsafe extern "C" fn h5e_tokenizer_new(sink: *const h5e_token_sink) -> h5e_tokenizer_ptr {
+    let tok: Box<Tokenizer<h5e_token_sink>>
+        = box Tokenizer::new(*sink, Default::default());
 
     mem::transmute(tok)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_free(tok: h5e_tokenizer_ptr) {
-    let _: Box<Tokenizer<*mut h5e_token_sink>> = mem::transmute(tok);
+    let _: Box<Tokenizer<h5e_token_sink>> = mem::transmute(tok);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn h5e_tokenizer_feed(tok: h5e_tokenizer_ptr, buf: h5e_buf) {
-    let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
-    tok.feed(String::from_str(buf.as_slice()));
+pub unsafe extern "C" fn h5e_tokenizer_feed(tok: h5e_tokenizer_ptr, buf: StrTendril) {
+    let tok: &mut Tokenizer<h5e_token_sink> = mem::transmute(tok);
+    tok.feed(buf);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_end(tok: h5e_tokenizer_ptr) {
-    let tok: &mut Tokenizer<*mut h5e_token_sink> = mem::transmute(tok);
+    let tok: &mut Tokenizer<h5e_token_sink> = mem::transmute(tok);
     tok.end();
 }

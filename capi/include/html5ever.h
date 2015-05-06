@@ -11,26 +11,19 @@
 #define __HTML5EVER_H
 
 #include <stdlib.h>
-
-struct h5e_buf {
-    unsigned char *data;
-    size_t len;
-};
-
-struct h5e_buf h5e_buf_from_cstr(const char *str);
+#include "tendril.h"
+#include "string_cache.h"
 
 struct h5e_token_ops {
-    void (*do_doctype)(void *user, struct h5e_buf name,
-        struct h5e_buf pub, struct h5e_buf sys, int force_quirks);
-    void (*do_start_tag)(void *user, struct h5e_buf name,
-        int self_closing, size_t num_attrs);
-    void (*do_tag_attr)(void *user, struct h5e_buf name, struct h5e_buf value);
-    void (*do_end_tag)(void *user, struct h5e_buf name);
-    void (*do_comment)(void *user, struct h5e_buf text);
-    void (*do_chars)(void *user, struct h5e_buf text);
+    void (*do_doctype)(void *user, tendril name, tendril pub, tendril sys, int force_quirks);
+    void (*do_start_tag)(void *user, scache_atom name, int self_closing, size_t num_attrs);
+    void (*do_tag_attr)(void *user, scache_atom name, tendril value);
+    void (*do_end_tag)(void *user, scache_atom name);
+    void (*do_comment)(void *user, tendril text);
+    void (*do_chars)(void *user, tendril text);
     void (*do_null_char)(void *user);
     void (*do_eof)(void *user);
-    void (*do_error)(void *user, struct h5e_buf message);
+    void (*do_error)(void *user, tendril message);
 };
 
 struct h5e_token_sink {
@@ -42,7 +35,7 @@ struct h5e_tokenizer;
 
 struct h5e_tokenizer *h5e_tokenizer_new(struct h5e_token_sink *sink);
 void h5e_tokenizer_free(struct h5e_tokenizer *tok);
-void h5e_tokenizer_feed(struct h5e_tokenizer *tok, struct h5e_buf buf);
+void h5e_tokenizer_feed(struct h5e_tokenizer *tok, tendril buf);
 void h5e_tokenizer_end(struct h5e_tokenizer *tok);
 
 #endif
