@@ -1,16 +1,16 @@
 [package]
 name = "html5ever_dom_sink"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
+description = "Basic DOM implementation for html5ever"
+license = "MIT / Apache-2.0"
 
 [lib]
 name = "html5ever_dom_sink"
 
+[dependencies]
+mac = "0"
+string_cache = "0"
+
 [dependencies.html5ever]
 path = "../"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
-
-[dependencies.string_cache]
-git = "https://github.com/servo/string-cache"

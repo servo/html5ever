@@ -1,5 +1,5 @@
 [package]
 
 name = "test_util"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
