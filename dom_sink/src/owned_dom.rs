@@ -322,9 +322,7 @@ impl ParseResult for OwnedDom {
         for node in sink.nodes.into_iter() {
             let ptr: *const UnsafeCell<SquishyNode> = &*node;
             if live.contains(&(ptr as usize)) {
-                unsafe {
-                    mem::forget(node);
-                }
+                mem::forget(node);
             }
         }
 
