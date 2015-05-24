@@ -18,7 +18,7 @@ use std::default::Default;
 use std::borrow::ToOwned;
 
 use html5ever::driver::ParseOpts;
-use html5ever::{parse_fragment, one_input, serialize};
+use html5ever::{parse_fragment, parse, one_input, serialize};
 use html5ever_dom_sink::rcdom::RcDom;
 
 fn parse_and_serialize(input: String) -> String {
@@ -97,3 +97,12 @@ test!(attr_ns_1, r#"<svg xmlns="bleh"></svg>"#);
 test!(attr_ns_2, r#"<svg xmlns:foo="bleh"></svg>"#);
 test!(attr_ns_3, r#"<svg xmlns:xlink="bleh"></svg>"#);
 test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
+
+#[test]
+fn doctype() {
+    let dom: RcDom = parse(one_input("<!doctype html>".to_owned()), ParseOpts::default());
+    dom.document.borrow_mut().children.truncate(1);  // Remove <html>
+    let mut result = vec![];
+    serialize(&mut result, &dom.document, Default::default()).unwrap();
+    assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>\n");
+}
