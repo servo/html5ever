@@ -404,7 +404,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
         match insertion_point {
             LastChild(parent) => self.sink.append(parent, child),
-            BeforeSibling(sibling) => { let _ = self.sink.append_before_sibling(sibling, child); }
+            BeforeSibling(sibling) => self.sink.append_before_sibling(sibling, child)
         }
     }
 }
