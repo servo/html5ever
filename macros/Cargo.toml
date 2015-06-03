@@ -11,6 +11,4 @@ plugin = true
 
 [dependencies]
 rustc-serialize = "0"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
+mac = "0.0.2"
