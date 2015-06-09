@@ -349,11 +349,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
                     token = CharacterTokens(
                         if is_ws { Whitespace } else { NotWhitespace },
-                        String::from_str(&buf[..len]));
+                        String::from(&buf[..len]));
 
                     if len < buf.len() {
                         more_tokens.push_back(
-                            CharacterTokens(NotSplit, String::from_str(&buf[len..])));
+                            CharacterTokens(NotSplit, String::from(&buf[len..])));
                     }
                 }
             }
