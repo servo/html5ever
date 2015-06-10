@@ -10,11 +10,15 @@
 //! Types used within the tree builder code.  Not exported to users.
 
 use tokenizer::Tag;
+use tokenizer::{XTag, XPi};
 
 pub use self::InsertionMode::*;
+pub use self::XmlPhase::*;
 pub use self::SplitStatus::*;
 pub use self::Token::*;
+pub use self::XToken::*;
 pub use self::ProcessResult::*;
+pub use self::XmlProcessResult::*;
 pub use self::FormatEntry::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -43,6 +47,12 @@ pub enum InsertionMode {
     AfterAfterBody,
     AfterAfterFrameset,
 }
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum XmlPhase {
+    StartPhase,
+    MainPhase,
+    EndPhase,
+}
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum SplitStatus {
@@ -60,6 +70,23 @@ pub enum Token {
     CharacterTokens(SplitStatus, String),
     NullCharacterToken,
     EOFToken,
+}
+
+/// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
+/// specially at the beginning of `process_token`.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum XToken {
+    XTagToken(XTag),
+    CommentXToken(String),
+    CharacterXTokens(String),
+    PIToken(XPi),
+    NullCharacterXToken,
+    EOFXToken,
+}
+
+pub enum XmlProcessResult {
+    XDone,
+    XReprocess(XmlPhase, XToken),
 }
 
 pub enum ProcessResult {

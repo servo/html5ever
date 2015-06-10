@@ -17,6 +17,7 @@ pub use self::DoctypeIdKind::*;
 pub use self::RawKind::*;
 pub use self::AttrValueKind::*;
 pub use self::State::*;
+pub use self::XmlState::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 pub enum ScriptEscapeKind {
@@ -89,4 +90,43 @@ pub enum State {
     BogusDoctype,
     CdataSection,
     Quiescent,
+}
+//FIXME remove these
+#[allow(missing_copy_implementations)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
+pub enum QuoteKind {
+    SingleQuotes,
+    DoubleQuotes,
+}
+
+//FIXME remove these
+#[allow(missing_copy_implementations)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
+pub enum XmlState {
+    XData,
+    XTagState,
+    EndXTagState,
+    EndXTagName,
+    EndXTagNameAfter,
+    Pi,
+    PiTarget,
+    PiTargetAfter,
+    PiData,
+    PiAfter,
+    MarkupDecl,
+    XComment,
+    XCommentDash,
+    XCommentEnd,
+    Cdata,
+    CdataBracket,
+    CdataEnd,
+    XDoctype,
+    XTagName,
+    XTagEmpty,
+    TagAttrNameBefore,
+    TagAttrName,
+    TagAttrNameAfter,
+    TagAttrValueBefore,
+    TagAttrValue(AttrValueKind),
+    BogusXComment,
 }

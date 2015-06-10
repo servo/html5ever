@@ -33,6 +33,7 @@ extern crate time;
 
 pub use tokenizer::Attribute;
 pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
+pub use driver::{parse_xml, parse_xml_to, tokenize_xml_to};
 
 pub use serialize::serialize;
 

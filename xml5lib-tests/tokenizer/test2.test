@@ -1,0 +1,64 @@
+{"tests": [
+
+{"description":"EOF",
+"input":"",
+"output":[]
+},
+
+{"description":"End tag state premature EOF",
+"input":"</",
+"output":["ParseError", ["Character", "</"]]
+},
+
+{"description":"End tag name state premature EOF",
+"input":"</a",
+"output":["ParseError", ["EndTag", "a"]]
+},
+
+{"description":"End tag with attributes premature EOF",
+"input":"<a x=test /",
+"output":["ParseError", "ParseError", ["EmptyTag", "a", {"x":"test"}]]
+},
+
+
+{"description":"PI tag with '\\t' in target",
+"input":"<?\txml m?>",
+"output":["ParseError", ["Comment", "\txml m?"]]
+},
+
+{"description":"PI tag with '\\n' in target",
+"input":"<?\nxml m?>",
+"output":["ParseError", ["Comment", "\nxml m?"]]
+},
+
+{"description":"PI tag with ' ' in target",
+"input":"<? xml m?>",
+"output":["ParseError", ["Comment", " xml m?"]]
+},
+
+{"description":"Double end element",
+"input":"</br/>",
+"output":["ParseError", ["EndTag", "br"]]
+},
+
+{"description":"Start tag double attributes, one unfinished",
+"input":"<b ay='test' ay>",
+"output":["ParseError", ["StartTag", "b", {"ay":"test"}]]
+},
+
+{"description":"Start tag double attributes",
+"input":"<b ay='test' ay='x'>",
+"output":["ParseError", ["StartTag", "b", {"ay":"test"}]]
+},
+
+{"description":"Empty tag double attributes, one unfinished",
+"input":"<b ay='test' ay/>",
+"output":["ParseError", ["EmptyTag", "b", {"ay":"test"}]]
+},
+
+{"description":"Empty tag double attributes",
+"input":"<b ay='test' ay='x'/>",
+"output":["ParseError", ["EmptyTag", "b", {"ay":"test"}]]
+}
+
+]}

@@ -18,7 +18,7 @@
 //! been thoroughly audited, and the performance gains vs. RcDom
 //! have not been demonstrated.
 
-use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+use common::{NodeEnum, Document, Doctype, Text, Comment, Element, PI};
 
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
@@ -197,7 +197,7 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QualName {
         match target.node {
             Element(ref name, _) => name.clone(),
             _ => panic!("not an element!"),
@@ -210,6 +210,10 @@ impl TreeSink for Sink {
 
     fn create_comment(&mut self, text: String) -> Handle {
         self.new_node(Comment(text))
+    }
+
+    fn create_pi(&mut self, target: String, data: String) -> Handle  {
+        self.new_node(PI(target, data))
     }
 
     fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
@@ -379,6 +383,9 @@ impl Serializable for Node {
             (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
             (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
             (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
+
+            (IncludeNode, &PI(ref target, ref data))
+                => serializer.write_processing_instruction(&target, &data),
 
             (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }

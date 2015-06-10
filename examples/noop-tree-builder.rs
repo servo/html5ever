@@ -46,8 +46,8 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: usize) -> QualName {
-        self.names.get(&target).expect("not an element").clone()
+    fn elem_name(&self, target: &usize) -> QualName {
+        self.names.get(target).expect("not an element").clone()
     }
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {
@@ -57,6 +57,10 @@ impl TreeSink for Sink {
     }
 
     fn create_comment(&mut self, _text: String) -> usize {
+        self.get_id()
+    }
+
+    fn create_pi(&mut self, _target: String, _data: String) -> usize {
         self.get_id()
     }
 

@@ -17,7 +17,7 @@ extern crate string_cache;
 extern crate html5ever;
 extern crate test_util;
 
-use test_util::foreach_html5lib_test;
+use test_util::{foreach_html5lib_test, foreach_xml5lib_test};
 
 use std::{char, env, rt};
 use std::ffi::OsStr;
@@ -35,6 +35,12 @@ use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+
+use html5ever::tokenizer::{XTag, StartXTag, EndXTag, CommentXToken, EmptyXTag, ShortXTag};
+use html5ever::tokenizer::{XToken, CharacterXTokens, XTokenSink};
+use html5ever::tokenizer::{NullCharacterXToken, XParseError, XTagToken};
+use html5ever::tokenizer::{PIToken, XPi};
+use html5ever::tokenizer::{EOFXToken, XmlTokenizer, XmlTokenizerOpts};
 
 use string_cache::{Atom, QualName};
 
@@ -386,6 +392,221 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     }
 }
 
+
+struct XTokenLogger {
+    tokens: Vec<XToken>,
+    current_str: String,
+    exact_errors: bool,
+}
+
+
+impl XTokenLogger {
+    fn new(exact_errors: bool) -> XTokenLogger {
+        XTokenLogger {
+            tokens: vec!(),
+            current_str: String::new(),
+            exact_errors: exact_errors,
+        }
+    }
+
+    // Push anything other than character tokens
+    fn push(&mut self, token: XToken) {
+        self.finish_str();
+        self.tokens.push(token);
+    }
+
+    fn finish_str(&mut self) {
+        if self.current_str.len() > 0 {
+            let s = replace(&mut self.current_str, String::new());
+            self.tokens.push(CharacterXTokens(s));
+        }
+    }
+
+    fn get_tokens(mut self) -> Vec<XToken> {
+        self.finish_str();
+        self.tokens
+    }
+}
+
+impl XTokenSink for XTokenLogger {
+    fn process_token(&mut self, token: XToken) {
+        match token {
+            CharacterXTokens(b) => {
+                self.current_str.push_str(&b);
+            }
+
+            NullCharacterXToken => {
+                self.current_str.push('\0');
+            }
+
+            XParseError(_) => if self.exact_errors {
+                self.push(XParseError(Borrowed("")));
+            },
+
+            XTagToken(mut t) => {
+                // The spec seems to indicate that one can emit
+                // erroneous end tags with attrs, but the test
+                // cases don't contain them.
+                match t.kind {
+                    EndXTag => {
+                        t.attrs = vec!();
+                    }
+                    _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
+                }
+                self.push(XTagToken(t));
+            }
+
+            EOFXToken => (),
+
+            _ => self.push(token),
+        }
+    }
+}
+
+fn tokenize_xml(input: Vec<String>, opts: XmlTokenizerOpts) -> Vec<XToken> {
+    let sink = XTokenLogger::new(opts.exact_errors);
+    let mut tok = XmlTokenizer::new(sink, opts);
+    for chunk in input.into_iter() {
+        tok.feed(chunk);
+    }
+    tok.end();
+    tok.unwrap().get_tokens()
+}
+
+// Parse a JSON object (other than "ParseError") to a token.
+fn json_to_xtoken(js: &Json) -> XToken {
+    let parts = js.get_list();
+    // Collect refs here so we don't have to use "ref" in all the patterns below.
+    let args: Vec<&Json> = parts[1..].iter().collect();
+    match (&parts[0].get_str()[..], &args[..]) {
+
+        ("StartTag", [name, attrs, ..]) => XTagToken(XTag {
+            kind: StartXTag,
+            name: Atom::from_slice(&name.get_str()),
+            attrs: attrs.get_obj().iter().map(|(k,v)| {
+                Attribute {
+                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
+                    value: v.get_str()
+                }
+            }).collect(),
+        }),
+
+        ("EndTag", [name]) => XTagToken(XTag {
+            kind: EndXTag,
+            name: Atom::from_slice(&name.get_str()),
+            attrs: vec!(),
+        }),
+
+        ("ShortTag", [name]) => XTagToken(XTag {
+            kind: ShortXTag,
+            name: Atom::from_slice(&name.get_str()),
+            attrs: vec!(),
+        }),
+
+        ("EmptyTag", [name, attrs, ..]) => XTagToken(XTag {
+            kind: EmptyXTag,
+            name: Atom::from_slice(&name.get_str()),
+            attrs: attrs.get_obj().iter().map(|(k,v)| {
+                Attribute {
+                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
+                    value: v.get_str()
+                }
+            }).collect(),
+        }),
+
+        ("Comment", [txt]) => CommentXToken(txt.get_str()),
+
+        ("Character", [txt]) => CharacterXTokens(txt.get_str()),
+
+        ("PI", [target, data]) => PIToken(XPi{target: target.get_str(), data: data.get_str()}),
+
+        // We don't need to produce NullCharacterToken because
+        // the TokenLogger will convert them to CharacterTokens.
+
+        _ => panic!("don't understand token {:?}", parts),
+    }
+}
+
+
+// Parse the "output" field of the test case into a vector of tokens.
+fn json_to_xtokens(js: &Json, exact_errors: bool) -> Vec<XToken> {
+    // Use a TokenLogger so that we combine character tokens separated
+    // by an ignored error.
+    let mut sink = XTokenLogger::new(exact_errors);
+    for tok in js.get_list().iter() {
+        match *tok {
+            Json::String(ref s)
+                if &s[..] == "ParseError" => sink.process_token(XParseError(Borrowed(""))),
+            _ => sink.process_token(json_to_xtoken(tok)),
+        }
+    }
+    sink.get_tokens()
+}
+
+
+fn mk_xml_test(desc: String, input: String, expect: Vec<XToken>, opts: XmlTokenizerOpts)
+        -> TestDescAndFn {
+    TestDescAndFn {
+        desc: TestDesc {
+            name: DynTestName(desc),
+            ignore: false,
+            should_panic: No,
+        },
+        testfn: DynTestFn(Box::new(move || {
+            // Split up the input at different points to test incremental tokenization.
+            let insplits = splits(&input, 3);
+            for input in insplits.into_iter() {
+                // Clone 'input' so we have it for the failure message.
+                // Also clone opts.  If we don't, we get the wrong
+                // result but the compiler doesn't catch it!
+                // Possibly mozilla/rust#12223.
+                let output = tokenize_xml(input.clone(), opts.clone());
+                if output != expect {
+                    panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
+                        input, output, expect);
+                }
+            }
+        })),
+    }
+}
+
+fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
+    let input = js.find("input").unwrap().get_str();
+    let expect = js.find("output").unwrap().clone();
+    let desc = format!("tok: {}: {}",
+        filename, js.find("description").unwrap().get_str());
+
+    // Some tests want to start in a state other than Data.
+    let state_overrides = vec!(None);
+
+
+    // Build the tests.
+    for state in state_overrides.into_iter() {
+        for &exact_errors in [false, true].iter() {
+            let mut newdesc = desc.clone();
+            match state {
+                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
+                None  => (),
+            };
+            if exact_errors {
+                newdesc = format!("{} (exact errors)", newdesc);
+            }
+
+            let expect_toks = json_to_xtokens(&expect, exact_errors);
+            tests.push(mk_xml_test(newdesc, input.clone(), expect_toks, XmlTokenizerOpts {
+                exact_errors: exact_errors,
+                initial_state: state,
+
+                // Not discarding a BOM is what the test suite expects; see
+                // https://github.com/html5lib/html5lib-tests/issues/2
+                discard_bom: false,
+
+                .. Default::default()
+            }));
+        }
+    }
+}
+
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -405,8 +626,26 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         }
     });
 
+
+    foreach_xml5lib_test(src_dir, "tokenizer",
+                         OsStr::new("test"), |path, mut file| {
+        let js = Json::from_reader(&mut file).ok().expect("json parse error");
+
+        match js.get_obj().get(&"tests".to_string()){
+            Some(&Json::Array(ref lst)) => {
+                for test in lst.iter() {
+                    mk_xml_tests(&mut tests, path.file_name().unwrap().to_str().unwrap(), test);
+                }
+            }
+
+            _ => (),
+        }
+
+    });
+
     tests
 }
+
 
 #[start]
 fn start(argc: isize, argv: *const *const u8) -> isize {

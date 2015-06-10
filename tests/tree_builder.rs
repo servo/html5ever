@@ -18,7 +18,7 @@ extern crate html5ever;
 extern crate html5ever_dom_sink;
 extern crate test_util;
 
-use test_util::foreach_html5lib_test;
+use test_util::{foreach_html5lib_test, foreach_xml5lib_test};
 
 use std::{fs, io, env, rt};
 use std::io::BufRead;
@@ -31,8 +31,8 @@ use std::collections::{HashSet, HashMap};
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 
-use html5ever::{parse, parse_fragment, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever::{parse, parse_fragment, one_input, parse_xml};
+use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element, PI};
 use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 use string_cache::Atom;
@@ -102,6 +102,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("\"");
             buf.push_str(&text);
             buf.push_str("\"\n");
+        }
+
+        PI(ref target, ref data) => {
+            buf.push_str("<?");
+            buf.push_str(&target);
+            buf.push_str(" ");
+            buf.push_str(&data);
+            buf.push_str("?>\n");
         }
 
         Comment(ref text) => {
@@ -207,6 +215,49 @@ fn make_test(
     });
 }
 
+fn make_xml_test(
+        tests: &mut Vec<TestDescAndFn>,
+        ignores: &HashSet<String>,
+        filename: &str,
+        idx: usize,
+        fields: HashMap<String, String>) {
+
+    let get_field = |key| {
+        let field = fields.get(key).expect("missing field");
+        field.trim_right_matches('\n').to_string()
+    };
+
+    let data = get_field("data");
+    let expected = get_field("document");
+    let name = format!("tb: {}-{}", filename, idx);
+    let ignore = ignores.contains(&name)
+        || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
+
+    tests.push(TestDescAndFn {
+        desc: TestDesc {
+            name: DynTestName(name),
+            ignore: ignore,
+            should_panic: No,
+        },
+        testfn: DynTestFn(Box::new(move || {
+            let mut result = String::new();
+
+            let dom: RcDom = parse_xml(one_input(data.clone()), Default::default());
+            for child in dom.document.borrow().children.iter() {
+                serialize(&mut result, 1, child.clone());
+            }
+
+            let len = result.len();
+            result.truncate(len - 1);  // drop the trailing newline
+
+            if result != expected {
+                panic!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
+                    data, result, expected);
+            }
+        })),
+    });
+}
+
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -221,6 +272,20 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
             make_test(&mut tests, ignores, path.file_name().unwrap().to_str().unwrap(),
                       i, test);
         }
+    });
+
+    foreach_xml5lib_test(src_dir, "tree-construction",
+                         OsStr::new("dat"), |path, file| {
+        let buf = io::BufReader::new(file);
+        let lines = buf.lines()
+            .map(|res| res.ok().expect("couldn't read"));
+        let data = parse_tests(lines);
+
+        for (i, test) in data.into_iter().enumerate() {
+            make_xml_test(&mut tests, ignores, path.file_name().unwrap().to_str().unwrap(),
+                          i, test);
+        }
+
     });
 
     tests

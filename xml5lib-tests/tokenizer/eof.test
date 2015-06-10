@@ -1,0 +1,113 @@
+{"tests": [
+
+{"description":"Data state EOF",
+"input":"",
+"output":[]
+},
+
+{"description":"Tag state EOF",
+"input":"<",
+"output":["ParseError", ["Character", "<"]]
+},
+
+{"description":"End tag state premature EOF",
+"input":"</",
+"output":["ParseError", ["Character", "</"]]
+},
+
+{"description":"End tag name state premature EOF",
+"input":"</a",
+"output":["ParseError", ["EndTag", "a"]]
+},
+
+{"description":"Pi state EOF",
+"input":"<?",
+"output":["ParseError", ["Comment", ""]]
+},
+
+{"description":"PI state Target EOF",
+"input":"<?ab",
+"output":["ParseError", ["PI", "ab", ""]]
+},
+
+{"description":"PI state Target after EOF",
+"input":"<?ab  ",
+"output":["ParseError", ["PI", "ab", ""]]
+},
+
+{"description":"PI state Target after EOF with some text",
+"input":"<?ab az",
+"output":["ParseError", ["PI", "ab", "az"]]
+},
+
+{"description":"End tag with attributes premature EOF",
+"input":"<a x=test /",
+"output":["ParseError", "ParseError", ["EmptyTag", "a", {"x":"test"}]]
+},
+
+{"description":"Comment EOF",
+"input":"<!",
+"output":["ParseError", ["Comment", ""]]
+},
+
+{"description":"Comment dash state EOF",
+"input":"<!-",
+"output":["ParseError", ["Comment", "-"]]
+},
+
+{"description":"Comment dash state EOF",
+"input":"<!--",
+"output":["ParseError", ["Comment", ""]]
+},
+
+{"description":"CDATA state EOF",
+"input":"<![CDATA[",
+"output":["ParseError"]
+},
+
+{"description":"CDATA bracket state EOF",
+"input":"<![CDATA[]",
+"output":["ParseError"]
+},
+
+{"description":"CDATA bracket state EOF with chars",
+"input":"<![CDATA[ax]",
+"output":[["Character", "ax"], "ParseError"]
+},
+
+{"description":"Tag name state EOF",
+"input":"<ab",
+"output":["ParseError", ["StartTag", "ab", {}]]
+},
+
+{"description":"Tag name state EOF",
+"input":"<ab ",
+"output":["ParseError", ["StartTag", "ab", {}]]
+},
+
+{"description":"Tag attribute name state EOF",
+"input":"<ab xa",
+"output":["ParseError", ["StartTag", "ab", {"xa":""}]]
+},
+
+{"description":"Tag attribute name after state EOF",
+"input":"<ab xa=",
+"output":["ParseError", ["StartTag", "ab", {"xa":""}]]
+},
+
+{"description":"Tag attribute name state EOF single-quoted",
+"input":"<ab foo='bar'",
+"output":["ParseError", ["StartTag", "ab", {"foo":"bar"}]]
+},
+
+{"description":"Tag attribute name state EOF unquoted",
+"input":"<ab foo=bar",
+"output":["ParseError", ["StartTag", "ab", {"foo":"bar"}]]
+},
+
+{"description":"Tag attribute name state EOF double-quoted",
+"input":"<ab foo=\"bar\"",
+"output":["ParseError", ["StartTag", "ab", {"foo":"bar"}]]
+}
+
+]}

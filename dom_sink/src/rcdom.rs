@@ -12,7 +12,7 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
+use common::{NodeEnum, Document, Doctype, Text, Comment, Element,PI};
 
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
@@ -147,7 +147,7 @@ impl TreeSink for RcDom {
         same_node(&x, &y)
     }
 
-    fn elem_name(&self, target: Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QualName {
         // FIXME: rust-lang/rust#22252
         return match target.borrow().node {
             Element(ref name, _) => name.clone(),
@@ -161,6 +161,10 @@ impl TreeSink for RcDom {
 
     fn create_comment(&mut self, text: String) -> Handle {
         new_node(Comment(text))
+    }
+
+    fn create_pi(&mut self, target: String, data: String) -> Handle {
+        new_node(PI(target, data))
     }
 
     fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
@@ -304,6 +308,9 @@ impl Serializable for Handle {
             (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
             (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
             (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
+
+            (IncludeNode, &PI(ref target, ref data))
+                => serializer.write_processing_instruction(&target, &data),
 
             (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
         }

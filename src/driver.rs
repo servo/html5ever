@@ -15,6 +15,9 @@ use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 use std::option;
 use std::default::Default;
 
+use tokenizer::{XmlTokenizerOpts, XmlTokenizer, XTokenSink};
+use tree_builder::{ XmlTreeBuilder};
+
 use string_cache::{Atom, QualName};
 
 /// Convenience function to turn a single `String` into an iterator.
@@ -39,6 +42,30 @@ pub fn tokenize_to<
         opts: TokenizerOpts) -> Sink {
 
     let mut tok = Tokenizer::new(sink, opts);
+    for s in input {
+        tok.feed(s);
+    }
+    tok.end();
+    tok.unwrap()
+}
+
+/// Tokenize and send results to a `XTokenSink`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let mut sink = MySink;
+/// tokenize_xml_to(&mut sink, one_input(my_str), Default::default());
+/// ```
+pub fn tokenize_xml_to<
+        Sink: XTokenSink,
+        It: Iterator<Item=String>
+    >(
+        sink: Sink,
+        input: It,
+        opts: XmlTokenizerOpts) -> Sink {
+
+    let mut tok = XmlTokenizer::new(sink, opts);
     for s in input {
         tok.feed(s);
     }
@@ -74,6 +101,31 @@ pub fn parse_to<
 
     let tb = TreeBuilder::new(sink, opts.tree_builder);
     let mut tok = Tokenizer::new(tb, opts.tokenizer);
+    for s in input {
+        tok.feed(s);
+    }
+    tok.end();
+    tok.unwrap().unwrap()
+}
+
+/// Parse and send results to a `TreeSink`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let mut sink = MySink;
+/// parse_xml_to(&mut sink, one_input(my_str), Default::default());
+/// ```
+pub fn parse_xml_to<
+        Sink:TreeSink,
+        It: Iterator<Item=String>
+    >(
+        sink: Sink,
+        input: It,
+        opts: XmlTokenizerOpts) -> Sink {
+
+    let tb = XmlTreeBuilder::new(sink);
+    let mut tok = XmlTokenizer::new(tb, opts);
     for s in input {
         tok.feed(s);
     }
@@ -136,6 +188,22 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
     let sink = parse_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
 }
+
+/// Parse into a type which implements `ParseResult`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let dom: RcDom = parse_xml(one_input(my_str), Default::default());
+/// ```
+pub fn parse_xml<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
+    where Output: ParseResult,
+          It: Iterator<Item=String>,
+{
+    let sink = parse_xml_to(Default::default(), input, opts);
+    ParseResult::get_result(sink)
+}
+
 
 /// Parse an HTML fragment into a type which implements `ParseResult`.
 ///

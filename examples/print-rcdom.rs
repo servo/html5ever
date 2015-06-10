@@ -22,7 +22,7 @@ use std::default::Default;
 use std::string::String;
 
 use html5ever::{parse, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
+use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element, PI};
 use html5ever_dom_sink::rcdom::{RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
@@ -44,6 +44,9 @@ fn walk(indent: usize, handle: Handle) {
         Comment(ref text)
             => println!("<!-- {} -->", text.escape_default()),
 
+        PI(ref target, ref data)
+            => println!("<?{} {}?>", target, data),
+
         Element(ref name, ref attrs) => {
             assert!(name.ns == ns!(html));
             print!("<{}", name.local);
@@ -63,6 +66,8 @@ fn walk(indent: usize, handle: Handle) {
 fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
+    // For parsing xml uncomment following line
+    // let dom: RcDom = parse_xml(one_input(input), Default::default());
     let dom: RcDom = parse(one_input(input), Default::default());
     walk(0, dom.document);
 

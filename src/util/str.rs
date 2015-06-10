@@ -199,6 +199,23 @@ pub fn char_run<Pred>(mut pred: Pred, buf: &str) -> Option<(usize, bool)>
     Some((buf.len(), matches))
 }
 
+/// Determines if the character is a valid name character
+/// according to XML 1.1 spec
+pub fn is_xml_namechar(c: &char) -> bool {
+    match *c {
+        'A'...'Z' | 'a'...'z' |  '0'...'9'
+        | ':' | '_' | '-' | '.' | '\u{B7}' | '\u{C0}'...'\u{D6}'
+        | '\u{D8}'...'\u{F6}' | '\u{370}'...'\u{37D}'
+        | '\u{37F}'...'\u{1FFF}' | '\u{200C}'...'\u{200D}'
+        | '\u{0300}'...'\u{036F}' | '\u{203F}'...'\u{2040}'
+        | '\u{2070}'...'\u{218F}' | '\u{2C00}'...'\u{2FEF}'
+        | '\u{3001}'...'\u{D7FF}' | '\u{F900}'...'\u{FDCF}'
+        | '\u{FDF0}'...'\u{FFFD}' | '\u{10000}'...'\u{EFFFF}'
+        => true,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
