@@ -11,7 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(plugin, box_syntax, core, collections, str_char, slice_patterns)]
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 
 #![plugin(phf_macros)]
