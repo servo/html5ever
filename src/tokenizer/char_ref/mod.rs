@@ -199,7 +199,7 @@ impl CharRefTokenizer {
     }
 
     fn unconsume_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
-        let mut unconsume = String::from_str("#");
+        let mut unconsume = String::from("#");
         match self.hex_marker {
             Some(c) => unconsume.push(c),
             None => (),
@@ -345,7 +345,7 @@ impl CharRefTokenizer {
                     self.unconsume_name(tokenizer);
                     self.finish_none()
                 } else {
-                    tokenizer.unconsume(String::from_str(&self.name_buf()[name_len..]));
+                    tokenizer.unconsume(String::from(&self.name_buf()[name_len..]));
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -389,7 +389,7 @@ impl CharRefTokenizer {
                 }
 
                 Octothorpe => {
-                    tokenizer.unconsume(String::from_str("#"));
+                    tokenizer.unconsume(String::from("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
                 }

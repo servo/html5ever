@@ -3,6 +3,7 @@
 name = "html5ever"
 version = "0.0.0"
 authors = [ "The html5ever Project Developers" ]
+license = "MIT / Apache-2.0"
 
 [lib]
 name = "html5ever"

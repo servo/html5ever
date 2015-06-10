@@ -1327,38 +1327,38 @@ mod test {
     fn push_to_None_gives_singleton() {
         let mut s: Option<String> = None;
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("x")));
+        assert_eq!(s, Some(String::from("x")));
     }
 
     #[test]
     fn push_to_empty_appends() {
         let mut s: Option<String> = Some(String::new());
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("x")));
+        assert_eq!(s, Some(String::from("x")));
     }
 
     #[test]
     fn push_to_nonempty_appends() {
-        let mut s: Option<String> = Some(String::from_str("y"));
+        let mut s: Option<String> = Some(String::from("y"));
         option_push(&mut s, 'x');
-        assert_eq!(s, Some(String::from_str("yx")));
+        assert_eq!(s, Some(String::from("yx")));
     }
 
     #[test]
     fn append_appends() {
-        let mut s = String::from_str("foo");
-        append_strings(&mut s, String::from_str("bar"));
-        assert_eq!(s, String::from_str("foobar"));
+        let mut s = String::from("foo");
+        append_strings(&mut s, String::from("bar"));
+        assert_eq!(s, String::from("foobar"));
     }
 
     #[test]
     fn append_to_empty_does_not_copy() {
-        let mut lhs: String = String::from_str("");
+        let mut lhs: String = String::from("");
         let rhs: Vec<u8> = vec![b'f', b'o', b'o'];
         let ptr_old = rhs[0] as *const u8;
 
         append_strings(&mut lhs, String::from_utf8(rhs).unwrap());
-        assert_eq!(lhs, String::from_str("foo"));
+        assert_eq!(lhs, String::from("foo"));
 
         let ptr_new = lhs.into_bytes()[0] as *const u8;
         assert_eq!(ptr_old, ptr_new);

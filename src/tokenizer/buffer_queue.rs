@@ -104,7 +104,7 @@ impl BufferQueue {
                 let n = set.nonmember_prefix_len(&buf[*pos..]);
                 if n > 0 {
                     let new_pos = *pos + n;
-                    let out = String::from_str(&buf[*pos..new_pos]);
+                    let out = String::from(&buf[*pos..new_pos]);
                     *pos = new_pos;
                     (Some(NotFromSet(out)), new_pos >= buf.len())
                 } else {
@@ -182,7 +182,7 @@ mod test {
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
-        bq.push_back(String::from_str("abc"), 0);
+        bq.push_back(String::from("abc"), 0);
         assert_eq!(bq.peek(), Some('a'));
         assert_eq!(bq.next(), Some('a'));
         assert_eq!(bq.peek(), Some('b'));
@@ -197,10 +197,10 @@ mod test {
     #[test]
     fn can_unconsume() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc"), 0);
+        bq.push_back(String::from("abc"), 0);
         assert_eq!(bq.next(), Some('a'));
 
-        bq.push_front(String::from_str("xy"));
+        bq.push_front(String::from("xy"));
         assert_eq!(bq.next(), Some('x'));
         assert_eq!(bq.next(), Some('y'));
         assert_eq!(bq.next(), Some('b'));
@@ -211,18 +211,18 @@ mod test {
     #[test]
     fn can_pop_except_set() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc&def"), 0);
+        bq.push_back(String::from("abc&def"), 0);
         let mut pop = || bq.pop_except_from(small_char_set!('&'));
-        assert_eq!(pop(), Some(NotFromSet(String::from_str("abc"))));
+        assert_eq!(pop(), Some(NotFromSet(String::from("abc"))));
         assert_eq!(pop(), Some(FromSet('&')));
-        assert_eq!(pop(), Some(NotFromSet(String::from_str("def"))));
+        assert_eq!(pop(), Some(NotFromSet(String::from("def"))));
         assert_eq!(pop(), None);
     }
 
     #[test]
     fn can_push_truncated() {
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("abc"), 1);
+        bq.push_back(String::from("abc"), 1);
         assert_eq!(bq.next(), Some('b'));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
@@ -234,8 +234,8 @@ mod test {
         // integration tests for more thorough testing with many
         // different input buffer splits.
         let mut bq = BufferQueue::new();
-        bq.push_back(String::from_str("a"), 0);
-        bq.push_back(String::from_str("bc"), 0);
+        bq.push_back(String::from("a"), 0);
+        bq.push_back(String::from("bc"), 0);
         assert_eq!(bq.eat("abcd"), None);
         assert_eq!(bq.eat("ax"), Some(false));
         assert_eq!(bq.eat("ab"), Some(true));
