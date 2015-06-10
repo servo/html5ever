@@ -16,14 +16,12 @@ time = "0"
 log = "0"
 phf = "0.7"
 phf_macros = "0.7"
+mac = "0.0.2"
 
 [dependencies.string_cache]
 git = "https://github.com/servo/string-cache"
 [dependencies.string_cache_plugin]
 git = "https://github.com/servo/string-cache"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
 
 [dependencies.html5ever_macros]
 path = "macros"
