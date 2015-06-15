@@ -1,5 +1,8 @@
 [package]
 
-name = "test_util"
-version = "0.0.0"
+name = "html5ever_test_util"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
+description = "High-performance browser-grade HTML5 parser − test util"
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"

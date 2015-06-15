@@ -1,8 +1,11 @@
 [package]
 
 name = "html5ever_macros"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "High-performance browser-grade HTML5 parser − compiler plugins"
 
 [lib]
 
@@ -11,6 +14,4 @@ plugin = true
 
 [dependencies]
 rustc-serialize = "0"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
+mac = "0"

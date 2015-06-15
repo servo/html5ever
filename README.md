@@ -18,8 +18,8 @@ html5ever is written in [Rust](http://www.rust-lang.org/), so it avoids the most
 Add html5ever as a dependency in your [`Cargo.toml`](http://crates.io/) file:
 
 ```toml
-[dependencies.html5ever]
-git = "https://github.com/servo/html5ever"
+[dependencies]
+html5ever = "*"
 ```
 
 Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation][].
