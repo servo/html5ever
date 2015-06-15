@@ -1,9 +1,11 @@
 [package]
 
 name = "html5ever"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "High-performance browser-grade HTML5 parser"
 
 [lib]
 name = "html5ever"
@@ -16,14 +18,9 @@ time = "0"
 log = "0"
 phf = "0.7"
 phf_macros = "0.7"
-
-[dependencies.string_cache]
-git = "https://github.com/servo/string-cache"
-[dependencies.string_cache_plugin]
-git = "https://github.com/servo/string-cache"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
+string_cache = "0"
+string_cache_plugin = "0"
+mac = "0"
 
 [dependencies.html5ever_macros]
 path = "macros"

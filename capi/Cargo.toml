@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever_capi"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The html5ever Project Developers" ]
 
 [lib]
@@ -10,11 +10,8 @@ crate-type = ["staticlib"]
 
 [dependencies]
 libc = "0"
+string_cache = "0"
+string_cache_plugin = "0"
 
 [dependencies.html5ever]
 path = "../"
-
-[dependencies.string_cache]
-git = "https://github.com/servo/string-cache"
-[dependencies.string_cache_plugin]
-git = "https://github.com/servo/string-cache"
