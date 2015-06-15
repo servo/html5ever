@@ -16,9 +16,9 @@ extern crate string_cache;
 
 extern crate html5ever;
 extern crate html5ever_dom_sink;
-extern crate test_util;
+extern crate html5ever_test_util;
 
-use test_util::foreach_html5lib_test;
+use html5ever_test_util::foreach_html5lib_test;
 
 use std::{fs, io, env, rt};
 use std::io::BufRead;
@@ -232,7 +232,7 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
         rt::args::init(argc, argv);
     }
     let args: Vec<_> = env::args().collect();
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let mut ignores = HashSet::new();
     {
         let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();

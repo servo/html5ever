@@ -15,9 +15,9 @@ extern crate rustc_serialize;
 extern crate string_cache;
 
 extern crate html5ever;
-extern crate test_util;
+extern crate html5ever_test_util;
 
-use test_util::foreach_html5lib_test;
+use html5ever_test_util::foreach_html5lib_test;
 
 use std::{char, env, rt};
 use std::ffi::OsStr;
