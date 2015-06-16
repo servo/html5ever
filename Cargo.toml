@@ -6,6 +6,7 @@ authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "High-performance browser-grade HTML5 parser"
+documentation = "https://kmcallister.github.io/docs/html5ever/html5ever/index.html"
 
 [lib]
 name = "html5ever"
