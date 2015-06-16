@@ -102,7 +102,7 @@ test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
 
 #[test]
 fn doctype() {
-    let dom: RcDom = parse(one_input("<!doctype html>".to_owned()), ParseOpts::default());
+    let dom: RcDom = parse(one_input("<!doctype html>".to_tendril()), ParseOpts::default());
     dom.document.borrow_mut().children.truncate(1);  // Remove <html>
     let mut result = vec![];
     serialize(&mut result, &dom.document, Default::default()).unwrap();
