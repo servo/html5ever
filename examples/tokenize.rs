@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(collections)]
+#![feature(str_escape)]
 
 extern crate html5ever;
 

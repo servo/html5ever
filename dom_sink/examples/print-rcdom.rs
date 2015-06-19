@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, collections)]
+#![feature(plugin, str_escape)]
 #![plugin(string_cache_plugin)]
 
 extern crate html5ever;

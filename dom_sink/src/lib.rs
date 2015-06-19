@@ -10,7 +10,7 @@
 #![crate_name="html5ever_dom_sink"]
 #![crate_type="dylib"]
 
-#![feature(alloc, box_syntax, collections)]
+#![feature(box_syntax, append, rc_weak)]
 
 extern crate html5ever;
 
