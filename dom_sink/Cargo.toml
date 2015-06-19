@@ -1,6 +1,6 @@
 [package]
 name = "html5ever_dom_sink"
-version = "0.1.0"
+version = "0.1.1"
 authors = [ "The html5ever Project Developers" ]
 description = "Basic DOM implementation for html5ever"
 license = "MIT / Apache-2.0"
