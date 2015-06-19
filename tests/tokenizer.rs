@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, start, std_misc, test, slice_patterns)]
+#![feature(plugin, start, rt, test, slice_patterns)]
 #![plugin(string_cache_plugin)]
 
 extern crate test;
