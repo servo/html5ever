@@ -12,6 +12,7 @@ name = "html5ever_dom_sink"
 [dependencies]
 mac = "0"
 string_cache = "0"
+tendril = "0.1"
 
 [dev-dependencies]
 string_cache_plugin = "0"
@@ -23,6 +24,3 @@ path = "../"
 [dev-dependencies.html5ever_test_util]
 version = "0.1.0"
 path = "../test_util"
-
-[dependencies.tendril]
-git = "https://github.com/kmcallister/tendril"

@@ -12,10 +12,7 @@ crate-type = ["staticlib"]
 libc = "0"
 string_cache = "0"
 string_cache_plugin = "0"
+tendril = "0.1"
 
 [dependencies.html5ever]
 path = "../"
-
-
-[dependencies.tendril]
-git = "https://github.com/kmcallister/tendril"
