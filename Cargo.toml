@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.1.1"
+version = "0.2.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -22,6 +22,7 @@ phf_macros = "0.7"
 string_cache = "0"
 string_cache_plugin = "0"
 mac = "0"
+tendril = "0.1"
 
 [dependencies.html5ever_macros]
 version = "0.1.0"

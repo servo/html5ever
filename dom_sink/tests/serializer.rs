@@ -11,30 +11,32 @@
 #![plugin(string_cache_plugin)]
 
 extern crate string_cache;
+extern crate tendril;
 extern crate html5ever;
 extern crate html5ever_dom_sink;
 
 use std::default::Default;
-use std::borrow::ToOwned;
+
+use tendril::{StrTendril, SliceExt};
 
 use html5ever::driver::ParseOpts;
 use html5ever::{parse_fragment, parse, one_input, serialize};
 use html5ever_dom_sink::rcdom::RcDom;
 
-fn parse_and_serialize(input: String) -> String {
+fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom: RcDom = parse_fragment(one_input(input), atom!(body), ParseOpts::default());
     let inner = &dom.document.borrow().children[0];
 
     let mut result = vec![];
     serialize(&mut result, inner, Default::default()).unwrap();
-    String::from_utf8(result).unwrap()
+    StrTendril::try_from_byte_slice(&result).unwrap()
 }
 
 macro_rules! test {
     ($name:ident, $input:expr, $output:expr) => {
         #[test]
         fn $name() {
-            assert_eq!($output, parse_and_serialize($input.to_owned()));
+            assert_eq!($output, &*parse_and_serialize($input.to_tendril()));
         }
     };
 
@@ -100,7 +102,7 @@ test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
 
 #[test]
 fn doctype() {
-    let dom: RcDom = parse(one_input("<!doctype html>".to_owned()), ParseOpts::default());
+    let dom: RcDom = parse(one_input("<!doctype html>".to_tendril()), ParseOpts::default());
     dom.document.borrow_mut().children.truncate(1);  // Remove <html>
     let mut result = vec![];
     serialize(&mut result, &dom.document, Default::default()).unwrap();

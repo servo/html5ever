@@ -30,6 +30,7 @@ use std::io::{self, Write};
 use std::ops::{Deref, DerefMut};
 
 use string_cache::QualName;
+use tendril::StrTendril;
 
 /// A DOM node.
 pub struct Node {
@@ -99,7 +100,7 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
 fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
     match prev.borrow_mut().deref_mut().node {
         Text(ref mut existing) => {
-            existing.push_str(text);
+            existing.push_slice(text);
             true
         }
         _ => false,
@@ -159,7 +160,7 @@ impl TreeSink for RcDom {
         new_node(Element(name, attrs))
     }
 
-    fn create_comment(&mut self, text: String) -> Handle {
+    fn create_comment(&mut self, text: StrTendril) -> Handle {
         new_node(Comment(text))
     }
 
@@ -214,7 +215,10 @@ impl TreeSink for RcDom {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self,
+                                  name: StrTendril,
+                                  public_id: StrTendril,
+                                  system_id: StrTendril) {
         append(&self.document, new_node(Doctype(name, public_id, system_id)));
     }
 

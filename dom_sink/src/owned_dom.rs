@@ -38,6 +38,7 @@ use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 
 use string_cache::QualName;
+use tendril::StrTendril;
 
 /// The internal type we use for nodes during parsing.
 pub struct SquishyNode {
@@ -135,7 +136,7 @@ fn get_parent_and_index(child: Handle) -> Option<(Handle, usize)> {
 fn append_to_existing_text(mut prev: Handle, text: &str) -> bool {
     match prev.deref_mut().node {
         Text(ref mut existing) => {
-            existing.push_str(text);
+            existing.push_slice(text);
             true
         }
         _ => false,
@@ -208,7 +209,7 @@ impl TreeSink for Sink {
         self.new_node(Element(name, attrs))
     }
 
-    fn create_comment(&mut self, text: String) -> Handle {
+    fn create_comment(&mut self, text: StrTendril) -> Handle {
         self.new_node(Comment(text))
     }
 
@@ -262,7 +263,10 @@ impl TreeSink for Sink {
         Ok(())
     }
 
-    fn append_doctype_to_document(&mut self, name: String, public_id: String, system_id: String) {
+    fn append_doctype_to_document(&mut self,
+                                  name: StrTendril,
+                                  public_id: StrTendril,
+                                  system_id: StrTendril) {
         append(self.document, self.new_node(Doctype(name, public_id, system_id)));
     }
 
