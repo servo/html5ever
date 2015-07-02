@@ -26,9 +26,10 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
-use util::str::{lower_ascii, lower_ascii_letter};
+use util::str::lower_ascii_letter;
 use util::smallcharset::SmallCharSet;
 
+use std::ascii::AsciiExt;
 use std::mem::replace;
 use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};
@@ -739,7 +740,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 '/'  => go!(self: to SelfClosingStartTag),
                 '>'  => go!(self: emit_tag Data),
                 '\0' => go!(self: error; push_tag '\u{fffd}'),
-                c    => go!(self: push_tag (lower_ascii(c))),
+                c    => go!(self: push_tag (c.to_ascii_lowercase())),
             }},
 
             //§ script-data-escaped-less-than-sign-state
@@ -1039,7 +1040,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '\0' => go!(self: error; create_doctype; push_doctype_name '\u{fffd}'; to DoctypeName),
                 '>'  => go!(self: error; create_doctype; force_quirks; emit_doctype; to Data),
-                c    => go!(self: create_doctype; push_doctype_name (lower_ascii(c)); to DoctypeName),
+                c    => go!(self: create_doctype; push_doctype_name (c.to_ascii_lowercase()); 
+                                  to DoctypeName),
             }},
 
             //§ doctype-name-state
@@ -1048,7 +1050,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                      => go!(self: to AfterDoctypeName),
                 '>'  => go!(self: emit_doctype; to Data),
                 '\0' => go!(self: error; push_doctype_name '\u{fffd}'),
-                c    => go!(self: push_doctype_name (lower_ascii(c))),
+                c    => go!(self: push_doctype_name (c.to_ascii_lowercase())),
             }},
 
             //§ after-doctype-name-state

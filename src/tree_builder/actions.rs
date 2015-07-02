@@ -20,8 +20,9 @@ use tree_builder::rules::TreeBuilderStep;
 use tokenizer::{Attribute, Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
-use util::str::{AsciiExt, to_escaped_string};
+use util::str::to_escaped_string;
 
+use std::ascii::AsciiExt;
 use std::{slice, fmt};
 use std::mem::replace;
 use std::iter::{Rev, Enumerate};
