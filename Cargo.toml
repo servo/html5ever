@@ -1,0 +1,4 @@
+[package]
+name = "xml5ever"
+version = "0.1.0"
+authors = ["Daniel Fath <daniel.fath7@gmail.com>"]
