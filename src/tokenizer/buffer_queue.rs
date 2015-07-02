@@ -7,10 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::str::AsciiCast;
 use util::smallcharset::SmallCharSet;
 
-use std::str::CharRange;
+use std::ascii::AsciiExt;
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
@@ -122,19 +121,16 @@ impl BufferQueue {
             return None;
         }
 
-        for c in pat.chars() {
+        for pattern_byte in pat.bytes() {
             if buffers_exhausted >= self.buffers.len() {
                 return None;
             }
             let ref buf = self.buffers[buffers_exhausted];
 
-            let d = buf.char_at(consumed_from_last);
-            match (c.to_ascii_opt(), d.to_ascii_opt()) {
-                (Some(c), Some(d)) => if c.eq_ignore_case(d) { () } else { return Some(false) },
-                _ => return Some(false),
+            if !buf.as_bytes()[consumed_from_last].eq_ignore_ascii_case(&pattern_byte) {
+                return Some(false)
             }
 
-            // d was an ASCII character; size must be 1 byte
             consumed_from_last += 1;
             if consumed_from_last >= buf.len() {
                 buffers_exhausted += 1;

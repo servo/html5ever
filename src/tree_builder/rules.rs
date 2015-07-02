@@ -17,8 +17,9 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext, Quiescent};
 
-use util::str::{AsciiExt, is_ascii_whitespace};
+use util::str::is_ascii_whitespace;
 
+use std::ascii::AsciiExt;
 use std::mem::replace;
 use std::borrow::Cow::Borrowed;
 use std::borrow::ToOwned;

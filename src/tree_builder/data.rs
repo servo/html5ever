@@ -9,8 +9,8 @@
 
 use tokenizer::Doctype;
 use tree_builder::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-use util::str::AsciiExt;
 
+use std::ascii::AsciiExt;
 use tendril::StrTendril;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
@@ -104,7 +104,7 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
     }
 
     fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {
-        x.map(|y| y.to_ascii_lower())
+        x.map(|y| y.to_ascii_lowercase())
     }
 
     let name = opt_tendril_as_slice(&doctype.name);
