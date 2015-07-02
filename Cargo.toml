@@ -2,3 +2,12 @@
 name = "xml5ever"
 version = "0.1.0"
 authors = ["Daniel Fath <daniel.fath7@gmail.com>"]
+license = "MIT / Apache-2.0"
+
+[dependencies]
+log = "0.3.1"
+mac = "0.0.2"
+string_cache = "0.1.4"
+string_cache_plugin = "0.1.2"
+tendril = "0.1.1"
+time = "0.1.30"
