@@ -22,7 +22,7 @@ pub mod tokenizer;
 pub mod tree_builder;
 
 
-use tokenizer::{XmlTokenizerOpts, XmlTokenizer};
+use tokenizer::{XmlTokenizerOpts, XmlTokenizer, XTokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
 
 /// Parse and send results to a `TreeSink`.
@@ -35,7 +35,7 @@ use tree_builder::{TreeSink, XmlTreeBuilder};
 /// ```
 pub fn parse_xml_to<
         Sink:TreeSink,
-        It: Iterator<Item=tendril::StrTendril>
+        It: IntoIterator<Item=tendril::StrTendril>
     >(
         sink: Sink,
         input: It,
@@ -60,7 +60,7 @@ pub fn parse_xml_to<
 /// ```
 pub fn parse_xml<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
     where Output: ParseResult,
-          It: Iterator<Item=tendril::StrTendril>,
+          It: IntoIterator<Item=tendril::StrTendril>,
 {
     let sink = parse_xml_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
@@ -73,4 +73,28 @@ pub fn parse_xml<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
 pub trait ParseResult {
     type Sink: TreeSink + Default;
     fn get_result(sink: Self::Sink) -> Self;
+}
+
+/// Tokenize and send results to a `XTokenSink`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let mut sink = MySink;
+/// tokenize_xml_to(&mut sink, one_input(my_str), Default::default());
+/// ```
+pub fn tokenize_xml_to<
+        Sink: XTokenSink,
+        It: IntoIterator<Item=tendril::StrTendril>
+    >(
+        sink: Sink,
+        input: It,
+        opts: XmlTokenizerOpts) -> Sink {
+
+    let mut tok = XmlTokenizer::new(sink, opts);
+    for s in input {
+        tok.feed(s);
+    }
+    tok.end();
+    tok.unwrap()
 }
