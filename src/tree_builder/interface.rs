@@ -17,16 +17,7 @@ use std::borrow::Cow;
 use string_cache::QualName;
 use tendril::StrTendril;
 
-pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
-
-/// A document's quirks mode.
-#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-pub enum QuirksMode {
-    Quirks,
-    LimitedQuirks,
-    NoQuirks,
-}
 
 /// Something which can be inserted into the DOM.
 ///
@@ -67,9 +58,6 @@ pub trait TreeSink {
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
     fn elem_name(&self, target: &Self::Handle) -> QualName;
-
-    /// Set the document's quirks mode.
-    fn set_quirks_mode(&mut self, mode: QuirksMode);
 
     /// Create an element.
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;

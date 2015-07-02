@@ -4,7 +4,7 @@ mod types;
 // "pub" is a workaround for rust#18241 (?)
 pub mod interface;
 
-pub use self::interface::{TreeSink, Tracer, NextParserState};
+pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
 
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;

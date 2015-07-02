@@ -1,0 +1,3 @@
+[submodule "xml5lib-tests"]
+	path = xml5lib-tests
+	url = https://github.com/Ygg01/xml5lib-tests

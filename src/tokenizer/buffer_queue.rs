@@ -156,7 +156,7 @@ impl BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use tendril::{StrTendril, SliceExt};
+    use tendril::SliceExt;
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]

@@ -1,0 +1,289 @@
+// Copyright 2014 The html5ever Project Developers. See the
+// COPYRIGHT file at the top-level directory of this distribution.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! A simple reference-counted DOM.
+//!
+//! This is sufficient as a static parse tree, but don't build a
+//! web browser using it. :)
+
+use xml5ever::tokenizer::Attribute;
+use xml5ever::tree_builder::{TreeSink, NodeOrText};
+use xml5ever::ParseResult;
+
+use std::cell::RefCell;
+use std::default::Default;
+use std::rc::{Rc, Weak};
+use std::borrow::Cow;
+use std::ops::{Deref, DerefMut};
+
+use string_cache::QualName;
+use tendril::StrTendril;
+
+pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
+
+/// The different kinds of nodes in the DOM.
+#[derive(Debug)]
+pub enum NodeEnum {
+    /// The `Document` itself.
+    Document,
+
+    /// A `DOCTYPE` with name, public id, and system id.
+    Doctype(StrTendril, StrTendril, StrTendril),
+
+    /// A text node.
+    Text(StrTendril),
+
+    /// A comment.
+    Comment(StrTendril),
+
+    /// An element with attributes.
+    Element(QualName, Vec<Attribute>),
+
+    /// A Processing instruction.
+    PI(StrTendril, StrTendril),
+}
+
+/// A DOM node.
+pub struct Node {
+    pub node: NodeEnum,
+    pub parent: Option<WeakHandle>,
+    pub children: Vec<Handle>,
+
+    /// The "script already started" flag.
+    ///
+    /// Not meaningful for nodes other than HTML `<script>`.
+    pub script_already_started: bool,
+}
+
+impl Node {
+    fn new(node: NodeEnum) -> Node {
+        Node {
+            node: node,
+            parent: None,
+            children: vec!(),
+            script_already_started: false,
+        }
+    }
+}
+
+/// Reference to a DOM node.
+#[derive(Clone)]
+pub struct Handle(Rc<RefCell<Node>>);
+
+impl Deref for Handle {
+    type Target = Rc<RefCell<Node>>;
+    fn deref(&self) -> &Rc<RefCell<Node>> { &self.0 }
+}
+
+/// Weak reference to a DOM node, used for parent pointers.
+pub type WeakHandle = Weak<RefCell<Node>>;
+
+#[allow(trivial_casts)]
+fn same_node(x: &Handle, y: &Handle) -> bool {
+    // FIXME: This shouldn't really need to touch the borrow flags, right?
+    (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
+}
+
+fn new_node(node: NodeEnum) -> Handle {
+    Handle(Rc::new(RefCell::new(Node::new(node))))
+}
+
+fn append(new_parent: &Handle, child: Handle) {
+    new_parent.borrow_mut().children.push(child.clone());
+    let parent = &mut child.borrow_mut().parent;
+    assert!(parent.is_none());
+    *parent = Some(new_parent.downgrade());
+}
+
+fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
+    let child = target.borrow();
+    let parent = unwrap_or_return!(child.parent.as_ref(), None)
+        .upgrade().expect("dangling weak pointer");
+
+    let i = match parent.borrow_mut().children.iter().enumerate()
+                .find(|&(_, n)| same_node(n, target)) {
+        Some((i, _)) => i,
+        None => panic!("have parent but couldn't find in parent's children!"),
+    };
+    Some((Handle(parent), i))
+}
+
+fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
+    match prev.borrow_mut().deref_mut().node {
+        Text(ref mut existing) => {
+            existing.push_slice(text);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn remove_from_parent(target: &Handle) {
+    {
+        let (parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
+        parent.borrow_mut().children.remove(i);
+    }
+
+    let mut child = target.borrow_mut();
+    (*child).parent = None;
+}
+
+/// The DOM itself; the result of parsing.
+pub struct RcDom {
+    /// The `Document` itself.
+    pub document: Handle,
+
+    /// Errors that occurred during parsing.
+    pub errors: Vec<Cow<'static, str>>,
+}
+
+impl TreeSink for RcDom {
+    type Handle = Handle;
+
+    fn parse_error(&mut self, msg: Cow<'static, str>) {
+        self.errors.push(msg);
+    }
+
+    fn get_document(&mut self) -> Handle {
+        self.document.clone()
+    }
+
+    fn same_node(&self, x: Handle, y: Handle) -> bool {
+        same_node(&x, &y)
+    }
+
+    fn elem_name(&self, target: &Handle) -> QualName {
+        // FIXME: rust-lang/rust#22252
+        return match target.borrow().node {
+            Element(ref name, _) => name.clone(),
+            _ => panic!("not an element!"),
+        };
+    }
+
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+        new_node(Element(name, attrs))
+    }
+
+    fn create_comment(&mut self, text: StrTendril) -> Handle {
+        new_node(Comment(text))
+    }
+
+    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Handle {
+        new_node(PI(target, data))
+    }
+
+    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
+        // Append to an existing Text node if we have one.
+        match child {
+            NodeOrText::AppendText(ref text) => match parent.borrow().children.last() {
+                Some(h) => if append_to_existing_text(h, &text) { return; },
+                _ => (),
+            },
+            _ => (),
+        }
+
+        append(&parent, match child {
+            NodeOrText::AppendText(text) => new_node(Text(text)),
+            NodeOrText::AppendNode(node) => node
+        });
+    }
+
+    fn append_before_sibling(&mut self,
+            sibling: Handle,
+            child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
+        let (parent, i) = unwrap_or_return!(get_parent_and_index(&sibling), Err(child));
+
+        let child = match (child, i) {
+            // No previous node.
+            (NodeOrText::AppendText(text), 0) => new_node(Text(text)),
+
+            // Look for a text node before the insertion point.
+            (NodeOrText::AppendText(text), i) => {
+                let parent = parent.borrow();
+                let prev = &parent.children[i-1];
+                if append_to_existing_text(prev, &text) {
+                    return Ok(());
+                }
+                new_node(Text(text))
+            }
+
+            // The tree builder promises we won't have a text node after
+            // the insertion point.
+
+            // Any other kind of node.
+            (NodeOrText::AppendNode(node), _) => node,
+        };
+
+        if child.borrow().parent.is_some() {
+            remove_from_parent(&child);
+        }
+
+        child.borrow_mut().parent = Some(parent.clone().downgrade());
+        parent.borrow_mut().children.insert(i, child);
+        Ok(())
+    }
+
+    fn append_doctype_to_document(&mut self,
+                                  name: StrTendril,
+                                  public_id: StrTendril,
+                                  system_id: StrTendril) {
+        append(&self.document, new_node(Doctype(name, public_id, system_id)));
+    }
+
+    fn add_attrs_if_missing(&mut self, target: Handle, mut attrs: Vec<Attribute>) {
+        let mut node = target.borrow_mut();
+        // FIXME: mozilla/rust#15609
+        let existing = match node.deref_mut().node {
+            Element(_, ref mut attrs) => attrs,
+            _ => return,
+        };
+
+        // FIXME: quadratic time
+        attrs.retain(|attr|
+            !existing.iter().any(|e| e.name == attr.name));
+        existing.extend(attrs.into_iter());
+    }
+
+    fn remove_from_parent(&mut self, target: Handle) {
+        remove_from_parent(&target);
+    }
+
+    fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
+        let children = &mut node.borrow_mut().children;
+        let new_children = &mut new_parent.borrow_mut().children;
+        for child in children.iter() {
+            // FIXME: It would be nice to assert that the child's parent is node, but I haven't
+            // found a way to do that that doesn't create overlapping borrows of RefCells.
+            let parent = &mut child.borrow_mut().parent;
+            *parent = Some(new_parent.downgrade());
+        }
+        new_children.extend(children.iter().cloned());
+    }
+
+    fn mark_script_already_started(&mut self, node: Handle) {
+        node.borrow_mut().script_already_started = true;
+    }
+}
+
+impl Default for RcDom {
+    fn default() -> RcDom {
+        RcDom {
+            document: new_node(Document),
+            errors: vec!(),
+        }
+    }
+}
+
+impl ParseResult for RcDom {
+    type Sink = RcDom;
+
+    fn get_result(sink: RcDom) -> RcDom {
+        sink
+    }
+}

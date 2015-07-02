@@ -20,3 +20,57 @@ macro_rules! time {
 #[macro_use] mod util;
 pub mod tokenizer;
 pub mod tree_builder;
+
+
+use tokenizer::{XmlTokenizerOpts, XmlTokenizer};
+use tree_builder::{TreeSink, XmlTreeBuilder};
+
+/// Parse and send results to a `TreeSink`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let mut sink = MySink;
+/// parse_xml_to(&mut sink, one_input(my_str), Default::default());
+/// ```
+pub fn parse_xml_to<
+        Sink:TreeSink,
+        It: Iterator<Item=tendril::StrTendril>
+    >(
+        sink: Sink,
+        input: It,
+        opts: XmlTokenizerOpts) -> Sink {
+
+    let tb = XmlTreeBuilder::new(sink);
+    let mut tok = XmlTokenizer::new(tb, opts);
+    for s in input {
+        tok.feed(s);
+    }
+    tok.end();
+    tok.unwrap().unwrap()
+}
+
+
+/// Parse into a type which implements `ParseResult`.
+///
+/// ## Example
+///
+/// ```ignore
+/// let dom: RcDom = parse_xml(one_input(my_str), Default::default());
+/// ```
+pub fn parse_xml<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
+    where Output: ParseResult,
+          It: Iterator<Item=tendril::StrTendril>,
+{
+    let sink = parse_xml_to(Default::default(), input, opts);
+    ParseResult::get_result(sink)
+}
+
+/// Results which can be extracted from a `TreeSink`.
+///
+/// Implement this for your parse tree data type so that it
+/// can be returned by `parse()`.
+pub trait ParseResult {
+    type Sink: TreeSink + Default;
+    fn get_result(sink: Self::Sink) -> Self;
+}
