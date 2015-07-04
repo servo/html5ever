@@ -50,9 +50,6 @@ pub trait TreeSink {
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Self::Handle;
 
-    /// Do two handles refer to the same node?
-    fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
-
     /// What is the name of this element?
     ///
     /// Should never be called on a non-element node;
@@ -75,42 +72,11 @@ pub trait TreeSink {
     /// The child node will not already have a parent.
     fn append(&mut self, parent: Self::Handle, child: NodeOrText<Self::Handle>);
 
-    /// Append a node as the sibling immediately before the given node.  If that node
-    /// has no parent, do nothing and return Err(new_node).
-    ///
-    /// The tree builder promises that `sibling` is not a text node.  However its
-    /// old previous sibling, which would become the new node's previous sibling,
-    /// could be a text node.  If the new node is also a text node, the two should
-    /// be merged, as in the behavior of `append`.
-    ///
-    /// NB: `new_node` may have an old parent, from which it should be removed.
-    fn append_before_sibling(&mut self,
-        sibling: Self::Handle,
-        new_node: NodeOrText<Self::Handle>) -> Result<(), NodeOrText<Self::Handle>>;
-
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self,
                                   name: StrTendril,
                                   public_id: StrTendril,
                                   system_id: StrTendril);
-
-    /// Add each attribute to the given element, if no attribute
-    /// with that name already exists.
-    fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
-
-    /// Detach the given node from its parent.
-    fn remove_from_parent(&mut self, target: Self::Handle);
-
-    /// Remove all the children from node and append them to new_parent.
-    fn reparent_children(&mut self, node: Self::Handle, new_parent: Self::Handle);
-
-    /// Mark a HTML `<script>` element as "already started".
-    fn mark_script_already_started(&mut self, node: Self::Handle);
-
-    /// Indicate that a `<script>` element is complete.
-    fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
-        NextParserState::Continue
-    }
 }
 
 /// Trace hooks for a garbage-collected DOM.
