@@ -84,12 +84,6 @@ impl Deref for Handle {
 /// Weak reference to a DOM node, used for parent pointers.
 pub type WeakHandle = Weak<RefCell<Node>>;
 
-#[allow(trivial_casts)]
-fn same_node(x: &Handle, y: &Handle) -> bool {
-    // FIXME: This shouldn't really need to touch the borrow flags, right?
-    (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
-}
-
 fn new_node(node: NodeEnum) -> Handle {
     Handle(Rc::new(RefCell::new(Node::new(node))))
 }
@@ -101,19 +95,6 @@ fn append(new_parent: &Handle, child: Handle) {
     *parent = Some(new_parent.downgrade());
 }
 
-fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
-    let child = target.borrow();
-    let parent = unwrap_or_return!(child.parent.as_ref(), None)
-        .upgrade().expect("dangling weak pointer");
-
-    let i = match parent.borrow_mut().children.iter().enumerate()
-                .find(|&(_, n)| same_node(n, target)) {
-        Some((i, _)) => i,
-        None => panic!("have parent but couldn't find in parent's children!"),
-    };
-    Some((Handle(parent), i))
-}
-
 fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
     match prev.borrow_mut().deref_mut().node {
         Text(ref mut existing) => {
@@ -122,16 +103,6 @@ fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
         }
         _ => false,
     }
-}
-
-fn remove_from_parent(target: &Handle) {
-    {
-        let (parent, i) = unwrap_or_return!(get_parent_and_index(target), ());
-        parent.borrow_mut().children.remove(i);
-    }
-
-    let mut child = target.borrow_mut();
-    (*child).parent = None;
 }
 
 /// The DOM itself; the result of parsing.
@@ -152,10 +123,6 @@ impl TreeSink for RcDom {
 
     fn get_document(&mut self) -> Handle {
         self.document.clone()
-    }
-
-    fn same_node(&self, x: Handle, y: Handle) -> bool {
-        same_node(&x, &y)
     }
 
     fn elem_name(&self, target: &Handle) -> QualName {
@@ -194,80 +161,11 @@ impl TreeSink for RcDom {
         });
     }
 
-    fn append_before_sibling(&mut self,
-            sibling: Handle,
-            child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
-        let (parent, i) = unwrap_or_return!(get_parent_and_index(&sibling), Err(child));
-
-        let child = match (child, i) {
-            // No previous node.
-            (NodeOrText::AppendText(text), 0) => new_node(Text(text)),
-
-            // Look for a text node before the insertion point.
-            (NodeOrText::AppendText(text), i) => {
-                let parent = parent.borrow();
-                let prev = &parent.children[i-1];
-                if append_to_existing_text(prev, &text) {
-                    return Ok(());
-                }
-                new_node(Text(text))
-            }
-
-            // The tree builder promises we won't have a text node after
-            // the insertion point.
-
-            // Any other kind of node.
-            (NodeOrText::AppendNode(node), _) => node,
-        };
-
-        if child.borrow().parent.is_some() {
-            remove_from_parent(&child);
-        }
-
-        child.borrow_mut().parent = Some(parent.clone().downgrade());
-        parent.borrow_mut().children.insert(i, child);
-        Ok(())
-    }
-
     fn append_doctype_to_document(&mut self,
                                   name: StrTendril,
                                   public_id: StrTendril,
                                   system_id: StrTendril) {
         append(&self.document, new_node(Doctype(name, public_id, system_id)));
-    }
-
-    fn add_attrs_if_missing(&mut self, target: Handle, mut attrs: Vec<Attribute>) {
-        let mut node = target.borrow_mut();
-        // FIXME: mozilla/rust#15609
-        let existing = match node.deref_mut().node {
-            Element(_, ref mut attrs) => attrs,
-            _ => return,
-        };
-
-        // FIXME: quadratic time
-        attrs.retain(|attr|
-            !existing.iter().any(|e| e.name == attr.name));
-        existing.extend(attrs.into_iter());
-    }
-
-    fn remove_from_parent(&mut self, target: Handle) {
-        remove_from_parent(&target);
-    }
-
-    fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
-        let children = &mut node.borrow_mut().children;
-        let new_children = &mut new_parent.borrow_mut().children;
-        for child in children.iter() {
-            // FIXME: It would be nice to assert that the child's parent is node, but I haven't
-            // found a way to do that that doesn't create overlapping borrows of RefCells.
-            let parent = &mut child.borrow_mut().parent;
-            *parent = Some(new_parent.downgrade());
-        }
-        new_children.extend(children.iter().cloned());
-    }
-
-    fn mark_script_already_started(&mut self, node: Handle) {
-        node.borrow_mut().script_already_started = true;
     }
 }
 
