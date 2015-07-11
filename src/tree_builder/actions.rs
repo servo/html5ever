@@ -44,14 +44,14 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn insert_tag(&mut self, tag: XTag) -> XmlProcessResult {
-        let child = self.sink.create_element(QualName::new(ns!(HTML),
+        let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
     fn append_tag(&mut self, tag: XTag) -> XmlProcessResult {
-        let child = self.sink.create_element(QualName::new(ns!(HTML),
+        let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
         self.insert_appropriately(AppendNode(child));
         XDone
@@ -59,7 +59,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
     fn append_tag_to_doc(&mut self, tag: XTag) -> Handle {
         let root = self.doc_handle.clone();
-        let child = self.sink.create_element(QualName::new(ns!(HTML),
+        let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
 
         self.sink.append(root, AppendNode(child.clone()));
@@ -112,7 +112,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn tag_in_open_elems(&self, tag: &XTag) -> bool {
         self.open_elems
             .iter()
-            .any(|a| self.sink.elem_name(a) == QualName::new(ns!(HTML), tag.name.clone()))
+            .any(|a| self.sink.elem_name(a) == QualName::new(ns!(XML), tag.name.clone()))
     }
 
     // Pop elements until an element from the set has been popped.  Returns the
@@ -140,13 +140,12 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         if &self.sink.elem_name(&self.current_node()).local != &tag.name {
             self.sink.parse_error(Borrowed("Current node doesn't match tag"));
         }
-        // FIXME remove this part after debug
+
         let is_closed = self.tag_in_open_elems(&tag);
-        println!("Close tag {:?}", is_closed);
 
         if is_closed {
             // FIXME: Real namespace resolution
-            self.pop_until(|p| p == QualName::new(ns!(HTML), tag.name.clone()));
+            self.pop_until(|p| p == QualName::new(ns!(XML), tag.name.clone()));
             self.pop();
         }
         XDone
