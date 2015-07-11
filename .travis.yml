@@ -27,7 +27,7 @@ script:
 after_success:
   # upload the documentation from the build with beta (automatically only actually
   # runs on the master branch)
-  - travis-cargo doc-upload
+  - curl https://raw.githubusercontent.com/kmcallister/travis-doc-upload/master/travis-doc-upload.sh | sh
   # measure code coverage and upload to coveralls.io
   - travis-cargo coveralls --no-sudo
 
