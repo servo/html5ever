@@ -12,7 +12,7 @@ The module structure is also documented in the output produced by `cargo doc`, a
 
 `src/serialize/`: Turning trees back into strings. Corresponds to [section 12.3 "Serialising HTML fragments"](https://html.spec.whatwg.org/multipage/syntax.html#serialising-html-fragments)
 
-`src/sink/`: Types that html5ever can use to represent the DOM, if you do not provide your own DOM implementation.
+`dom_sink/`: Types that html5ever can use to represent the DOM, if you do not provide your own DOM implementation.
 
 `macros/`: Rust syntax extensions used within html5ever.  Users of the library do not need this crate.
 
@@ -22,6 +22,6 @@ The module structure is also documented in the output produced by `cargo doc`, a
 
 `bench/`: Benchmarks. Another executable crate.
 
-`examples/`: Examples of using the library.  Each `.rs` file is an executable crate.
+`examples/` and `dom_sink/examples`: Examples of using the library.  Each `.rs` file is an executable crate.
 
 `data/`: Various data used in building and benchmarking the parser.
