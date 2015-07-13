@@ -22,7 +22,7 @@ Add html5ever as a dependency in your [`Cargo.toml`](http://crates.io/) file:
 html5ever = "*"
 ```
 
-Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/examples/print-rcdom.rs) and the [API documentation][].
+Then take a look at [`dom_sink/examples/print-rcdom.rs`](https://github.com/servo/html5ever/blob/master/dom_sink/examples/print-rcdom.rs) and the [API documentation][].
 
 ## Getting started in other languages
 
