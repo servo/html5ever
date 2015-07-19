@@ -10,75 +10,52 @@
 extern crate phf_codegen;
 extern crate rustc_serialize;
 
-use rustc_serialize::json;
-use rustc_serialize::json::Json;
+use rustc_serialize::json::{Json, Decoder};
 use rustc_serialize::Decodable;
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 
 fn main() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("data").join("entities.json");
-    let mut json_file = File::open(&path).ok().expect("can't open JSON file");
-    let js = Json::from_reader(&mut json_file).ok().expect("can't parse JSON file");
-    let map = build_map(js).expect("JSON file does not match entities.json format");
+    named_entities_to_phf(
+        &Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("data").join("entities.json"),
+        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"))
+}
 
-    let mut phf_map = phf_codegen::Map::new();
-    for (key, &value) in map.iter() {
-        phf_map.entry(&**key, &format!("{:?}", value));
+
+fn named_entities_to_phf(from: &Path, to: &Path) {
+    // A struct matching the entries in entities.json.
+    #[derive(RustcDecodable)]
+    struct CharRef {
+        codepoints: Vec<u32>,
+        //characters: String,  // Present in the file but we don't need it
     }
 
-    let path = Path::new(env!("OUT_DIR")).join("named_entities.rs");
-    let mut file = BufWriter::new(File::create(&path).unwrap());
+    let json = Json::from_reader(&mut File::open(from).unwrap()).unwrap();
+    let entities: HashMap<String, CharRef> = Decodable::decode(&mut Decoder::new(json)).unwrap();
+    let mut entities: HashMap<&str, (u32, u32)> = entities.iter().map(|(name, char_ref)| {
+        assert!(name.starts_with("&"));
+        assert!(char_ref.codepoints.len() <= 2);
+        (&name[1..], (char_ref.codepoints[0], *char_ref.codepoints.get(1).unwrap_or(&0)))
+    }).collect();
+
+    // Add every missing prefix of those keys, mapping to NULL characters.
+    for key in entities.keys().cloned().collect::<Vec<_>>() {
+        for n in 1 .. key.len() {
+            entities.entry(&key[..n]).or_insert((0, 0));
+        }
+    }
+    entities.insert("", (0, 0));
+
+    let mut phf_map = phf_codegen::Map::new();
+    for (key, value) in entities {
+        phf_map.entry(key, &format!("{:?}", value));
+    }
+
+    let mut file = File::create(to).unwrap();
     write!(&mut file, "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = ").unwrap();
     phf_map.build(&mut file).unwrap();
     write!(&mut file, ";\n").unwrap();
-}
-
-// A struct matching the entries in entities.json.
-// Simplifies JSON parsing because we can use Decodable.
-#[derive(RustcDecodable)]
-struct CharRef {
-    codepoints: Vec<u32>,
-    //characters: String,  // Present in the file but we don't need it
-}
-
-// Build the map from entity names (and their prefixes) to characters.
-fn build_map(js: Json) -> Option<HashMap<String, (u32, u32)>> {
-    let mut map = HashMap::new();
-    let json_map = match js {
-        Json::Object(m) => m,
-        _ => return None,
-    };
-
-    // Add every named entity to the map.
-    for (k,v) in json_map.into_iter() {
-        let mut decoder = json::Decoder::new(v);
-        let CharRef { codepoints }: CharRef
-            = Decodable::decode(&mut decoder).ok().expect("bad CharRef");
-
-        assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
-        let mut codepoints = codepoints.into_iter();
-        let codepoint_pair = (codepoints.next().unwrap(), codepoints.next().unwrap_or(0));
-        assert!(codepoints.next().is_none());
-
-        // Slice off the initial '&'
-        assert!(k.chars().next() == Some('&'));
-        map.insert(k[1..].to_string(), codepoint_pair);
-    }
-
-    // Add every missing prefix of those keys, mapping to NULL characters.
-    map.insert("".to_string(), (0, 0));
-    let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
-    for k in keys.into_iter() {
-        for n in 1 .. k.len() {
-            let pfx = k[..n].to_string();
-            if !map.contains_key(&pfx) {
-                map.insert(pfx, (0, 0));
-            }
-        }
-    }
-
-    Some(map)
 }
