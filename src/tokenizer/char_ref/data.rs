@@ -24,5 +24,5 @@ pub static C1_REPLACEMENTS: [Option<char>; 32] = [
 ];
 
 // The named_entities! macro is defined in html5/macros/named_entities.rs.
-pub static NAMED_ENTITIES: Map<&'static str, [u32; 2]>
+pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)>
     = named_entities!("../../../data/entities.json");

@@ -213,7 +213,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return;
         }
 
-        if self.discard_bom && input.char_at(0) == '\u{feff}' {
+        if self.discard_bom && input.starts_with("\u{feff}") {
             input.pop_front(3);
         };
 
@@ -488,7 +488,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
         // NB: The char ref tokenizer assumes we have an additional allowed
         // character iff we're tokenizing in an attribute value.
-        self.char_ref_tokenizer = Some(box CharRefTokenizer::new(addnl_allowed));
+        self.char_ref_tokenizer = Some(Box::new(CharRefTokenizer::new(addnl_allowed)));
     }
 
     fn emit_eof(&mut self) {
@@ -1235,7 +1235,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             = self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
         results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
-        let total: u64 = results.iter().map(|&(_, t)| t).sum();
+        let total: u64 = results.iter().map(|&(_, t)| t).fold(0, ::std::ops::Add::add);
         println!("\nTokenizer profile, in nanoseconds");
         println!("\n{:12}         total in token sink", self.time_in_sink);
         println!("\n{:12}         total in tokenizer", total);

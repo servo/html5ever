@@ -33,7 +33,7 @@ struct CharRef {
 }
 
 // Build the map from entity names (and their prefixes) to characters.
-fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
+fn build_map(js: Json) -> Option<HashMap<String, (u32, u32)>> {
     let mut map = HashMap::new();
     let json_map = match js {
         Json::Object(m) => m,
@@ -47,10 +47,9 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
             = Decodable::decode(&mut decoder).ok().expect("bad CharRef");
 
         assert!((codepoints.len() >= 1) && (codepoints.len() <= 2));
-        let mut codepoint_pair = [0, 0];
-        for (i,n) in codepoints.into_iter().enumerate() {
-            codepoint_pair[i] = n;
-        }
+        let mut codepoints = codepoints.into_iter();
+        let codepoint_pair = (codepoints.next().unwrap(), codepoints.next().unwrap_or(0));
+        assert!(codepoints.next().is_none());
 
         // Slice off the initial '&'
         assert!(k.chars().next() == Some('&'));
@@ -58,13 +57,13 @@ fn build_map(js: Json) -> Option<HashMap<String, [u32; 2]>> {
     }
 
     // Add every missing prefix of those keys, mapping to NULL characters.
-    map.insert("".to_string(), [0, 0]);
+    map.insert("".to_string(), (0, 0));
     let keys: Vec<String> = map.keys().map(|k| k.to_string()).collect();
     for k in keys.into_iter() {
         for n in 1 .. k.len() {
             let pfx = k[..n].to_string();
             if !map.contains_key(&pfx) {
-                map.insert(pfx, [0, 0]);
+                map.insert(pfx, (0, 0));
             }
         }
     }
@@ -111,9 +110,9 @@ pub fn expand(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'st
     // Emit a macro invocation of the form
     //
     //     phf_map!(k => v, k => v, ...)
-    let toks: Vec<_> = map.into_iter().flat_map(|(k, [c0, c1])| {
+    let toks: Vec<_> = map.into_iter().flat_map(|(k, (c0, c1))| {
         let k = &k[..];
-        (quote_tokens!(&mut *cx, $k => [$c0, $c1],)).into_iter()
+        (quote_tokens!(&mut *cx, $k => ($c0, $c1),)).into_iter()
     }).collect();
     MacEager::expr(quote_expr!(&mut *cx, phf_map!($toks)))
 }

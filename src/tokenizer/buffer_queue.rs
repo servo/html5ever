@@ -57,7 +57,7 @@ impl BufferQueue {
     /// Look at the next available character, if any.
     pub fn peek(&mut self) -> Option<char> {
         // Invariant: all buffers in the queue are non-empty.
-        self.buffers.front().map(|b| b.char_at(0))
+        self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
     /// Get the next character, if one is available.
