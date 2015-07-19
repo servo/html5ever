@@ -13,5 +13,4 @@ name = "html5ever_macros"
 plugin = true
 
 [dependencies]
-rustc-serialize = "0"
 mac = "0"
