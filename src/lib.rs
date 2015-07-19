@@ -14,7 +14,6 @@
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 
-#![plugin(phf_macros)]
 #![plugin(string_cache_plugin)]
 #![plugin(html5ever_macros)]
 

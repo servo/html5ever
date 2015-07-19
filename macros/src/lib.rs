@@ -15,7 +15,6 @@
 
 extern crate syntax;
 extern crate rustc;
-extern crate rustc_serialize;
 
 #[macro_use]
 extern crate mac;
@@ -34,12 +33,10 @@ macro_rules! panictry {
 }
 
 // Make these public so that rustdoc will generate documentation for them.
-pub mod named_entities;
 pub mod match_token;
 
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("named_entities", named_entities::expand);
     reg.register_macro("match_token", match_token::expand);
 }
