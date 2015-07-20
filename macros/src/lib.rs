@@ -7,10 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="html5ever_macros"]
-#![crate_type="dylib"]
-
-#![feature(plugin_registrar, quote, rustc_private, slice_patterns)]
+#![feature(plugin_registrar, quote, rustc_private, rc_unique)]
 #![deny(warnings)]
 
 extern crate syntax;
@@ -34,9 +31,15 @@ macro_rules! panictry {
 
 // Make these public so that rustdoc will generate documentation for them.
 pub mod match_token;
+pub mod pre_expand;
 
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("match_token", match_token::expand);
+}
+
+#[allow(dead_code)]  // only used when building as a binary
+fn main() {
+    pre_expand::pre_expand()
 }

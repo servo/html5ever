@@ -40,7 +40,7 @@ pub mod interface;
 mod data;
 mod types;
 mod actions;
-mod rules;
+#[path = "rules.expanded.rs"] mod rules;
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
