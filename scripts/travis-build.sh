@@ -22,8 +22,8 @@ then
     cargo test --features unstable | ./scripts/shrink-test-output.py
     r=${PIPESTATUS[0]}
     if [ $r -ne 0 ]; then exit $r; fi
-fi
 
-cargo test --manifest-path capi/Cargo.toml
+    cargo test --manifest-path capi/Cargo.toml
+fi
 
 cargo doc
