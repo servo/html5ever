@@ -9,6 +9,7 @@
 
 use match_token;
 use std::fs::File;
+use std::hash::{Hash, Hasher, SipHasher};
 use std::io::{Read, Write};
 use std::path::Path;
 use std::rc::Rc;
@@ -16,23 +17,25 @@ use syntax::{ast, codemap, ext, parse, print};
 use syntax::parse::token;
 use syntax::parse::attr::ParserAttr;
 
-pub fn pre_expand() {
+pub fn pre_expand(from: &Path, to: &Path) {
     let mut source = String::new();
-    let path = Path::new(file!()).parent().unwrap().join("../../src/tree_builder/rules.rs");
-    let mut file = File::open(&path).unwrap();
-    file.read_to_string(&mut source).unwrap();
+    let mut file_from = File::open(from).unwrap();
+    file_from.read_to_string(&mut source).unwrap();
+
+    let mut file_to = File::create(to).unwrap();
+    write_header(&from, &source, &mut file_to);
 
     let sess = parse::ParseSess::new();
     let mut cx = ext::base::ExtCtxt::new(&sess, vec![],
         ext::expand::ExpansionConfig::default("".to_owned()));
 
-    let tts = parse::parse_tts_from_source_str("".to_owned(), source, vec![], &sess);
+    let from = from.to_string_lossy().into_owned();
+    let tts = parse::parse_tts_from_source_str(from, source, vec![], &sess);
     let tts = find_and_expand_match_token(&mut cx, tts);
     let tts = pretty(&mut cx, tts);
 
     let expanded = print::pprust::tts_to_string(&tts);
-    let mut file = File::create(&path.with_extension("expanded.rs")).unwrap();
-    file.write_all(expanded.as_bytes()).unwrap();
+    file_to.write_all(expanded.as_bytes()).unwrap();
 }
 
 fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>)
@@ -104,4 +107,19 @@ fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>) -> Vec<ast::Tok
     }
     cx.bt_push(expn_info(start_span));
     quote_tokens!(&mut *cx, $attrs $items)
+}
+
+fn write_header(source_file_name: &Path, source: &str, file: &mut File) {
+    let mut hasher = SipHasher::new();
+    source.hash(&mut hasher);
+    let source_hash = hasher.finish();
+
+    for header_line in source.lines().take_while(|line| line.starts_with("//")) {
+        writeln!(file, "{}", header_line).unwrap();
+    }
+    writeln!(file, r"
+// This file is generated from {}
+// source SipHash: {}
+",
+    source_file_name.file_name().unwrap().to_string_lossy(), source_hash).unwrap();
 }

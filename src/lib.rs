@@ -10,12 +10,11 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 
-#![plugin(string_cache_plugin)]
-#![plugin(html5ever_macros)]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 #[macro_use]
 extern crate log;

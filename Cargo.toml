@@ -15,15 +15,17 @@ name = "html5ever"
 # https://github.com/rust-lang/cargo/issues/1512
 doctest = false
 
+[features]
+unstable = ["html5ever_macros", "tendril/unstable", "string_cache/unstable", "string_cache_plugin"]
+
 [dependencies]
 time = "0"
 log = "0"
 phf = "0.7"
-string_cache = "0"
-string_cache_plugin = "0"
+string_cache = "0.1.8"
+string_cache_plugin = { version = "0.1.5", optional = true }
 mac = "0"
-tendril = "0.1"
-html5ever_macros = { version = "0.1.0", path = "macros"}
+tendril = "0.1.3"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
@@ -32,6 +34,7 @@ html5ever_test_util = { version = "0.1.0", path = "test_util" }
 [build-dependencies]
 phf_codegen = "0.7.3"
 rustc-serialize = "0.3.15"
+html5ever_macros = { version = "0.1.0", path = "macros", optional = true }
 
 [profile.dev]
 debug = false

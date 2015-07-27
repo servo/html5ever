@@ -7,16 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin_registrar, quote, rustc_private, rc_unique)]
+#![feature(quote, rustc_private, rc_unique)]
 #![deny(warnings)]
 
 extern crate syntax;
-extern crate rustc;
 
 #[macro_use]
 extern crate mac;
-
-use rustc::plugin::Registry;
 
 // See https://github.com/rust-lang/rust/pull/23857
 macro_rules! panictry {
@@ -33,13 +30,4 @@ macro_rules! panictry {
 pub mod match_token;
 pub mod pre_expand;
 
-// NB: This needs to be public or we get a linker error.
-#[plugin_registrar]
-pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("match_token", match_token::expand);
-}
-
-#[allow(dead_code)]  // only used when building as a binary
-fn main() {
-    pre_expand::pre_expand()
-}
+pub use pre_expand::pre_expand;

@@ -484,10 +484,3 @@ pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree])
         }
     ))
 }
-
-pub fn expand(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree]) -> Box<MacResult+'static> {
-    match expand_to_tokens(cx, span, toks) {
-        Ok(tokens) => MacEager::expr(quote_expr!(&mut *cx, $tokens)),
-        Err((span, message)) => ext_bail!(cx, span, message)
-    }
-}
