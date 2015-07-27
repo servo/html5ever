@@ -17,9 +17,9 @@ extern crate rustc_serialize;
 extern crate tendril;
 
 extern crate html5ever;
-extern crate html5ever_test_util;
 
-use html5ever_test_util::foreach_html5lib_test;
+mod foreach_html5lib_test;
+use foreach_html5lib_test::foreach_html5lib_test;
 
 use std::{char, env, rt};
 use std::ffi::OsStr;
