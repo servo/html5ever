@@ -7,11 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(start, rt, test, slice_patterns)]
-#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-extern crate test;
+#[cfg(feature = "unstable")] extern crate test;
 extern crate rustc_serialize;
 #[macro_use] extern crate string_cache;
 extern crate tendril;
@@ -26,8 +25,8 @@ use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
+#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+#[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
@@ -209,39 +208,39 @@ fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts[1..].iter().collect();
-    match (&parts[0].get_str()[..], &args[..]) {
-        ("DOCTYPE", [name, public_id, system_id, correct]) => DoctypeToken(Doctype {
-            name: name.get_nullable_tendril(),
-            public_id: public_id.get_nullable_tendril(),
-            system_id: system_id.get_nullable_tendril(),
-            force_quirks: !correct.get_bool(),
+    match &*parts[0].get_str() {
+        "DOCTYPE" => DoctypeToken(Doctype {
+            name: args[0].get_nullable_tendril(),
+            public_id: args[1].get_nullable_tendril(),
+            system_id: args[2].get_nullable_tendril(),
+            force_quirks: !args[3].get_bool(),
         }),
 
-        ("StartTag", [name, attrs, rest..]) => TagToken(Tag {
+        "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from_slice(&name.get_str()),
-            attrs: attrs.get_obj().iter().map(|(k,v)| {
+            name: Atom::from_slice(&args[0].get_str()),
+            attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(&k)),
                     value: v.get_tendril()
                 }
             }).collect(),
-            self_closing: match rest {
-                [ref b, ..] => b.get_bool(),
-                _ => false,
+            self_closing: match args.get(2) {
+                Some(b) => b.get_bool(),
+                None => false,
             }
         }),
 
-        ("EndTag", [name]) => TagToken(Tag {
+        "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from_slice(&name.get_str()),
+            name: Atom::from_slice(&args[0].get_str()),
             attrs: vec!(),
             self_closing: false
         }),
 
-        ("Comment", [txt]) => CommentToken(txt.get_tendril()),
+        "Comment" => CommentToken(args[0].get_tendril()),
 
-        ("Character", [txt]) => CharacterTokens(txt.get_tendril()),
+        "Character" => CharacterTokens(args[0].get_tendril()),
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
@@ -310,6 +309,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
+#[cfg(feature = "unstable")]
 fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
@@ -336,6 +336,7 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
     }
 }
 
+#[cfg(feature = "unstable")]
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").unwrap().get_str();
@@ -397,6 +398,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     }
 }
 
+#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -419,6 +421,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     tests
 }
 
+#[cfg(feature = "unstable")]
 #[start]
 fn start(argc: isize, argv: *const *const u8) -> isize {
     unsafe {

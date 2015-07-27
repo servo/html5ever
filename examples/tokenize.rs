@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(str_escape)]
-
 extern crate tendril;
 extern crate html5ever;
 
@@ -38,7 +36,7 @@ impl TokenPrinter {
 
     fn do_char(&mut self, c: char) {
         self.is_char(true);
-        print!("{}", c.to_string().escape_default());
+        print!("{}", c.escape_default().collect::<String>());
     }
 }
 

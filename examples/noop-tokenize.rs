@@ -9,29 +9,24 @@
 
 // Run a single benchmark once.  For use with profiling tools.
 
-#![feature(test)]
-
-extern crate test;
 extern crate html5ever;
 extern crate tendril;
 
 use std::io;
 use std::default::Default;
 
-use test::black_box;
-
 use tendril::{ByteTendril, ReadExt};
 
 use html5ever::tokenizer::{TokenSink, Token};
 use html5ever::driver::{tokenize_to, one_input};
 
-struct Sink;
+struct Sink(Vec<Token>);
 
 impl TokenSink for Sink {
     fn process_token(&mut self, token: Token) {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
-        black_box(token);
+        self.0.push(token);
     }
 }
 
@@ -40,5 +35,5 @@ fn main() {
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
 
-    tokenize_to(Sink, one_input(input), Default::default());
+    tokenize_to(Sink(Vec::new()), one_input(input), Default::default());
 }
