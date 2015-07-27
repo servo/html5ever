@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, str_escape)]
-#![plugin(string_cache_plugin)]
+#![feature(str_escape)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate html5ever;
-extern crate html5ever_dom_sink;
 
 #[macro_use]
 extern crate string_cache;
@@ -24,8 +24,7 @@ use std::string::String;
 
 use tendril::{ByteTendril, ReadExt};
 use html5ever::{parse, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever_dom_sink::rcdom::{RcDom, Handle};
+use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
 

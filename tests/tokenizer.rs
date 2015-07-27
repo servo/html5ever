@@ -7,12 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, start, rt, test, slice_patterns)]
-#![plugin(string_cache_plugin)]
+#![feature(start, rt, test, slice_patterns)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate test;
 extern crate rustc_serialize;
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
 
 extern crate html5ever;

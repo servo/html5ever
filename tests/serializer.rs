@@ -7,13 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin)]
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
 extern crate html5ever;
-extern crate html5ever_dom_sink;
 
 use std::default::Default;
 
@@ -21,7 +20,7 @@ use tendril::{StrTendril, SliceExt};
 
 use html5ever::driver::ParseOpts;
 use html5ever::{parse_fragment, parse, one_input, serialize};
-use html5ever_dom_sink::rcdom::RcDom;
+use html5ever::rcdom::RcDom;
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom: RcDom = parse_fragment(one_input(input), atom!(body), ParseOpts::default());
