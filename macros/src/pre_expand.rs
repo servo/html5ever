@@ -53,7 +53,13 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
                     Some(ast::TokenTree::TtDelimited(_, block)) => {
                         cx.bt_push(expn_info(span));
                         expanded.extend(
-                            match_token::expand_to_tokens(cx, span, &block.tts).unwrap());
+                            match match_token::expand_to_tokens(cx, span, &block.tts) {
+                                Ok(tts) => tts,
+                                Err((span, message)) => {
+                                    cx.parse_sess.span_diagnostic.span_err(span, message);
+                                    panic!("Error in match_token! expansion.");
+                                }
+                            });
                         cx.bt_pop();
                     }
                     _ => panic!("expected a block after {:?}", span)
