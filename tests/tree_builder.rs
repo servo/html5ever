@@ -7,12 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(test)]
-
-#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", feature(test, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-extern crate test;
+#[cfg(feature = "unstable")] extern crate test;
 #[macro_use] extern crate string_cache;
 extern crate tendril;
 
@@ -29,8 +27,8 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
+#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+#[cfg(feature = "unstable")] use test::ShouldPanic::No;
 
 use html5ever::{parse, parse_fragment, one_input};
 use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
@@ -149,6 +147,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<template"];
 
+#[cfg(feature = "unstable")]
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -210,6 +209,7 @@ fn make_test(
     });
 }
 
+#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -229,6 +229,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn main() {
     let args: Vec<_> = env::args().collect();
