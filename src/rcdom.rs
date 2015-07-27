@@ -12,25 +12,45 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use common::{NodeEnum, Document, Doctype, Text, Comment, Element};
-
-use html5ever::tokenizer::Attribute;
-use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
-use html5ever::tree_builder;
-use html5ever::serialize::{Serializable, Serializer};
-use html5ever::serialize::TraversalScope;
-use html5ever::serialize::TraversalScope::{IncludeNode, ChildrenOnly};
-use html5ever::driver::ParseResult;
-
 use std::cell::RefCell;
 use std::default::Default;
-use std::rc::{Rc, Weak};
 use std::borrow::Cow;
 use std::io::{self, Write};
+use std::mem;
 use std::ops::{Deref, DerefMut};
 
+use rc::{Rc, Weak};
 use string_cache::QualName;
 use tendril::StrTendril;
+
+use tokenizer::Attribute;
+use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use tree_builder;
+use serialize::{Serializable, Serializer};
+use serialize::TraversalScope;
+use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
+use driver::ParseResult;
+
+pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
+
+/// The different kinds of nodes in the DOM.
+#[derive(Debug)]
+pub enum NodeEnum {
+    /// The `Document` itself.
+    Document,
+
+    /// A `DOCTYPE` with name, public id, and system id.
+    Doctype(StrTendril, StrTendril, StrTendril),
+
+    /// A text node.
+    Text(StrTendril),
+
+    /// A comment.
+    Comment(StrTendril),
+
+    /// An element with attributes.
+    Element(QualName, Vec<Attribute>),
+}
 
 /// A DOM node.
 pub struct Node {
@@ -249,7 +269,7 @@ impl TreeSink for RcDom {
             let parent = &mut child.borrow_mut().parent;
             *parent = Some(new_parent.downgrade());
         }
-        new_children.append(children);
+        new_children.extend(mem::replace(children, Vec::new()).into_iter());
     }
 
     fn mark_script_already_started(&mut self, node: Handle) {

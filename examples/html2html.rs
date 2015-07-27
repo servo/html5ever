@@ -17,7 +17,6 @@
 
 extern crate tendril;
 extern crate html5ever;
-extern crate html5ever_dom_sink;
 
 use std::io::{self, Write};
 use std::default::Default;
@@ -27,7 +26,7 @@ use tendril::{ByteTendril, ReadExt};
 use html5ever::driver::ParseOpts;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse, one_input, serialize};
-use html5ever_dom_sink::rcdom::RcDom;
+use html5ever::rcdom::RcDom;
 
 fn main() {
     let mut input = ByteTendril::new();

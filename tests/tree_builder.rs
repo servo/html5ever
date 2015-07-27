@@ -7,16 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, start, rt, test)]
+#![feature(start, rt, test)]
 
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate test;
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
 
 extern crate html5ever;
-extern crate html5ever_dom_sink;
 extern crate html5ever_test_util;
 
 use html5ever_test_util::foreach_html5lib_test;
@@ -33,8 +33,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 
 use html5ever::{parse, parse_fragment, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever_dom_sink::rcdom::{RcDom, Handle};
+use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
 
 use string_cache::Atom;
 use tendril::StrTendril;
@@ -236,7 +235,7 @@ fn start(argc: isize, argv: *const *const u8) -> isize {
         rt::args::init(argc, argv);
     }
     let args: Vec<_> = env::args().collect();
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     {
         let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();

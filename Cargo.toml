@@ -16,7 +16,7 @@ name = "html5ever"
 doctest = false
 
 [features]
-unstable = ["html5ever_macros", "tendril/unstable", "string_cache/unstable", "string_cache_plugin"]
+unstable = ["html5ever_macros", "tendril/unstable", "string_cache/unstable", "string_cache_plugin", "rc/unstable"]
 
 [dependencies]
 time = "0"
@@ -26,6 +26,7 @@ string_cache = "0.1.8"
 string_cache_plugin = { version = "0.1.5", optional = true }
 mac = "0"
 tendril = "0.1.3"
+rc = "0.1.1"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"

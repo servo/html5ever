@@ -15,12 +15,6 @@ cargo test | ./scripts/shrink-test-output.py
 r=${PIPESTATUS[0]}
 if [ $r -ne 0 ]; then exit $r; fi
 
-cargo test --manifest-path dom_sink/Cargo.toml --no-run
-cargo test --manifest-path dom_sink/Cargo.toml | ./scripts/shrink-test-output.py
-r=${PIPESTATUS[0]}
-if [ $r -ne 0 ]; then exit $r; fi
-
 cargo test --manifest-path capi/Cargo.toml
 
-cargo doc --manifest-path dom_sink/Cargo.toml
-mv dom_sink/target/doc target/doc
+cargo doc
