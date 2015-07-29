@@ -16,7 +16,7 @@
 
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-#[cfg(not(feature = "unstable"))] extern crate rc;
+extern crate rc;
 
 #[macro_use]
 extern crate log;

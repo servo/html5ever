@@ -12,9 +12,6 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-#[cfg(feature = "unstable")] use std::rc::{Rc, Weak};
-#[cfg(not(feature = "unstable"))] use rc::{Rc, Weak};
-
 use std::cell::RefCell;
 use std::default::Default;
 use std::borrow::Cow;
@@ -22,6 +19,7 @@ use std::io::{self, Write};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 
+use rc::{Rc, Weak};
 use string_cache::QualName;
 use tendril::StrTendril;
 
