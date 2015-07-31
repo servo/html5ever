@@ -45,7 +45,7 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
     while let Some(tt) = tts.next() {
         match tt {
             ast::TokenTree::TtToken(span, token::Token::Ident(ident, token::IdentStyle::Plain))
-            if ident.name.as_str() == "match_token"
+            if ident.name == "match_token"
             => {
                 // `!`
                 if !matches!(tts.next(), Some(ast::TokenTree::TtToken(_, token::Token::Not))) {
