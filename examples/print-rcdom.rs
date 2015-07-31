@@ -60,7 +60,7 @@ fn walk(indent: usize, handle: Handle) {
     }
 }
 
-// Copy of str::escape_default from std, which is currently unstable
+// FIXME: Copy of str::escape_default from std, which is currently unstable
 pub fn escape_default(s: &str) -> String {
     s.chars().flat_map(|c| c.escape_default()).collect()
 }
