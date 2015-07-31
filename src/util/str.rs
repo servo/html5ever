@@ -16,7 +16,7 @@ pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
     let mut buf = String::new();
     let _ = buf.write_fmt(format_args!("{:?}", x));
     buf.shrink_to_fit();
-    buf.escape_default()
+    buf.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 /// If `c` is an ASCII letter, return the corresponding lowercase

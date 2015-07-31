@@ -40,7 +40,7 @@ pub mod interface;
 mod data;
 mod types;
 mod actions;
-mod rules;
+#[path = "rules.expanded.rs"] mod rules;
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
@@ -415,7 +415,7 @@ impl<Handle, Sink> TokenSink
             tokenizer::EOFToken => EOFToken,
 
             tokenizer::CharacterTokens(mut x) => {
-                if !x.is_empty() && ignore_lf && x.char_at(0) == '\n' {
+                if ignore_lf && x.starts_with("\n") {
                     x.pop_front(1);
                 }
                 if x.is_empty() {

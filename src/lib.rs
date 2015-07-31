@@ -10,13 +10,13 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![feature(plugin, box_syntax, str_char, slice_patterns, iter_arith, str_escape)]
+#![cfg_attr(feature = "unstable", feature(plugin, rc_weak))]
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 
-#![plugin(phf_macros)]
-#![plugin(string_cache_plugin)]
-#![plugin(html5ever_macros)]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+
+extern crate rc;
 
 #[macro_use]
 extern crate log;
@@ -49,7 +49,6 @@ mod util {
 
 pub mod tokenizer;
 pub mod tree_builder;
-
 pub mod serialize;
-
 pub mod driver;
+pub mod rcdom;

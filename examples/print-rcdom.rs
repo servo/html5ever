@@ -7,11 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, str_escape)]
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate html5ever;
-extern crate html5ever_dom_sink;
 
 #[macro_use]
 extern crate string_cache;
@@ -24,8 +23,7 @@ use std::string::String;
 
 use tendril::{ByteTendril, ReadExt};
 use html5ever::{parse, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever_dom_sink::rcdom::{RcDom, Handle};
+use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
 
@@ -41,10 +39,10 @@ fn walk(indent: usize, handle: Handle) {
             => println!("<!DOCTYPE {} \"{}\" \"{}\">", *name, *public, *system),
 
         Text(ref text)
-            => println!("#text: {}", text.escape_default()),
+            => println!("#text: {}", escape_default(text)),
 
         Comment(ref text)
-            => println!("<!-- {} -->", text.escape_default()),
+            => println!("<!-- {} -->", escape_default(text)),
 
         Element(ref name, ref attrs) => {
             assert!(name.ns == ns!(html));
@@ -60,6 +58,11 @@ fn walk(indent: usize, handle: Handle) {
     for child in node.children.iter() {
         walk(indent+4, child.clone());
     }
+}
+
+// FIXME: Copy of str::escape_default from std, which is currently unstable
+pub fn escape_default(s: &str) -> String {
+    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 fn main() {

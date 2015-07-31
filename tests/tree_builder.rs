@@ -7,19 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, start, rt, test)]
+#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-#![plugin(string_cache_plugin)]
-
-extern crate test;
-extern crate string_cache;
+#[cfg(feature = "unstable")] extern crate test;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
 
 extern crate html5ever;
-extern crate html5ever_dom_sink;
-extern crate html5ever_test_util;
 
-use html5ever_test_util::foreach_html5lib_test;
+mod foreach_html5lib_test;
+use foreach_html5lib_test::foreach_html5lib_test;
 
 use std::{fs, io, env, rt};
 use std::io::BufRead;
@@ -29,12 +27,11 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
+#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+#[cfg(feature = "unstable")] use test::ShouldPanic::No;
 
 use html5ever::{parse, parse_fragment, one_input};
-use html5ever_dom_sink::common::{Document, Doctype, Text, Comment, Element};
-use html5ever_dom_sink::rcdom::{RcDom, Handle};
+use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
 
 use string_cache::Atom;
 use tendril::StrTendril;
@@ -150,6 +147,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<template"];
 
+#[cfg(feature = "unstable")]
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -211,6 +209,7 @@ fn make_test(
     });
 }
 
+#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -230,13 +229,14 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
+#[cfg(feature = "unstable")]
 #[start]
 fn start(argc: isize, argv: *const *const u8) -> isize {
     unsafe {
         rt::args::init(argc, argv);
     }
     let args: Vec<_> = env::args().collect();
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     {
         let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();

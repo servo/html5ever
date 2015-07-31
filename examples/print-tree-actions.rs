@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(str_escape)]
-
 extern crate string_cache;
 extern crate tendril;
 extern crate html5ever;
@@ -70,7 +68,7 @@ impl TreeSink for Sink {
 
     fn create_comment(&mut self, text: StrTendril) -> usize {
         let id = self.get_id();
-        println!("Created comment \"{}\" as {}", text.escape_default(), id);
+        println!("Created comment \"{}\" as {}", escape_default(&text), id);
         id
     }
 
@@ -79,7 +77,7 @@ impl TreeSink for Sink {
             AppendNode(n)
                 => println!("Append node {} to {}", n, parent),
             AppendText(t)
-                => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
+                => println!("Append text to {}: \"{}\"", parent, escape_default(&t)),
         }
     }
 
@@ -90,7 +88,7 @@ impl TreeSink for Sink {
             AppendNode(n)
                 => println!("Append node {} before {}", n, sibling),
             AppendText(t)
-                => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
+                => println!("Append text before {}: \"{}\"", sibling, escape_default(&t)),
         }
 
         // `sibling` will have a parent unless a script moved it, and we're
@@ -123,6 +121,11 @@ impl TreeSink for Sink {
     fn mark_script_already_started(&mut self, node: usize) {
         println!("Mark script {} as already started", node);
     }
+}
+
+// FIXME: Copy of str::escape_default from std, which is currently unstable
+pub fn escape_default(s: &str) -> String {
+    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 fn main() {
