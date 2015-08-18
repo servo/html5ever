@@ -298,8 +298,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
-    fn eat(&mut self, pat: &str) -> Option<bool> {
-        match self.input_buffers.eat(pat) {
+    fn eat(&mut self, pat: &str, eq: fn(&u8, &u8) -> bool) -> Option<bool> {
+        match self.input_buffers.eat(pat, eq) {
             None if self.at_eof => Some(false),
             r => r,
         }
@@ -618,7 +618,11 @@ macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
 ));
 
 macro_rules! eat ( ($me:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($pat), false)
+    unwrap_or_return!($me.eat($pat, u8::eq_ignore_ascii_case), false)
+));
+
+macro_rules! eat_exact ( ($me:expr, $pat:expr) => (
+    unwrap_or_return!($me.eat($pat, u8::eq), false)
 ));
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
@@ -1144,7 +1148,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ markup-declaration-open-state
             states::MarkupDeclarationOpen => loop {
-                if eat!(self, "--") {
+                if eat_exact!(self, "--") {
                     go!(self: clear_comment; to CommentStart);
                 } else if eat!(self, "doctype") {
                     go!(self: to Doctype);
