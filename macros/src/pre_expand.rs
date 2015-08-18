@@ -26,8 +26,10 @@ pub fn pre_expand(from: &Path, to: &Path) {
     write_header(&from, &source, &mut file_to);
 
     let sess = parse::ParseSess::new();
+    let mut feature_gated_cfgs = Vec::new();
     let mut cx = ext::base::ExtCtxt::new(&sess, vec![],
-        ext::expand::ExpansionConfig::default("".to_owned()));
+        ext::expand::ExpansionConfig::default("".to_owned()),
+        &mut feature_gated_cfgs);
 
     let from = from.to_string_lossy().into_owned();
     let tts = parse::parse_tts_from_source_str(from, source, vec![], &sess);

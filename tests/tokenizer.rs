@@ -144,7 +144,7 @@ fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
     tok.unwrap().get_tokens()
 }
 
-trait JsonExt {
+trait JsonExt: Sized {
     fn get_str(&self) -> String;
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
