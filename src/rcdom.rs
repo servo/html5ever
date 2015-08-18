@@ -244,10 +244,10 @@ impl TreeSink for RcDom {
 
     fn add_attrs_if_missing(&mut self, target: Handle, mut attrs: Vec<Attribute>) {
         let mut node = target.borrow_mut();
-        // FIXME: mozilla/rust#15609
-        let existing = match node.deref_mut().node {
-            Element(_, ref mut attrs) => attrs,
-            _ => return,
+        let existing = if let Element(_, ref mut attrs) = node.deref_mut().node {
+            attrs
+        } else {
+            panic!("not an element")
         };
 
         // FIXME: quadratic time

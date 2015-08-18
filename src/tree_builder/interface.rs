@@ -103,8 +103,9 @@ pub trait TreeSink {
                                   public_id: StrTendril,
                                   system_id: StrTendril);
 
-    /// Add each attribute to the given element, if no attribute
-    /// with that name already exists.
+    /// Add each attribute to the given element, if no attribute with that name
+    /// already exists. The tree builder promises this will never be called
+    /// with something else than an element.
     fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
 
     /// Detach the given node from its parent.
