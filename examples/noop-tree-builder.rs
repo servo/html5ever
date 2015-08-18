@@ -7,6 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![cfg_attr(feature = "unstable", feature(plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+
+#[macro_use]
 extern crate string_cache;
 extern crate tendril;
 extern crate html5ever;
@@ -31,7 +35,7 @@ struct Sink {
 impl Sink {
     fn get_id(&mut self) -> usize {
         let id = self.next_id;
-        self.next_id += 1;
+        self.next_id += 2;
         id
     }
 }
@@ -41,6 +45,14 @@ impl TreeSink for Sink {
 
     fn get_document(&mut self) -> usize {
         0
+    }
+
+    fn get_template_contents(&self, target: usize) -> usize {
+        if let Some(&qualname!(HTML, template)) = self.names.get(&target) {
+            target + 1
+        } else {
+            panic!("not a template element")
+        }
     }
 
     fn same_node(&self, x: usize, y: usize) -> bool {

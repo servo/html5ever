@@ -32,14 +32,19 @@ use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
-pub use self::ElementEnum::{Normal, Script};
+pub use self::ElementEnum::{Normal, Script, Template};
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
 
 /// The different kinds of elements in the DOM.
 #[derive(Debug)]
 pub enum ElementEnum {
     Normal,
+    /// A script element and its "already started" flag.
+    /// https://html.spec.whatwg.org/multipage/#already-started
     Script(bool),
+    /// A template element and its template contents.
+    /// https://html.spec.whatwg.org/multipage/#template-contents
+    Template(Handle),
 }
 
 /// The different kinds of nodes in the DOM.
@@ -62,6 +67,7 @@ pub enum NodeEnum {
 }
 
 /// A DOM node.
+#[derive(Debug)]
 pub struct Node {
     pub node: NodeEnum,
     pub parent: Option<WeakHandle>,
@@ -79,7 +85,7 @@ impl Node {
 }
 
 /// Reference to a DOM node.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Handle(Rc<RefCell<Node>>);
 
 impl Deref for Handle {
@@ -163,6 +169,14 @@ impl TreeSink for RcDom {
         self.document.clone()
     }
 
+    fn get_template_contents(&self, target: Handle) -> Handle {
+        if let Element(_, Template(ref contents), _) = target.borrow().node {
+            contents.clone()
+        } else {
+            panic!("not a template element!")
+        }
+    }
+
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
         self.quirks_mode = mode;
     }
@@ -183,6 +197,7 @@ impl TreeSink for RcDom {
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
         let info = match name {
             qualname!(HTML, script) => Script(false),
+            qualname!(HTML, template) => Template(new_node(Document)),
             _ => Normal,
         };
         new_node(Element(name, info, attrs))

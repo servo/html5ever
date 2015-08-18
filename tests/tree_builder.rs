@@ -31,7 +31,8 @@ use std::collections::{HashSet, HashMap};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 
 use html5ever::{parse, parse_fragment, one_input};
-use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
+use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
+use html5ever::rcdom::{Template, Text};
 
 use string_cache::Atom;
 use tendril::StrTendril;
@@ -141,11 +142,16 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     for child in node.children.iter() {
         serialize(buf, indent+2, child.clone());
     }
-}
 
-// Ignore tests containing these strings; we don't support these features yet.
-static IGNORE_SUBSTRS: &'static [&'static str]
-    = &["<template"];
+    if let Element(_, Template(ref content), _) = node.node {
+        buf.push_str("|");
+        buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
+        buf.push_str("content\n");
+        for child in &content.borrow().children {
+            serialize(buf, indent+4, child.clone());
+        }
+    }
+}
 
 #[cfg(feature = "unstable")]
 fn make_test(
@@ -165,8 +171,7 @@ fn make_test(
     let context = fields.get("document-fragment")
                         .map(|field| Atom::from_slice(field.trim_right_matches('\n')));
     let name = format!("tb: {}-{}", filename, idx);
-    let ignore = ignores.contains(&name)
-        || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
+    let ignore = ignores.contains(&name);
 
     tests.push(TestDescAndFn {
         desc: TestDesc {

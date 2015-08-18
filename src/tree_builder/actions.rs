@@ -89,6 +89,7 @@ pub trait TreeBuilderActions<Handle> {
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node_named(&self, name: Atom) -> bool;
     fn html_elem_named(&self, elem: Handle, name: Atom) -> bool;
+    fn in_html_elem_named(&self, name: Atom) -> bool;
     fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool;
     fn check_body_end(&mut self);
@@ -212,37 +213,37 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         declare_tag_set!(foster_target = table tbody tfoot thead tr);
         let target = override_target.unwrap_or_else(|| self.current_node());
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
-            // No foster parenting (the common case).
-            return self.sink.append(target, child);
+            if self.html_elem_named(target.clone(), atom!(template)) {
+                // No foster parenting (inside template).
+                let contents = self.sink.get_template_contents(target);
+                self.sink.append(contents, child);
+            } else {
+                // No foster parenting (the common case).
+                self.sink.append(target, child);
+            }
+            return;
         }
 
         // Foster parenting
-        // FIXME: <template>
-        let last_table = self.open_elems.iter()
-            .enumerate()
-            .rev()
-            .filter(|&(_, e)| self.html_elem_named(e.clone(), atom!(table)))
-            .next();
-
-        match last_table {
-            None => {
-                let html_elem = self.html_elem();
-                self.sink.append(html_elem, child);
-            }
-            Some((idx, last_table)) => {
+        let mut iter = self.open_elems.iter().rev().peekable();
+        while let Some(elem) = iter.next() {
+            if self.html_elem_named(elem.clone(), atom!(template)) {
+                let contents = self.sink.get_template_contents(elem.clone());
+                self.sink.append(contents, child);
+                return;
+            } else if self.html_elem_named(elem.clone(), atom!(table)) {
                 // Try inserting "inside last table's parent node, immediately before last table"
-                match self.sink.append_before_sibling(last_table.clone(), child) {
-                    Ok(()) => (),
-
+                if let Err(child) = self.sink.append_before_sibling(elem.clone(), child) {
                     // If last_table has no parent, we regain ownership of the child.
                     // Insert "inside previous element, after its last child (if any)"
-                    Err(child) => {
-                        let previous_element = self.open_elems[idx-1].clone();
-                        self.sink.append(previous_element, child);
-                    }
+                    let previous_element = (*iter.peek().unwrap()).clone();
+                    self.sink.append(previous_element, child);
                 }
+                return;
             }
         }
+        let html_elem = self.html_elem();
+        self.sink.append(html_elem, child);
     }
 
     fn adoption_agency(&mut self, subject: Atom) {
@@ -563,6 +564,10 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.sink.elem_name(elem) == QualName::new(ns!(HTML), name)
     }
 
+    fn in_html_elem_named(&self, name: Atom) -> bool {
+        self.open_elems.iter().any(|elem| self.html_elem_named(elem.clone(), name.clone()))
+    }
+
     fn current_node_named(&self, name: Atom) -> bool {
         self.html_elem_named(self.current_node(), name)
     }
@@ -691,15 +696,23 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 _ => continue,
             };
             match name {
-                // FIXME: <select> sub-steps
-                atom!(select) => return InSelect,
-
+                atom!(select) => {
+                    for ancestor in self.open_elems[0..i].iter().rev() {
+                        if self.html_elem_named(ancestor.clone(), atom!(template)) {
+                            return InSelect;
+                        } else if self.html_elem_named(ancestor.clone(), atom!(table)) {
+                            return InSelectInTable;
+                        }
+                    }
+                    return InSelect;
+                },
                 atom!(td) | atom!(th) => if !last { return InCell; },
                 atom!(tr) => return InRow,
                 atom!(tbody) | atom!(thead) | atom!(tfoot) => return InTableBody,
                 atom!(caption) => return InCaption,
                 atom!(colgroup) => return InColumnGroup,
                 atom!(table) => return InTable,
+                atom!(template) => return *self.template_modes.last().unwrap(),
                 atom!(head) => if !last { return InHead },
                 atom!(body) => return InBody,
                 atom!(frameset) => return InFrameset,
@@ -707,8 +720,6 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                     None => return BeforeHead,
                     Some(_) => return AfterHead,
                 },
-
-                atom!(template) => panic!("FIXME: <template> not implemented"),
 
                 _ => (),
             }
