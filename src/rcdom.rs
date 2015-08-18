@@ -13,6 +13,7 @@
 //! web browser using it. :)
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::default::Default;
 use std::borrow::Cow;
 use std::io::{self, Write};
@@ -250,9 +251,8 @@ impl TreeSink for RcDom {
             panic!("not an element")
         };
 
-        // FIXME: quadratic time
-        attrs.retain(|attr|
-            !existing.iter().any(|e| e.name == attr.name));
+        let names = attrs.iter().map(|e| e.name.clone()).collect::<HashSet<_>>();
+        attrs.retain(|attr| !names.contains(&attr.name));
         existing.extend(attrs.into_iter());
     }
 
