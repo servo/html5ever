@@ -11,10 +11,10 @@
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::actions::TreeBuilderActions;
+use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
 use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 
-use tokenizer::{Tag, StartTag, EndTag};
+use tokenizer::{Attribute, EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext, Quiescent};
 
 use util::str::is_ascii_whitespace;
@@ -629,7 +629,48 @@ impl<Handle, Sink> TreeBuilderStep
                     }))
                 }
 
-                <isindex> => panic!("FIXME: <isindex> not implemented"),
+                tag @ <isindex> => {
+                    self.unexpected(&tag);
+                    let in_template = self.in_html_elem_named(atom!(template));
+                    if !in_template && self.form_elem.is_some() {
+                        return Done;
+                    }
+                    self.frameset_ok = false;
+                    self.close_p_element_in_button_scope();
+                    let mut form_attrs = vec![];
+                    let mut prompt = None;
+                    let mut input_attrs = vec![];
+                    for attr in tag.attrs.into_iter() {
+                        match attr.name {
+                            qualname!("", action) => form_attrs.push(attr),
+                            qualname!("", prompt) => prompt = Some(attr.value),
+                            qualname!("", name) => {},
+                            _ => input_attrs.push(attr),
+                        }
+                    }
+                    input_attrs.push(Attribute {
+                        name: qualname!("", name),
+                        value: "isindex".to_tendril(),
+                    });
+                    let form = self.insert_element(Push, ns!(HTML), atom!(form), form_attrs);
+                    if !in_template {
+                        self.form_elem = Some(form.clone());
+                    }
+                    self.insert_element(NoPush, ns!(HTML), atom!(hr), vec![]);
+                    self.reconstruct_formatting();
+                    self.insert_element(Push, ns!(HTML), atom!(label), vec![]);
+                    self.append_text(prompt.unwrap_or_else(|| {
+                        "This is a searchable index. Enter search keywords: ".to_tendril()
+                    }));
+                    self.insert_element(NoPush, ns!(HTML), atom!(input), input_attrs);
+                    self.pop();
+                    self.insert_element(NoPush, ns!(HTML), atom!(hr), vec![]);
+                    self.pop();
+                    if !in_template {
+                        self.form_elem = None;
+                    }
+                    DoneAckSelfClosing
+                }
 
                 tag @ <textarea> => {
                     self.ignore_lf = true;
