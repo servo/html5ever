@@ -109,7 +109,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, ref attrs) => {
+        Element(ref name, _, ref attrs) => {
             buf.push_str("<");
             match name.ns {
                 ns!(SVG) => buf.push_str("svg "),
