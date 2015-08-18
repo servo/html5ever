@@ -13,6 +13,7 @@
 //! web browser using it. :)
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::default::Default;
 use std::borrow::Cow;
 use std::io::{self, Write};
@@ -242,18 +243,19 @@ impl TreeSink for RcDom {
         append(&self.document, new_node(Doctype(name, public_id, system_id)));
     }
 
-    fn add_attrs_if_missing(&mut self, target: Handle, mut attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>) {
         let mut node = target.borrow_mut();
-        // FIXME: mozilla/rust#15609
-        let existing = match node.deref_mut().node {
-            Element(_, ref mut attrs) => attrs,
-            _ => return,
+        let existing = if let Element(_, ref mut attrs) = node.deref_mut().node {
+            attrs
+        } else {
+            panic!("not an element")
         };
 
-        // FIXME: quadratic time
-        attrs.retain(|attr|
-            !existing.iter().any(|e| e.name == attr.name));
-        existing.extend(attrs.into_iter());
+        let existing_names =
+            existing.iter().map(|e| e.name.clone()).collect::<HashSet<_>>();
+        existing.extend(attrs.into_iter().filter(|attr| {
+            !existing_names.contains(&attr.name)
+        }));
     }
 
     fn remove_from_parent(&mut self, target: Handle) {
