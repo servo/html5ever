@@ -428,6 +428,11 @@ impl<Handle, Sink> TokenSink
         self.process_to_completion(token);
     }
 
+    fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
+        !self.open_elems.is_empty() &&
+        self.sink.elem_name(self.adjusted_current_node()).ns != ns!(HTML)
+    }
+
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
         self.next_tokenizer_state.take()
     }

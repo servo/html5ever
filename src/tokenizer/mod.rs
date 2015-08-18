@@ -1153,15 +1153,26 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 } else if eat!(self, "doctype") {
                     go!(self: to Doctype);
                 } else {
-                    // FIXME: CDATA, requires "adjusted current node" from tree builder
-                    // FIXME: 'error' gives wrong message
+                    if self.sink.adjusted_current_node_present_but_not_in_html_namespace() {
+                        if eat_exact!(self, "[CDATA[") {
+                            go!(self: clear_temp; to CdataSection);
+                        }
+                    }
                     go!(self: error; to BogusComment);
                 }
             },
 
             //§ cdata-section-state
-            states::CdataSection
-                => panic!("FIXME: state {:?} not implemented", self.state),
+            states::CdataSection => loop {
+                if eat_exact!(self, "]]>") {
+                    go!(self: emit_temp; to Data);
+                } else {
+                    match get_char!(self) {
+                        '\0' => go!(self: emit_temp; emit '\0'),
+                        c    => go!(self: push_temp c)
+                    }
+                }
+            }
             //§ END
         }
     }
@@ -1316,7 +1327,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error; to BogusComment),
 
             states::CdataSection
-                => panic!("FIXME: state {:?} not implemented in EOF", self.state),
+                => go!(self: emit_temp; to Data),
         }
     }
 }
