@@ -1167,8 +1167,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 if eat_exact!(self, "]]>") {
                     go!(self: emit_temp; to Data);
                 } else {
-                    let c = get_char!(self);
-                    go!(self: push_temp c);
+                    match get_char!(self) {
+                        '\0' => go!(self: push_temp '\u{fffd}'),
+                        c    => go!(self: push_temp c)
+                    }
                 }
             }
             //§ END
