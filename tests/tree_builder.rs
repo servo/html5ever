@@ -193,7 +193,7 @@ fn make_test_desc_with_scripting_flag(
     data.pop();
     let expected = get_field("document");
     let context = fields.get("document-fragment")
-                        .map(|field| Atom::from_slice(field.trim_right_matches('\n')));
+                        .map(|field| context_name(field.trim_right_matches('\n')));
     let ignore = ignores.contains(name);
     let mut name = name.to_owned();
     if scripting_enabled {
@@ -223,7 +223,7 @@ fn make_test_desc_with_scripting_flag(
                 },
                 Some(ref context) => {
                     let dom: RcDom = parse_fragment(one_input(data.clone()),
-                                                    QualName::new(ns!(HTML), context.clone()),
+                                                    context.clone(),
                                                     vec![],
                                                     opts);
                     // fragment case: serialize children of the html element
@@ -243,6 +243,17 @@ fn make_test_desc_with_scripting_flag(
                     data, result, expected);
             }
         })),
+    }
+}
+
+#[cfg(feature = "unstable")]
+fn context_name(context: &str) -> QualName {
+    if context.starts_with("svg ") {
+        QualName::new(ns!(SVG), Atom::from_slice(&context[4..]))
+    } else if context.starts_with("math ") {
+        QualName::new(ns!(MathML), Atom::from_slice(&context[5..]))
+    } else {
+        QualName::new(ns!(HTML), Atom::from_slice(context))
     }
 }
 

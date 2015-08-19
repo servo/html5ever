@@ -133,7 +133,8 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
 /// ## Example
 ///
 /// ```ignore
-/// let dom: RcDom = parse_fragment(one_input(my_str), context_token, Default::default());
+/// let dom: RcDom = parse_fragment(
+///     one_input(my_str), context_name, context_attrs, Default::default());
 /// ```
 pub fn parse_fragment<Output, It>(input: It,
                                   context_name: QualName,
