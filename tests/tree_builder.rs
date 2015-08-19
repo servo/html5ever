@@ -34,7 +34,7 @@ use html5ever::{ParseOpts, parse, parse_fragment, one_input};
 use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
 use html5ever::rcdom::{Template, Text};
 
-use string_cache::Atom;
+use string_cache::{Atom, QualName};
 use tendril::StrTendril;
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
@@ -223,7 +223,8 @@ fn make_test_desc_with_scripting_flag(
                 },
                 Some(ref context) => {
                     let dom: RcDom = parse_fragment(one_input(data.clone()),
-                                                    context.clone(),
+                                                    QualName::new(ns!(HTML), context.clone()),
+                                                    vec![],
                                                     opts);
                     // fragment case: serialize children of the html element
                     // rather than children of the document
