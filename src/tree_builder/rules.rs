@@ -1389,20 +1389,17 @@ impl<Handle, Sink> TreeBuilderStep
                 <dt> <em> <embed> <h1> <h2> <h3> <h4> <h5> <h6> <head> <hr> <i>
                 <img> <li> <listing> <menu> <meta> <nobr> <ol> <p> <pre> <ruby>
                 <s> <small> <span> <strong> <strike> <sub> <sup> <table> <tt>
-                <u> <ul> <var>
-            => {
-                self.unexpected(&tag);
-                if self.is_fragment() {
-                    self.foreign_start_tag(tag)
+                <u> <ul> <var> => self.unexpected_start_tag_in_foreign_content(tag),
+
+            tag @ <font> => {
+                let unexpected = tag.attrs.iter().any(|attr| {
+                    matches!(attr.name,
+                             qualname!("", color) | qualname!("", face) | qualname!("", size))
+                });
+                if unexpected {
+                    self.unexpected_start_tag_in_foreign_content(tag)
                 } else {
-                    self.pop();
-                    while !self.current_node_in(|n| {
-                        n.ns == ns!(HTML) || mathml_text_integration_point(n.clone())
-                            || html_integration_point(n)
-                    }) {
-                        self.pop();
-                    }
-                    ReprocessForeign(TagToken(tag))
+                    self.foreign_start_tag(tag)
                 }
             }
 
