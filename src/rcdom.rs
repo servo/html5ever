@@ -102,7 +102,7 @@ fn append(new_parent: &Handle, child: Handle) {
     new_parent.borrow_mut().children.push(child.clone());
     let parent = &mut child.borrow_mut().parent;
     assert!(parent.is_none());
-    *parent = Some(new_parent.downgrade());
+    *parent = Some(Rc::downgrade(new_parent));
 }
 
 fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
@@ -231,7 +231,7 @@ impl TreeSink for RcDom {
             remove_from_parent(&child);
         }
 
-        child.borrow_mut().parent = Some(parent.clone().downgrade());
+        child.borrow_mut().parent = Some(Rc::downgrade(&parent));
         parent.borrow_mut().children.insert(i, child);
         Ok(())
     }
@@ -269,7 +269,7 @@ impl TreeSink for RcDom {
             // FIXME: It would be nice to assert that the child's parent is node, but I haven't
             // found a way to do that that doesn't create overlapping borrows of RefCells.
             let parent = &mut child.borrow_mut().parent;
-            *parent = Some(new_parent.downgrade());
+            *parent = Some(Rc::downgrade(&new_parent));
         }
         new_children.extend(mem::replace(children, Vec::new()).into_iter());
     }

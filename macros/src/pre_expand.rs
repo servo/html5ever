@@ -71,7 +71,7 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
                 }
             }
             ast::TokenTree::TtDelimited(span, mut block) => {
-                block.make_unique();
+                Rc::make_mut(&mut block);
                 let block = Rc::try_unwrap(block).unwrap();
                 expanded.push(ast::TokenTree::TtDelimited(span, Rc::new(ast::Delimited {
                     delim: block.delim,
