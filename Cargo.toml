@@ -11,6 +11,7 @@ string_cache = "0.1.4"
 string_cache_plugin = "0.1.2"
 tendril = "0.1.1"
 time = "0.1.30"
+rc = "0.1.1"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"

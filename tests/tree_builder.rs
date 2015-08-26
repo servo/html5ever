@@ -22,12 +22,11 @@ use std::rt;
 use tendril::SliceExt;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn, ShouldPanic};
 use util::find_tests::foreach_xml5lib_test;
-use util::rcdom::*;
+use xml5ever::rcdom::*;
 use xml5ever::parse_xml;
 
 mod util { 
     pub mod find_tests;
-    pub mod rcdom;
 }
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {

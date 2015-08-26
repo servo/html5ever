@@ -12,20 +12,20 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use xml5ever::tokenizer::Attribute;
-use xml5ever::tree_builder::{TreeSink, NodeOrText};
-use xml5ever::ParseResult;
-
 use std::cell::RefCell;
 use std::default::Default;
-use std::rc::{Rc, Weak};
+
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
 use string_cache::QualName;
 use tendril::StrTendril;
+use rc::{Rc, Weak};
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
+use super::tokenizer::Attribute;
+use super::tree_builder::{TreeSink, NodeOrText};
+use super::ParseResult;
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -92,7 +92,7 @@ fn append(new_parent: &Handle, child: Handle) {
     new_parent.borrow_mut().children.push(child.clone());
     let parent = &mut child.borrow_mut().parent;
     assert!(parent.is_none());
-    *parent = Some(new_parent.downgrade());
+    *parent = Some(Rc::downgrade(new_parent));
 }
 
 fn append_to_existing_text(prev: &Handle, text: &str) -> bool {

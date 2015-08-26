@@ -5,6 +5,7 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
 extern crate string_cache;
+extern crate rc;
 extern crate tendril;
 extern crate time;
 
@@ -20,7 +21,7 @@ macro_rules! time {
 #[macro_use] mod util;
 pub mod tokenizer;
 pub mod tree_builder;
-
+pub mod rcdom;
 
 use tokenizer::{XmlTokenizerOpts, XmlTokenizer, XTokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
