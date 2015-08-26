@@ -10,7 +10,11 @@ addons:
       - libdw-dev
 
 
-rust: nightly
+rust:
+  - stable
+  - beta
+  - nightly
+
 
 before_script:
   - |
