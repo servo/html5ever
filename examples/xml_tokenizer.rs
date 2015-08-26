@@ -1,5 +1,3 @@
-#![feature(str_escape)]
-
 extern crate xml5ever;
 extern crate tendril;
 
@@ -30,7 +28,7 @@ impl XTokenPrinter {
 
     fn do_char(&mut self, c: char) {
         self.is_char(true);
-        print!("{}", c.to_string().escape_default());
+        print!("{}", c.escape_default().collect::<String>());
     }
 }
 

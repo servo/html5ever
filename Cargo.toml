@@ -4,14 +4,23 @@ version = "0.1.0"
 authors = ["Daniel Fath <daniel.fath7@gmail.com>"]
 license = "MIT / Apache-2.0"
 
+[features]
+unstable = ["tendril/unstable", "string_cache/unstable", "string_cache_plugin", "rc/unstable"]
+
 [dependencies]
-log = "0.3.1"
-mac = "0.0.2"
-string_cache = "0.1.4"
-string_cache_plugin = "0.1.2"
-tendril = "0.1.1"
-time = "0.1.30"
+time = "0"
+log = "0"
+string_cache = "0.1.7"
+string_cache_plugin = { version = "0.1.5", optional = true }
+mac = "0"
+tendril = "0.1.3"
 rc = "0.1.1"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
+
+[profile.dev]
+debug = false
+
+[profile.test]
+debug = false

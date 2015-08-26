@@ -1,10 +1,13 @@
-#![feature(plugin)]
+#![crate_name="xml5ever"]
+#![crate_type="dylib"]
 
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(plugin, rc_weak))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
+
 extern crate rc;
 extern crate tendril;
 extern crate time;

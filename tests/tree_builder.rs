@@ -1,31 +1,31 @@
-#![feature(plugin, test, start, rt, rc_weak)]
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+
+#[cfg(feature = "unstable")] extern crate test;
 
 #[macro_use] extern crate mac;
+#[macro_use] extern crate string_cache;
+
 extern crate rustc_serialize;
-extern crate string_cache;
-extern crate test;
 extern crate tendril;
 extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};
-use std::env;
 use std::ffi::OsStr;
-use std::fs;
-use std::io;
+use std::{fs, io, env, rt};
 use std::io::BufRead;
 use std::iter::repeat;
 use std::mem::replace;
 use std::path::Path;
-use std::rt;
 
 use tendril::SliceExt;
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn, ShouldPanic};
+#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+#[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::parse_xml;
 
-mod util { 
+mod util {
     pub mod find_tests;
 }
 
@@ -148,6 +148,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<template"];
 
+#[cfg(feature = "unstable")]
 fn make_xml_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -170,7 +171,7 @@ fn make_xml_test(
         desc: TestDesc {
             name: DynTestName(name),
             ignore: ignore,
-            should_panic: ShouldPanic::No,
+            should_panic: No,
         },
         testfn: DynTestFn(Box::new(move || {
             let mut result = String::new();
@@ -191,6 +192,7 @@ fn make_xml_test(
     });
 }
 
+#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -211,6 +213,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
+#[cfg(feature = "unstable")]
 #[start]
 fn start(argc: isize, argv: *const *const u8) -> isize {
     unsafe {

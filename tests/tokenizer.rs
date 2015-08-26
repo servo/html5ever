@@ -1,22 +1,26 @@
-#![feature(test, plugin, slice_patterns, start, rt)]
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate rustc_serialize;
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
-extern crate test;
+#[cfg(feature = "unstable")] extern crate test;
 extern crate xml5ever;
+extern crate rc;
 
-use std::env;
+use std::{rt, env};
 use std::borrow::Cow::Borrowed;
 use std::ffi::OsStr;
 use std::mem::replace;
 use std::path::Path;
-use std::rt;
+use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
+
+use rc::{Rc, Weak};
 use string_cache::{Atom, QualName};
 use tendril::{StrTendril, SliceExt};
-use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn, ShouldPanic};
+#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+#[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
 use xml5ever::tokenizer::{Attribute};
@@ -26,7 +30,7 @@ use xml5ever::tokenizer::{NullCharacterXToken, XParseError, XTagToken};
 use xml5ever::tokenizer::{PIToken, XPi};
 use xml5ever::tokenizer::{EOFXToken, XmlTokenizer, XmlTokenizerOpts};
 
-mod util { 
+mod util {
     pub mod find_tests;
 }
 
@@ -134,54 +138,113 @@ fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<XToken> {
     tok.unwrap().get_tokens()
 }
 
+trait JsonExt: Sized {
+    fn get_str(&self) -> String;
+    fn get_tendril(&self) -> StrTendril;
+    fn get_nullable_tendril(&self) -> Option<StrTendril>;
+    fn get_bool(&self) -> bool;
+    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Self>;
+    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
+    fn find<'t>(&'t self, key: &str) -> &'t Self;
+}
+
+impl JsonExt for Json {
+    fn get_str(&self) -> String {
+        match *self {
+            Json::String(ref s) => s.to_string(),
+            _ => panic!("Json::get_str: not a String"),
+        }
+    }
+
+    fn get_tendril(&self) -> StrTendril {
+        match *self {
+            Json::String(ref s) => s.to_tendril(),
+            _ => panic!("Json::get_tendril: not a String"),
+        }
+    }
+
+    fn get_nullable_tendril(&self) -> Option<StrTendril> {
+        match *self {
+            Json::Null => None,
+            Json::String(ref s) => Some(s.to_tendril()),
+            _ => panic!("Json::get_nullable_tendril: not a String"),
+        }
+    }
+
+    fn get_bool(&self) -> bool {
+        match *self {
+            Json::Boolean(b) => b,
+            _ => panic!("Json::get_bool: not a Boolean"),
+        }
+    }
+
+    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Json> {
+        match *self {
+            Json::Object(ref m) => &*m,
+            _ => panic!("Json::get_obj: not an Object"),
+        }
+    }
+
+    fn get_list<'t>(&'t self) -> &'t Vec<Json> {
+        match *self {
+            Json::Array(ref m) => m,
+            _ => panic!("Json::get_list: not an Array"),
+        }
+    }
+
+    fn find<'t>(&'t self, key: &str) -> &'t Json {
+        self.get_obj().get(&key.to_string()).unwrap()
+    }
+}
+
 // Parse a JSON object (other than "ParseError") to a token.
 fn json_to_xtoken(js: &Json) -> XToken {
     let parts = js.as_array().unwrap();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts[1..].iter().collect();
-    match (parts[0].as_string().unwrap(), &args[..]) {
+    match &*parts[0].get_str() {
 
-        ("StartTag", [name, attrs, ..]) => XTagToken(XTag {
+        "StartTag" => XTagToken(XTag {
             kind: StartXTag,
-            name: Atom::from_slice(name.as_string().unwrap()),
-            attrs: attrs.as_object().unwrap().iter().map(|(k,v)| {
+            name: Atom::from_slice(&args[0].get_str()),
+            attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(&k)),
-                    value: v.as_string().unwrap().to_tendril()
+                    value: v.get_tendril()
                 }
             }).collect(),
         }),
 
-        ("EndTag", [name]) => XTagToken(XTag {
+        "EndTag" => XTagToken(XTag {
             kind: EndXTag,
-            name: Atom::from_slice(name.as_string().unwrap()),
+            name: Atom::from_slice(&args[0].get_str()),
             attrs: vec!(),
         }),
 
-        ("ShortTag", [name]) => XTagToken(XTag {
+        "ShortTag" => XTagToken(XTag {
             kind: ShortXTag,
-            name: Atom::from_slice(name.as_string().unwrap()),
+            name: Atom::from_slice(&args[0].get_str()),
             attrs: vec!(),
         }),
 
-        ("EmptyTag", [name, attrs, ..]) => XTagToken(XTag {
+        "EmptyTag" => XTagToken(XTag {
             kind: EmptyXTag,
-            name: Atom::from_slice(name.as_string().unwrap()),
-            attrs: attrs.as_object().unwrap().iter().map(|(k,v)| {
+            name: Atom::from_slice(&args[0].get_str()),
+            attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(ns!(""), Atom::from_slice(&k)),
-                    value: v.as_string().unwrap().to_tendril()
+                    value: v.get_tendril()
                 }
             }).collect(),
         }),
 
-        ("Comment", [txt]) => CommentXToken(txt.as_string().unwrap().to_tendril()),
+        "Comment" => CommentXToken(args[0].get_tendril()),
 
-        ("Character", [txt]) => CharacterXTokens(txt.as_string().unwrap().to_tendril()),
+        "Character" => CharacterXTokens(args[0].get_tendril()),
 
-        ("PI", [target, data]) => PIToken(XPi {
-            target: target.as_string().unwrap().to_tendril(), 
-            data: data.as_string().unwrap().to_tendril(),
+        "PI" => PIToken(XPi {
+            target: args[0].get_tendril(),
+            data: args[1].get_tendril(),
         }),
 
         // We don't need to produce NullCharacterToken because
@@ -207,14 +270,14 @@ fn json_to_xtokens(js: &Json, exact_errors: bool) -> Vec<XToken> {
     sink.get_tokens()
 }
 
-
+#[cfg(feature = "unstable")]
 fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
             name: DynTestName(desc),
             ignore: false,
-            should_panic: ShouldPanic::No,
+            should_panic: No,
         },
         testfn: DynTestFn(Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
@@ -234,7 +297,7 @@ fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts
         })),
     }
 }
-
+#[cfg(feature = "unstable")]
 fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let input = js.find("input").unwrap().as_string().unwrap();
     let expect = js.find("output").unwrap().clone();
@@ -271,6 +334,7 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     }
 }
 
+#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
     foreach_xml5lib_test(src_dir, "tokenizer",
@@ -292,7 +356,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     tests
 }
 
-
+#[cfg(feature = "unstable")]
 #[start]
 fn start(argc: isize, argv: *const *const u8) -> isize {
     unsafe {
