@@ -90,8 +90,7 @@ fn expn_info(span: codemap::Span) -> codemap::ExpnInfo {
     codemap::ExpnInfo {
         call_site: span,
         callee: codemap::NameAndSpan {
-            name: "match_token".to_string(),
-            format: codemap::ExpnFormat::MacroBang,
+            format: codemap::ExpnFormat::MacroBang(token::intern("match_token")),
             allow_internal_unstable: false,
             span: None,
         }
