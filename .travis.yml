@@ -9,7 +9,6 @@ rust:
     - beta
     - stable
 script: scripts/travis-build.sh
-after_success: curl https://raw.githubusercontent.com/kmcallister/travis-doc-upload/master/travis-doc-upload.sh | sh
 
 notifications:
   webhooks: http://build.servo.org:54856/travis

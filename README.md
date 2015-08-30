@@ -52,4 +52,4 @@ The code is cross-referenced with the WHATWG syntax spec, and eventually we will
 
 html5ever tracks Rust nightly, for now.  Support for the stable Rust 1.x compilers is planned, however.
 
-[API documentation]: https://kmcallister.github.io/docs/html5ever/html5ever/index.html
+[API documentation]: http://doc.servo.org/html5ever/index.html
