@@ -9,13 +9,13 @@
 
 //! High-level interface to the parser.
 
-use tokenizer::{TokenizerOpts, Tokenizer, TokenSink};
+use tokenizer::{Attribute, TokenSink, Tokenizer, TokenizerOpts};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use std::option;
 use std::default::Default;
 
-use string_cache::{Atom, QualName};
+use string_cache::QualName;
 use tendril::StrTendril;
 
 /// Convenience function to turn a single value into an iterator.
@@ -28,7 +28,7 @@ pub fn one_input<T>(x: T) -> option::IntoIter<T> {
 /// ## Example
 ///
 /// ```ignore
-/// let mut sink = MySink;
+/// let sink = MySink;
 /// tokenize_to(&mut sink, one_input(my_str), Default::default());
 /// ```
 pub fn tokenize_to<Sink, It>(sink: Sink, input: It, opts: TokenizerOpts) -> Sink
@@ -58,8 +58,8 @@ pub struct ParseOpts {
 /// ## Example
 ///
 /// ```ignore
-/// let mut sink = MySink;
-/// parse_to(&mut sink, one_input(my_str), Default::default());
+/// let sink = MySink;
+/// parse_to(sink, one_input(my_str), Default::default());
 /// ```
 pub fn parse_to<Sink, It>(sink: Sink, input: It, opts: ParseOpts) -> Sink
     where Sink: TreeSink,
@@ -79,18 +79,18 @@ pub fn parse_to<Sink, It>(sink: Sink, input: It, opts: ParseOpts) -> Sink
 /// ## Example
 ///
 /// ```ignore
-/// let mut sink = MySink;
-/// parse_fragment_to(&mut sink, one_input(my_str), context_token, Default::default());
+/// let sink = MySink;
+/// parse_fragment_to(sink, one_input(my_str), context_name, context_attrs, Default::default());
 /// ```
-pub fn parse_fragment_to<Sink, It>(sink: Sink,
+pub fn parse_fragment_to<Sink, It>(mut sink: Sink,
                                    input: It,
-                                   context: Atom,
+                                   context_name: QualName,
+                                   context_attrs: Vec<Attribute>,
                                    opts: ParseOpts) -> Sink
     where Sink: TreeSink,
           It: Iterator<Item=StrTendril>
 {
-    let mut sink = sink;
-    let context_elem = sink.create_element(QualName::new(ns!(HTML), context), vec!());
+    let context_elem = sink.create_element(context_name, context_attrs);
     let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
@@ -133,12 +133,16 @@ pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
 /// ## Example
 ///
 /// ```ignore
-/// let dom: RcDom = parse_fragment(one_input(my_str), context_token, Default::default());
+/// let dom: RcDom = parse_fragment(
+///     one_input(my_str), context_name, context_attrs, Default::default());
 /// ```
-pub fn parse_fragment<Output, It>(input: It, context: Atom, opts: ParseOpts) -> Output
+pub fn parse_fragment<Output, It>(input: It,
+                                  context_name: QualName,
+                                  context_attrs: Vec<Attribute>,
+                                  opts: ParseOpts) -> Output
     where Output: ParseResult,
           It: Iterator<Item=StrTendril>,
 {
-    let sink = parse_fragment_to(Default::default(), input, context, opts);
+    let sink = parse_fragment_to(Default::default(), input, context_name, context_attrs, opts);
     ParseResult::get_result(sink)
 }

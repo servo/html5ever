@@ -23,7 +23,10 @@ use html5ever::{parse_fragment, parse, one_input, serialize};
 use html5ever::rcdom::RcDom;
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
-    let dom: RcDom = parse_fragment(one_input(input), atom!(body), ParseOpts::default());
+    let dom: RcDom = parse_fragment(one_input(input),
+                                    qualname!(HTML, body),
+                                    vec![],
+                                    ParseOpts::default());
     let inner = &dom.document.borrow().children[0];
 
     let mut result = vec![];
