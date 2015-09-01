@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
+#![cfg_attr(feature = "unstable", feature(test, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 #[cfg(feature = "unstable")] extern crate test;
@@ -20,7 +20,7 @@ extern crate html5ever;
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
 
-use std::{char, env, rt};
+use std::{char, env};
 use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
@@ -422,12 +422,8 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 }
 
 #[cfg(feature = "unstable")]
-#[start]
-fn start(argc: isize, argv: *const *const u8) -> isize {
-    unsafe {
-        rt::args::init(argc, argv);
-    }
+#[test]
+fn run() {
     let args: Vec<_> = env::args().collect();
     test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
-    0
 }
