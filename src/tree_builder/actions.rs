@@ -891,7 +891,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
         if mathml_text_integration_point(name.clone()) {
             match *token {
-                CharacterTokens(..) => return false,
+                CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, ref name, .. })
                     if !matches!(*name, atom!(mglyph) | atom!(malignmark)) => return false,
                 _ => (),
@@ -906,7 +906,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
         if html_integration_point(name.clone()) {
             match *token {
-                CharacterTokens(..) => return false,
+                CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, .. }) => return false,
                 _ => (),
             }
