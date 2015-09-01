@@ -189,10 +189,11 @@ fn make_test_desc_with_scripting_flag(
         field.trim_right_matches('\n').to_string()
     };
 
+    let mut data = fields.get("data").expect("missing data").to_string();
+    data.pop();
     let expected = get_field("document");
     let context = fields.get("document-fragment")
                         .map(|field| Atom::from_slice(field.trim_right_matches('\n')));
-    let data = get_field("data");
     let ignore = ignores.contains(name);
     let mut name = name.to_owned();
     if scripting_enabled {
