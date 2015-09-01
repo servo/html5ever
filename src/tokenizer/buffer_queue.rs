@@ -114,7 +114,7 @@ impl BufferQueue {
     // If so, consume them and return Some(true).
     // If they do not match, return Some(false).
     // If not enough characters are available to know, return None.
-    pub fn eat(&mut self, pat: &str) -> Option<bool> {
+    pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;
         if self.buffers.front().is_none() {
@@ -127,7 +127,7 @@ impl BufferQueue {
             }
             let ref buf = self.buffers[buffers_exhausted];
 
-            if !buf.as_bytes()[consumed_from_last].eq_ignore_ascii_case(&pattern_byte) {
+            if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
                 return Some(false)
             }
 
@@ -155,6 +155,7 @@ impl BufferQueue {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
+    use std::ascii::AsciiExt;
     use tendril::{StrTendril, SliceExt};
     use super::{BufferQueue, FromSet, NotFromSet};
 
@@ -209,9 +210,9 @@ mod test {
         let mut bq = BufferQueue::new();
         bq.push_back("a".to_tendril());
         bq.push_back("bc".to_tendril());
-        assert_eq!(bq.eat("abcd"), None);
-        assert_eq!(bq.eat("ax"), Some(false));
-        assert_eq!(bq.eat("ab"), Some(true));
+        assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
+        assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
     }

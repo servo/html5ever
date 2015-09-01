@@ -102,6 +102,14 @@ pub trait TokenSink {
     /// Process a token.
     fn process_token(&mut self, token: Token);
 
+    /// Used in the markup declaration open state. By default, this always
+    /// returns false and thus all CDATA sections are tokenized as bogus
+    /// comments.
+    /// https://html.spec.whatwg.org/multipage/#markup-declaration-open-state
+    fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
+        false
+    }
+
     /// The tokenizer will call this after emitting any tag.
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.
