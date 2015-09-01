@@ -121,6 +121,7 @@ pub trait TreeBuilderActions<Handle> {
     fn adjust_mathml_attributes(&mut self, tag: &mut Tag);
     fn adjust_foreign_attributes(&mut self, tag: &mut Tag);
     fn foreign_start_tag(&mut self, tag: Tag) -> ProcessResult;
+    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult;
 }
 
 #[doc(hidden)]
@@ -1094,6 +1095,22 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         } else {
             self.insert_element(Push, cur.ns, tag.name, tag.attrs);
             Done
+        }
+    }
+
+    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult {
+        self.unexpected(&tag);
+        if self.is_fragment() {
+            self.foreign_start_tag(tag)
+        } else {
+            self.pop();
+            while !self.current_node_in(|n| {
+                n.ns == ns!(HTML) || mathml_text_integration_point(n.clone())
+                    || html_integration_point(n)
+            }) {
+                self.pop();
+            }
+            ReprocessForeign(TagToken(tag))
         }
     }
 }

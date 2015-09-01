@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 7583183069601139727
+// source SipHash: 4083772598771558827
 
 # ! [
 doc =
@@ -2572,22 +2572,20 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                             name: atom!(ul), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(var), .. }) => {
-                self.unexpected(&tag);
-                if self.is_fragment() {
-                    self.foreign_start_tag(tag)
-                } else {
-                    self.pop();
-                    while !self.current_node_in(|n| {
-                                                n.ns == ns!(HTML) ||
-                                                    mathml_text_integration_point(n.clone())
-                                                    ||
-                                                    html_integration_point(n)
-                                            }) {
-                        self.pop();
-                    }
-                    ReprocessForeign(TagToken(tag))
-                }
+                                            name: atom!(var), .. }) =>
+            self.unexpected_start_tag_in_foreign_content(tag),
+            ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                            kind: ::tokenizer::StartTag,
+                                            name: atom!(font), .. }) => {
+                let unexpected =
+                    tag.attrs.iter().any(|attr| {
+                                         matches!(attr . name , qualname ! (
+                                                  "" , color ) | qualname ! (
+                                                  "" , face ) | qualname ! (
+                                                  "" , size )) });
+                if unexpected {
+                    self.unexpected_start_tag_in_foreign_content(tag)
+                } else { self.foreign_start_tag(tag) }
             }
             last_arm_token => {
                 let enable_wildcards = match last_arm_token { _ => true, };
