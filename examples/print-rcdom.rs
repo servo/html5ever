@@ -44,7 +44,7 @@ fn walk(indent: usize, handle: Handle) {
         Comment(ref text)
             => println!("<!-- {} -->", escape_default(text)),
 
-        Element(ref name, ref attrs) => {
+        Element(ref name, _, ref attrs) => {
             assert!(name.ns == ns!(html));
             print!("<{}", name.local);
             for attr in attrs.iter() {

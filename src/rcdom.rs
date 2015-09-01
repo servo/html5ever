@@ -32,7 +32,20 @@ use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
+pub use self::ElementEnum::{Normal, Script, Template};
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
+
+/// The different kinds of elements in the DOM.
+#[derive(Debug)]
+pub enum ElementEnum {
+    Normal,
+    /// A script element and its "already started" flag.
+    /// https://html.spec.whatwg.org/multipage/#already-started
+    Script(bool),
+    /// A template element and its template contents.
+    /// https://html.spec.whatwg.org/multipage/#template-contents
+    Template(Handle),
+}
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -50,19 +63,15 @@ pub enum NodeEnum {
     Comment(StrTendril),
 
     /// An element with attributes.
-    Element(QualName, Vec<Attribute>),
+    Element(QualName, ElementEnum, Vec<Attribute>),
 }
 
 /// A DOM node.
+#[derive(Debug)]
 pub struct Node {
     pub node: NodeEnum,
     pub parent: Option<WeakHandle>,
     pub children: Vec<Handle>,
-
-    /// The "script already started" flag.
-    ///
-    /// Not meaningful for nodes other than HTML `<script>`.
-    pub script_already_started: bool,
 }
 
 impl Node {
@@ -71,13 +80,12 @@ impl Node {
             node: node,
             parent: None,
             children: vec!(),
-            script_already_started: false,
         }
     }
 }
 
 /// Reference to a DOM node.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Handle(Rc<RefCell<Node>>);
 
 impl Deref for Handle {
@@ -161,6 +169,14 @@ impl TreeSink for RcDom {
         self.document.clone()
     }
 
+    fn get_template_contents(&self, target: Handle) -> Handle {
+        if let Element(_, Template(ref contents), _) = target.borrow().node {
+            contents.clone()
+        } else {
+            panic!("not a template element!")
+        }
+    }
+
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
         self.quirks_mode = mode;
     }
@@ -171,14 +187,20 @@ impl TreeSink for RcDom {
 
     fn elem_name(&self, target: Handle) -> QualName {
         // FIXME: rust-lang/rust#22252
-        return match target.borrow().node {
-            Element(ref name, _) => name.clone(),
-            _ => panic!("not an element!"),
-        };
+        if let Element(ref name, _, _) = target.borrow().node {
+            name.clone()
+        } else {
+            panic!("not an element!")
+        }
     }
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
-        new_node(Element(name, attrs))
+        let info = match name {
+            qualname!(HTML, script) => Script(false),
+            qualname!(HTML, template) => Template(new_node(Document)),
+            _ => Normal,
+        };
+        new_node(Element(name, info, attrs))
     }
 
     fn create_comment(&mut self, text: StrTendril) -> Handle {
@@ -245,7 +267,7 @@ impl TreeSink for RcDom {
 
     fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>) {
         let mut node = target.borrow_mut();
-        let existing = if let Element(_, ref mut attrs) = node.deref_mut().node {
+        let existing = if let Element(_, _, ref mut attrs) = node.deref_mut().node {
             attrs
         } else {
             panic!("not an element")
@@ -274,8 +296,12 @@ impl TreeSink for RcDom {
         new_children.extend(mem::replace(children, Vec::new()).into_iter());
     }
 
-    fn mark_script_already_started(&mut self, node: Handle) {
-        node.borrow_mut().script_already_started = true;
+    fn mark_script_already_started(&mut self, target: Handle) {
+        if let Element(_, Script(ref mut script_already_started), _) = target.borrow_mut().node {
+            *script_already_started = true;
+        } else {
+            panic!("not a script element!");
+        }
     }
 }
 
@@ -302,7 +328,7 @@ impl Serializable for Handle {
                                   traversal_scope: TraversalScope) -> io::Result<()> {
         let node = self.borrow();
         match (traversal_scope, &node.node) {
-            (_, &Element(ref name, ref attrs)) => {
+            (_, &Element(ref name, _, ref attrs)) => {
                 if traversal_scope == IncludeNode {
                     try!(serializer.start_elem(name.clone(),
                         attrs.iter().map(|at| (&at.name, &at.value[..]))));

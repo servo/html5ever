@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 11824921987729494326
+// source SipHash: 7583183069601139727
 
 # ! [
 doc =
@@ -239,7 +239,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::EndTag,
                                                 name: atom!(template), .. })
                 => {
-                    if !self.in_scope_named(default_scope, atom!(template)) {
+                    if !self.in_html_elem_named(atom!(template)) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(thorough_implied_end);
@@ -464,8 +464,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!(html), .. }) => {
                     self.unexpected(&tag);
-                    let top = self.html_elem();
-                    self.sink.add_attrs_if_missing(top, tag.attrs);
+                    if !self.in_html_elem_named(atom!(template)) {
+                        let top = self.html_elem();
+                        self.sink.add_attrs_if_missing(top, tag.attrs);
+                    }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
@@ -509,11 +511,14 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 name: atom!(body), .. }) => {
                     self.unexpected(&tag);
                     match self.body_elem() {
-                        None => (),
-                        Some(node) => {
+                        Some(ref node) if
+                        self.open_elems.len() != 1 &&
+                            !self.in_html_elem_named(atom!(template)) => {
                             self.frameset_ok = false;
-                            self.sink.add_attrs_if_missing(node, tag.attrs)
+                            self.sink.add_attrs_if_missing(node.clone(),
+                                                           tag.attrs)
                         }
+                        _ => { }
                     }
                     Done
                 }
@@ -534,7 +539,11 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                     self.mode = InFrameset;
                     Done
                 }
-                EOFToken => { self.check_body_end(); self.stop_parsing() }
+                EOFToken => {
+                    if !self.template_modes.is_empty() {
+                        self.step(InTemplate, token)
+                    } else { self.check_body_end(); self.stop_parsing() }
+                }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
                                                 name: atom!(body), .. }) => {
@@ -677,12 +686,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!(form), .. }) => {
-                    if self.form_elem.is_some() {
+                    if self.form_elem.is_some() &&
+                           !self.in_html_elem_named(atom!(template)) {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
-                        self.form_elem = Some(elem);
+                        if !self.in_html_elem_named(atom!(template)) {
+                            self.form_elem = Some(elem);
+                        }
                     }
                     Done
                 }
@@ -840,26 +852,38 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
                                                 name: atom!(form), .. }) => {
-                    let node =
-                        match self.form_elem.take() {
-                            None => {
-                                self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
-                                return Done;
-                            }
-                            Some(x) => x,
-                        };
-                    if !self.in_scope(default_scope,
-                                      |n|
-                                          self.sink.same_node(node.clone(),
-                                                              n)) {
-                        self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
-                        return Done;
-                    }
-                    self.generate_implied_end(cursory_implied_end);
-                    let current = self.current_node();
-                    self.remove_from_stack(&node);
-                    if !self.sink.same_node(current, node) {
-                        self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                    if !self.in_html_elem_named(atom!(template)) {
+                        let node =
+                            match self.form_elem.take() {
+                                None => {
+                                    self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
+                                    return Done;
+                                }
+                                Some(x) => x,
+                            };
+                        if !self.in_scope(default_scope,
+                                          |n|
+                                              self.sink.same_node(node.clone(),
+                                                                  n)) {
+                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
+                            return Done;
+                        }
+                        self.generate_implied_end(cursory_implied_end);
+                        let current = self.current_node();
+                        self.remove_from_stack(&node);
+                        if !self.sink.same_node(current, node) {
+                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        }
+                    } else {
+                        if !self.in_scope_named(default_scope, atom!(form)) {
+                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
+                            return Done;
+                        }
+                        self.generate_implied_end(cursory_implied_end);
+                        if !self.current_node_named(atom!(form)) {
+                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        }
+                        self.pop_until_named(atom!(form));
                     }
                     Done
                 }
@@ -1468,7 +1492,8 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!(form), .. }) => {
                     self.unexpected(&tag);
-                    if self.form_elem.is_none() {
+                    if !self.in_html_elem_named(atom!(template)) &&
+                           self.form_elem.is_none() {
                         self.form_elem =
                             Some(self.insert_and_pop_element_for(tag));
                     }
@@ -2139,11 +2164,117 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                     }
                 }
             },
-            InTemplate => {
-                if self.opts.ignore_missing_rules {
-                    self.step(InBody, token)
-                } else { panic!("FIXME: <template> not implemented"); }
-            }
+            InTemplate =>
+            match token {
+                CharacterTokens(_, _) => self.step(InBody, token),
+                CommentToken(_) => self.step(InBody, token),
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(base), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(basefont), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(bgsound), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(link), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(meta), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(noframes), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(script), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(style), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(template), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(title), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!(template), .. })
+                => {
+                    self.step(InHead, token)
+                }
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(caption), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(colgroup), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(tbody), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(tfoot), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(thead), .. }) => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InTable);
+                    Reprocess(InTable, token)
+                }
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(col), .. }) => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InColumnGroup);
+                    Reprocess(InColumnGroup, token)
+                }
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(tr), .. }) => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InTableBody);
+                    Reprocess(InTableBody, token)
+                }
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(td), .. }) |
+                ::tree_builder::types::TagToken(::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(th), .. }) => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InRow);
+                    Reprocess(InRow, token)
+                }
+                EOFToken => {
+                    if !self.in_html_elem_named(atom!(template)) {
+                        self.stop_parsing()
+                    } else {
+                        self.unexpected(&token);
+                        self.pop_until_named(atom!(template));
+                        self.clear_active_formatting_to_marker();
+                        self.template_modes.pop();
+                        self.mode = self.reset_insertion_mode();
+                        Reprocess(self.reset_insertion_mode(), token)
+                    }
+                }
+                last_arm_token => {
+                    let enable_wildcards =
+                        match last_arm_token { _ => true, };
+                    match (enable_wildcards, last_arm_token) {
+                        (true,
+                         ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                         kind: ::tokenizer::StartTag,
+                                                         .. })) => {
+                            self.template_modes.pop();
+                            self.template_modes.push(InBody);
+                            Reprocess(InBody, TagToken(tag))
+                        }
+                        (_, token) => self.unexpected(&token),
+                    }
+                }
+            },
             AfterBody =>
             match token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),

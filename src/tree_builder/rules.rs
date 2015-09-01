@@ -165,7 +165,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ </template> => {
-                    if !self.in_scope_named(default_scope, atom!(template)) {
+                    if !self.in_html_elem_named(atom!(template)) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(thorough_implied_end);
@@ -276,9 +276,10 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <html> => {
                     self.unexpected(&tag);
-                    // FIXME: <template>
-                    let top = self.html_elem();
-                    self.sink.add_attrs_if_missing(top, tag.attrs);
+                    if !self.in_html_elem_named(atom!(template)) {
+                        let top = self.html_elem();
+                        self.sink.add_attrs_if_missing(top, tag.attrs);
+                    }
                     Done
                 }
 
@@ -289,13 +290,13 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <body> => {
                     self.unexpected(&tag);
-                    // FIXME: <template>
                     match self.body_elem() {
-                        None => (),
-                        Some(node) => {
+                        Some(ref node) if self.open_elems.len() != 1 &&
+                                          !self.in_html_elem_named(atom!(template)) => {
                             self.frameset_ok = false;
-                            self.sink.add_attrs_if_missing(node, tag.attrs)
-                        }
+                            self.sink.add_attrs_if_missing(node.clone(), tag.attrs)
+                        },
+                        _ => {}
                     }
                     Done
                 }
@@ -320,9 +321,12 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 EOFToken => {
-                    // FIXME: <template>
-                    self.check_body_end();
-                    self.stop_parsing()
+                    if !self.template_modes.is_empty() {
+                        self.step(InTemplate, token)
+                    } else {
+                        self.check_body_end();
+                        self.stop_parsing()
+                    }
                 }
 
                 </body> => {
@@ -372,14 +376,15 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <form> => {
-                    // FIXME: <template>
-                    if self.form_elem.is_some() {
+                    if self.form_elem.is_some() &&
+                       !self.in_html_elem_named(atom!(template)) {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
-                        // FIXME: <template>
-                        self.form_elem = Some(elem);
+                        if !self.in_html_elem_named(atom!(template)) {
+                            self.form_elem = Some(elem);
+                        }
                     }
                     Done
                 }
@@ -454,25 +459,35 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </form> => {
-                    // FIXME: <template>
-                    // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-                    let node = match self.form_elem.take() {
-                        None => {
-                            self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
+                    if !self.in_html_elem_named(atom!(template)) {
+                        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
+                        let node = match self.form_elem.take() {
+                            None => {
+                                self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
+                                return Done;
+                            }
+                            Some(x) => x,
+                        };
+                        if !self.in_scope(default_scope, |n| self.sink.same_node(node.clone(), n)) {
+                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return Done;
                         }
-                        Some(x) => x,
-                    };
-                    if !self.in_scope(default_scope,
-                        |n| self.sink.same_node(node.clone(), n)) {
-                        self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
-                        return Done;
-                    }
-                    self.generate_implied_end(cursory_implied_end);
-                    let current = self.current_node();
-                    self.remove_from_stack(&node);
-                    if !self.sink.same_node(current, node) {
-                        self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        self.generate_implied_end(cursory_implied_end);
+                        let current = self.current_node();
+                        self.remove_from_stack(&node);
+                        if !self.sink.same_node(current, node) {
+                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        }
+                    } else {
+                        if !self.in_scope_named(default_scope, atom!(form)) {
+                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
+                            return Done;
+                        }
+                        self.generate_implied_end(cursory_implied_end);
+                        if !self.current_node_named(atom!(form)) {
+                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        }
+                        self.pop_until_named(atom!(form));
                     }
                     Done
                 }
@@ -821,8 +836,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <form> => {
                     self.unexpected(&tag);
-                    // FIXME: <template>
-                    if self.form_elem.is_none() {
+                    if !self.in_html_elem_named(atom!(template)) && self.form_elem.is_none() {
                         self.form_elem = Some(self.insert_and_pop_element_for(tag));
                     }
                     Done
@@ -1179,18 +1193,60 @@ impl<Handle, Sink> TreeBuilderStep
             }),
 
             //§ parsing-main-intemplate
-            InTemplate => {
-                // NB: Implementing <template> requires not just adding
-                // the InTemplate rules here, but also inserting various
-                // extra logic at other points noted throughout the
-                // parser.
+            InTemplate => match_token!(token {
+                CharacterTokens(_, _) => self.step(InBody, token),
+                CommentToken(_) => self.step(InBody, token),
 
-                if self.opts.ignore_missing_rules {
-                    self.step(InBody, token)
-                } else {
-                    panic!("FIXME: <template> not implemented");
+                <base> <basefont> <bgsound> <link> <meta> <noframes> <script>
+                <style> <template> <title> </template> => {
+                    self.step(InHead, token)
                 }
-            }
+
+                <caption> <colgroup> <tbody> <tfoot> <thead> => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InTable);
+                    Reprocess(InTable, token)
+                }
+
+                <col> => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InColumnGroup);
+                    Reprocess(InColumnGroup, token)
+                }
+
+                <tr> => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InTableBody);
+                    Reprocess(InTableBody, token)
+                }
+
+                <td> <th> => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InRow);
+                    Reprocess(InRow, token)
+                }
+
+                EOFToken => {
+                    if !self.in_html_elem_named(atom!(template)) {
+                        self.stop_parsing()
+                    } else {
+                        self.unexpected(&token);
+                        self.pop_until_named(atom!(template));
+                        self.clear_active_formatting_to_marker();
+                        self.template_modes.pop();
+                        self.mode = self.reset_insertion_mode();
+                        Reprocess(self.reset_insertion_mode(), token)
+                    }
+                }
+
+                tag @ <_> => {
+                    self.template_modes.pop();
+                    self.template_modes.push(InBody);
+                    Reprocess(InBody, TagToken(tag))
+                }
+
+                token => self.unexpected(&token),
+            }),
 
             //§ parsing-main-afterbody
             AfterBody => match_token!(token {

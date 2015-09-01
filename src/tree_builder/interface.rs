@@ -59,6 +59,11 @@ pub trait TreeSink {
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Self::Handle;
 
+    /// Get a handle to a template's template contents. The tree builder
+    /// promises this will never be called with something else than
+    /// a template element.
+    fn get_template_contents(&self, target: Self::Handle) -> Self::Handle;
+
     /// Do two handles refer to the same node?
     fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
 
@@ -72,6 +77,12 @@ pub trait TreeSink {
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
     /// Create an element.
+    ///
+    /// When creating a template element (`name == qualname!(HTML, template)`),
+    /// an associated document fragment called the "template contents" should
+    /// also be created. Later calls to self.get_template_contents() with that
+    /// given element return it.
+    /// https://html.spec.whatwg.org/multipage/#htmltemplateelement
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;
 
     /// Create a comment node.
