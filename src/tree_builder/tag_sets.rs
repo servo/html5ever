@@ -46,7 +46,14 @@ macro_rules! declare_tag_set (
 #[inline(always)] pub fn empty_set(_: QualName) -> bool { false }
 #[inline(always)] pub fn full_set(_: QualName) -> bool { true }
 
-declare_tag_set!(pub default_scope = applet caption html table td th marquee object template);
+declare_tag_set!(pub html_default_scope =
+    applet caption html table td th marquee object template);
+
+#[inline(always)] pub fn default_scope(name: QualName) -> bool {
+    html_default_scope(name.clone()) ||
+    mathml_text_integration_point(name.clone()) ||
+    html_integration_point(name)
+}
 
 declare_tag_set!(pub list_item_scope = default_scope + ol ul);
 declare_tag_set!(pub button_scope = default_scope + button);
