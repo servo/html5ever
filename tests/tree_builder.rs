@@ -30,7 +30,7 @@ use std::collections::{HashSet, HashMap};
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 
-use html5ever::{parse, parse_fragment, one_input};
+use html5ever::{ParseOpts, parse, parse_fragment, one_input};
 use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
 use html5ever::rcdom::{Template, Text};
 
@@ -161,19 +161,49 @@ fn make_test(
         idx: usize,
         fields: HashMap<String, String>) {
 
+    let scripting_flags = &[false, true];
+    let scripting_flags = if fields.contains_key("script-off") {
+        &scripting_flags[0..1]
+    } else if fields.contains_key("script-on") {
+        &scripting_flags[1..2]
+    } else {
+        &scripting_flags[0..2]
+    };
+    let name = format!("tb: {}-{}", filename, idx);
+    for scripting_enabled in scripting_flags {
+        let test = make_test_desc_with_scripting_flag(
+            ignores, &name, &fields, *scripting_enabled);
+        tests.push(test);
+    }
+}
+
+#[cfg(feature = "unstable")]
+fn make_test_desc_with_scripting_flag(
+        ignores: &HashSet<String>,
+        name: &str,
+        fields: &HashMap<String, String>,
+        scripting_enabled: bool)
+        -> TestDescAndFn {
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
         field.trim_right_matches('\n').to_string()
     };
 
-    let data = get_field("data");
     let expected = get_field("document");
     let context = fields.get("document-fragment")
                         .map(|field| Atom::from_slice(field.trim_right_matches('\n')));
-    let name = format!("tb: {}-{}", filename, idx);
-    let ignore = ignores.contains(&name);
+    let data = get_field("data");
+    let ignore = ignores.contains(name);
+    let mut name = name.to_owned();
+    if scripting_enabled {
+        name.push_str(" (scripting enabled)");
+    } else {
+        name.push_str(" (scripting disabled)");
+    };
+    let mut opts: ParseOpts = Default::default();
+    opts.tree_builder.scripting_enabled = scripting_enabled;
 
-    tests.push(TestDescAndFn {
+    TestDescAndFn {
         desc: TestDesc {
             name: DynTestName(name),
             ignore: ignore,
@@ -185,7 +215,7 @@ fn make_test(
             let mut result = String::new();
             match context {
                 None => {
-                    let dom: RcDom = parse(one_input(data.clone()), Default::default());
+                    let dom: RcDom = parse(one_input(data.clone()), opts);
                     for child in dom.document.borrow().children.iter() {
                         serialize(&mut result, 1, child.clone());
                     }
@@ -193,7 +223,7 @@ fn make_test(
                 Some(ref context) => {
                     let dom: RcDom = parse_fragment(one_input(data.clone()),
                                                     context.clone(),
-                                                    Default::default());
+                                                    opts);
                     // fragment case: serialize children of the html element
                     // rather than children of the document
                     let doc = dom.document.borrow();
@@ -211,7 +241,7 @@ fn make_test(
                     data, result, expected);
             }
         })),
-    });
+    }
 }
 
 #[cfg(feature = "unstable")]
