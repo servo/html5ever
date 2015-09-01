@@ -23,8 +23,7 @@ use string_cache::QualName;
 use tendril::StrTendril;
 
 use tokenizer;
-use tokenizer::{Doctype, Tag};
-use tokenizer::TokenSink;
+use tokenizer::{Doctype, StartTag, Tag, TokenSink};
 use tokenizer::states as tok_state;
 
 use util::str::is_ascii_whitespace;
@@ -319,10 +318,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         let mut more_tokens = VecDeque::new();
 
         loop {
-            let is_self_closing = match token {
-                TagToken(Tag { self_closing: c, .. }) => c,
-                _ => false,
-            };
+            let should_have_acknowledged_self_closing_flag =
+                matches!(token, TagToken(Tag { self_closing: true, kind: StartTag, .. }));
             let result = if self.is_foreign(&token) {
                 self.step_foreign(token)
             } else {
@@ -331,7 +328,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             };
             match result {
                 Done => {
-                    if is_self_closing {
+                    if should_have_acknowledged_self_closing_flag {
                         self.sink.parse_error(Borrowed("Unacknowledged self-closing tag"));
                     }
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
