@@ -29,7 +29,7 @@ pub fn one_input<T>(x: T) -> option::IntoIter<T> {
 ///
 /// ```ignore
 /// let sink = MySink;
-/// tokenize_to(&mut sink, one_input(my_str), Default::default());
+/// tokenize_to(sink, one_input(my_str), Default::default());
 /// ```
 pub fn tokenize_to<Sink, It>(sink: Sink, input: It, opts: TokenizerOpts) -> Sink
     where Sink: TokenSink,
