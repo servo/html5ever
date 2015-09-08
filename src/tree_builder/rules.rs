@@ -723,11 +723,22 @@ impl<Handle, Sink> TreeBuilderStep
                     Done
                 }
 
-                tag @ <rp> <rt> => {
+                tag @ <rb> <rtc> => {
                     if self.in_scope_named(default_scope, atom!(ruby)) {
                         self.generate_implied_end(cursory_implied_end);
                     }
                     if !self.current_node_named(atom!(ruby)) {
+                        self.unexpected(&tag);
+                    }
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <rp> <rt> => {
+                    if self.in_scope_named(default_scope, atom!(ruby)) {
+                        self.generate_implied_end_except(atom!(rtc));
+                    }
+                    if !self.current_node_named(atom!(rtc)) && !self.current_node_named(atom!(ruby)) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
