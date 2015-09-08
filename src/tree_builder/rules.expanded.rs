@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 6604065678599019684
+// source SipHash: 307317075343040988
 
 # ! [
 doc =
@@ -1277,14 +1277,30 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
+                                                name: atom!(rb), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!(rtc), .. }) => {
+                    if self.in_scope_named(default_scope, atom!(ruby)) {
+                        self.generate_implied_end(cursory_implied_end);
+                    }
+                    if !self.current_node_named(atom!(ruby)) {
+                        self.unexpected(&tag);
+                    }
+                    self.insert_element_for(tag);
+                    Done
+                }
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
                                                 name: atom!(rp), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!(rt), .. }) => {
                     if self.in_scope_named(default_scope, atom!(ruby)) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_except(atom!(rtc));
                     }
-                    if !self.current_node_named(atom!(ruby)) {
+                    if !self.current_node_named(atom!(rtc)) &&
+                           !self.current_node_named(atom!(ruby)) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
