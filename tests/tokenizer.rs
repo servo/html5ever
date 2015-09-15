@@ -27,7 +27,7 @@ use xml5ever::tokenizer::{Attribute};
 use xml5ever::tokenizer::{XTag, StartXTag, EndXTag, CommentXToken, EmptyXTag, ShortXTag};
 use xml5ever::tokenizer::{XToken, CharacterXTokens, XTokenSink};
 use xml5ever::tokenizer::{NullCharacterXToken, XParseError, XTagToken};
-use xml5ever::tokenizer::{PIToken, XPi};
+use xml5ever::tokenizer::{PIToken, XPi, DoctypeXToken, Doctype};
 use xml5ever::tokenizer::{EOFXToken, XmlTokenizer, XmlTokenizerOpts};
 
 mod util {
@@ -245,6 +245,12 @@ fn json_to_xtoken(js: &Json) -> XToken {
         "PI" => PIToken(XPi {
             target: args[0].get_tendril(),
             data: args[1].get_tendril(),
+        }),
+
+        "DOCTYPE" => DoctypeXToken (Doctype{
+            name: args[0].get_nullable_tendril(),
+            public_id: args[1].get_nullable_tendril(),
+            system_id: args[2].get_nullable_tendril(),
         }),
 
         // We don't need to produce NullCharacterToken because

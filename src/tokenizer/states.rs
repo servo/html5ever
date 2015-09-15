@@ -1,10 +1,11 @@
 pub use self::AttrValueKind::*;
 pub use self::XmlState::*;
+pub use self::DoctypeKind::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
-pub enum QuoteKind {
-    SingleQuotes,
-    DoubleQuotes,
+pub enum DoctypeKind {
+    Public,
+    System,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
@@ -26,7 +27,6 @@ pub enum XmlState {
     Cdata,
     CdataBracket,
     CdataEnd,
-    XDoctype,
     XTagName,
     XTagEmpty,
     TagAttrNameBefore,
@@ -34,6 +34,17 @@ pub enum XmlState {
     TagAttrNameAfter,
     TagAttrValueBefore,
     TagAttrValue(AttrValueKind),
+    XDoctype,
+    BeforeDoctypeName,
+    DoctypeName,
+    AfterDoctypeName,
+    AfterDoctypeKeyword(DoctypeKind),
+    BeforeDoctypeIdentifier(DoctypeKind),
+    DoctypeIdentifierDoubleQuoted(DoctypeKind),
+    DoctypeIdentifierSingleQuoted(DoctypeKind),
+    AfterDoctypeIdentifier(DoctypeKind),
+    BetweenDoctypePublicAndSystemIdentifiers,
+    BogusDoctype,
     BogusXComment,
 }
 
