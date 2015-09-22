@@ -10,7 +10,7 @@
 #![crate_name="html5ever"]
 #![crate_type="dylib"]
 
-#![cfg_attr(feature = "unstable", feature(plugin, rc_weak))]
+#![cfg_attr(feature = "unstable", feature(plugin))]
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 

@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(quote, rustc_private, rc_unique)]
+#![feature(quote, rustc_private)]
 #![deny(warnings)]
 
 extern crate syntax;
