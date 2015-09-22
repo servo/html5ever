@@ -64,7 +64,7 @@ declare_tag_set!(pub table_body_context = tbody tfoot thead template html);
 declare_tag_set!(pub table_row_context = tr template html);
 declare_tag_set!(pub td_th = td th);
 
-declare_tag_set!(pub cursory_implied_end = dd dt li option optgroup p rp rt);
+declare_tag_set!(pub cursory_implied_end = dd dt li option optgroup p rb rp rt rtc);
 
 declare_tag_set!(pub thorough_implied_end = cursory_implied_end
     + caption colgroup tbody td tfoot th thead tr);

@@ -22,8 +22,8 @@ unstable = ["html5ever_macros", "tendril/unstable", "string_cache/unstable", "st
 time = "0"
 log = "0"
 phf = "0.7"
-string_cache = "0.1.8"
-string_cache_plugin = { version = "0.1.5", optional = true }
+string_cache = "0.1.12"
+string_cache_plugin = { version = "0.1.7", optional = true }
 mac = "0"
 tendril = "0.1.3"
 rc = "0.1.1"
