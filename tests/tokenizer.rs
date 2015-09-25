@@ -1,14 +1,15 @@
-#![cfg_attr(feature = "unstable", feature(start, rt, test, plugin))]
+#![cfg_attr(feature = "unstable", feature(start, test, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 extern crate rustc_serialize;
 #[macro_use] extern crate string_cache;
 extern crate tendril;
 #[cfg(feature = "unstable")] extern crate test;
+
 extern crate xml5ever;
 extern crate rc;
 
-use std::{rt, env};
+use std::{env};
 use std::borrow::Cow::Borrowed;
 use std::ffi::OsStr;
 use std::mem::replace;
@@ -16,7 +17,6 @@ use std::path::Path;
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
-use rc::{Rc, Weak};
 use string_cache::{Atom, QualName};
 use tendril::{StrTendril, SliceExt};
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
@@ -357,12 +357,8 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 }
 
 #[cfg(feature = "unstable")]
-#[start]
-fn start(argc: isize, argv: *const *const u8) -> isize {
-    unsafe {
-        rt::args::init(argc, argv);
-    }
+#[test]
+fn run() {
     let args: Vec<_> = env::args().collect();
     test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
-    0
 }
