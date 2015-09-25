@@ -704,7 +704,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             //§ cdata-bracket-state
             XmlState::CdataBracket => loop {  match get_char!(self) {
                     ']' => go!(self: to CdataEnd),
-                    cl  => go!(self: emit ']'; emit cl),
+                    cl  => go!(self: emit ']'; emit cl; to Cdata),
                 }
             },
             //§ cdata-end-state
