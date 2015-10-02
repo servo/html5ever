@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.2.5"
+version = "0.2.6"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -34,7 +34,7 @@ rustc-serialize = "0.3.15"
 [build-dependencies]
 phf_codegen = "0.7.3"
 rustc-serialize = "0.3.15"
-html5ever_macros = { version = "0.2.0", path = "macros", optional = true }
+html5ever_macros = { version = "0.2.4", path = "macros", optional = true }
 
 [profile.dev]
 debug = false
