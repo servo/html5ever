@@ -1,7 +1,7 @@
 #![crate_name="xml5ever"]
 #![crate_type="dylib"]
 
-#![cfg_attr(feature = "unstable", feature(plugin, rc_weak))]
+#![cfg_attr(feature = "unstable", feature(plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 #[macro_use] extern crate log;
