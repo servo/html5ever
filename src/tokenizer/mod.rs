@@ -495,7 +495,6 @@ macro_rules! shorthand (
     ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c);      );
     ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
     ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k);                            );
-    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.force_quirks = true;             );
     ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype();                          );
     ( $me:ident : error                            ) => ( $me.bad_char_error();                                );
     ( $me:ident : error_eof                        ) => ( $me.bad_eof_error();                                 );
@@ -875,7 +874,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                     match get_char!(self) {
                         '\t' | '\n' | '\x0C' | ' ' => (),
                         '>' => go!(self: emit_doctype; to XData),
-                        _   => go!(self: error; force_quirks; to BogusDoctype),
+                        _   => go!(self: error; to BogusDoctype),
                     }
                 }
             },

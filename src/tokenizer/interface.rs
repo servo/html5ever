@@ -52,7 +52,6 @@ pub struct Doctype {
     pub name: Option<StrTendril>,
     pub public_id: Option<StrTendril>,
     pub system_id: Option<StrTendril>,
-    pub force_quirks: bool,
 }
 
 impl Doctype {
@@ -61,7 +60,6 @@ impl Doctype {
             name: None,
             public_id: None,
             system_id: None,
-            force_quirks: false,
         }
     }
 }
