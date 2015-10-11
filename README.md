@@ -50,6 +50,6 @@ html5ever exclusively uses UTF-8 to represent strings.  In the future it will su
 
 The code is cross-referenced with the WHATWG syntax spec, and eventually we will have a way to present code and spec side-by-side.
 
-html5ever builds against the official stable releases of Rust, though some features are only supported on nightly releases.
+html5ever builds against the official stable releases of Rust, though some optimizations are only supported on nightly releases.
 
 [API documentation]: http://doc.servo.org/html5ever/index.html
