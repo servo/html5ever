@@ -16,6 +16,11 @@
 
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
+#![cfg_attr(feature = "heap_size", feature(plugin, custom_derive))]
+#![cfg_attr(feature = "heap_size", plugin(heapsize_plugin))]
+#[cfg(feature = "heap_size")]
+extern crate heapsize;
+
 extern crate rc;
 
 #[macro_use]
