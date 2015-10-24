@@ -1,6 +1,6 @@
 use std::borrow::Cow::Borrowed;
 use tendril::StrTendril;
-use tokenizer::{XTag, StartXTag, EndXTag, ShortXTag, EmptyXTag};
+use tokenizer::{Tag, StartTag, EndTag, ShortTag, EmptyTag};
 use tree_builder::types::*;
 use tree_builder::interface::TreeSink;
 use tree_builder::actions::XmlTreeBuilderActions;
@@ -10,7 +10,7 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
 }
 
 pub trait XmlTreeBuilderStep {
-    fn step(&mut self, mode: XmlPhase, token: XToken) -> XmlProcessResult;
+    fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult;
 }
 
 #[doc(hidden)]
@@ -20,14 +20,14 @@ impl<Handle, Sink> XmlTreeBuilderStep
           Sink: TreeSink<Handle=Handle>,
 {
 
-    fn step(&mut self, mode: XmlPhase, token: XToken) -> XmlProcessResult {
+    fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult {
         self.debug_step(mode, &token);
 
         match mode {
             StartPhase => match token {
-                XTagToken(XTag{kind: StartXTag, name, attrs}) => {
-                    let tag = XTag {
-                        kind: StartXTag,
+                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                    let tag = Tag {
+                        kind: StartTag,
                         name: name,
                         attrs: attrs
                     };
@@ -36,63 +36,63 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     self.add_to_open_elems(handle)
 
                 },
-                XTagToken(XTag{kind: EmptyXTag, name, attrs}) => {
-                    let tag = XTag {
-                        kind: StartXTag,
+                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                    let tag = Tag {
+                        kind: StartTag,
                         name: name,
                         attrs: attrs
                     };
                     self.phase = EndPhase;
                     self.append_tag_to_doc(tag);
-                    XDone
+                    Done
                 },
-                CommentXToken(comment) => {
+                CommentToken(comment) => {
                     self.append_comment_to_doc(comment)
                 },
                 PIToken(pi) => {
                     self.append_pi_to_doc(pi)
                 },
-                CharacterXTokens(ref chars)
+                CharacterTokens(ref chars)
                     if !any_not_whitespace(chars) => {
-                        XDone
+                        Done
                 },
-                EOFXToken => {
+                EOFToken => {
                     self.sink.parse_error(Borrowed("Unexpected EOF in start phase"));
-                    XReprocess(EndPhase, EOFXToken)
+                    Reprocess(EndPhase, EOFToken)
                 },
                 _ => {
                     self.sink.parse_error(Borrowed("Unexpected element in start phase"));
-                    XDone
+                    Done
                 },
             },
             MainPhase => match token {
-                CharacterXTokens(chs) => {
+                CharacterTokens(chs) => {
                     self.append_text(chs)
                 },
-                XTagToken(XTag{kind: StartXTag, name, attrs}) => {
-                    let tag = XTag {
-                        kind: StartXTag,
+                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                    let tag = Tag {
+                        kind: StartTag,
                         name: name,
                         attrs: attrs
                     };
 
                     self.insert_tag(tag)
                 },
-                XTagToken(XTag{kind: EmptyXTag, name, attrs}) => {
-                    let tag = XTag {
-                        kind: StartXTag,
+                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                    let tag = Tag {
+                        kind: StartTag,
                         name: name,
                         attrs: attrs
                     };
                     self.append_tag(tag)
                 },
-                XTagToken(XTag{kind: EndXTag, name, attrs}) => {
-                    let tag = XTag {
-                        kind: StartXTag,
+                TagToken(Tag{kind: EndTag, name, attrs}) => {
+                    let tag = Tag {
+                        kind: StartTag,
                         name: name,
                         attrs: attrs
                     };
-                    println!("Enter EndXTag in MainPhase");
+                    println!("Enter EndTag in MainPhase");
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
                         println!("No open elems, switch to EndPhase");
@@ -100,40 +100,40 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     }
                     retval
                 },
-                XTagToken(XTag{kind: ShortXTag, ..}) => {
+                TagToken(Tag{kind: ShortTag, ..}) => {
                     self.pop();
                     if self.no_open_elems() {
                         self.phase = EndPhase;
                     }
-                    XDone
+                    Done
                 },
-                CommentXToken(comment) => {
+                CommentToken(comment) => {
                     self.append_comment_to_tag(comment)
                 },
                 PIToken(pi) => {
                     self.append_pi_to_tag(pi)
                 },
-                EOFXToken | NullCharacterXToken=> {
-                    XReprocess(EndPhase, EOFXToken)
+                EOFToken | NullCharacterToken=> {
+                    Reprocess(EndPhase, EOFToken)
                 }
             },
             EndPhase => match token {
-                CommentXToken(comment) => {
+                CommentToken(comment) => {
                     self.append_comment_to_doc(comment)
                 },
                 PIToken(pi) => {
                     self.append_pi_to_doc(pi)
                 },
-                CharacterXTokens(ref chars)
+                CharacterTokens(ref chars)
                     if !any_not_whitespace(chars) => {
-                        XDone
+                        Done
                 },
-                EOFXToken => {
+                EOFToken => {
                     self.stop_parsing()
                 }
                 _ => {
                     self.sink.parse_error(Borrowed("Unexpected element in end phase"));
-                    XDone
+                    Done
                 }
             },
 

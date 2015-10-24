@@ -5,18 +5,18 @@ use std::io::{self, Read};
 use std::default::Default;
 use tendril::{ByteTendril, ReadExt};
 
-use xml5ever::tokenizer::{XTokenSink, XToken, XmlTokenizerOpts, XParseError};
-use xml5ever::tokenizer::{CharacterXTokens, NullCharacterXToken, XTagToken};
-use xml5ever::tokenizer::{StartXTag, EndXTag, ShortXTag, EmptyXTag};
-use xml5ever::tokenizer::{PIToken, XPi};
+use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizerOpts, ParseError};
+use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
+use xml5ever::tokenizer::{StartTag, EndTag, ShortTag, EmptyTag};
+use xml5ever::tokenizer::{PIToken, Pi};
 use xml5ever::tokenize_xml_to;
 
 #[derive(Copy, Clone)]
-struct XTokenPrinter {
+struct TokenPrinter {
     in_char_run: bool,
 }
 
-impl XTokenPrinter {
+impl TokenPrinter {
     fn is_char(&mut self, is_char: bool) {
         match (self.in_char_run, is_char) {
             (false, true ) => print!("CHAR : \""),
@@ -32,38 +32,38 @@ impl XTokenPrinter {
     }
 }
 
-impl XTokenSink for XTokenPrinter {
-    fn process_token(&mut self, token: XToken) {
+impl TokenSink for TokenPrinter {
+    fn process_token(&mut self, token: Token) {
         match token {
-            CharacterXTokens(b) => {
+            CharacterTokens(b) => {
                 for c in b.chars() {
                     self.do_char(c);
                 }
             }
-            NullCharacterXToken => self.do_char('\0'),
-            XTagToken(tag) => {
+            NullCharacterToken => self.do_char('\0'),
+            TagToken(tag) => {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
-                    StartXTag => print!("TAG  : <\x1b[32m{}\x1b[0m", tag.name.as_slice()),
-                    EndXTag   => print!("END TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
-                    ShortXTag => print!("Short TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
-                    EmptyXTag => print!("Empty TAG  : <\x1b[31m{}\x1b[0m", tag.name.as_slice()),
+                    StartTag => print!("TAG  : <\x1b[32m{}\x1b[0m", tag.name.as_slice()),
+                    EndTag   => print!("END TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
+                    ShortTag => print!("Short TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
+                    EmptyTag => print!("Empty TAG  : <\x1b[31m{}\x1b[0m", tag.name.as_slice()),
                 }
                 for attr in tag.attrs.iter() {
                     print!(" \x1b[36m{}\x1b[0m='\x1b[34m{}\x1b[0m'",
                         attr.name.local.as_slice(), attr.value);
                 }
-                if tag.kind == EmptyXTag {
+                if tag.kind == EmptyTag {
                     print!("/");
                 }
                 println!(">");
             }
-            XParseError(err) => {
+            ParseError(err) => {
                 self.is_char(false);
                 println!("ERROR: {}", err);
             }
-            PIToken(XPi{target, data}) => {
+            PIToken(Pi{target, data}) => {
                 self.is_char(false);
                 println!("PI : <?{:?} {:?}?>", target, data);
             }
@@ -76,7 +76,7 @@ impl XTokenSink for XTokenPrinter {
 }
 
 fn main() {
-    let mut sink = XTokenPrinter {
+    let mut sink = TokenPrinter {
         in_char_run: false,
     };
     let mut input = ByteTendril::new();

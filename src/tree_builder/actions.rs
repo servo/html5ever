@@ -1,27 +1,27 @@
 use std::borrow::Cow::Borrowed;
 use string_cache::QualName;
 use tendril::StrTendril;
-use tokenizer::{XTag, XPi};
+use tokenizer::{Tag, Pi};
 use tree_builder::interface::{NodeOrText, TreeSink, AppendNode, AppendText};
-use tree_builder::types::{XmlProcessResult, XDone};
+use tree_builder::types::{XmlProcessResult, Done};
 
 
 pub trait XmlTreeBuilderActions<Handle> {
     fn current_node(&self) -> Handle;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
-    fn insert_tag(&mut self, tag: XTag) -> XmlProcessResult;
-    fn append_tag(&mut self, tag: XTag) -> XmlProcessResult;
-    fn append_tag_to_doc(&mut self, tag: XTag) -> Handle;
+    fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult;
+    fn append_tag(&mut self, tag: Tag) -> XmlProcessResult;
+    fn append_tag_to_doc(&mut self, tag: Tag) -> Handle;
     fn add_to_open_elems(&mut self, el: Handle) -> XmlProcessResult;
     fn append_comment_to_doc(&mut self, comment: StrTendril) -> XmlProcessResult;
     fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult;
-    fn append_pi_to_doc(&mut self, pi: XPi) -> XmlProcessResult;
-    fn append_pi_to_tag(&mut self, pi: XPi) -> XmlProcessResult;
+    fn append_pi_to_doc(&mut self, pi: Pi) -> XmlProcessResult;
+    fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult;
     fn append_text(&mut self, chars: StrTendril) -> XmlProcessResult;
-    fn tag_in_open_elems(&self, tag: &XTag) -> bool;
+    fn tag_in_open_elems(&self, tag: &Tag) -> bool;
     fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
-    fn close_tag(&mut self, tag: XTag) -> XmlProcessResult;
+    fn close_tag(&mut self, tag: Tag) -> XmlProcessResult;
     fn no_open_elems(&self) -> bool;
     fn pop(&mut self) -> Handle ;
     fn stop_parsing(&mut self) -> XmlProcessResult;
@@ -43,21 +43,21 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         self.sink.append(target, child);
     }
 
-    fn insert_tag(&mut self, tag: XTag) -> XmlProcessResult {
+    fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult {
         let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
-    fn append_tag(&mut self, tag: XTag) -> XmlProcessResult {
+    fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
         let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
         self.insert_appropriately(AppendNode(child));
-        XDone
+        Done
     }
 
-    fn append_tag_to_doc(&mut self, tag: XTag) -> Handle {
+    fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
         let root = self.doc_handle.clone();
         let child = self.sink.create_element(QualName::new(ns!(XML),
             tag.name), tag.attrs);
@@ -71,45 +71,45 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
         //FIXME remove this on final commit
         println!("After add to open elems there are {} open elems", self.open_elems.len());
-        XDone
+        Done
     }
 
     fn append_comment_to_doc(&mut self, text: StrTendril) -> XmlProcessResult {
         let target = self.doc_handle.clone();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
-        XDone
+        Done
     }
 
     fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult {
         let target = self.current_node();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
-        XDone
+        Done
     }
 
-    fn append_pi_to_doc(&mut self, pi: XPi) -> XmlProcessResult {
+    fn append_pi_to_doc(&mut self, pi: Pi) -> XmlProcessResult {
         let target = self.doc_handle.clone();
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(target, AppendNode(pi));
-        XDone
+        Done
     }
 
-    fn append_pi_to_tag(&mut self, pi: XPi) -> XmlProcessResult {
+    fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult {
         let target = self.current_node();
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(target, AppendNode(pi));
-        XDone
+        Done
     }
 
 
     fn append_text(&mut self, chars: StrTendril)
         -> XmlProcessResult {
         self.insert_appropriately(AppendText(chars));
-        XDone
+        Done
     }
 
-    fn tag_in_open_elems(&self, tag: &XTag) -> bool {
+    fn tag_in_open_elems(&self, tag: &Tag) -> bool {
         self.open_elems
             .iter()
             .any(|a| self.sink.elem_name(a) == QualName::new(ns!(XML), tag.name.clone()))
@@ -134,7 +134,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         set(self.sink.elem_name(&self.current_node()))
     }
 
-    fn close_tag(&mut self, tag: XTag) -> XmlProcessResult {
+    fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
         println!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(&self.current_node()), &tag.name);
         if &self.sink.elem_name(&self.current_node()).local != &tag.name {
@@ -148,7 +148,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
             self.pop_until(|p| p == QualName::new(ns!(XML), tag.name.clone()));
             self.pop();
         }
-        XDone
+        Done
     }
 
     fn no_open_elems(&self) -> bool {
@@ -161,6 +161,6 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
     fn stop_parsing(&mut self) -> XmlProcessResult {
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
-        XDone
+        Done
     }
 }

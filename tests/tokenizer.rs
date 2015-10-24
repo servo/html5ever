@@ -24,11 +24,11 @@ use tendril::{StrTendril, SliceExt};
 use util::find_tests::foreach_xml5lib_test;
 
 use xml5ever::tokenizer::{Attribute};
-use xml5ever::tokenizer::{XTag, StartXTag, EndXTag, CommentXToken, EmptyXTag, ShortXTag};
-use xml5ever::tokenizer::{XToken, CharacterXTokens, XTokenSink};
-use xml5ever::tokenizer::{NullCharacterXToken, XParseError, XTagToken};
-use xml5ever::tokenizer::{PIToken, XPi, DoctypeXToken, Doctype};
-use xml5ever::tokenizer::{EOFXToken, XmlTokenizer, XmlTokenizerOpts};
+use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
+use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};
+use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
+use xml5ever::tokenizer::{PIToken, Pi, DoctypeToken, Doctype};
+use xml5ever::tokenizer::{EOFToken, XmlTokenizer, XmlTokenizerOpts};
 
 mod util {
     pub mod find_tests;
@@ -58,16 +58,16 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
     out
 }
 
-struct XTokenLogger {
-    tokens: Vec<XToken>,
+struct TokenLogger {
+    tokens: Vec<Token>,
     current_str: StrTendril,
     exact_errors: bool,
 }
 
 
-impl XTokenLogger {
-    fn new(exact_errors: bool) -> XTokenLogger {
-        XTokenLogger {
+impl TokenLogger {
+    fn new(exact_errors: bool) -> TokenLogger {
+        TokenLogger {
             tokens: vec!(),
             current_str: StrTendril::new(),
             exact_errors: exact_errors,
@@ -75,7 +75,7 @@ impl XTokenLogger {
     }
 
     // Push anything other than character tokens
-    fn push(&mut self, token: XToken) {
+    fn push(&mut self, token: Token) {
         self.finish_str();
         self.tokens.push(token);
     }
@@ -83,53 +83,53 @@ impl XTokenLogger {
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
             let s = replace(&mut self.current_str, StrTendril::new());
-            self.tokens.push(CharacterXTokens(s));
+            self.tokens.push(CharacterTokens(s));
         }
     }
 
-    fn get_tokens(mut self) -> Vec<XToken> {
+    fn get_tokens(mut self) -> Vec<Token> {
         self.finish_str();
         self.tokens
     }
 }
 
-impl XTokenSink for XTokenLogger {
-    fn process_token(&mut self, token: XToken) {
+impl TokenSink for TokenLogger {
+    fn process_token(&mut self, token: Token) {
         match token {
-            CharacterXTokens(b) => {
+            CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
             }
 
-            NullCharacterXToken => {
+            NullCharacterToken => {
                 self.current_str.push_char('\0');
             }
 
-            XParseError(_) => if self.exact_errors {
-                self.push(XParseError(Borrowed("")));
+            ParseError(_) => if self.exact_errors {
+                self.push(ParseError(Borrowed("")));
             },
 
-            XTagToken(mut t) => {
+            TagToken(mut t) => {
                 // The spec seems to indicate that one can emit
                 // erroneous end tags with attrs, but the test
                 // cases don't contain them.
                 match t.kind {
-                    EndXTag => {
+                    EndTag => {
                         t.attrs = vec!();
                     }
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
-                self.push(XTagToken(t));
+                self.push(TagToken(t));
             }
 
-            EOFXToken => (),
+            EOFToken => (),
 
             _ => self.push(token),
         }
     }
 }
 
-fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<XToken> {
-    let sink = XTokenLogger::new(opts.exact_errors);
+fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
+    let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = XmlTokenizer::new(sink, opts);
     for chunk in input.into_iter() {
         tok.feed(chunk);
@@ -198,14 +198,14 @@ impl JsonExt for Json {
 }
 
 // Parse a JSON object (other than "ParseError") to a token.
-fn json_to_xtoken(js: &Json) -> XToken {
+fn json_to_token(js: &Json) -> Token {
     let parts = js.as_array().unwrap();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Json> = parts[1..].iter().collect();
     match &*parts[0].get_str() {
 
-        "StartTag" => XTagToken(XTag {
-            kind: StartXTag,
+        "StartTag" => TagToken(Tag {
+            kind: StartTag,
             name: Atom::from_slice(&args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
@@ -215,20 +215,20 @@ fn json_to_xtoken(js: &Json) -> XToken {
             }).collect(),
         }),
 
-        "EndTag" => XTagToken(XTag {
-            kind: EndXTag,
+        "EndTag" => TagToken(Tag {
+            kind: EndTag,
             name: Atom::from_slice(&args[0].get_str()),
             attrs: vec!(),
         }),
 
-        "ShortTag" => XTagToken(XTag {
-            kind: ShortXTag,
+        "ShortTag" => TagToken(Tag {
+            kind: ShortTag,
             name: Atom::from_slice(&args[0].get_str()),
             attrs: vec!(),
         }),
 
-        "EmptyTag" => XTagToken(XTag {
-            kind: EmptyXTag,
+        "EmptyTag" => TagToken(Tag {
+            kind: EmptyTag,
             name: Atom::from_slice(&args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
@@ -238,16 +238,16 @@ fn json_to_xtoken(js: &Json) -> XToken {
             }).collect(),
         }),
 
-        "Comment" => CommentXToken(args[0].get_tendril()),
+        "Comment" => CommentToken(args[0].get_tendril()),
 
-        "Character" => CharacterXTokens(args[0].get_tendril()),
+        "Character" => CharacterTokens(args[0].get_tendril()),
 
-        "PI" => PIToken(XPi {
+        "PI" => PIToken(Pi {
             target: args[0].get_tendril(),
             data: args[1].get_tendril(),
         }),
 
-        "DOCTYPE" => DoctypeXToken (Doctype{
+        "DOCTYPE" => DoctypeToken (Doctype{
             name: args[0].get_nullable_tendril(),
             public_id: args[1].get_nullable_tendril(),
             system_id: args[2].get_nullable_tendril(),
@@ -262,15 +262,15 @@ fn json_to_xtoken(js: &Json) -> XToken {
 
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_xtokens(js: &Json, exact_errors: bool) -> Vec<XToken> {
+fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
-    let mut sink = XTokenLogger::new(exact_errors);
+    let mut sink = TokenLogger::new(exact_errors);
     for tok in js.as_array().unwrap().iter() {
         match *tok {
             Json::String(ref s)
-                if &s[..] == "ParseError" => sink.process_token(XParseError(Borrowed(""))),
-            _ => sink.process_token(json_to_xtoken(tok)),
+                if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
+            _ => sink.process_token(json_to_token(tok)),
         }
     }
     sink.get_tokens()
@@ -294,7 +294,7 @@ fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
                 let output = tokenize_xml(input.clone(), opts.clone());
-                let expect = json_to_xtokens(&expect, opts.exact_errors);
+                let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
                     panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);

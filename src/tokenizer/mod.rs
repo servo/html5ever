@@ -4,11 +4,11 @@ mod interface;
 pub mod states;
 
 pub use self::interface::{Attribute, Doctype};
-pub use self::interface::{StartXTag, EndXTag, EmptyXTag, ShortXTag};
-pub use self::interface::{DoctypeXToken, XTagToken, PIToken, CommentXToken};
-pub use self::interface::{CharacterXTokens, EOFXToken, NullCharacterXToken};
-pub use self::interface::{XTokenSink, XParseError, XTagKind, XToken, XTag};
-pub use self::interface::XPi;
+pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag};
+pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
+pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
+pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
+pub use self::interface::Pi;
 
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
@@ -18,9 +18,9 @@ use string_cache::{Atom, QualName};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
-use self::char_ref::{XCharRefTokenizer, XRef};
+use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
-use self::states::{XData, XTagState, XmlState};
+use self::states::{Data, TagState, XmlState};
 use self::states::{DoctypeKind, Public, System};
 use util::smallcharset::SmallCharSet;
 
@@ -90,7 +90,7 @@ pub struct XmlTokenizer<Sink> {
 
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
-    char_ref_tokenizer: Option<Box<XCharRefTokenizer>>,
+    char_ref_tokenizer: Option<Box<CharRefTokenizer>>,
 
     /// Current input character.  Just consumed, may reconsume.
     current_char: char,
@@ -107,7 +107,7 @@ pub struct XmlTokenizer<Sink> {
     discard_bom: bool,
 
     /// Current tag kind.
-    current_tag_kind: XTagKind,
+    current_tag_kind: TagKind,
 
     /// Current tag name.
     current_tag_name: StrTendril,
@@ -139,14 +139,14 @@ pub struct XmlTokenizer<Sink> {
     time_in_sink: u64,
 }
 
-impl <Sink:XTokenSink> XmlTokenizer<Sink> {
+impl <Sink:TokenSink> XmlTokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: Sink, opts: XmlTokenizerOpts) -> XmlTokenizer<Sink> {
         if opts.profile && cfg!(for_c) {
             panic!("Can't profile tokenizer when built as a C library");
         }
 
-        let state = *opts.initial_state.as_ref().unwrap_or(&states::XData);
+        let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
         XmlTokenizer {
             opts: opts,
@@ -159,7 +159,7 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
             reconsume: false,
             ignore_lf: false,
             discard_bom: discard_bom,
-            current_tag_kind: StartXTag,
+            current_tag_kind: StartTag,
             current_tag_name: StrTendril::new(),
             current_tag_attrs: vec!(),
             current_attr_name: StrTendril::new(),
@@ -198,7 +198,7 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
         self.run();
     }
 
-    fn process_token(&mut self, token: XToken) {
+    fn process_token(&mut self, token: Token) {
         if self.opts.profile {
             let (_, dt) = time!(self.sink.process_token(token));
             self.time_in_sink += dt;
@@ -325,7 +325,7 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
         self.current_tag_attrs = vec!();
     }
 
-    fn create_tag(&mut self, kind: XTagKind, c: char) {
+    fn create_tag(&mut self, kind: TagKind, c: char) {
         self.discard_tag();
         self.current_tag_name.push_char(c);
         self.current_tag_kind = kind;
@@ -340,29 +340,29 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.process_token(CharacterXTokens(StrTendril::from_char(match c {
+        self.process_token(CharacterTokens(StrTendril::from_char(match c {
             '\0' => '\u{FFFD}',
             c => c,
         })));
     }
 
     fn emit_short_tag(&mut self) {
-        self.current_tag_kind = ShortXTag;
+        self.current_tag_kind = ShortTag;
         self.current_tag_name = StrTendril::new();
         self.emit_current_tag();
     }
 
     fn emit_empty_tag(&mut self) {
-        self.current_tag_kind = EmptyXTag;
+        self.current_tag_kind = EmptyTag;
         self.emit_current_tag();
     }
 
     fn set_empty_tag(&mut self) {
-        self.current_tag_kind = EmptyXTag;
+        self.current_tag_kind = EmptyTag;
     }
 
     fn emit_start_tag(&mut self) {
-        self.current_tag_kind = StartXTag;
+        self.current_tag_kind = StartTag;
         self.emit_current_tag();
     }
 
@@ -373,27 +373,27 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
         let name = Atom::from_slice(&name);
 
         match self.current_tag_kind {
-            StartXTag | EmptyXTag => {},
-            EndXTag => {
+            StartTag | EmptyTag => {},
+            EndTag => {
                 if !self.current_tag_attrs.is_empty() {
                     self.emit_error(Borrowed("Attributes on an end tag"));
                 }
             },
-            ShortXTag => {
+            ShortTag => {
                 if !self.current_tag_attrs.is_empty() {
                     self.emit_error(Borrowed("Attributes on a short tag"));
                 }
             },
         }
 
-        let token = XTagToken(XTag { kind: self.current_tag_kind,
+        let token = TagToken(Tag { kind: self.current_tag_kind,
             name: name,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
         self.process_token(token);
 
 
-        if self.current_tag_kind == StartXTag {
+        if self.current_tag_kind == StartTag {
             match self.sink.query_state_change() {
                 None => (),
                 Some(s) => self.state = s,
@@ -403,12 +403,12 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: StrTendril) {
-        self.process_token(CharacterXTokens(b));
+        self.process_token(CharacterTokens(b));
     }
 
     // Emits the current Processing Instruction
     fn emit_pi(&mut self) {
-        let token = PIToken(XPi {
+        let token = PIToken(Pi {
             target: replace(&mut self.current_pi_target, StrTendril::new()),
             data: replace(&mut self.current_pi_data, StrTendril::new()),
         });
@@ -422,22 +422,22 @@ impl <Sink:XTokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_eof(&mut self) {
-        self.process_token(EOFXToken);
+        self.process_token(EOFToken);
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
-        self.process_token(XParseError(error));
+        self.process_token(ParseError(error));
     }
 
 
     fn emit_current_comment(&mut self) {
         let comment = replace(&mut self.current_comment, StrTendril::new());
-        self.process_token(CommentXToken(comment));
+        self.process_token(CommentToken(comment));
     }
 
     fn emit_current_doctype(&mut self) {
         let doctype = replace(&mut self.current_doctype, Doctype::new());
-        self.process_token(DoctypeXToken(doctype));
+        self.process_token(DoctypeToken(doctype));
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeKind) -> &'a mut Option<StrTendril> {
@@ -606,7 +606,7 @@ macro_rules! eat ( ($me:expr, $pat:expr) => (
 ));
 
 
-impl<Sink: XTokenSink> XmlTokenizer<Sink> {
+impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
@@ -619,44 +619,44 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
         println!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
-            XmlState::XData => loop {
+            XmlState::Data => loop {
                 match pop_except_from!(self, small_char_set!('\r' '&' '<')) {
-                    FromSet('&')  => go!(self: consume_xchar_ref),
-                    FromSet('<')  => go!(self: to XTagState),
+                    FromSet('&')  => go!(self: consume_char_ref),
+                    FromSet('<')  => go!(self: to TagState),
                     FromSet(c)    => go!(self: emit c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
             //§ tag-state
-            XmlState::XTagState => loop { match get_char!(self) {
+            XmlState::TagState => loop { match get_char!(self) {
                 '!' => go!(self: to MarkupDecl),
-                '/' => go!(self: to EndXTagState),
+                '/' => go!(self: to EndTagState),
                 '?' => go!(self: to Pi),
                 '\t'| '\n' | ' '|
-                ':' | '<' | '>' => go!(self: error; emit '<'; reconsume XData),
-                cl => go!(self: create_tag StartXTag cl; to XTagName),
+                ':' | '<' | '>' => go!(self: error; emit '<'; reconsume Data),
+                cl => go!(self: create_tag StartTag cl; to TagName),
                 }
             },
             //§ end-tag-state
-            XmlState::EndXTagState => loop { match get_char!(self) {
-                '>' => go!(self:  emit_short_tag XData),
+            XmlState::EndTagState => loop { match get_char!(self) {
+                '>' => go!(self:  emit_short_tag Data),
                 '\t' | '\n' | ' '|
-                '<' | ':'  => go!(self: error; emit '<'; emit '/'; reconsume XData),
-                cl => go!(self: create_tag EndXTag cl; to EndXTagName)
+                '<' | ':'  => go!(self: error; emit '<'; emit '/'; reconsume Data),
+                cl => go!(self: create_tag EndTag cl; to EndTagName)
                 }
             },
             //§ end-tag-name-state
-            XmlState::EndXTagName => loop { match get_char!(self) {
+            XmlState::EndTagName => loop { match get_char!(self) {
                 '\t' | '\n'
-                | ' '   => go!(self: to EndXTagNameAfter),
-                '/'     => go!(self: error; to EndXTagNameAfter),
-                '>'     => go!(self: emit_tag XData),
+                | ' '   => go!(self: to EndTagNameAfter),
+                '/'     => go!(self: error; to EndTagNameAfter),
+                '>'     => go!(self: emit_tag Data),
                 cl      => go!(self: push_tag cl),
                 }
             },
             //§ end-tag-name-after-state
-            XmlState::EndXTagNameAfter => loop {match get_char!(self) {
-                '>'     => go!(self: emit_tag XData),
+            XmlState::EndTagNameAfter => loop {match get_char!(self) {
+                '>'     => go!(self: emit_tag Data),
                 '\t' | '\n'
                 | ' '   => (),
                 _       => self.emit_error(Borrowed("Unexpected element in tag name")),
@@ -665,7 +665,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             //§ pi-state
             XmlState::Pi => loop { match get_char!(self) {
                 '\t' | '\n'
-                | ' '  => go!(self: error; reconsume BogusXComment),
+                | ' '  => go!(self: error; reconsume BogusComment),
                 cl     =>  go!(self: create_pi cl; to PiTarget),
                 }
             },
@@ -691,7 +691,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             },
             //§ pi-after-state
             XmlState::PiAfter => loop { match get_char!(self) {
-                '>' => go!(self: emit_pi XData),
+                '>' => go!(self: emit_pi Data),
                 '?' => go!(self: to PiAfter),
                 cl  => go!(self: push_pi_data cl),
                 }
@@ -699,34 +699,34 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             //§ markup-declaration-state
             XmlState::MarkupDecl => loop {
                 if eat!(self, "--") {
-                    go!(self: clear_comment; to XComment);
+                    go!(self: clear_comment; to Comment);
                 } else if eat!(self, "[CDATA[") {
                     go!(self: to Cdata);
                 } else if eat!(self, "DOCTYPE") {
-                    go!(self: to XDoctype);
+                    go!(self: to Doctype);
                 } else {
                     // FIXME: 'error' gives wrong message
-                    go!(self: error; to BogusXComment);
+                    go!(self: error; to BogusComment);
                 }
             },
             //§ comment-state
-            XmlState::XComment => loop { match get_char!(self) {
-                '-' => go!(self: to XCommentDash),
-                '>' => go!(self: error; emit_comment; to XData),
-                c   => go!(self: push_comment c; to XComment),
+            XmlState::Comment => loop { match get_char!(self) {
+                '-' => go!(self: to CommentDash),
+                '>' => go!(self: error; emit_comment; to Data),
+                c   => go!(self: push_comment c; to Comment),
                 }
             },
             //§ comment-dash-state
-            XmlState::XCommentDash => loop { match get_char!(self) {
-                '-' => go!(self: to XCommentEnd),
+            XmlState::CommentDash => loop { match get_char!(self) {
+                '-' => go!(self: to CommentEnd),
                 c   => go!(self: push_comment c),
                 }
             },
             //§ comment-end-state
-            XmlState::XCommentEnd => loop { match get_char!(self) {
-                '>' => go!(self: emit_comment; to XData),
+            XmlState::CommentEnd => loop { match get_char!(self) {
+                '>' => go!(self: emit_comment; to Data),
                 '-' => go!(self: push_comment '-'),
-                c   => go!(self: append_comment "--"; push_comment c; to XComment),
+                c   => go!(self: append_comment "--"; push_comment c; to Comment),
                 }
             },
             //§ cdata-state
@@ -743,23 +743,23 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             },
             //§ cdata-end-state
             XmlState::CdataEnd => loop {  match get_char!(self) {
-                '>' => go!(self: to XData),
+                '>' => go!(self: to Data),
                 ']' => go!(self: emit ']'),
                 cl  => go!(self: emit ']'; emit ']'; emit cl; to Cdata),
                 }
             },
             //§ tag-name-state
-            XmlState::XTagName => loop { match get_char!(self) {
+            XmlState::TagName => loop { match get_char!(self) {
                 '\t' | '\n'
                 | ' '   => go!(self: to TagAttrNameBefore),
-                '>'     => go!(self: emit_tag XData),
-                '/'     => go!(self: set_empty_tag; to XTagEmpty),
+                '>'     => go!(self: emit_tag Data),
+                '/'     => go!(self: set_empty_tag; to TagEmpty),
                 cl      => go!(self: push_tag cl),
                 }
             },
             //§ empty-tag-state
-            XmlState::XTagEmpty => loop { match get_char!(self) {
-                '>'     => go!(self: emit_empty_tag XData),
+            XmlState::TagEmpty => loop { match get_char!(self) {
+                '>'     => go!(self: emit_empty_tag Data),
                 _       => go!(self: reconsume TagAttrValueBefore),
                 }
             },
@@ -767,8 +767,8 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             XmlState::TagAttrNameBefore => loop { match get_char!(self) {
                 '\t' | '\n'
                 | ' '   => (),
-                '>'     => go!(self: emit_tag XData),
-                '/'     => go!(self: set_empty_tag; to XTagEmpty),
+                '>'     => go!(self: emit_tag Data),
+                '/'     => go!(self: set_empty_tag; to TagEmpty),
                 ':'     => go!(self: error ),
                 cl      => go!(self: create_attr cl; to TagAttrName),
                 }
@@ -776,10 +776,10 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             //§ tag-attribute-name-state
             XmlState::TagAttrName => loop { match get_char!(self) {
                 '='     => go!(self: to TagAttrValueBefore),
-                '>'     => go!(self: emit_tag XData),
+                '>'     => go!(self: emit_tag Data),
                 '\t' | '\n'
                 | ' '   => go!(self: to TagAttrNameAfter),
-                '/'     => go!(self: set_empty_tag; to XTagEmpty),
+                '/'     => go!(self: set_empty_tag; to TagEmpty),
                 cl      => go!(self: push_name cl),
                 }
             },
@@ -788,8 +788,8 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 '\t' | '\n'
                 | ' '   => (),
                 '='     => go!(self: to TagAttrValueBefore),
-                '>'     => go!(self: emit_tag XData),
-                '/'     => go!(self: set_empty_tag; to XTagEmpty),
+                '>'     => go!(self: emit_tag Data),
+                '/'     => go!(self: set_empty_tag; to TagEmpty),
                 cl      => go!(self: create_attr cl; to TagAttrName),
                 }
             },
@@ -800,7 +800,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 '"'     => go!(self: to TagAttrValue(DoubleQuoted)),
                 '\''    => go!(self: to TagAttrValue(SingleQuoted)),
                 '&'     => go!(self: reconsume TagAttrValue(Unquoted)),
-                '>'     => go!(self: emit_tag XData),
+                '>'     => go!(self: emit_tag Data),
                 cl      => go!(self: push_value cl; to TagAttrValue(Unquoted)),
                 }
             },
@@ -834,13 +834,13 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ bogus-comment-state
-            XmlState::BogusXComment => loop { match get_char!(self) {
-                '>'  => go!(self: emit_comment; to XData),
+            XmlState::BogusComment => loop { match get_char!(self) {
+                '>'  => go!(self: emit_comment; to Data),
                 c    => go!(self: push_comment c),
                 }
             },
             //§ doctype-state
-            XmlState::XDoctype => loop { match get_char!(self) {
+            XmlState::Doctype => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' ' => go!(self: to BeforeDoctypeName),
                 _     => go!(self: error; reconsume BeforeDoctypeName),
@@ -850,7 +850,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             XmlState::BeforeDoctypeName => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' ' => (),
-                '>'  => go!(self: error; emit_doctype; to XData),
+                '>'  => go!(self: error; emit_doctype; to Data),
                 c    => go!(self: create_doctype; push_doctype_name (c.to_ascii_lowercase());
                                   to DoctypeName),
                 }
@@ -859,7 +859,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             XmlState::DoctypeName => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => go!(self: to AfterDoctypeName),
-                '>'     => go!(self: emit_doctype; to XData),
+                '>'     => go!(self: emit_doctype; to Data),
                 c       => go!(self: push_doctype_name (c.to_ascii_lowercase());
                                   to DoctypeName),
                 }
@@ -873,7 +873,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 } else {
                     match get_char!(self) {
                         '\t' | '\n' | '\x0C' | ' ' => (),
-                        '>' => go!(self: emit_doctype; to XData),
+                        '>' => go!(self: emit_doctype; to Data),
                         _   => go!(self: error; to BogusDoctype),
                     }
                 }
@@ -884,7 +884,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 | ' '   => go!(self: to BeforeDoctypeIdentifier Public),
                 '"'     => go!(self: error; clear_doctype_id Public; to DoctypeIdentifierDoubleQuoted Public),
                 '\''    => go!(self: error; clear_doctype_id Public; to DoctypeIdentifierSingleQuoted Public),
-                '>'     => go!(self: error; emit_doctype; to XData),
+                '>'     => go!(self: error; emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
@@ -894,7 +894,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 | ' '   => (),
                 '"'     => go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
                 '\''    => go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
-                '>'     => go!(self: error; emit_doctype; to XData),
+                '>'     => go!(self: error; emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
@@ -904,21 +904,21 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 | ' '   => (),
                 '"'     => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
                 '\''    => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
-                '>'     => go!(self: error; emit_doctype; to XData),
+                '>'     => go!(self: error; emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
             //§ doctype_public_identifier_double_quoted_state doctype_system_identifier_double_quoted_state
             XmlState::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self) {
                 '"'     => go!(self: to AfterDoctypeKeyword kind),
-                '>'     => go!(self: error; emit_doctype; to XData),
+                '>'     => go!(self: error; emit_doctype; to Data),
                 c       => go!(self: push_doctype_id kind c),
                 }
             },
             //§ doctype_public_identifier_single_quoted_state doctype_system_identifier_single_quoted_state
             XmlState::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self) {
                 '\''    => go!(self: to AfterDoctypeIdentifier kind),
-                '>'     => go!(self: error; emit_doctype; to XData),
+                '>'     => go!(self: error; emit_doctype; to Data),
                 c       => go!(self: push_doctype_id kind c),
                 }
             },
@@ -928,7 +928,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
                 | ' '   => go!(self: to BetweenDoctypePublicAndSystemIdentifiers),
                 '\''    => go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted(System)),
                 '"'     => go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted(System)),
-                '>'     => go!(self: emit_doctype; to XData),
+                '>'     => go!(self: emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
@@ -936,7 +936,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             XmlState::AfterDoctypeIdentifier(System) => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
-                '>'     => go!(self: emit_doctype; to XData),
+                '>'     => go!(self: emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
@@ -944,7 +944,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             XmlState::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
-                '>'     => go!(self: emit_doctype; to XData),
+                '>'     => go!(self: emit_doctype; to Data),
                 '\''    => go!(self: to DoctypeIdentifierSingleQuoted(System)),
                 '"'     => go!(self: to DoctypeIdentifierDoubleQuoted(System)),
                 _       => go!(self: error; to BogusDoctype),
@@ -952,7 +952,7 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
             },
             //§ bogus_doctype_state
             XmlState::BogusDoctype => loop { match get_char!(self) {
-                '>'     => go!(self: emit_doctype; to XData),
+                '>'     => go!(self: emit_doctype; to Data),
                 _       => (),
                 }
             }
@@ -1011,46 +1011,46 @@ impl<Sink: XTokenSink> XmlTokenizer<Sink> {
     fn eof_step(&mut self) -> bool {
         debug!("processing EOF in state {:?}", self.state);
         match self.state {
-            XmlState::XData
+            XmlState::Data
                 => go!(self: eof),
-            XmlState::XTagState
-                => go!(self: error_eof; emit '<'; to XData),
-            XmlState::EndXTagState
-                => go!(self: error_eof; emit '<'; emit '/'; to XData),
-            XmlState::XTagEmpty
+            XmlState::TagState
+                => go!(self: error_eof; emit '<'; to Data),
+            XmlState::EndTagState
+                => go!(self: error_eof; emit '<'; emit '/'; to Data),
+            XmlState::TagEmpty
                 => go!(self: error_eof; to TagAttrNameBefore),
             XmlState::Cdata
             | XmlState::CdataBracket | XmlState::CdataEnd
-                => go!(self: error_eof; to XData),
+                => go!(self: error_eof; to Data),
             XmlState::Pi
-                => go!(self: error_eof; to BogusXComment),
+                => go!(self: error_eof; to BogusComment),
             XmlState::PiTargetAfter | XmlState::PiAfter
                 => go!(self: reconsume PiData),
             XmlState::MarkupDecl
-                => go!(self: error_eof; to BogusXComment),
-            XmlState::XComment | XmlState::XCommentDash
-            | XmlState::XCommentEnd
-                => go!(self: error_eof; emit_comment;to XData),
-            XmlState::XTagName | XmlState::TagAttrNameBefore
-            | XmlState::EndXTagName | XmlState::TagAttrNameAfter
-            | XmlState::EndXTagNameAfter | XmlState::TagAttrValueBefore
+                => go!(self: error_eof; to BogusComment),
+            XmlState::Comment | XmlState::CommentDash
+            | XmlState::CommentEnd
+                => go!(self: error_eof; emit_comment;to Data),
+            XmlState::TagName | XmlState::TagAttrNameBefore
+            | XmlState::EndTagName | XmlState::TagAttrNameAfter
+            | XmlState::EndTagNameAfter | XmlState::TagAttrValueBefore
             | XmlState::TagAttrValue(_)
-                => go!(self: error_eof; emit_tag XData),
+                => go!(self: error_eof; emit_tag Data),
             XmlState::PiData | XmlState::PiTarget
-                => go!(self: error_eof; emit_pi XData),
+                => go!(self: error_eof; emit_pi Data),
             XmlState::TagAttrName
-                => go!(self: error_eof; emit_start_tag XData),
+                => go!(self: error_eof; emit_start_tag Data),
             XmlState::BeforeDoctypeName
-            | XmlState::XDoctype | XmlState::DoctypeName
+            | XmlState::Doctype | XmlState::DoctypeName
             | XmlState::AfterDoctypeName | XmlState::AfterDoctypeKeyword(_)
             | XmlState::BeforeDoctypeIdentifier(_) | XmlState::AfterDoctypeIdentifier(_)
             | XmlState::DoctypeIdentifierSingleQuoted(_) | XmlState::DoctypeIdentifierDoubleQuoted(_)
             | XmlState::BetweenDoctypePublicAndSystemIdentifiers
-                => go!(self: error_eof; emit_doctype; to XData),
+                => go!(self: error_eof; emit_doctype; to Data),
             XmlState::BogusDoctype
-                => go!(self: emit_doctype; to XData),
-            XmlState::BogusXComment
-                => go!(self: emit_comment; to XData),
+                => go!(self: emit_doctype; to Data),
+            XmlState::BogusComment
+                => go!(self: emit_comment; to Data),
         }
     }
 
