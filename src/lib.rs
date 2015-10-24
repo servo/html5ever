@@ -9,6 +9,7 @@
 #[macro_use] extern crate string_cache;
 
 extern crate rc;
+extern crate phf;
 extern crate tendril;
 extern crate time;
 

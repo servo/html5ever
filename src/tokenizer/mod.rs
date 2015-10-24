@@ -415,10 +415,10 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         self.process_token(token);
     }
 
-    fn consume_char_ref(&mut self) {
+    fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
         // NB: The char ref tokenizer assumes we have an additional allowed
         // character iff we're tokenizing in an attribute value.
-        self.char_ref_tokenizer = Some(Box::new(XCharRefTokenizer::new()));
+        self.char_ref_tokenizer = Some(Box::new(CharRefTokenizer::new(addnl_allowed)));
     }
 
     fn emit_eof(&mut self) {
@@ -537,7 +537,6 @@ macro_rules! go (
 
     ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
     ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
-    ( $me:ident : consume_xchar_ref            ) => ({ $me.consume_char_ref(); return true;             });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
@@ -808,7 +807,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::TagAttrValue(DoubleQuoted) => loop {
                 match pop_except_from!(self, small_char_set!('\n' '"' '&')) {
                     FromSet('"')        => go!(self: to TagAttrNameBefore),
-                    FromSet('&')        => go!(self: consume_xchar_ref ),
+                    FromSet('&')        => go!(self: consume_char_ref '"' ),
                     FromSet(c)          => go!(self: push_value c),
                     NotFromSet(ref b)   => go!(self: append_value b),
                 }
@@ -817,7 +816,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::TagAttrValue(SingleQuoted) => loop {
                 match pop_except_from!(self, small_char_set!('\n' '\'' '&')) {
                     FromSet('\'')       => go!(self: to TagAttrNameBefore),
-                    FromSet('&')        => go!(self: consume_xchar_ref ),
+                    FromSet('&')        => go!(self: consume_char_ref '\''),
                     FromSet(c)          => go!(self: push_value c),
                     NotFromSet(ref b)   => go!(self: append_value b),
                 }
@@ -827,8 +826,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 match pop_except_from!(self, small_char_set!('\n' '\t' ' ' '&' '>')) {
                     FromSet('\t') | FromSet('\n') | FromSet(' ')
                      => go!(self: to TagAttrNameBefore),
-                    FromSet('&')        => go!(self: consume_xchar_ref ),
-                    FromSet('>')        => go!(self: emit_tag XData),
+                    FromSet('&')        => go!(self: consume_char_ref ),
+                    FromSet('>')        => go!(self: emit_tag Data),
                     FromSet(c)          => go!(self: push_value c),
                     NotFromSet(ref b)   => go!(self: append_value b),
                 }
@@ -1055,35 +1054,25 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
 
-    fn process_char_ref(&mut self, char_ref: XRef) {
-        match char_ref {
-            XRef::CharXData(cdata) => {
-                match self.state {
-                    states::XData
-                        => self.emit_chars(cdata),
+    fn process_char_ref(&mut self, char_ref: CharRef) {
+        let CharRef { mut chars, mut num_chars } = char_ref;
 
-                    states::TagAttrValue(_)
-                        => go!(self: append_value &cdata),
+        if num_chars == 0 {
+            chars[0] = '&';
+            num_chars = 1;
+        }
 
-                    _ => panic!("state {:?} should not be reachable in process_char_ref", self.state),
-                }
+        for i in 0 .. num_chars {
+            let c = chars[i as usize];
+            match self.state {
+                states::Data | states::Cdata
+                    => go!(self: emit c),
 
-            },
-            XRef::NamedXRef(xref) => {
-                if !self.opts.safe_mod {
-                    match self.state {
-                        states::XData
-                            => self.emit_chars(xref), // TODO entity replacement
+                states::TagAttrValue(_)
+                    => go!(self: push_value c),
 
-                        states::TagAttrValue(_)
-                            => go!(self: append_value &xref), // TODO entity replacement
-
-                        _ => panic!("state {:?} should not be eligible for entity expansion",
-                                        self.state),
-                    }
-                }
-            },
-            XRef::NoReturn => {},
+                _ => panic!("state {:?} should not be reachable in process_char_ref", self.state),
+            }
         }
     }
 
