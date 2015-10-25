@@ -25,8 +25,8 @@ before_script:
 script:
   - |
       travis-cargo build &&
-      travis-cargo test &&
-      travis-cargo doc
+      travis-cargo doc &&
+      scripts/travis-build.sh
 
 after_success:
   # upload the documentation from the build with beta (automatically only actually
