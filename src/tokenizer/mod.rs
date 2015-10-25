@@ -227,6 +227,16 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
             c = '\u{FFFD}'
         }
 
+        // Exclude forbidden Unicode characters
+        if self.opts.exact_errors && match c as u32 {
+            0x01...0x08 | 0x0B | 0x0E...0x1F | 0x7F...0x9F | 0xFDD0...0xFDEF => true,
+            n if (n & 0xFFFE) == 0xFFFE => true,
+            _ => false,
+        } {
+            let msg = format!("Bad character {}", c);
+            self.emit_error(Cow::Owned(msg));
+        }
+
         debug!("got character {}", c);
         self.current_char = c;
         Some(c)
