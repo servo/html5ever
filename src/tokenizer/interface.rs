@@ -1,6 +1,6 @@
-pub use self::XTagKind::{StartXTag, EndXTag, EmptyXTag, ShortXTag};
-pub use self::XToken::{DoctypeXToken, XTagToken, PIToken, CommentXToken};
-pub use self::XToken::{CharacterXTokens, EOFXToken, XParseError, NullCharacterXToken};
+pub use self::TagKind::{StartTag, EndTag, EmptyTag, ShortTag};
+pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
+pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
 use std::borrow::Cow;
 use string_cache::{Atom, QualName};
@@ -9,23 +9,23 @@ use super::states;
 
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-pub enum XTagKind {
-    StartXTag,
-    EndXTag,
-    EmptyXTag,
-    ShortXTag,
+pub enum TagKind {
+    StartTag,
+    EndTag,
+    EmptyTag,
+    ShortTag,
 }
 
 /// XML 5 Tag Token
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct XTag {
-    pub kind: XTagKind,
+pub struct Tag {
+    pub kind: TagKind,
     pub name: Atom,
     pub attrs: Vec<Attribute>
 }
 
-impl XTag {
-    pub fn equiv_modulo_attr_order(&self, other: &XTag) -> bool {
+impl Tag {
+    pub fn equiv_modulo_attr_order(&self, other: &Tag) -> bool {
         if (self.kind != other.kind) || (self.name != other.name) {
             return false;
         }
@@ -65,27 +65,27 @@ impl Doctype {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct XPi {
+pub struct Pi {
     pub target: StrTendril,
     pub data: StrTendril,
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum XToken {
-    DoctypeXToken(Doctype),
-    XTagToken(XTag),
-    PIToken(XPi),
-    CommentXToken(StrTendril),
-    CharacterXTokens(StrTendril),
-    EOFXToken,
-    NullCharacterXToken,
-    XParseError(Cow<'static, str>),
+pub enum Token {
+    DoctypeToken(Doctype),
+    TagToken(Tag),
+    PIToken(Pi),
+    CommentToken(StrTendril),
+    CharacterTokens(StrTendril),
+    EOFToken,
+    NullCharacterToken,
+    ParseError(Cow<'static, str>),
 }
 
 /// Types which can receive tokens from the tokenizer.
-pub trait XTokenSink {
+pub trait TokenSink {
     /// Process a token.
-    fn process_token(&mut self, token: XToken);
+    fn process_token(&mut self, token: Token);
 
     /// The tokenizer will call this after emitting any start tag.
     /// This allows the tree builder to change the tokenizer's state.

@@ -1,9 +1,9 @@
 pub use self::XmlPhase::*;
 pub use self::XmlProcessResult::*;
-pub use self::XToken::*;
+pub use self::Token::*;
 
 use tendril::StrTendril;
-use tokenizer::{XTag, XPi};
+use tokenizer::{Tag, Pi};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {
@@ -15,16 +15,16 @@ pub enum XmlPhase {
 /// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum XToken {
-    XTagToken(XTag),
-    CommentXToken(StrTendril),
-    CharacterXTokens(StrTendril),
-    PIToken(XPi),
-    NullCharacterXToken,
-    EOFXToken,
+pub enum Token {
+    TagToken(Tag),
+    CommentToken(StrTendril),
+    CharacterTokens(StrTendril),
+    PIToken(Pi),
+    NullCharacterToken,
+    EOFToken,
 }
 
 pub enum XmlProcessResult {
-    XDone,
-    XReprocess(XmlPhase, XToken),
+    Done,
+    Reprocess(XmlPhase, Token),
 }

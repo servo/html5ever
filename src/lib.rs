@@ -9,6 +9,7 @@
 #[macro_use] extern crate string_cache;
 
 extern crate rc;
+extern crate phf;
 extern crate tendril;
 extern crate time;
 
@@ -26,7 +27,7 @@ pub mod tokenizer;
 pub mod tree_builder;
 pub mod rcdom;
 
-use tokenizer::{XmlTokenizerOpts, XmlTokenizer, XTokenSink};
+use tokenizer::{XmlTokenizerOpts, XmlTokenizer, TokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
 
 /// Parse and send results to a `TreeSink`.
@@ -88,7 +89,7 @@ pub trait ParseResult {
 /// tokenize_xml_to(&mut sink, one_input(my_str), Default::default());
 /// ```
 pub fn tokenize_xml_to<
-        Sink: XTokenSink,
+        Sink: TokenSink,
         It: IntoIterator<Item=tendril::StrTendril>
     >(
         sink: Sink,

@@ -9,7 +9,7 @@ pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
 use std::collections::VecDeque;
-use tokenizer::{self, XTokenSink};
+use tokenizer::{self, TokenSink};
 
 // The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
@@ -89,15 +89,15 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     }
 
     #[cfg(for_c)]
-    fn debug_step(&self, _mode: XmlPhase, _token: &XToken) {
+    fn debug_step(&self, _mode: XmlPhase, _token: &Token) {
     }
 
     #[cfg(not(for_c))]
-    fn debug_step(&self, mode: XmlPhase, token: &XToken) {
+    fn debug_step(&self, mode: XmlPhase, token: &Token) {
         debug!("processing {:?} in insertion mode {:?}", format!("{:?}", token), mode);
     }
 
-    fn process_to_completion(&mut self, mut token: XToken) {
+    fn process_to_completion(&mut self, mut token: Token) {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -105,10 +105,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         loop {
             let phase = self.phase;
             match self.step(phase, token) {
-                XDone => {
+                Done => {
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
                 }
-                XReprocess(m, t) => {
+                Reprocess(m, t) => {
                     self.phase = m;
                     token = t;
                 }
@@ -118,31 +118,31 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     }
 }
 
-impl<Handle, Sink> XTokenSink
+impl<Handle, Sink> TokenSink
     for XmlTreeBuilder<Handle, Sink>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn process_token(&mut self, token: tokenizer::XToken) {
+    fn process_token(&mut self, token: tokenizer::Token) {
         //let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
-            tokenizer::XParseError(e) => {
+            tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return;
             }
 
-            tokenizer::DoctypeXToken(_) => {
+            tokenizer::DoctypeToken(_) => {
                 panic!("Doctype not implemented!!");
             }
 
             tokenizer::PIToken(x)   => PIToken(x),
-            tokenizer::XTagToken(x) => XTagToken(x),
-            tokenizer::CommentXToken(x) => CommentXToken(x),
-            tokenizer::NullCharacterXToken => NullCharacterXToken,
-            tokenizer::EOFXToken => EOFXToken,
-            tokenizer::CharacterXTokens(x) => CharacterXTokens(x),
+            tokenizer::TagToken(x) => TagToken(x),
+            tokenizer::CommentToken(x) => CommentToken(x),
+            tokenizer::NullCharacterToken => NullCharacterToken,
+            tokenizer::EOFToken => EOFToken,
+            tokenizer::CharacterTokens(x) => CharacterTokens(x),
 
         };
 
