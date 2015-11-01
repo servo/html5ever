@@ -14,10 +14,16 @@ use tokenizer::Attribute;
 
 use std::borrow::Cow;
 
-use string_cache::QualName;
+use string_cache::Atom;
 use tendril::StrTendril;
 
 pub use self::NodeOrText::{AppendNode, AppendText};
+
+pub struct QName {
+    pub prefix: Atom,
+    pub local_name: Atom,
+    pub namespace_url: Atom,
+}
 
 /// Something which can be inserted into the DOM.
 ///
@@ -54,10 +60,10 @@ pub trait TreeSink {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name(&self, target: &Self::Handle) -> QualName;
+    fn elem_name(&self, target: &Self::Handle) -> QName;
 
     /// Create an element.
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;
+    fn create_element(&mut self, name: QName, attrs: Vec<Attribute>) -> Self::Handle;
 
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;

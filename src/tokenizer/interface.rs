@@ -7,6 +7,51 @@ use string_cache::{Atom, QualName};
 use tendril::StrTendril;
 use super::states;
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+pub struct QName {
+    pub prefix: Atom,
+    pub local: Atom,
+    pub namespace_url: Atom,
+}
+
+impl QName {
+    pub fn new(prefix: Atom, local: Atom) -> QName {
+        QName {
+            prefix: prefix,
+            local: local,
+            namespace_url: Atom::from(""),
+        }
+    }
+
+    pub fn new_empty(local: Atom) -> QName {
+        QName {
+            prefix: Atom::from(""),
+            local: local,
+            namespace_url: Atom::from(""),
+        }
+    }
+
+    pub fn new_with_uri(prefix: Atom, local: Atom, namespace_url: Atom) -> QName{
+        QName {
+            prefix: prefix,
+            local: local,
+            namespace_url: namespace_url,
+        }
+    }
+
+    pub fn from_namespace(ns: Namespace, local: Atom) -> QName {
+        QName {
+            prefix: ns.0,
+            local: local,
+            namespace_url: Atom::from(""),
+        }
+
+    }
+
+    pub fn set_namespace(&mut self, namespace_url: Atom) {
+        self.namespace_url = namespace_url;
+    }
+}
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum TagKind {

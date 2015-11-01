@@ -9,7 +9,15 @@ pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
 use std::collections::VecDeque;
+
+use tendril::StrTendril;
+
 use tokenizer::{self, TokenSink};
+
+struct NameSpaceContext {
+    default: StrTendril,
+    namespaces_map: Vec<Atom, StrTendril>,
+}
 
 // The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
@@ -27,6 +35,9 @@ pub struct XmlTreeBuilder<Handle, Sink> {
 
     /// Current element pointer.
     curr_elem: Option<Handle>,
+
+    /// Stack of namespace identifiers and namespaces.
+    namespace_stack: Vec<NameSpaceContext>,
 
     /// Current tree builder phase.
     phase: XmlPhase,
@@ -95,6 +106,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: XmlPhase, token: &Token) {
         debug!("processing {:?} in insertion mode {:?}", format!("{:?}", token), mode);
+    }
+
+    fn process_namespaces(&mut self, _tag: Tag) -> Tag {
+        Tag {}
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
