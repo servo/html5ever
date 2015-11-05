@@ -216,7 +216,7 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
 
         let lhs_lo = parser.span.lo;
         let lhs = match parser.token {
-            token::Underscore | token::Ident(..) => Pat(parser.parse_pat()),
+            token::Underscore | token::Ident(..) => Pat(try!(parser.parse_pat_nopanic())),
             token::Lt => {
                 let mut tags = Vec::new();
                 while parser.token != token::FatArrow {
@@ -438,7 +438,7 @@ pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree])
         (None, Tags(_), _) => ext_err!(lhs.span, "the last arm cannot have tag patterns"),
         (None, _, Else) => ext_err!(rhs.span, "the last arm cannot use 'else'"),
         (None, Pat(p), Expr(e)) => match p.node {
-            ast::PatWild(ast::PatWildSingle) | ast::PatIdent(..) => (p, e),
+            ast::PatWild | ast::PatIdent(..) => (p, e),
             _ => ext_err!(lhs.span, "the last arm must have a wildcard or ident pattern"),
         },
     };
