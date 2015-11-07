@@ -15,7 +15,6 @@ use std::path::Path;
 use std::rc::Rc;
 use syntax::{ast, codemap, ext, parse, print};
 use syntax::parse::token;
-use syntax::parse::attr::ParserAttr;
 
 pub fn pre_expand(from: &Path, to: &Path) {
     let mut source = String::new();
@@ -101,9 +100,9 @@ fn expn_info(span: codemap::Span) -> codemap::ExpnInfo {
 fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>) -> Vec<ast::TokenTree> {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts);
     let start_span = parser.span;
-    let attrs = parser.parse_inner_attributes();
     let mut items = Vec::new();
-    while let Some(item) = parser.parse_item() {
+    let attrs = parser.parse_inner_attributes().unwrap();
+    while let Ok(Some(item)) = parser.parse_item_nopanic() {
         items.push(item)
     }
     cx.bt_push(expn_info(start_span));
