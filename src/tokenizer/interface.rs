@@ -3,9 +3,9 @@ pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
 use std::borrow::Cow;
-use string_cache::{Atom};
+use string_cache::{Atom, Namespace};
 use tendril::StrTendril;
-use super::{states, QName};
+use super::{states};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct QName {

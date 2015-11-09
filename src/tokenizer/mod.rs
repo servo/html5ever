@@ -1,14 +1,14 @@
 mod buffer_queue;
 mod char_ref;
 mod interface;
+mod qname;
 pub mod states;
 
-pub use self::interface::{Attribute, Doctype};
-pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag};
+pub use self::interface::{Attribute, Doctype, Pi};
+pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag, QName};
 pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
-pub use self::interface::Pi;
 
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
@@ -25,52 +25,8 @@ use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{Data, TagState, XmlState};
 use self::states::{DoctypeKind, Public, System};
 use util::smallcharset::SmallCharSet;
+use self::qname::{QNameTokenizer};
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-pub struct QName {
-    pub prefix: Atom,
-    pub local: Atom,
-    pub namespace_url: Atom,
-}
-
-impl QName {
-    pub fn new(prefix: Atom, local: Atom) -> QName {
-        QName {
-            prefix: prefix,
-            local: local,
-            namespace_url: Atom::from_slice(""),
-        }
-    }
-
-    pub fn new_empty(local: Atom) -> QName {
-        QName {
-            prefix: Atom::from_slice(""),
-            local: local,
-            namespace_url: Atom::from_slice(""),
-        }
-    }
-
-    pub fn new_with_uri(prefix: Atom, local: Atom, namespace_url: Atom) -> QName{
-        QName {
-            prefix: prefix,
-            local: local,
-            namespace_url: namespace_url,
-        }
-    }
-
-    pub fn from_namespace(ns: Namespace, local: Atom) -> QName {
-        QName {
-            prefix: ns.0,
-            local: local,
-            namespace_url: Atom::from_slice(""),
-        }
-
-    }
-
-    pub fn set_namespace(&mut self, namespace_url: Atom) {
-        self.namespace_url = namespace_url;
-    }
-}
 
 
 /// Copy of Tokenizer options, with an impl for `Default`.
@@ -140,82 +96,6 @@ impl Default for XmlTokenizerOpts {
         }
     }
 }
-
-enum QNameState {
-    BeforeName,
-    InName,
-    AfterColon,
-}
-
-struct QNameTokenizer<'a> {
-    state : QNameState,
-    slice: &'a [u8],
-    valid_index: Option<u32>,
-    curr_ind: usize,
-}
-
-impl<'a> QNameTokenizer<'a> {
-    fn new(tag: &[u8]) -> QNameTokenizer {
-        QNameTokenizer {
-            state: QNameState::BeforeName,
-            slice: tag,
-            valid_index: None,
-            curr_ind: 0,
-        }
-    }
-
-    fn run(&mut self) -> Option<u32> {
-        while self.step() {
-        }
-        self.valid_index
-    }
-
-    fn incr(&mut self) -> bool {
-        if self.curr_ind + 1 < self.slice.len() {
-            self.curr_ind += 1;
-            return true;
-        }
-        false
-    }
-
-    fn step(&mut self) -> bool {
-        match self.state {
-            QNameState::BeforeName => self.do_before_name(),
-            QNameState::InName => self.do_in_name(),
-            QNameState::AfterColon   => self.do_after_colon(),
-        }
-    }
-
-    fn do_before_name(&mut self) -> bool {
-        if self.slice.len() == 0 {
-            false
-        } else if self.slice[self.curr_ind] == b':' {
-            false
-        } else {
-            self.state = QNameState::InName;
-            self.incr()
-        }
-    }
-
-    fn do_in_name(&mut self) -> bool {
-        if self.slice[self.curr_ind] == b':' && self.curr_ind +1 < self.slice.len() {
-            self.valid_index = Some(self.curr_ind as u32);
-            self.state = QNameState::AfterColon;
-        }
-        self.incr()
-    }
-
-    fn do_after_colon(&mut self) -> bool {
-        if self.slice[self.curr_ind] == b':' {
-            self.valid_index = None;
-            return false;
-        }
-        self.incr()
-    }
-
-}
-
-
 /// The Xml tokenizer.
 pub struct XmlTokenizer<Sink> {
     /// Options controlling the behavior of the tokenizer.
