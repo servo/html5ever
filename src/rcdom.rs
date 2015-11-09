@@ -18,12 +18,11 @@ use std::default::Default;
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
-use string_cache::QualName;
 use tendril::StrTendril;
 use rc::{Rc, Weak};
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
-use super::tokenizer::Attribute;
+use super::tokenizer::{Attribute, QName};
 use super::tree_builder::{TreeSink, NodeOrText};
 use super::ParseResult;
 
@@ -43,7 +42,7 @@ pub enum NodeEnum {
     Comment(StrTendril),
 
     /// An element with attributes.
-    Element(QualName, Vec<Attribute>),
+    Element(QName, Vec<Attribute>),
 
     /// A Processing instruction.
     PI(StrTendril, StrTendril),
@@ -125,7 +124,7 @@ impl TreeSink for RcDom {
         self.document.clone()
     }
 
-    fn elem_name(&self, target: &Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QName {
         // FIXME: rust-lang/rust#22252
         return match target.borrow().node {
             Element(ref name, _) => name.clone(),
@@ -133,7 +132,7 @@ impl TreeSink for RcDom {
         };
     }
 
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+    fn create_element(&mut self, name: QName, attrs: Vec<Attribute>) -> Handle {
         new_node(Element(name, attrs))
     }
 

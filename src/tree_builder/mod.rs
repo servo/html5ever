@@ -8,15 +8,16 @@ pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
 
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 
 use tendril::StrTendril;
+use string_cache::Atom;
 
-use tokenizer::{self, TokenSink};
+use tokenizer::{self, TokenSink, Tag, QName};
 
 struct NameSpaceContext {
-    default: StrTendril,
-    namespaces_map: Vec<Atom, StrTendril>,
+    default: Atom,
+    namespaces_map: HashMap<Atom, Option<Atom>>,
 }
 
 // The XML tree builder.
@@ -57,6 +58,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             next_tokenizer_state: None,
             open_elems: vec!(),
             curr_elem: None,
+            namespace_stack: Vec::new(),
             phase: StartPhase,
         }
     }
@@ -92,8 +94,8 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { ns, local } = self.sink.elem_name(node);
-            print!(" {:?}:{:?}", ns,local);
+            let QName { prefix, local, .. } = self.sink.elem_name(node);
+            print!(" {:?}:{:?}", prefix,local);
 
         }
         println!("");
@@ -109,7 +111,8 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     }
 
     fn process_namespaces(&mut self, _tag: Tag) -> Tag {
-        Tag {}
+        //TODO
+        _tag
     }
 
     fn process_to_completion(&mut self, mut token: Token) {

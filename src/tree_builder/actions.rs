@@ -1,7 +1,6 @@
 use std::borrow::Cow::Borrowed;
-use string_cache::QualName;
 use tendril::StrTendril;
-use tokenizer::{Tag, Pi};
+use tokenizer::{Tag, Pi, QName};
 use tree_builder::interface::{NodeOrText, TreeSink, AppendNode, AppendText};
 use tree_builder::types::{XmlProcessResult, Done};
 
@@ -19,8 +18,8 @@ pub trait XmlTreeBuilderActions<Handle> {
     fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult;
     fn append_text(&mut self, chars: StrTendril) -> XmlProcessResult;
     fn tag_in_open_elems(&self, tag: &Tag) -> bool;
-    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
+    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QName) -> bool;
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QName) -> bool;
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult;
     fn no_open_elems(&self) -> bool;
     fn pop(&mut self) -> Handle ;
@@ -44,23 +43,20 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = self.sink.create_element(QualName::new(ns!(xml),
-            tag.name), tag.attrs);
+        let child = self.sink.create_element(tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = self.sink.create_element(QualName::new(ns!(xml),
-            tag.name), tag.attrs);
+        let child = self.sink.create_element(tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child));
         Done
     }
 
     fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
         let root = self.doc_handle.clone();
-        let child = self.sink.create_element(QualName::new(ns!(xml),
-            tag.name), tag.attrs);
+        let child = self.sink.create_element(tag.name, tag.attrs);
 
         self.sink.append(root, AppendNode(child.clone()));
         child
@@ -112,13 +108,13 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn tag_in_open_elems(&self, tag: &Tag) -> bool {
         self.open_elems
             .iter()
-            .any(|a| self.sink.elem_name(a) == QualName::new(ns!(xml), tag.name.clone()))
+            .any(|a| self.sink.elem_name(a) == tag.name)
     }
 
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P)
-        where P: Fn(QualName) -> bool
+        where P: Fn(QName) -> bool
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -129,7 +125,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(QName) -> bool
     {
         set(self.sink.elem_name(&self.current_node()))
     }
@@ -137,7 +133,8 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
         println!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(&self.current_node()), &tag.name);
-        if &self.sink.elem_name(&self.current_node()).local != &tag.name {
+        // FIXME: Take namespace into decision
+        if &self.sink.elem_name(&self.current_node()).local != &tag.name.local {
             self.sink.parse_error(Borrowed("Current node doesn't match tag"));
         }
 
@@ -145,7 +142,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
         if is_closed {
             // FIXME: Real namespace resolution
-            self.pop_until(|p| p == QualName::new(ns!(xml), tag.name.clone()));
+            self.pop_until(|p| p == tag.name);
             self.pop();
         }
         Done

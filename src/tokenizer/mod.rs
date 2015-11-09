@@ -14,7 +14,9 @@ use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
 use std::collections::BTreeMap;
 use std::mem::replace;
-use string_cache::{Atom, QualName};
+use std::str;
+
+use string_cache::{Namespace, Atom};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -23,6 +25,52 @@ use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{Data, TagState, XmlState};
 use self::states::{DoctypeKind, Public, System};
 use util::smallcharset::SmallCharSet;
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+pub struct QName {
+    pub prefix: Atom,
+    pub local: Atom,
+    pub namespace_url: Atom,
+}
+
+impl QName {
+    pub fn new(prefix: Atom, local: Atom) -> QName {
+        QName {
+            prefix: prefix,
+            local: local,
+            namespace_url: Atom::from_slice(""),
+        }
+    }
+
+    pub fn new_empty(local: Atom) -> QName {
+        QName {
+            prefix: Atom::from_slice(""),
+            local: local,
+            namespace_url: Atom::from_slice(""),
+        }
+    }
+
+    pub fn new_with_uri(prefix: Atom, local: Atom, namespace_url: Atom) -> QName{
+        QName {
+            prefix: prefix,
+            local: local,
+            namespace_url: namespace_url,
+        }
+    }
+
+    pub fn from_namespace(ns: Namespace, local: Atom) -> QName {
+        QName {
+            prefix: ns.0,
+            local: local,
+            namespace_url: Atom::from_slice(""),
+        }
+
+    }
+
+    pub fn set_namespace(&mut self, namespace_url: Atom) {
+        self.namespace_url = namespace_url;
+    }
+}
 
 
 /// Copy of Tokenizer options, with an impl for `Default`.
@@ -51,6 +99,29 @@ pub struct XmlTokenizerOpts {
 
 }
 
+fn process_qname(tag_name: StrTendril) -> QName {
+    // If tag name can't possibly contain full namespace, skip qualified name
+    // parsing altogether. For a tag to have namespace it must look like:
+    //     a:b
+    // Since StrTendril are UTF-8, we know that minimal size in bytes must be
+    // three bytes minimum.
+    let split = if (&*tag_name).as_bytes().len() <3 {
+        None
+    } else {
+        QNameTokenizer::new((&*tag_name).as_bytes()).run()
+    };
+
+    match split {
+        None => QName::new(Atom::from_slice(""), Atom::from_slice(&tag_name)),
+        Some(col) => {
+            let len = (&*tag_name).as_bytes().len() as u32;
+            let prefix = tag_name.subtendril(0, col);
+            let local =  tag_name.subtendril(col+1, len - col -1);
+            QName::new(Atom::from_slice(&*prefix), Atom::from_slice(&*local))
+        },
+    }
+}
+
 fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
     match *opt_str {
         Some(ref mut s) => s.push_char(c),
@@ -69,6 +140,81 @@ impl Default for XmlTokenizerOpts {
         }
     }
 }
+
+enum QNameState {
+    BeforeName,
+    InName,
+    AfterColon,
+}
+
+struct QNameTokenizer<'a> {
+    state : QNameState,
+    slice: &'a [u8],
+    valid_index: Option<u32>,
+    curr_ind: usize,
+}
+
+impl<'a> QNameTokenizer<'a> {
+    fn new(tag: &[u8]) -> QNameTokenizer {
+        QNameTokenizer {
+            state: QNameState::BeforeName,
+            slice: tag,
+            valid_index: None,
+            curr_ind: 0,
+        }
+    }
+
+    fn run(&mut self) -> Option<u32> {
+        while self.step() {
+        }
+        self.valid_index
+    }
+
+    fn incr(&mut self) -> bool {
+        if self.curr_ind + 1 < self.slice.len() {
+            self.curr_ind += 1;
+            return true;
+        }
+        false
+    }
+
+    fn step(&mut self) -> bool {
+        match self.state {
+            QNameState::BeforeName => self.do_before_name(),
+            QNameState::InName => self.do_in_name(),
+            QNameState::AfterColon   => self.do_after_colon(),
+        }
+    }
+
+    fn do_before_name(&mut self) -> bool {
+        if self.slice.len() == 0 {
+            false
+        } else if self.slice[self.curr_ind] == b':' {
+            false
+        } else {
+            self.state = QNameState::InName;
+            self.incr()
+        }
+    }
+
+    fn do_in_name(&mut self) -> bool {
+        if self.slice[self.curr_ind] == b':' && self.curr_ind +1 < self.slice.len() {
+            self.valid_index = Some(self.curr_ind as u32);
+            self.state = QNameState::AfterColon;
+        }
+        self.incr()
+    }
+
+    fn do_after_colon(&mut self) -> bool {
+        if self.slice[self.curr_ind] == b':' {
+            self.valid_index = None;
+            return false;
+        }
+        self.incr()
+    }
+
+}
+
 
 /// The Xml tokenizer.
 pub struct XmlTokenizer<Sink> {
@@ -376,11 +522,13 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         self.emit_current_tag();
     }
 
+
     fn emit_current_tag(&mut self) {
+
         self.finish_attribute();
 
-        let name = replace(&mut self.current_tag_name, StrTendril::new());
-        let name = Atom::from(&*name);
+        let qname = process_qname(replace(&mut self.current_tag_name, StrTendril::new()));
+
 
         match self.current_tag_kind {
             StartTag | EmptyTag => {},
@@ -397,7 +545,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         }
 
         let token = TagToken(Tag { kind: self.current_tag_kind,
-            name: name,
+            name: qname,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
         self.process_token(token);
@@ -1122,11 +1270,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.current_attr_name.clear();
             self.current_attr_value.clear();
         } else {
-            let name = replace(&mut self.current_attr_name, StrTendril::new());
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(), Atom::from(&*name)),
+                name: process_qname(replace(&mut self.current_attr_name, StrTendril::new())),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             });
         }

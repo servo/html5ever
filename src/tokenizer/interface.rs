@@ -3,9 +3,9 @@ pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
 use std::borrow::Cow;
-use string_cache::{Atom, QualName};
+use string_cache::{Atom};
 use tendril::StrTendril;
-use super::states;
+use super::{states, QName};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct QName {
@@ -65,7 +65,7 @@ pub enum TagKind {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tag {
     pub kind: TagKind,
-    pub name: Atom,
+    pub name: QName,
     pub attrs: Vec<Attribute>
 }
 
@@ -87,7 +87,7 @@ impl Tag {
 /// A tag attribute.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Attribute {
-    pub name: QualName,
+    pub name: QName,
     pub value: StrTendril,
 }
 

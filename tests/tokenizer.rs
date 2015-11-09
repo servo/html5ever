@@ -16,13 +16,13 @@ use std::path::Path;
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
-use string_cache::{Atom, QualName};
+use string_cache::{Atom};
 use tendril::{StrTendril, SliceExt};
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
-use xml5ever::tokenizer::{Attribute};
+use xml5ever::tokenizer::{Attribute, QName};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
 use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};
 use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
@@ -205,10 +205,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(), Atom::from(&**k)),
+                    name: QName::new(ns!(""), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -216,22 +216,22 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: vec!(),
         }),
 
         "ShortTag" => TagToken(Tag {
             kind: ShortTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: vec!(),
         }),
 
         "EmptyTag" => TagToken(Tag {
             kind: EmptyTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(), Atom::from(&**k)),
+                    name: QName::from_namespace(ns!(), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

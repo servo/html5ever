@@ -10,7 +10,7 @@
 //! The interface for consumers of the tree builder (and thus the
 //! parser overall).
 
-use tokenizer::Attribute;
+use tokenizer::{Attribute, QName};
 
 use std::borrow::Cow;
 
@@ -18,12 +18,6 @@ use string_cache::Atom;
 use tendril::StrTendril;
 
 pub use self::NodeOrText::{AppendNode, AppendText};
-
-pub struct QName {
-    pub prefix: Atom,
-    pub local_name: Atom,
-    pub namespace_url: Atom,
-}
 
 /// Something which can be inserted into the DOM.
 ///
