@@ -45,16 +45,16 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
     let mut tts = tts.into_iter().peekable();
     while let Some(tt) = tts.next() {
         match tt {
-            ast::TokenTree::TtToken(span, token::Token::Ident(ident, token::IdentStyle::Plain))
+            ast::TokenTree::Token(span, token::Token::Ident(ident, token::IdentStyle::Plain))
             if ident.name.as_str() == "match_token"
             => {
                 // `!`
-                if !matches!(tts.next(), Some(ast::TokenTree::TtToken(_, token::Token::Not))) {
+                if !matches!(tts.next(), Some(ast::TokenTree::Token(_, token::Token::Not))) {
                     expanded.push(tt);
                     continue
                 }
                 match tts.next() {
-                    Some(ast::TokenTree::TtDelimited(_, block)) => {
+                    Some(ast::TokenTree::Delimited(_, block)) => {
                         cx.bt_push(expn_info(span));
                         expanded.extend(
                             match match_token::expand_to_tokens(cx, span, &block.tts) {
@@ -69,10 +69,10 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
                     _ => panic!("expected a block after {:?}", span)
                 }
             }
-            ast::TokenTree::TtDelimited(span, mut block) => {
+            ast::TokenTree::Delimited(span, mut block) => {
                 Rc::make_mut(&mut block);
                 let block = Rc::try_unwrap(block).unwrap();
-                expanded.push(ast::TokenTree::TtDelimited(span, Rc::new(ast::Delimited {
+                expanded.push(ast::TokenTree::Delimited(span, Rc::new(ast::Delimited {
                     delim: block.delim,
                     open_span: block.open_span,
                     tts: find_and_expand_match_token(cx, block.tts),
