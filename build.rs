@@ -32,14 +32,14 @@ fn main() {
         &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"))
 }
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "codegen")]
 fn expand_match_tokens(from: &Path, to: &Path) {
     extern crate html5ever_macros;
 
     html5ever_macros::pre_expand(from, to);
 }
 
-#[cfg(not(feature = "unstable"))]
+#[cfg(not(feature = "codegen"))]
 fn expand_match_tokens(from: &Path, to: &Path) {
     use std::io::stderr;
     use std::process::exit;
@@ -51,7 +51,7 @@ fn expand_match_tokens(from: &Path, to: &Path) {
 {} is missing or not up to date with {}:
 {}
 
-Run `cargo build --features unstable` to update it.
+Run `cargo build --features codegen` to update it.
 
 If you’re using html5ever as a dependency, this is a bad release.
 Please file an issue at https://github.com/servo/html5ever/issues/new
@@ -65,7 +65,7 @@ with the output of `cargo pkgid html5ever`.
     }
 }
 
-#[cfg(not(feature = "unstable"))]
+#[cfg(not(feature = "codegen"))]
 fn check_hash(from: &Path, to: &Path) -> Result<(), String> {
     use std::hash::{Hash, Hasher, SipHasher};
     use std::io::Read;
