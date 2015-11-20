@@ -221,6 +221,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.run();
     }
 
+    pub fn set_plaintext_state(&mut self) {
+        self.state = states::Plaintext;
+    }
+
     fn process_token(&mut self, token: Token) {
         if self.opts.profile {
             let (_, dt) = time!(self.sink.process_token(token));
