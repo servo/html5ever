@@ -380,7 +380,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         self.finish_attribute();
 
         let name = replace(&mut self.current_tag_name, StrTendril::new());
-        let name = Atom::from_slice(&name);
+        let name = Atom::from(&*name);
 
         match self.current_tag_kind {
             StartTag | EmptyTag => {},
@@ -1114,7 +1114,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         // FIXME: linear time search, do we care?
         let dup = {
             let name = &self.current_attr_name[..];
-            self.current_tag_attrs.iter().any(|a| a.name.local.as_slice() == name)
+            self.current_tag_attrs.iter().any(|a| &*a.name.local == name)
         };
 
         if dup {
@@ -1126,7 +1126,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(""), Atom::from_slice(&name)),
+                name: QualName::new(ns!(), Atom::from(&*name)),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             });
         }

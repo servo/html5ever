@@ -1,5 +1,4 @@
-#![cfg_attr(feature = "unstable", feature(start, test, plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+#![cfg_attr(feature = "unstable", feature(start, test))]
 
 extern crate rustc_serialize;
 #[macro_use] extern crate string_cache;
@@ -206,10 +205,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
+                    name: QualName::new(ns!(), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -217,22 +216,22 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: vec!(),
         }),
 
         "ShortTag" => TagToken(Tag {
             kind: ShortTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: vec!(),
         }),
 
         "EmptyTag" => TagToken(Tag {
             kind: EmptyTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
+                    name: QualName::new(ns!(), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

@@ -1,5 +1,4 @@
-#![cfg_attr(feature = "unstable", feature(start, test, plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+#![cfg_attr(feature = "unstable", feature(start, test))]
 
 #[cfg(feature = "unstable")] extern crate test;
 
@@ -113,8 +112,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         Element(ref name, ref attrs) => {
             buf.push_str("<");
             match name.ns {
-                ns!(SVG) => buf.push_str("svg "),
-                ns!(MathML) => buf.push_str("math "),
+                ns!(svg) => buf.push_str("svg "),
+                ns!(mathml) => buf.push_str("math "),
                 _ => (),
             }
             buf.push_str(&*name.local);
@@ -128,9 +127,9 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
                 match attr.name.ns {
-                    ns!(XLink) => buf.push_str("xlink "),
-                    ns!(XML) => buf.push_str("xml "),
-                    ns!(XMLNS) => buf.push_str("xmlns "),
+                    ns!(xlink) => buf.push_str("xlink "),
+                    ns!(xml) => buf.push_str("xml "),
+                    ns!(xmlns) => buf.push_str("xmlns "),
                     _ => (),
                 }
                 buf.push_str(&format!("{}=\"{}\"\n",
