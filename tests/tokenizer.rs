@@ -7,8 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(test, plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+#![cfg_attr(feature = "unstable", feature(test))]
 
 #[cfg(feature = "unstable")] extern crate test;
 extern crate rustc_serialize;
@@ -218,10 +217,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(""), Atom::from_slice(&k)),
+                    name: QualName::new(ns!(), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -233,7 +232,7 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from_slice(&args[0].get_str()),
+            name: Atom::from(&*args[0].get_str()),
             attrs: vec!(),
             self_closing: false
         }),

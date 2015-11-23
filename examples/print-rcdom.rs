@@ -7,9 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
-
 extern crate html5ever;
 
 #[macro_use]
@@ -48,7 +45,7 @@ fn walk(indent: usize, handle: Handle) {
             assert!(name.ns == ns!(html));
             print!("<{}", name.local);
             for attr in attrs.iter() {
-                assert!(attr.name.ns == ns!(""));
+                assert!(attr.name.ns == ns!());
                 print!(" {}=\"{}\"", attr.name.local, attr.value);
             }
             println!(">");

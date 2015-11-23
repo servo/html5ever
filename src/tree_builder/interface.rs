@@ -79,7 +79,7 @@ pub trait TreeSink {
 
     /// Create an element.
     ///
-    /// When creating a template element (`name == qualname!(HTML, template)`),
+    /// When creating a template element (`name == qualname!(html, "template")`),
     /// an associated document fragment called the "template contents" should
     /// also be created. Later calls to self.get_template_contents() with that
     /// given element return it.

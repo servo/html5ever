@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 307317075343040988
+// source SipHash: 18376801535389447229
 
 # ! [
 doc =
@@ -62,7 +62,8 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment_to_doc(text),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) => {
+                                                name: atom!("html"), .. }) =>
+                {
                     self.create_root(tag.attrs);
                     self.mode = BeforeHead;
                     Done
@@ -72,19 +73,19 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                         match last_arm_token {
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(head),
+                                                            name: atom!("head"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(body),
+                                                            name: atom!("body"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(html),
+                                                            name: atom!("html"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(br),
+                                                            name: atom!("br"),
                                                             .. }) => false,
                             _ => true,
                         };
@@ -108,11 +109,12 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(head), .. }) => {
+                                                name: atom!("head"), .. }) =>
+                {
                     self.head_elem = Some(self.insert_element_for(tag));
                     self.mode = InHead;
                     Done
@@ -122,19 +124,19 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                         match last_arm_token {
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(head),
+                                                            name: atom!("head"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(body),
+                                                            name: atom!("body"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(html),
+                                                            name: atom!("html"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(br),
+                                                            name: atom!("br"),
                                                             .. }) => false,
                             _ => true,
                         };
@@ -146,7 +148,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                         self.unexpected(&tag),
                         (_, token) => {
                             self.head_elem =
-                                Some(self.insert_phantom(atom!(head)));
+                                Some(self.insert_phantom(atom!("head")));
                             Reprocess(InHead, token)
                         }
                     }
@@ -159,44 +161,49 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(base), .. }) |
+                                                name: atom!("base"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(basefont), .. }) |
+                                                name: atom!("basefont"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(bgsound), .. }) |
+                                                name: atom!("bgsound"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(link), .. }) |
+                                                name: atom!("link"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(meta), .. }) => {
+                                                name: atom!("meta"), .. }) =>
+                {
                     self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(title), .. }) => {
+                                                name: atom!("title"), .. }) =>
+                {
                     self.parse_raw_data(tag, Rcdata);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. }) |
+                                                name: atom!("noframes"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) |
+                                                name: atom!("style"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noscript), .. })
+                                                name: atom!("noscript"), .. })
                 => {
                     if (!self.opts.scripting_enabled) &&
-                           (tag.name == atom!(noscript)) {
+                           (tag.name == atom!("noscript")) {
                         self.insert_element_for(tag);
                         self.mode = InHeadNoscript;
                     } else { self.parse_raw_data(tag, Rawtext); }
@@ -204,10 +211,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) =>
-                {
+                                                name: atom!("script"), .. })
+                => {
                     let elem =
-                        self.sink.create_element(qualname!(HTML , script),
+                        self.sink.create_element(qualname!(html , "script"),
                                                  tag.attrs);
                     if self.is_fragment() {
                         self.sink.mark_script_already_started(elem.clone());
@@ -219,14 +226,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(head), .. }) => {
+                                                name: atom!("head"), .. }) =>
+                {
                     self.pop();
                     self.mode = AfterHead;
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => {
                     self.insert_element_for(tag);
                     self.active_formatting.push(Marker);
@@ -237,13 +245,13 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => {
-                    if !self.in_html_elem_named(atom!(template)) {
+                    if !self.in_html_elem_named(atom!("template")) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(thorough_implied_end);
-                        self.expect_to_close(atom!(template));
+                        self.expect_to_close(atom!("template"));
                         self.clear_active_formatting_to_marker();
                         self.template_modes.pop();
                         self.mode = self.reset_insertion_mode();
@@ -252,22 +260,22 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(head), .. }) =>
+                                                name: atom!("head"), .. }) =>
                 self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
                         match last_arm_token {
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(body),
+                                                            name: atom!("body"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(html),
+                                                            name: atom!("html"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(br),
+                                                            name: atom!("br"),
                                                             .. }) => false,
                             _ => true,
                         };
@@ -288,11 +296,11 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(noscript), .. })
+                                                name: atom!("noscript"), .. })
                 => {
                     self.pop();
                     self.mode = InHead;
@@ -303,36 +311,39 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(_) => self.step(InHead, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(basefont), .. }) |
+                                                name: atom!("basefont"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(bgsound), .. }) |
+                                                name: atom!("bgsound"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(link), .. }) |
+                                                name: atom!("link"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(meta), .. }) |
+                                                name: atom!("meta"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. }) |
+                                                name: atom!("noframes"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) =>
+                                                name: atom!("style"), .. }) =>
                 self.step(InHead, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(head), .. }) |
+                                                name: atom!("head"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noscript), .. })
+                                                name: atom!("noscript"), .. })
                 => self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
                         match last_arm_token {
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(br),
+                                                            name: atom!("br"),
                                                             .. }) => false,
                             _ => true,
                         };
@@ -357,11 +368,12 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(body), .. }) => {
+                                                name: atom!("body"), .. }) =>
+                {
                     self.insert_element_for(tag);
                     self.frameset_ok = false;
                     self.mode = InBody;
@@ -369,7 +381,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(frameset), .. })
+                                                name: atom!("frameset"), .. })
                 => {
                     self.insert_element_for(tag);
                     self.mode = InFrameset;
@@ -377,34 +389,39 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(base), .. }) |
+                                                name: atom!("base"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(basefont), .. }) |
+                                                name: atom!("basefont"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(bgsound), .. }) |
+                                                name: atom!("bgsound"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(link), .. }) |
+                                                name: atom!("link"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(meta), .. }) |
+                                                name: atom!("meta"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. }) |
+                                                name: atom!("noframes"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) |
+                                                name: atom!("script"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) |
+                                                name: atom!("style"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(title), .. }) => {
+                                                name: atom!("title"), .. }) =>
+                {
                     self.unexpected(&token);
                     let head =
                         self.head_elem.as_ref().expect("no head element").clone();
@@ -415,26 +432,26 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => self.step(InHead, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(head), .. }) =>
+                                                name: atom!("head"), .. }) =>
                 self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
                         match last_arm_token {
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(body),
+                                                            name: atom!("body"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(html),
+                                                            name: atom!("html"),
                                                             .. }) => false,
                             ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                             kind: ::tokenizer::EndTag,
-                                                            name: atom!(br),
+                                                            name: atom!("br"),
                                                             .. }) => false,
                             _ => true,
                         };
@@ -445,7 +462,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                          .. })) =>
                         self.unexpected(&tag),
                         (_, token) => {
-                            self.insert_phantom(atom!(body));
+                            self.insert_phantom(atom!("body"));
                             Reprocess(InBody, token)
                         }
                     }
@@ -462,9 +479,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) => {
+                                                name: atom!("html"), .. }) =>
+                {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(atom!(template)) {
+                    if !self.in_html_elem_named(atom!("template")) {
                         let top = self.html_elem();
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
@@ -472,48 +490,53 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(base), .. }) |
+                                                name: atom!("base"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(basefont), .. }) |
+                                                name: atom!("basefont"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(bgsound), .. }) |
+                                                name: atom!("bgsound"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(link), .. }) |
+                                                name: atom!("link"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(meta), .. }) |
+                                                name: atom!("meta"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. }) |
+                                                name: atom!("noframes"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) |
+                                                name: atom!("script"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) |
+                                                name: atom!("style"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(title), .. }) |
+                                                name: atom!("title"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => {
                     self.step(InHead, token)
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(body), .. }) => {
+                                                name: atom!("body"), .. }) =>
+                {
                     self.unexpected(&tag);
                     match self.body_elem() {
                         Some(ref node) if
                         self.open_elems.len() != 1 &&
-                            !self.in_html_elem_named(atom!(template)) => {
+                            !self.in_html_elem_named(atom!("template")) => {
                             self.frameset_ok = false;
                             self.sink.add_attrs_if_missing(node.clone(),
                                                            tag.attrs)
@@ -524,7 +547,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(frameset), .. })
+                                                name: atom!("frameset"), .. })
                 => {
                     self.unexpected(&tag);
                     if !self.frameset_ok { return Done; }
@@ -546,8 +569,9 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) => {
-                    if self.in_scope_named(default_scope, atom!(body)) {
+                                                name: atom!("body"), .. }) =>
+                {
+                    if self.in_scope_named(default_scope, atom!("body")) {
                         self.check_body_end();
                         self.mode = AfterBody;
                     } else {
@@ -557,8 +581,9 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) => {
-                    if self.in_scope_named(default_scope, atom!(body)) {
+                                                name: atom!("html"), .. }) =>
+                {
+                    if self.in_scope_named(default_scope, atom!("body")) {
                         self.check_body_end();
                         Reprocess(AfterBody, token)
                     } else {
@@ -568,100 +593,106 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(address), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(article), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(aside), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(blockquote), .. })
+                                                name: atom!("address"), .. })
                 |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(center), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(details), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(dialog), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(dir), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(div), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(dl), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(fieldset), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!(figcaption), .. })
+                                                name: atom!("article"), .. })
                 |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(figure), .. }) |
+                                                name: atom!("aside"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(footer), .. }) |
+                                                name: atom!("blockquote"), ..
+                                                }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(header), .. }) |
+                                                name: atom!("center"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(hgroup), .. }) |
+                                                name: atom!("details"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(main), .. }) |
+                                                name: atom!("dialog"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(menu), .. }) |
+                                                name: atom!("dir"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(nav), .. }) |
+                                                name: atom!("div"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(ol), .. }) |
+                                                name: atom!("dl"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(p), .. }) |
+                                                name: atom!("fieldset"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(section), .. }) |
+                                                name: atom!("figcaption"), ..
+                                                }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(summary), .. }) |
+                                                name: atom!("figure"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(ul), .. }) => {
+                                                name: atom!("footer"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("header"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("hgroup"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("main"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("menu"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("nav"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("ol"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("p"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("section"), .. })
+                |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("summary"), .. })
+                |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("ul"), .. }) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h1), .. }) |
+                                                name: atom!("h1"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h2), .. }) |
+                                                name: atom!("h2"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h3), .. }) |
+                                                name: atom!("h3"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h4), .. }) |
+                                                name: atom!("h4"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h5), .. }) |
+                                                name: atom!("h5"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(h6), .. }) => {
+                                                name: atom!("h6"), .. }) => {
                     self.close_p_element_in_button_scope();
                     if self.current_node_in(heading_tag) {
                         self.sink.parse_error(Borrowed("nested heading tags"));
@@ -672,11 +703,11 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(pre), .. }) |
+                                                name: atom!("pre"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(listing), .. }) =>
-                {
+                                                name: atom!("listing"), .. })
+                => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     self.ignore_lf = true;
@@ -685,14 +716,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(form), .. }) => {
+                                                name: atom!("form"), .. }) =>
+                {
                     if self.form_elem.is_some() &&
-                           !self.in_html_elem_named(atom!(template)) {
+                           !self.in_html_elem_named(atom!("template")) {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
-                        if !self.in_html_elem_named(atom!(template)) {
+                        if !self.in_html_elem_named(atom!("template")) {
                             self.form_elem = Some(elem);
                         }
                     }
@@ -700,21 +732,21 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(li), .. }) |
+                                                name: atom!("li"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(dd), .. }) |
+                                                name: atom!("dd"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(dt), .. }) => {
-                    declare_tag_set!(close_list = li);
-                    declare_tag_set!(close_defn = dd dt);
-                    declare_tag_set!(extra_special = special_tag - address div
-                                     p);
+                                                name: atom!("dt"), .. }) => {
+                    declare_tag_set!(close_list = "li");
+                    declare_tag_set!(close_defn = "dd" "dt");
+                    declare_tag_set!(extra_special = [ special_tag ] -
+                                     "address" "div" "p");
                     let can_close: fn(::string_cache::QualName) -> bool =
                         match tag.name {
-                            atom!(li) => close_list,
-                            atom!(dd) | atom!(dt) => close_defn,
+                            atom!("li") => close_list,
+                            atom!("dd") | atom!("dt") => close_defn,
                             _ => unreachable!(),
                         };
                     self.frameset_ok = false;
@@ -740,8 +772,8 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(plaintext), .. })
-                => {
+                                                name: atom!("plaintext"), ..
+                                                }) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     self.next_tokenizer_state = Some(Plaintext);
@@ -749,12 +781,12 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(button), .. }) =>
-                {
-                    if self.in_scope_named(default_scope, atom!(button)) {
+                                                name: atom!("button"), .. })
+                => {
+                    if self.in_scope_named(default_scope, atom!("button")) {
                         self.sink.parse_error(Borrowed("nested buttons"));
                         self.generate_implied_end(cursory_implied_end);
-                        self.pop_until_named(atom!(button));
+                        self.pop_until_named(atom!("button"));
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
@@ -763,84 +795,91 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(address), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(article), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(aside), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(blockquote), .. })
+                                                name: atom!("address"), .. })
                 |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(button), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(center), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(details), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(dialog), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(dir), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(div), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(dl), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(fieldset), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::EndTag,
-                                                name: atom!(figcaption), .. })
+                                                name: atom!("article"), .. })
                 |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(figure), .. }) |
+                                                name: atom!("aside"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(footer), .. }) |
+                                                name: atom!("blockquote"), ..
+                                                }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(header), .. }) |
+                                                name: atom!("button"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(hgroup), .. }) |
+                                                name: atom!("center"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(listing), .. }) |
+                                                name: atom!("details"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(main), .. }) |
+                                                name: atom!("dialog"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(menu), .. }) |
+                                                name: atom!("dir"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(nav), .. }) |
+                                                name: atom!("div"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(ol), .. }) |
+                                                name: atom!("dl"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(pre), .. }) |
+                                                name: atom!("fieldset"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(section), .. }) |
+                                                name: atom!("figcaption"), ..
+                                                }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(summary), .. }) |
+                                                name: atom!("figure"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(ul), .. }) => {
+                                                name: atom!("footer"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("header"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("hgroup"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("listing"), .. })
+                |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("main"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("menu"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("nav"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("ol"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("pre"), .. }) |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("section"), .. })
+                |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("summary"), .. })
+                |
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::EndTag,
+                                                name: atom!("ul"), .. }) => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
@@ -851,8 +890,9 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(form), .. }) => {
-                    if !self.in_html_elem_named(atom!(template)) {
+                                                name: atom!("form"), .. }) =>
+                {
+                    if !self.in_html_elem_named(atom!("template")) {
                         let node =
                             match self.form_elem.take() {
                                 None => {
@@ -875,40 +915,41 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
                     } else {
-                        if !self.in_scope_named(default_scope, atom!(form)) {
+                        if !self.in_scope_named(default_scope, atom!("form"))
+                           {
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return Done;
                         }
                         self.generate_implied_end(cursory_implied_end);
-                        if !self.current_node_named(atom!(form)) {
+                        if !self.current_node_named(atom!("form")) {
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
-                        self.pop_until_named(atom!(form));
+                        self.pop_until_named(atom!("form"));
                     }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(p), .. }) => {
-                    if !self.in_scope_named(button_scope, atom!(p)) {
+                                                name: atom!("p"), .. }) => {
+                    if !self.in_scope_named(button_scope, atom!("p")) {
                         self.sink.parse_error(Borrowed("No <p> tag to close"));
-                        self.insert_phantom(atom!(p));
+                        self.insert_phantom(atom!("p"));
                     }
                     self.close_p_element();
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(li), .. }) |
+                                                name: atom!("li"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(dd), .. }) |
+                                                name: atom!("dd"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(dt), .. }) => {
+                                                name: atom!("dt"), .. }) => {
                     let scope: fn(::string_cache::QualName) -> bool =
                         match tag.name {
-                            atom!(li) => list_item_scope,
+                            atom!("li") => list_item_scope,
                             _ => default_scope,
                         };
                     if self.in_scope_named(|x| scope(x), tag.name.clone()) {
@@ -921,22 +962,22 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h1), .. }) |
+                                                name: atom!("h1"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h2), .. }) |
+                                                name: atom!("h2"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h3), .. }) |
+                                                name: atom!("h3"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h4), .. }) |
+                                                name: atom!("h4"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h5), .. }) |
+                                                name: atom!("h5"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(h6), .. }) => {
+                                                name: atom!("h6"), .. }) => {
                     if self.in_scope(default_scope,
                                      |n| self.elem_in(n.clone(), heading_tag))
                        {
@@ -952,7 +993,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(a), .. }) => {
+                                                name: atom!("a"), .. }) => {
                     self.handle_misnested_a_tags(&tag);
                     self.reconstruct_formatting();
                     self.create_formatting_element_for(tag);
@@ -960,51 +1001,52 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(b), .. }) |
+                                                name: atom!("b"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(big), .. }) |
+                                                name: atom!("big"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(code), .. }) |
+                                                name: atom!("code"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(em), .. }) |
+                                                name: atom!("em"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(font), .. }) |
+                                                name: atom!("font"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(i), .. }) |
+                                                name: atom!("i"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(s), .. }) |
+                                                name: atom!("s"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(small), .. }) |
+                                                name: atom!("small"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(strike), .. }) |
+                                                name: atom!("strike"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(strong), .. }) |
+                                                name: atom!("strong"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tt), .. }) |
+                                                name: atom!("tt"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(u), .. }) => {
+                                                name: atom!("u"), .. }) => {
                     self.reconstruct_formatting();
                     self.create_formatting_element_for(tag);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(nobr), .. }) => {
+                                                name: atom!("nobr"), .. }) =>
+                {
                     self.reconstruct_formatting();
-                    if self.in_scope_named(default_scope, atom!(nobr)) {
+                    if self.in_scope_named(default_scope, atom!("nobr")) {
                         self.sink.parse_error(Borrowed("Nested <nobr>"));
-                        self.adoption_agency(atom!(nobr));
+                        self.adoption_agency(atom!("nobr"));
                         self.reconstruct_formatting();
                     }
                     self.create_formatting_element_for(tag);
@@ -1012,59 +1054,60 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(a), .. }) |
+                                                name: atom!("a"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(b), .. }) |
+                                                name: atom!("b"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(big), .. }) |
+                                                name: atom!("big"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(code), .. }) |
+                                                name: atom!("code"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(em), .. }) |
+                                                name: atom!("em"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(font), .. }) |
+                                                name: atom!("font"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(i), .. }) |
+                                                name: atom!("i"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(nobr), .. }) |
+                                                name: atom!("nobr"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(s), .. }) |
+                                                name: atom!("s"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(small), .. }) |
+                                                name: atom!("small"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(strike), .. }) |
+                                                name: atom!("strike"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(strong), .. }) |
+                                                name: atom!("strong"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tt), .. }) |
+                                                name: atom!("tt"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(u), .. }) => {
+                                                name: atom!("u"), .. }) => {
                     self.adoption_agency(tag.name);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(applet), .. }) |
+                                                name: atom!("applet"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(marquee), .. }) |
+                                                name: atom!("marquee"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(object), .. }) =>
-                {
+                                                name: atom!("object"), .. })
+                => {
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
                     self.active_formatting.push(Marker);
@@ -1073,14 +1116,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(applet), .. }) |
+                                                name: atom!("applet"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(marquee), .. }) |
+                                                name: atom!("marquee"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(object), .. }) =>
-                {
+                                                name: atom!("object"), .. })
+                => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
@@ -1092,7 +1136,8 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(table), .. }) => {
+                                                name: atom!("table"), .. }) =>
+                {
                     if self.quirks_mode != Quirks {
                         self.close_p_element_in_button_scope();
                     }
@@ -1103,7 +1148,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(br), .. }) => {
+                                                name: atom!("br"), .. }) => {
                     self.unexpected(&tag);
                     self.step(InBody,
                               TagToken(Tag{kind: StartTag,
@@ -1111,28 +1156,29 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(area), .. }) |
+                                                name: atom!("area"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(br), .. }) |
+                                                name: atom!("br"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(embed), .. }) |
+                                                name: atom!("embed"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(img), .. }) |
+                                                name: atom!("img"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(keygen), .. }) |
+                                                name: atom!("keygen"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(wbr), .. }) |
+                                                name: atom!("wbr"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(input), .. }) => {
+                                                name: atom!("input"), .. }) =>
+                {
                     let keep_frameset_ok =
                         match tag.name {
-                            atom!(input) => self.is_type_hidden(&tag),
+                            atom!("input") => self.is_type_hidden(&tag),
                             _ => false,
                         };
                     self.reconstruct_formatting();
@@ -1142,22 +1188,24 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(menuitem), .. }) |
+                                                name: atom!("menuitem"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(param), .. }) |
+                                                name: atom!("param"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(source), .. }) |
+                                                name: atom!("source"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(track), .. }) => {
+                                                name: atom!("track"), .. }) =>
+                {
                     self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(hr), .. }) => {
+                                                name: atom!("hr"), .. }) => {
                     self.close_p_element_in_button_scope();
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
@@ -1165,17 +1213,19 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(image), .. }) => {
+                                                name: atom!("image"), .. }) =>
+                {
                     self.unexpected(&tag);
-                    self.step(InBody, TagToken(Tag{name: atom!(img), ..tag}))
+                    self.step(InBody,
+                              TagToken(Tag{name: atom!("img"), ..tag}))
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(isindex), .. }) =>
-                {
+                                                name: atom!("isindex"), .. })
+                => {
                     self.unexpected(&tag);
                     let in_template =
-                        self.in_html_elem_named(atom!(template));
+                        self.in_html_elem_named(atom!("template"));
                     if !in_template && self.form_elem.is_some() {
                         return Done;
                     }
@@ -1186,38 +1236,40 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                     let mut input_attrs = vec!();
                     for attr in tag.attrs.into_iter() {
                         match attr.name {
-                            qualname!("" , action) => form_attrs.push(attr),
-                            qualname!("" , prompt) =>
+                            qualname!("" , "action") => form_attrs.push(attr),
+                            qualname!("" , "prompt") =>
                             prompt = Some(attr.value),
-                            qualname!("" , name) => { }
+                            qualname!("" , "name") => { }
                             _ => input_attrs.push(attr),
                         }
                     }
-                    input_attrs.push(Attribute{name: qualname!("" , name),
+                    input_attrs.push(Attribute{name: qualname!("" , "name"),
                                                value:
                                                    "isindex".to_tendril(),});
                     let form =
-                        self.insert_element(Push, ns!(HTML), atom!(form),
+                        self.insert_element(Push, ns!(html), atom!("form"),
                                             form_attrs);
                     if !in_template { self.form_elem = Some(form.clone()); }
-                    self.insert_element(NoPush, ns!(HTML), atom!(hr), vec!());
+                    self.insert_element(NoPush, ns!(html), atom!("hr"),
+                                        vec!());
                     self.reconstruct_formatting();
-                    self.insert_element(Push, ns!(HTML), atom!(label),
+                    self.insert_element(Push, ns!(html), atom!("label"),
                                         vec!());
                     self.append_text(prompt.unwrap_or_else(|| {
                                                            "This is a searchable index. Enter search keywords: ".to_tendril()
                                                        }));
-                    self.insert_element(NoPush, ns!(HTML), atom!(input),
+                    self.insert_element(NoPush, ns!(html), atom!("input"),
                                         input_attrs);
                     self.pop();
-                    self.insert_element(NoPush, ns!(HTML), atom!(hr), vec!());
+                    self.insert_element(NoPush, ns!(html), atom!("hr"),
+                                        vec!());
                     self.pop();
                     if !in_template { self.form_elem = None; }
                     DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(textarea), .. })
+                                                name: atom!("textarea"), .. })
                 => {
                     self.ignore_lf = true;
                     self.frameset_ok = false;
@@ -1226,7 +1278,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(xmp), .. }) => {
+                                                name: atom!("xmp"), .. }) => {
                     self.close_p_element_in_button_scope();
                     self.reconstruct_formatting();
                     self.frameset_ok = false;
@@ -1235,23 +1287,23 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(iframe), .. }) =>
-                {
+                                                name: atom!("iframe"), .. })
+                => {
                     self.frameset_ok = false;
                     self.parse_raw_data(tag, Rawtext);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noembed), .. }) =>
-                {
+                                                name: atom!("noembed"), .. })
+                => {
                     self.parse_raw_data(tag, Rawtext);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(select), .. }) =>
-                {
+                                                name: atom!("select"), .. })
+                => {
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
                     self.frameset_ok = false;
@@ -1265,26 +1317,29 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(optgroup), .. }) |
+                                                name: atom!("optgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(option), .. }) =>
-                {
-                    if self.current_node_named(atom!(option)) { self.pop(); }
+                                                name: atom!("option"), .. })
+                => {
+                    if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(rb), .. }) |
+                                                name: atom!("rb"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(rtc), .. }) => {
-                    if self.in_scope_named(default_scope, atom!(ruby)) {
+                                                name: atom!("rtc"), .. }) => {
+                    if self.in_scope_named(default_scope, atom!("ruby")) {
                         self.generate_implied_end(cursory_implied_end);
                     }
-                    if !self.current_node_named(atom!(ruby)) {
+                    if !self.current_node_named(atom!("ruby")) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
@@ -1292,15 +1347,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(rp), .. }) |
+                                                name: atom!("rp"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(rt), .. }) => {
-                    if self.in_scope_named(default_scope, atom!(ruby)) {
-                        self.generate_implied_end_except(atom!(rtc));
+                                                name: atom!("rt"), .. }) => {
+                    if self.in_scope_named(default_scope, atom!("ruby")) {
+                        self.generate_implied_end_except(atom!("rtc"));
                     }
-                    if !self.current_node_named(atom!(rtc)) &&
-                           !self.current_node_named(atom!(ruby)) {
+                    if !self.current_node_named(atom!("rtc")) &&
+                           !self.current_node_named(atom!("ruby")) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
@@ -1308,45 +1363,47 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(math), .. }) =>
-                self.enter_foreign(tag, ns!(MathML)),
+                                                name: atom!("math"), .. }) =>
+                self.enter_foreign(tag, ns!(mathml)),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(svg), .. }) =>
-                self.enter_foreign(tag, ns!(SVG)),
+                                                name: atom!("svg"), .. }) =>
+                self.enter_foreign(tag, ns!(svg)),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(frame), .. }) |
+                                                name: atom!("frame"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(head), .. }) |
+                                                name: atom!("head"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     self.unexpected(&token);
                     Done
                 }
@@ -1359,7 +1416,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                          kind: ::tokenizer::StartTag,
                                                          .. })) => {
                             if self.opts.scripting_enabled &&
-                                   tag.name == atom!(noscript) {
+                                   tag.name == atom!("noscript") {
                                 self.parse_raw_data(tag, Rawtext);
                             } else {
                                 self.reconstruct_formatting();
@@ -1383,7 +1440,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CharacterTokens(_, text) => self.append_text(text),
                 EOFToken => {
                     self.unexpected(&token);
-                    if self.current_node_named(atom!(script)) {
+                    if self.current_node_named(atom!("script")) {
                         let current = self.current_node();
                         self.sink.mark_script_already_started(current);
                     }
@@ -1399,7 +1456,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                          kind: ::tokenizer::EndTag,
                                                          .. })) => {
                             let node = self.pop();
-                            if tag.name == atom!(script) {
+                            if tag.name == atom!("script") {
                                 warn!("FIXME: </script> not fully implemented");
                                 if self.sink.complete_script(node) ==
                                        NextParserState::Suspend {
@@ -1421,8 +1478,8 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) =>
-                {
+                                                name: atom!("caption"), .. })
+                => {
                     self.pop_until_current(table_scope);
                     self.active_formatting.push(Marker);
                     self.insert_element_for(tag);
@@ -1431,7 +1488,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. })
+                                                name: atom!("colgroup"), .. })
                 => {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
@@ -1440,20 +1497,21 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) => {
+                                                name: atom!("col"), .. }) => {
                     self.pop_until_current(table_scope);
-                    self.insert_phantom(atom!(colgroup));
+                    self.insert_phantom(atom!("colgroup"));
                     Reprocess(InColumnGroup, token)
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) => {
+                                                name: atom!("thead"), .. }) =>
+                {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
                     self.mode = InTableBody;
@@ -1461,85 +1519,91 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     self.pop_until_current(table_scope);
-                    self.insert_phantom(atom!(tbody));
+                    self.insert_phantom(atom!("tbody"));
                     Reprocess(InTableBody, token)
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(table), .. }) => {
+                                                name: atom!("table"), .. }) =>
+                {
                     self.unexpected(&token);
-                    if self.in_scope_named(table_scope, atom!(table)) {
-                        self.pop_until_named(atom!(table));
+                    if self.in_scope_named(table_scope, atom!("table")) {
+                        self.pop_until_named(atom!("table"));
                         Reprocess(self.reset_insertion_mode(), token)
                     } else { Done }
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) => {
-                    if self.in_scope_named(table_scope, atom!(table)) {
-                        self.pop_until_named(atom!(table));
+                                                name: atom!("table"), .. }) =>
+                {
+                    if self.in_scope_named(table_scope, atom!("table")) {
+                        self.pop_until_named(atom!("table"));
                         self.mode = self.reset_insertion_mode();
                     } else { self.unexpected(&token); }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) |
+                                                name: atom!("body"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) |
+                                                name: atom!("html"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) =>
+                                                name: atom!("tr"), .. }) =>
                 self.unexpected(&token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) |
+                                                name: atom!("style"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) |
+                                                name: atom!("script"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => self.step(InHead, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(input), .. }) => {
+                                                name: atom!("input"), .. }) =>
+                {
                     self.unexpected(&tag);
                     if self.is_type_hidden(&tag) {
                         self.insert_and_pop_element_for(tag);
@@ -1548,9 +1612,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(form), .. }) => {
+                                                name: atom!("form"), .. }) =>
+                {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(atom!(template)) &&
+                    if !self.in_html_elem_named(atom!("template")) &&
                            self.form_elem.is_none() {
                         self.form_elem =
                             Some(self.insert_and_pop_element_for(tag));
@@ -1616,45 +1681,47 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) |
+                                                name: atom!("tr"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) |
+                                                name: atom!("table"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) =>
-                {
-                    if self.in_scope_named(table_scope, atom!(caption)) {
+                                                name: atom!("caption"), .. })
+                => {
+                    if self.in_scope_named(table_scope, atom!("caption")) {
                         self.generate_implied_end(cursory_implied_end);
-                        self.expect_to_close(atom!(caption));
+                        self.expect_to_close(atom!("caption"));
                         self.clear_active_formatting_to_marker();
                         match tag {
-                            Tag { kind: EndTag, name: atom!(caption), .. } =>
-                            {
+                            Tag { kind: EndTag, name: atom!("caption"), .. }
+                            => {
                                 self.mode = InTable;
                                 Done
                             }
@@ -1664,34 +1731,35 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) |
+                                                name: atom!("body"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) |
+                                                name: atom!("html"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) =>
+                                                name: atom!("tr"), .. }) =>
                 self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
@@ -1708,19 +1776,19 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) => {
+                                                name: atom!("col"), .. }) => {
                     self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. })
+                                                name: atom!("colgroup"), .. })
                 => {
-                    if self.current_node_named(atom!(colgroup)) {
+                    if self.current_node_named(atom!("colgroup")) {
                         self.pop();
                         self.mode = InTable;
                     } else { self.unexpected(&token); }
@@ -1728,14 +1796,15 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) =>
+                                                name: atom!("col"), .. }) =>
                 self.unexpected(&token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => self.step(InHead, token),
                 EOFToken => self.step(InBody, token),
                 last_arm_token => {
@@ -1743,7 +1812,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                         match last_arm_token { _ => true, };
                     match (enable_wildcards, last_arm_token) {
                         (_, token) => {
-                            if self.current_node_named(atom!(colgroup)) {
+                            if self.current_node_named(atom!("colgroup")) {
                                 self.pop();
                                 Reprocess(InTable, token)
                             } else { self.unexpected(&token) }
@@ -1755,7 +1824,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     self.pop_until_current(table_body_context);
                     self.insert_element_for(tag);
                     self.mode = InRow;
@@ -1763,24 +1832,25 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) => {
+                                                name: atom!("td"), .. }) => {
                     self.unexpected(&token);
                     self.pop_until_current(table_body_context);
-                    self.insert_phantom(atom!(tr));
+                    self.insert_phantom(atom!("tr"));
                     Reprocess(InRow, token)
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) => {
+                                                name: atom!("thead"), .. }) =>
+                {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
                         self.pop();
@@ -1790,26 +1860,29 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) => {
-                    declare_tag_set!(table_outer = table tbody tfoot);
+                                                name: atom!("table"), .. }) =>
+                {
+                    declare_tag_set!(table_outer = "table" "tbody" "tfoot");
                     if self.in_scope(table_scope,
                                      |e| self.elem_in(e, table_outer)) {
                         self.pop_until_current(table_body_context);
@@ -1819,28 +1892,30 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) |
+                                                name: atom!("body"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) |
+                                                name: atom!("html"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) =>
+                                                name: atom!("tr"), .. }) =>
                 self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
@@ -1854,10 +1929,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) => {
+                                                name: atom!("td"), .. }) => {
                     self.pop_until_current(table_row_context);
                     self.insert_element_for(tag);
                     self.mode = InCell;
@@ -1866,85 +1941,91 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) => {
-                    if self.in_scope_named(table_scope, atom!(tr)) {
+                                                name: atom!("tr"), .. }) => {
+                    if self.in_scope_named(table_scope, atom!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, atom!(tr));
+                        self.assert_named(node, atom!("tr"));
                         self.mode = InTableBody;
                     } else { self.unexpected(&token); }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) |
+                                                name: atom!("tr"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) => {
-                    if self.in_scope_named(table_scope, atom!(tr)) {
+                                                name: atom!("table"), .. }) =>
+                {
+                    if self.in_scope_named(table_scope, atom!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, atom!(tr));
+                        self.assert_named(node, atom!("tr"));
                         Reprocess(InTableBody, token)
                     } else { self.unexpected(&token) }
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) => {
+                                                name: atom!("thead"), .. }) =>
+                {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        if self.in_scope_named(table_scope, atom!(tr)) {
+                        if self.in_scope_named(table_scope, atom!("tr")) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
-                            self.assert_named(node, atom!(tr));
+                            self.assert_named(node, atom!("tr"));
                             Reprocess(InTableBody, TagToken(tag))
                         } else { Done }
                     } else { self.unexpected(&tag) }
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) |
+                                                name: atom!("body"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) |
+                                                name: atom!("html"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) =>
+                                                name: atom!("th"), .. }) =>
                 self.unexpected(&token),
                 last_arm_token => {
                     let enable_wildcards =
@@ -1958,10 +2039,10 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) => {
+                                                name: atom!("th"), .. }) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.generate_implied_end(cursory_implied_end);
                         self.expect_to_close(tag.name);
@@ -1972,31 +2053,33 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) |
+                                                name: atom!("th"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     if self.in_scope(table_scope,
                                      |n| self.elem_in(n.clone(), td_th)) {
                         self.close_the_cell();
@@ -2005,35 +2088,37 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(body), .. }) |
+                                                name: atom!("body"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(col), .. }) |
+                                                name: atom!("col"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.unexpected(&token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) |
+                                                name: atom!("table"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.close_the_cell();
                         Reprocess(InRow, TagToken(tag))
@@ -2054,22 +2139,26 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(option), .. }) =>
-                {
-                    if self.current_node_named(atom!(option)) { self.pop(); }
+                                                name: atom!("option"), .. })
+                => {
+                    if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
                     self.insert_element_for(tag);
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(optgroup), .. })
+                                                name: atom!("optgroup"), .. })
                 => {
-                    if self.current_node_named(atom!(option)) { self.pop(); }
-                    if self.current_node_named(atom!(optgroup)) {
+                    if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
+                    if self.current_node_named(atom!("optgroup")) {
                         self.pop();
                     }
                     self.insert_element_for(tag);
@@ -2077,73 +2166,74 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(optgroup), .. })
+                                                name: atom!("optgroup"), .. })
                 => {
                     if self.open_elems.len() >= 2 &&
-                           self.current_node_named(atom!(option)) &&
+                           self.current_node_named(atom!("option")) &&
                            self.html_elem_named(self.open_elems[self.open_elems.len()
                                                                     -
                                                                     2].clone(),
-                                                atom!(optgroup)) {
+                                                atom!("optgroup")) {
                         self.pop();
                     }
-                    if self.current_node_named(atom!(optgroup)) {
+                    if self.current_node_named(atom!("optgroup")) {
                         self.pop();
                     } else { self.unexpected(&token); }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(option), .. }) =>
-                {
-                    if self.current_node_named(atom!(option)) {
+                                                name: atom!("option"), .. })
+                => {
+                    if self.current_node_named(atom!("option")) {
                         self.pop();
                     } else { self.unexpected(&token); }
                     Done
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(select), .. }) |
+                                                name: atom!("select"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(select), .. }) =>
-                {
+                                                name: atom!("select"), .. })
+                => {
                     let in_scope =
-                        self.in_scope_named(select_scope, atom!(select));
+                        self.in_scope_named(select_scope, atom!("select"));
                     if !in_scope || tag.kind == StartTag {
                         self.unexpected(&tag);
                     }
                     if in_scope {
-                        self.pop_until_named(atom!(select));
+                        self.pop_until_named(atom!("select"));
                         self.mode = self.reset_insertion_mode();
                     }
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(input), .. }) |
+                                                name: atom!("input"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(keygen), .. }) |
+                                                name: atom!("keygen"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(textarea), .. })
+                                                name: atom!("textarea"), .. })
                 => {
                     self.unexpected(&token);
-                    if self.in_scope_named(select_scope, atom!(select)) {
-                        self.pop_until_named(atom!(select));
+                    if self.in_scope_named(select_scope, atom!("select")) {
+                        self.pop_until_named(atom!("select"));
                         Reprocess(self.reset_insertion_mode(), token)
                     } else { Done }
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) |
+                                                name: atom!("script"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => self.step(InHead, token),
                 EOFToken => self.step(InBody, token),
                 last_arm_token => {
@@ -2158,59 +2248,61 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             match token {
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(table), .. }) |
+                                                name: atom!("table"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) |
+                                                name: atom!("tr"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) => {
+                                                name: atom!("th"), .. }) => {
                     self.unexpected(&token);
-                    self.pop_until_named(atom!(select));
+                    self.pop_until_named(atom!("select"));
                     Reprocess(self.reset_insertion_mode(), token)
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(table), .. }) |
+                                                name: atom!("table"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(thead), .. }) |
+                                                name: atom!("thead"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(tr), .. }) |
+                                                name: atom!("tr"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(th), .. }) => {
+                                                name: atom!("th"), .. }) => {
                     self.unexpected(&tag);
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.pop_until_named(atom!(select));
+                        self.pop_until_named(atom!("select"));
                         Reprocess(self.reset_insertion_mode(), TagToken(tag))
                     } else { Done }
                 }
@@ -2228,89 +2320,96 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(_) => self.step(InBody, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(base), .. }) |
+                                                name: atom!("base"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(basefont), .. }) |
+                                                name: atom!("basefont"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(bgsound), .. }) |
+                                                name: atom!("bgsound"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(link), .. }) |
+                                                name: atom!("link"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(meta), .. }) |
+                                                name: atom!("meta"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. }) |
+                                                name: atom!("noframes"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(script), .. }) |
+                                                name: atom!("script"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(style), .. }) |
+                                                name: atom!("style"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(template), .. }) |
+                                                name: atom!("template"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(title), .. }) |
+                                                name: atom!("title"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(template), .. })
+                                                name: atom!("template"), .. })
                 => {
                     self.step(InHead, token)
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(caption), .. }) |
+                                                name: atom!("caption"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(colgroup), .. }) |
+                                                name: atom!("colgroup"), .. })
+                |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tbody), .. }) |
+                                                name: atom!("tbody"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tfoot), .. }) |
+                                                name: atom!("tfoot"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(thead), .. }) => {
+                                                name: atom!("thead"), .. }) =>
+                {
                     self.template_modes.pop();
                     self.template_modes.push(InTable);
                     Reprocess(InTable, token)
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(col), .. }) => {
+                                                name: atom!("col"), .. }) => {
                     self.template_modes.pop();
                     self.template_modes.push(InColumnGroup);
                     Reprocess(InColumnGroup, token)
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(tr), .. }) => {
+                                                name: atom!("tr"), .. }) => {
                     self.template_modes.pop();
                     self.template_modes.push(InTableBody);
                     Reprocess(InTableBody, token)
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(td), .. }) |
+                                                name: atom!("td"), .. }) |
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(th), .. }) => {
+                                                name: atom!("th"), .. }) => {
                     self.template_modes.pop();
                     self.template_modes.push(InRow);
                     Reprocess(InRow, token)
                 }
                 EOFToken => {
-                    if !self.in_html_elem_named(atom!(template)) {
+                    if !self.in_html_elem_named(atom!("template")) {
                         self.stop_parsing()
                     } else {
                         self.unexpected(&token);
-                        self.pop_until_named(atom!(template));
+                        self.pop_until_named(atom!("template"));
                         self.clear_active_formatting_to_marker();
                         self.template_modes.pop();
                         self.mode = self.reset_insertion_mode();
@@ -2340,11 +2439,12 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment_to_html(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) => {
+                                                name: atom!("html"), .. }) =>
+                {
                     if self.is_fragment() {
                         self.unexpected(&token);
                     } else { self.mode = AfterAfterBody; }
@@ -2369,25 +2469,25 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(frameset), .. })
+                                                name: atom!("frameset"), .. })
                 => {
                     self.insert_element_for(tag);
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(frameset), .. })
+                                                name: atom!("frameset"), .. })
                 => {
                     if self.open_elems.len() == 1 {
                         self.unexpected(&token);
                     } else {
                         self.pop();
                         if !self.is_fragment() &&
-                               !self.current_node_named(atom!(frameset)) {
+                               !self.current_node_named(atom!("frameset")) {
                             self.mode = AfterFrameset;
                         }
                     }
@@ -2395,13 +2495,14 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(frame), .. }) => {
+                                                name: atom!("frame"), .. }) =>
+                {
                     self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. })
+                                                name: atom!("noframes"), .. })
                 => self.step(InHead, token),
                 EOFToken => {
                     if self.open_elems.len() != 1 { self.unexpected(&token); }
@@ -2422,17 +2523,18 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::EndTag,
-                                                name: atom!(html), .. }) => {
+                                                name: atom!("html"), .. }) =>
+                {
                     self.mode = AfterAfterFrameset;
                     Done
                 }
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. })
+                                                name: atom!("noframes"), .. })
                 => self.step(InHead, token),
                 EOFToken => self.stop_parsing(),
                 last_arm_token => {
@@ -2450,7 +2552,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment_to_doc(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 EOFToken => self.stop_parsing(),
                 last_arm_token => {
@@ -2471,12 +2573,12 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 CommentToken(text) => self.append_comment_to_doc(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(html), .. }) =>
+                                                name: atom!("html"), .. }) =>
                 self.step(InBody, token),
                 EOFToken => self.stop_parsing(),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!(noframes), .. })
+                                                name: atom!("noframes"), .. })
                 => self.step(InHead, token),
                 last_arm_token => {
                     let enable_wildcards =
@@ -2501,146 +2603,146 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             CommentToken(text) => self.append_comment(text),
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(b), .. }) |
+                                            name: atom!("b"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(big), .. }) |
+                                            name: atom!("big"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(blockquote), .. }) |
+                                            name: atom!("blockquote"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(body), .. }) |
+                                            name: atom!("body"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(br), .. }) |
+                                            name: atom!("br"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(center), .. }) |
+                                            name: atom!("center"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(code), .. }) |
+                                            name: atom!("code"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(dd), .. }) |
+                                            name: atom!("dd"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(div), .. }) |
+                                            name: atom!("div"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(dl), .. }) |
+                                            name: atom!("dl"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(dt), .. }) |
+                                            name: atom!("dt"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(em), .. }) |
+                                            name: atom!("em"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(embed), .. }) |
+                                            name: atom!("embed"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h1), .. }) |
+                                            name: atom!("h1"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h2), .. }) |
+                                            name: atom!("h2"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h3), .. }) |
+                                            name: atom!("h3"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h4), .. }) |
+                                            name: atom!("h4"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h5), .. }) |
+                                            name: atom!("h5"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(h6), .. }) |
+                                            name: atom!("h6"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(head), .. }) |
+                                            name: atom!("head"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(hr), .. }) |
+                                            name: atom!("hr"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(i), .. }) |
+                                            name: atom!("i"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(img), .. }) |
+                                            name: atom!("img"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(li), .. }) |
+                                            name: atom!("li"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(listing), .. }) |
+                                            name: atom!("listing"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(menu), .. }) |
+                                            name: atom!("menu"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(meta), .. }) |
+                                            name: atom!("meta"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(nobr), .. }) |
+                                            name: atom!("nobr"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(ol), .. }) |
+                                            name: atom!("ol"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(p), .. }) |
+                                            name: atom!("p"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(pre), .. }) |
+                                            name: atom!("pre"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(ruby), .. }) |
+                                            name: atom!("ruby"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(s), .. }) |
+                                            name: atom!("s"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(small), .. }) |
+                                            name: atom!("small"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(span), .. }) |
+                                            name: atom!("span"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(strong), .. }) |
+                                            name: atom!("strong"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(strike), .. }) |
+                                            name: atom!("strike"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(sub), .. }) |
+                                            name: atom!("sub"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(sup), .. }) |
+                                            name: atom!("sup"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(table), .. }) |
+                                            name: atom!("table"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(tt), .. }) |
+                                            name: atom!("tt"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(u), .. }) |
+                                            name: atom!("u"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(ul), .. }) |
+                                            name: atom!("ul"), .. }) |
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(var), .. }) =>
+                                            name: atom!("var"), .. }) =>
             self.unexpected_start_tag_in_foreign_content(tag),
             ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                             kind: ::tokenizer::StartTag,
-                                            name: atom!(font), .. }) => {
+                                            name: atom!("font"), .. }) => {
                 let unexpected =
                     tag.attrs.iter().any(|attr| {
                                          matches!(attr . name , qualname ! (
-                                                  "" , color ) | qualname ! (
-                                                  "" , face ) | qualname ! (
-                                                  "" , size )) });
+                                                  "" , "color" ) | qualname !
+                                                  ( "" , "face" ) | qualname !
+                                                  ( "" , "size" )) });
                 if unexpected {
                     self.unexpected_start_tag_in_foreign_content(tag)
                 } else { self.foreign_start_tag(tag) }
@@ -2663,7 +2765,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                             if stack_idx == 0 { return Done; }
                             let node = self.open_elems[stack_idx].clone();
                             let node_name = self.sink.elem_name(node);
-                            if !first && node_name.ns == ns!(HTML) {
+                            if !first && node_name.ns == ns!(html) {
                                 let mode = self.mode;
                                 return self.step(mode, TagToken(tag));
                             }

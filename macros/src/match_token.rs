@@ -67,8 +67,8 @@ tag @ <html> <head> => ...
 expands to something like
 
 ```rust
-TagToken(tag @ Tag { name: atom!(html), kind: StartTag })
-| TagToken(tag @ Tag { name: atom!(head), kind: StartTag }) => ...
+TagToken(tag @ Tag { name: atom!("html"), kind: StartTag })
+| TagToken(tag @ Tag { name: atom!("head"), kind: StartTag }) => ...
 ```
 
 A wildcard tag matches any tag of the appropriate kind, *unless* it was
@@ -115,8 +115,6 @@ use self::RHS::{Else, Expr};
 
 type Tokens = Vec<ast::TokenTree>;
 
-type TagName = ast::Ident;
-
 // FIXME: duplicated in src/tokenizer/interface.rs
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 enum TagKind {
@@ -140,7 +138,7 @@ impl TagKind {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct Tag {
     kind: TagKind,
-    name: Option<TagName>,
+    name: Option<String>,
 }
 
 /// Left-hand side of a pattern-match arm.
@@ -189,7 +187,7 @@ fn parse_tag(parser: &mut Parser) -> Result<Spanned<Tag>, FatalError> {
     };
     let name = match try!(parser.eat(&token::Underscore)) {
         true => None,
-        false => Some(try!(parser.parse_ident())),
+        false => Some((*try!(parser.parse_ident()).name.as_str()).to_owned()),
     };
 
     try!(parser.expect(&token::Gt));
@@ -216,7 +214,7 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
 
         let lhs_lo = parser.span.lo;
         let lhs = match parser.token {
-            token::Underscore | token::Ident(..) => Pat(try!(parser.parse_pat_nopanic())),
+            token::Underscore | token::Ident(..) => Pat(try!(parser.parse_pat())),
             token::Lt => {
                 let mut tags = Vec::new();
                 while parser.token != token::FatArrow {
@@ -412,8 +410,8 @@ pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree])
     //
     //     last_arm_token => {
     //         let enable_wildcards = match last_arm_token {
-    //             TagToken(Tag { kind: EndTag, name: atom!(body), .. }) => false,
-    //             TagToken(Tag { kind: EndTag, name: atom!(html), .. }) => false,
+    //             TagToken(Tag { kind: EndTag, name: atom!("body"), .. }) => false,
+    //             TagToken(Tag { kind: EndTag, name: atom!("html"), .. }) => false,
     //             // ...
     //             _ => true,
     //         };
