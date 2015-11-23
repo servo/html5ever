@@ -24,7 +24,10 @@ impl<'a> QNameTokenizer<'a> {
 
     pub fn run(&mut self) -> Option<u32> {
         if self.slice.len() > 0 {
-            while self.step() {
+            loop {
+                if !self.step() {
+                    break;
+                }
             }
         }
         self.valid_index

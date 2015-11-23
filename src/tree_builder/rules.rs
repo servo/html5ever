@@ -26,22 +26,30 @@ impl<Handle, Sink> XmlTreeBuilderStep
         match mode {
             StartPhase => match token {
                 TagToken(Tag{kind: StartTag, name, attrs}) => {
-                    let tag = self.process_namespaces(Tag {
-                        kind: StartTag,
-                        name: name,
-                        attrs: attrs,
-                    });
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: StartTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
                     self.phase = MainPhase;
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
 
                 },
                 TagToken(Tag{kind: EmptyTag, name, attrs}) => {
-                    let tag = self.process_namespaces(Tag {
-                        kind: StartTag,
-                        name: name,
-                        attrs: attrs,
-                    });
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EmptyTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
                     self.phase = EndPhase;
                     self.append_tag_to_doc(tag);
                     Done
@@ -70,32 +78,41 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     self.append_text(chs)
                 },
                 TagToken(Tag{kind: StartTag, name, attrs}) => {
-                    let tag =  self.process_namespaces(Tag {
-                        kind: StartTag,
-                        name: name,
-                        attrs: attrs,
-                    });
-
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: StartTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
                     self.insert_tag(tag)
                 },
                 TagToken(Tag{kind: EmptyTag, name, attrs}) => {
-                    let tag =  self.process_namespaces(Tag {
-                        kind: EmptyTag,
-                        name: name,
-                        attrs: attrs,
-                    });
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EmptyTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
                     self.append_tag(tag)
                 },
                 TagToken(Tag{kind: EndTag, name, attrs}) => {
-                    let tag =  self.process_namespaces(Tag {
-                        kind: EndTag,
-                        name: name,
-                        attrs: attrs,
-                    });
-                    println!("Enter EndTag in MainPhase");
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EndTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
-                        println!("No open elems, switch to EndPhase");
                         self.phase = EndPhase;
                     }
                     retval

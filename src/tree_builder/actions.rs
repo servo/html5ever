@@ -145,6 +145,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
             self.pop_until(|p| p == tag.name);
             self.pop();
         }
+        //FIXME: Pop namespace from namespace stack
         Done
     }
 

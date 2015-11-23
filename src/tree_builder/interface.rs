@@ -14,7 +14,6 @@ use tokenizer::{Attribute, QName};
 
 use std::borrow::Cow;
 
-use string_cache::Atom;
 use tendril::StrTendril;
 
 pub use self::NodeOrText::{AppendNode, AppendText};

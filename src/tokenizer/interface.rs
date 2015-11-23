@@ -66,7 +66,7 @@ pub enum TagKind {
 pub struct Tag {
     pub kind: TagKind,
     pub name: QName,
-    pub attrs: Vec<Attribute>
+    pub attrs: Vec<Attribute>,
 }
 
 impl Tag {

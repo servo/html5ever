@@ -12,11 +12,10 @@ pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
 
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 use std::mem::replace;
-use std::str;
 
-use string_cache::{Namespace, Atom};
+use string_cache::{Atom};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -24,8 +23,8 @@ use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{Data, TagState, XmlState};
 use self::states::{DoctypeKind, Public, System};
-use util::smallcharset::SmallCharSet;
 use self::qname::{QNameTokenizer};
+use util::smallcharset::SmallCharSet;
 
 
 
@@ -68,12 +67,12 @@ fn process_qname(tag_name: StrTendril) -> QName {
     };
 
     match split {
-        None => QName::new(Atom::from_slice(""), Atom::from_slice(&tag_name)),
+        None => QName::new(Atom::from(""), Atom::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QName::new(Atom::from_slice(&*prefix), Atom::from_slice(&*local))
+            QName::new(Atom::from(&*prefix), Atom::from(&*local))
         },
     }
 }
@@ -358,7 +357,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
 
     fn discard_tag(&mut self) {
         self.current_tag_name = StrTendril::new();
-        self.current_tag_attrs = vec!();
+        self.current_tag_attrs = Vec::new();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -414,7 +413,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
             StartTag | EmptyTag => {},
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error(Borrowed("Attributes on an end tag"));
+                    self.emit_error(Borrowed("Attribtes on an end tag"));
                 }
             },
             ShortTag => {
@@ -1150,12 +1149,19 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.current_attr_name.clear();
             self.current_attr_value.clear();
         } else {
-            self.current_tag_attrs.push(Attribute {
-                // The tree builder will adjust the namespace if necessary.
-                // This only happens in foreign elements.
-                name: process_qname(replace(&mut self.current_attr_name, StrTendril::new())),
+            let qname = process_qname(replace(&mut self.current_attr_name, StrTendril::new()));
+            let attr = Attribute {
+                name: qname.clone(),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
-            });
+            };
+
+            if &qname.local == &Atom::from("xmlns") ||
+                &qname.prefix == &Atom::from("xmlns") {
+
+                self.current_tag_attrs.insert(0, attr);
+            } else {
+                self.current_tag_attrs.push(attr);
+            }
         }
     }
 
