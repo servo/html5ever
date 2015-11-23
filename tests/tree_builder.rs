@@ -7,8 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(test, plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+#![cfg_attr(feature = "unstable", feature(test))]
 
 #[cfg(feature = "unstable")] extern crate test;
 #[macro_use] extern crate string_cache;
@@ -113,8 +112,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         Element(ref name, _, ref attrs) => {
             buf.push_str("<");
             match name.ns {
-                ns!(SVG) => buf.push_str("svg "),
-                ns!(MathML) => buf.push_str("math "),
+                ns!(svg) => buf.push_str("svg "),
+                ns!(mathml) => buf.push_str("math "),
                 _ => (),
             }
             buf.push_str(&*name.local);
@@ -128,9 +127,9 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
                 match attr.name.ns {
-                    ns!(XLink) => buf.push_str("xlink "),
-                    ns!(XML) => buf.push_str("xml "),
-                    ns!(XMLNS) => buf.push_str("xmlns "),
+                    ns!(xlink) => buf.push_str("xlink "),
+                    ns!(xml) => buf.push_str("xml "),
+                    ns!(xmlns) => buf.push_str("xmlns "),
                     _ => (),
                 }
                 buf.push_str(&format!("{}=\"{}\"\n",
@@ -249,11 +248,11 @@ fn make_test_desc_with_scripting_flag(
 #[cfg(feature = "unstable")]
 fn context_name(context: &str) -> QualName {
     if context.starts_with("svg ") {
-        QualName::new(ns!(SVG), Atom::from_slice(&context[4..]))
+        QualName::new(ns!(svg), Atom::from(&context[4..]))
     } else if context.starts_with("math ") {
-        QualName::new(ns!(MathML), Atom::from_slice(&context[5..]))
+        QualName::new(ns!(mathml), Atom::from(&context[5..]))
     } else {
-        QualName::new(ns!(HTML), Atom::from_slice(context))
+        QualName::new(ns!(html), Atom::from(context))
     }
 }
 

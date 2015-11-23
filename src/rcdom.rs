@@ -196,8 +196,8 @@ impl TreeSink for RcDom {
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
         let info = match name {
-            qualname!(HTML, script) => Script(false),
-            qualname!(HTML, template) => Template(new_node(Document)),
+            qualname!(html, "script") => Script(false),
+            qualname!(html, "template") => Template(new_node(Document)),
             _ => Normal,
         };
         new_node(Element(name, info, attrs))

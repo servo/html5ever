@@ -7,9 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
-
 #[macro_use] extern crate string_cache;
 extern crate tendril;
 extern crate html5ever;
@@ -24,7 +21,7 @@ use html5ever::rcdom::RcDom;
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom: RcDom = parse_fragment(one_input(input),
-                                    qualname!(HTML, body),
+                                    qualname!(html, "body"),
                                     vec![],
                                     ParseOpts::default());
     let inner = &dom.document.borrow().children[0];

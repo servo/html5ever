@@ -166,7 +166,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
         let start_tag_name = opts.last_start_tag_name.take()
-            .map(|s| Atom::from_slice(&s));
+            .map(|s| Atom::from(&*s));
         let state = opts.initial_state.unwrap_or(states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
@@ -367,7 +367,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn emit_current_tag(&mut self) {
         self.finish_attribute();
 
-        let name = Atom::from_slice(&self.current_tag_name);
+        let name = Atom::from(&*self.current_tag_name);
         self.current_tag_name.clear();
 
         match self.current_tag_kind {
@@ -458,12 +458,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.current_attr_name.clear();
             self.current_attr_value.clear();
         } else {
-            let name = Atom::from_slice(&self.current_attr_name);
+            let name = Atom::from(&*self.current_attr_name);
             self.current_attr_name.clear();
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(""), name),
+                name: QualName::new(ns!(), name),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             });
         }

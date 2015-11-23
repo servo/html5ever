@@ -102,7 +102,7 @@ fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>) -> Vec<ast::Tok
     let start_span = parser.span;
     let mut items = Vec::new();
     let attrs = parser.parse_inner_attributes().unwrap();
-    while let Ok(Some(item)) = parser.parse_item_nopanic() {
+    while let Ok(Some(item)) = parser.parse_item() {
         items.push(item)
     }
     cx.bt_push(expn_info(start_span));

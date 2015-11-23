@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(non_camel_case_types, raw_pointer_derive)]
+#![allow(non_camel_case_types)]
 
 use c_bool;
 
@@ -78,7 +78,7 @@ impl TokenSink for h5e_token_sink {
                             attrs.len() as size_t);
                         for attr in attrs.into_iter() {
                             // All attribute names from the tokenizer are local.
-                            assert!(attr.name.ns == ns!(""));
+                            assert!(attr.name.ns == ns!());
                             call!(do_tag_attr, attr.name.local, attr.value);
                         }
                     }
@@ -107,7 +107,7 @@ pub type h5e_tokenizer_ptr = *const ();
 #[no_mangle]
 pub unsafe extern "C" fn h5e_tokenizer_new(sink: *const h5e_token_sink) -> h5e_tokenizer_ptr {
     let tok: Box<Tokenizer<h5e_token_sink>>
-        = box Tokenizer::new(*sink, Default::default());
+        = Box::new(Tokenizer::new(*sink, Default::default()));
 
     mem::transmute(tok)
 }

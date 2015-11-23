@@ -187,7 +187,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                             opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template =
-            sink.elem_name(context_elem.clone()) == qualname!(HTML, template);
+            sink.elem_name(context_elem.clone()) == qualname!(html, "template");
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
@@ -224,24 +224,24 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.clone().expect("no context element");
         let name = match self.sink.elem_name(elem) {
-            QualName { ns: ns!(HTML), local } => local,
+            QualName { ns: ns!(html), local } => local,
             _ => return tok_state::Data
         };
         match name {
-            atom!(title) | atom!(textarea) => tok_state::RawData(tok_state::Rcdata),
+            atom!("title") | atom!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
-            atom!(style) | atom!(xmp) | atom!(iframe)
-                | atom!(noembed) | atom!(noframes) => tok_state::RawData(tok_state::Rawtext),
+            atom!("style") | atom!("xmp") | atom!("iframe")
+                | atom!("noembed") | atom!("noframes") => tok_state::RawData(tok_state::Rawtext),
 
-            atom!(script) => tok_state::RawData(tok_state::ScriptData),
+            atom!("script") => tok_state::RawData(tok_state::ScriptData),
 
-            atom!(noscript) => if self.opts.scripting_enabled {
+            atom!("noscript") => if self.opts.scripting_enabled {
                 tok_state::RawData(tok_state::Rawtext)
             } else {
                 tok_state::Data
             },
 
-            atom!(plaintext) => tok_state::Plaintext,
+            atom!("plaintext") => tok_state::Plaintext,
 
             _ => tok_state::Data
         }
@@ -286,7 +286,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         for node in self.open_elems.iter() {
             let QualName { ns, local } = self.sink.elem_name(node.clone());
             match ns {
-                ns!(HTML) => print!(" {}", &local[..]),
+                ns!(html) => print!(" {}", &local[..]),
                 _ => panic!(),
             }
         }
@@ -298,7 +298,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 &Element(ref h, _) => {
                     let QualName { ns, local } = self.sink.elem_name(h.clone());
                     match ns {
-                        ns!(HTML) => print!(" {}", &local[..]),
+                        ns!(html) => print!(" {}", &local[..]),
                         _ => panic!(),
                     }
                 }
@@ -427,7 +427,7 @@ impl<Handle, Sink> TokenSink
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
-        self.sink.elem_name(self.adjusted_current_node()).ns != ns!(HTML)
+        self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::State> {

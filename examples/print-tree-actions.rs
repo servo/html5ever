@@ -7,9 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(plugin))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
-
 #[macro_use]
 extern crate string_cache;
 extern crate tendril;
@@ -52,7 +49,7 @@ impl TreeSink for Sink {
     }
 
     fn get_template_contents(&self, target: usize) -> usize {
-        if let Some(&qualname!(HTML, template)) = self.names.get(&target) {
+        if let Some(&qualname!(html, "template")) = self.names.get(&target) {
             target + 1
         } else {
             panic!("not a template element")

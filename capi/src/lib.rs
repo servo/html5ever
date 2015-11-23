@@ -7,11 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(plugin, box_syntax)]
-#![plugin(string_cache_plugin)]
-
 extern crate libc;
-extern crate string_cache;
+#[macro_use] extern crate string_cache;
 extern crate tendril;
 extern crate html5ever;
 
