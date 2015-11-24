@@ -45,14 +45,14 @@ impl TokenSink for TokenPrinter {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
-                    StartTag => print!("TAG  : <\x1b[32m{}\x1b[0m", tag.name.as_slice()),
-                    EndTag   => print!("END TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
-                    ShortTag => print!("Short TAG  : <\x1b[31m/{}\x1b[0m", tag.name.as_slice()),
-                    EmptyTag => print!("Empty TAG  : <\x1b[31m{}\x1b[0m", tag.name.as_slice()),
+                    StartTag => print!("TAG  : <\x1b[32m{}\x1b[0m", tag.name),
+                    EndTag   => print!("END TAG  : <\x1b[31m/{}\x1b[0m", tag.name),
+                    ShortTag => print!("Short TAG  : <\x1b[31m/{}\x1b[0m", tag.name),
+                    EmptyTag => print!("Empty TAG  : <\x1b[31m{}\x1b[0m", tag.name),
                 }
                 for attr in tag.attrs.iter() {
                     print!(" \x1b[36m{}\x1b[0m='\x1b[34m{}\x1b[0m'",
-                        attr.name.local.as_slice(), attr.value);
+                        attr.name.local, attr.value);
                 }
                 if tag.kind == EmptyTag {
                     print!("/");
