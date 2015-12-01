@@ -1166,3 +1166,50 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
 }
+
+
+#[cfg(test)]
+mod test {
+
+    use tendril::SliceExt;
+    use string_cache::{Atom};
+    use super::{process_qname};
+
+    #[test]
+    fn simple_namespace() {
+        let qname = process_qname("prefix:local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from("prefix"));
+        assert_eq!(qname.local, Atom::from("local"));
+
+        let qname = process_qname("a:b".to_tendril());
+        assert_eq!(qname.prefix, Atom::from("a"));
+        assert_eq!(qname.local, Atom::from("b"));
+    }
+
+    #[test]
+    fn wrong_namespaces() {
+        let qname = process_qname(":local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":local"));
+
+        let qname = process_qname("::local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("::local"));
+
+        let qname = process_qname("a::local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("a::local"));
+
+        let qname = process_qname("fake::".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("fake::"));
+
+        let qname = process_qname(":::".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":::"));
+
+        let qname = process_qname(":a:b:".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":a:b:"));
+    }
+}
