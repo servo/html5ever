@@ -65,8 +65,6 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn add_to_open_elems(&mut self, el: Handle) -> XmlProcessResult {
         self.open_elems.push(el);
 
-        //FIXME remove this on final commit
-        println!("After add to open elems there are {} open elems", self.open_elems.len());
         Done
     }
 
@@ -121,6 +119,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
                 break;
             }
             self.open_elems.pop();
+            self.namespace_stack.pop();
         }
     }
 
@@ -133,7 +132,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
         println!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(&self.current_node()), &tag.name);
-        // FIXME: Take namespace into decision
+
         if &self.sink.elem_name(&self.current_node()).local != &tag.name.local {
             self.sink.parse_error(Borrowed("Current node doesn't match tag"));
         }
@@ -141,11 +140,10 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         let is_closed = self.tag_in_open_elems(&tag);
 
         if is_closed {
-            // FIXME: Real namespace resolution
             self.pop_until(|p| p == tag.name);
             self.pop();
         }
-        //FIXME: Pop namespace from namespace stack
+
         Done
     }
 
@@ -154,6 +152,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn pop(&mut self) -> Handle {
+        self.namespace_stack.pop();
         self.open_elems.pop().expect("no current element")
     }
 

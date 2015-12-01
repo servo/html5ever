@@ -8,8 +8,8 @@ extern crate tendril;
 extern crate xml5ever;
 extern crate rc;
 
-use std::{env};
 use std::borrow::Cow::Borrowed;
+use std::env;
 use std::ffi::OsStr;
 use std::mem::replace;
 use std::path::Path;
@@ -208,7 +208,7 @@ fn json_to_token(js: &Json) -> Token {
             name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QName::new(ns!(""), Atom::from(&**k)),
+                    name: QName::from_namespace(ns!(), Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

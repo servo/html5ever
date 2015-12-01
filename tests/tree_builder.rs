@@ -113,7 +113,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("<");
 
             match name.prefix {
-                 atom!()  => (),
+                 atom!("")  => (),
                  _          => {buf.push_str(&*name.prefix);buf.push_str(" ");},
              };
 

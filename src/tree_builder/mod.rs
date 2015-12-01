@@ -4,32 +4,35 @@ mod types;
 // "pub" is a workaround for rust#18241 (?)
 pub mod interface;
 
-use std::collections::{VecDeque, BTreeMap};
-use std::result::Result;
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
+use std::collections::{VecDeque, BTreeMap};
+use std::result::Result;
+use std::mem;
 
 use string_cache::Atom;
 
-use tokenizer::{self, TokenSink, Tag, QName, Attribute};
+use tokenizer::{self, TokenSink, Tag, QName, Attribute, StartTag};
 pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
 
+static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
+static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";
+
 macro_rules! atoms {
     () => (Atom::from(""));
     (xml) => (Atom::from("xml"));
-    (xml_uri) => (Atom::from("http://www.w3.org/XML/1998/namespace"));
+    (xml_uri) => (Atom::from(XML_URI));
     (xmlns) => (Atom::from("xmlns"));
-    (xmlns_uri) => (Atom::from("http://www.w3.org/2000/xmlns/"))
+    (xmlns_uri) => (Atom::from(XMLNS_URI))
 }
 
-enum InsResult {
-    Ok,
-    Err(Cow<'static, str>),
-}
+type InsResult = Result<Atom, Cow<'static, str>>;
 
+#[derive(Debug)]
 struct NamespaceStack(Vec<Namespace>);
+
 
 impl NamespaceStack{
     pub fn new() -> NamespaceStack {
@@ -48,25 +51,11 @@ impl NamespaceStack{
         self.0.pop();
     }
 
-    pub fn peek_mut(&mut self) -> Option<&mut Namespace> {
-        self.0.last_mut()
-    }
-
-    pub fn find_uri(&self, prefix: &Atom) ->  Result<Option<Atom>, Cow<'static, str> > {
-        let mut uri = Err(Borrowed("No appropriate namespace found"));
-        for ns in self.0.iter().rev() {
-            if let Some(el) = ns.get(prefix) {
-                uri = Ok(el.clone());
-                break;
-            }
-        }
-
-        uri
-    }
 }
 
 pub type UriMapping = (Atom, Atom);
 
+#[derive(Debug)]
 struct Namespace {
     // Map that maps prefixes to URI.
     //
@@ -90,7 +79,7 @@ impl Namespace {
         Namespace {
             scope: {
                 let mut map = BTreeMap::new();
-                map.insert(atoms!(), Some(atoms!()));
+                map.insert(atoms!(), None);
                 map.insert(atoms!(xml), Some(atoms!(xml_uri)));
                 map.insert(atoms!(xmlns), Some(atoms!(xmlns_uri)));
                 map
@@ -98,42 +87,54 @@ impl Namespace {
         }
     }
 
-    fn is_predefined(&self, ns: &Atom) -> bool {
-        *ns == atoms!(xml) || *ns == atoms!(xmlns)
-    }
-
     fn get(&self, prefix: &Atom) -> Option<&Option<Atom>> {
         self.scope.get(prefix)
     }
 
-
-    fn insert_ns(&mut self, ns: &Atom, uri: &Atom) -> InsResult {
-        let result;
-        let opt_uri = if uri == &atoms!() {
-            None
-        } else {
-            Some(uri.clone())
+    fn insert_ns(&mut self, attr: &Attribute) -> InsResult {
+        if &*attr.value == XMLNS_URI {
+            return Err(Borrowed("Can't declare XMLNS URI"));
         };
 
-        if !self.is_predefined(&ns) {
-            if self.scope.contains_key(&ns) && opt_uri.is_some() {
-                result = InsResult::Err(Borrowed("Namespace already defined"));
-            } else {
-                self.scope.insert(ns.clone(), opt_uri);
-                result = InsResult::Ok;
-            }
+        let opt_uri = if &*attr.value == "" {
+            None
         } else {
-            if ns == &atoms!(xmlns) {
-                result = InsResult::Err(Borrowed("XMLNS namespace can't be altered"));
-            } else {
-                if opt_uri.is_some() {
-                    result = InsResult::Err(Borrowed("XML namespace can only be undeclared"));
+            Some(Atom::from(&*attr.value))
+        };
+
+        let result = match (&*attr.name.prefix, &*attr.name.local) {
+            ("xmlns", "xml") => {
+                if &*attr.value != XML_URI {
+                    Err(Borrowed("XML namespace can't be redeclared"))
                 } else {
-                    self.scope.insert(atoms!(xml), None);
-                    result = InsResult::Ok;
+                    Ok(atoms!(xmlns_uri))
                 }
+            },
+
+            ("xmlns" , "xmlns") => {
+                Err(Borrowed("XMLNS namespaces can't be changed"))
+            },
+
+            ("xmlns", _)
+            | ("", "xmlns")=> {
+                let ext = if &*attr.name.prefix == "" {
+                    atoms!()
+                } else {
+                    Atom::from(&*attr.name.local)
+                };
+
+                if self.scope.contains_key(&ext) && opt_uri.is_some() {
+                    Err(Borrowed("Namespace already defined"))
+                } else {
+                    self.scope.insert(ext, opt_uri);
+                    Ok(atoms!(xmlns_uri))
+                }
+            },
+
+            (_, _) => {
+                Err(Borrowed("Invalid namespace declaration."))
             }
-        }
+        };
         result
     }
 }
@@ -159,6 +160,9 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     /// Stack of namespace identifiers and namespaces.
     namespace_stack: NamespaceStack,
 
+    /// Current namespace identifier
+    current_namespace: Namespace,
+
     /// Current tree builder phase.
     phase: XmlPhase,
 }
@@ -178,6 +182,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             open_elems: vec!(),
             curr_elem: None,
             namespace_stack: NamespaceStack::new(),
+            current_namespace: Namespace::empty(),
             phase: StartPhase,
         }
     }
@@ -210,10 +215,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     fn dump_state(&self, label: String) {
 
         println!("dump_state on {}", label);
-        print!("    open_elems:");
+        println!("    open_elems:");
         for node in self.open_elems.iter() {
             let QName { prefix, local, .. } = self.sink.elem_name(node);
-            print!(" {:?}:{:?}", prefix,local);
+            println!(" {:?}:{:?}", prefix,local);
 
         }
         println!("");
@@ -228,32 +233,36 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         debug!("processing {:?} in insertion mode {:?}", format!("{:?}", token), mode);
     }
 
-    fn create_top_namespace(&mut self) {
-        self.namespace_stack.push(Namespace::empty());
+
+    fn declare_ns(&mut self, attr: &mut Attribute) {
+        if let Err(msg) = self.current_namespace.insert_ns(&attr) {
+            self.sink.parse_error(msg);
+
+        } else {
+            attr.name.namespace_url =  atoms!(xmlns_uri);
+        }
+
     }
 
-    fn insert_ns(&mut self, attr: &mut Attribute, uri: Atom) {
-        let top_ns = self.namespace_stack.peek_mut();
-
-        if let Some(nsc) = top_ns {
-            if let InsResult::Err(msg) =
-                    nsc.insert_ns(&attr.name.prefix, &uri) {
-
-                self.sink.parse_error(msg);
-            } else {
-                attr.name.namespace_url = uri.clone();
+    fn find_uri(&self, prefix: &Atom) ->  Result<Option<Atom>, Cow<'static, str> >{
+        let mut uri = Err(Borrowed("No appropriate namespace found"));
+        for ns in self.namespace_stack.0.iter()
+                    .chain(Some(&self.current_namespace)).rev() {
+            if let Some(el) = ns.get(prefix) {
+                uri = Ok(el.clone());
+                break;
             }
         }
+        uri
     }
 
     fn bind_qname(&mut self, name: &mut QName) {
-        match self.namespace_stack.find_uri(&name.prefix) {
+        match self.find_uri(&name.prefix) {
             Ok(uri) => {
                 let ns_uri = match uri {
                     Some(e) => e,
                     None => atoms!(),
                 };
-                // TODO: check duplicates
                 name.namespace_url = ns_uri;
             },
             Err(msg) => {
@@ -262,45 +271,38 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         }
     }
 
-/**
-
-        fn check_dupl(
-            set: &mut HashSet<(Atom, Option<Atom>)>,
-            tuple: (Atom, Option<Atom>)
-        ) -> InsResult {
-            let result;
-            if set.contains(&tuple) {
-                result = InsResult::Err(Borrowed("Repeated namespace, this namespace will be ignored"));
-            } else {
-                set.insert(tuple);
-                result = InsResult::Ok;
-            }
-            result
+    fn bind_attr_qname(&mut self, name: &mut QName) {
+        // Attributes don't have default namespace
+        if &*name.prefix != "" {
+            self.bind_qname(name);
         }
-*/
+    }
 
     fn process_namespaces(&mut self, tag: &mut Tag) {
+        // First we extract all namespace declarations
+        for mut attr in tag.attrs.iter_mut()
+            .filter(|attr|  &attr.name.prefix == &atoms!(xmlns)
+                          || attr.name.local == atoms!(xmlns)) {
 
-        self.create_top_namespace();
-
-
-        for mut attr in tag.attrs.iter_mut() {
-
-            let is_pseudo_decl = &attr.name.prefix == &atoms!(xmlns)
-                                    || attr.name.local == atoms!(xmlns);
-
-            let uri = Atom::from(&*attr.value);
-
-            if is_pseudo_decl {
-                self.insert_ns(&mut attr, uri);
-            } else {
-                self.bind_qname(&mut attr.name);
-            }
-
+            self.declare_ns(&mut attr);
         }
 
+        // Then we bind those namespace delcarations to attributes
+        for mut attr in tag.attrs.iter_mut()
+            .filter(|attr|  &attr.name.prefix != &atoms!(xmlns)
+                          && attr.name.local != atoms!(xmlns)) {
+
+            self.bind_attr_qname(&mut attr.name);
+        }
+        // Then we check if those attributes contain current_namespace
         self.bind_qname(&mut tag.name);
 
+        // Finally, we dump namespace if its unneeded.
+        let x = mem::replace(&mut self.current_namespace, Namespace::empty());
+
+        if tag.kind == StartTag {
+            self.namespace_stack.push(x);
+        }
 
     }
 

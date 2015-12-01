@@ -29,7 +29,6 @@ use util::smallcharset::SmallCharSet;
 
 
 /// Copy of Tokenizer options, with an impl for `Default`.
-/// FIXME: Unite this with TokenizerOpt
 #[derive(Copy, Clone)]
 pub struct XmlTokenizerOpts {
     /// Report all parse errors described in the spec, at some
@@ -47,10 +46,6 @@ pub struct XmlTokenizerOpts {
     /// Initial state override.  Only the test runner should use
     /// a non-`None` value!
     pub initial_state: Option<states::XmlState>,
-
-    /// Mod determining if the entity expansion is allowed
-    /// TODO: Upgrade to a struct with more options.
-    pub safe_mod: bool,
 
 }
 
@@ -91,7 +86,6 @@ impl Default for XmlTokenizerOpts {
             discard_bom: true,
             profile: false,
             initial_state: None,
-            safe_mod: true,
         }
     }
 }
@@ -996,7 +990,6 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Indicate that we have reached the end of the input.
-    // FIXME: Copy pasta review carefully
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
