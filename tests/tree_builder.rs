@@ -111,11 +111,21 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
         Element(ref name, ref attrs) => {
             buf.push_str("<");
-            match name.ns {
-                ns!(svg) => buf.push_str("svg "),
-                ns!(mathml) => buf.push_str("math "),
-                _ => (),
+
+            match name.namespace_url {
+                 atom!("")  => (),
+                 _          => {
+                    buf.push_str("{");
+                    buf.push_str(&*name.namespace_url);
+                    buf.push_str("}");
+                },
+             };
+
+            if &*name.prefix != "" {
+                buf.push_str(&*name.prefix);
+                buf.push_str(":");
             }
+
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
@@ -126,12 +136,18 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             for attr in attrs.into_iter() {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
-                match attr.name.ns {
-                    ns!(xlink) => buf.push_str("xlink "),
-                    ns!(xml) => buf.push_str("xml "),
-                    ns!(xmlns) => buf.push_str("xmlns "),
-                    _ => (),
+
+                if &*attr.name.namespace_url != "" {
+                    buf.push_str("{");
+                    buf.push_str(&*attr.name.namespace_url);
+                    buf.push_str("}");
                 }
+
+                if &*attr.name.prefix != "" {
+                    buf.push_str(&*attr.name.prefix);
+                    buf.push_str(":");
+                }
+
                 buf.push_str(&format!("{}=\"{}\"\n",
                     attr.name.local, attr.value));
             }

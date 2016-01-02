@@ -1,20 +1,21 @@
 mod buffer_queue;
 mod char_ref;
 mod interface;
+mod qname;
 pub mod states;
 
-pub use self::interface::{Attribute, Doctype};
-pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag};
+pub use self::interface::{Attribute, Doctype, Pi};
+pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag, QName};
 pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
-pub use self::interface::Pi;
 
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 use std::mem::replace;
-use string_cache::{Atom, QualName};
+
+use string_cache::{Atom};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -22,11 +23,12 @@ use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{Data, TagState, XmlState};
 use self::states::{DoctypeKind, Public, System};
+use self::qname::{QNameTokenizer};
 use util::smallcharset::SmallCharSet;
 
 
+
 /// Copy of Tokenizer options, with an impl for `Default`.
-/// FIXME: Unite this with TokenizerOpt
 #[derive(Copy, Clone)]
 pub struct XmlTokenizerOpts {
     /// Report all parse errors described in the spec, at some
@@ -45,10 +47,29 @@ pub struct XmlTokenizerOpts {
     /// a non-`None` value!
     pub initial_state: Option<states::XmlState>,
 
-    /// Mod determining if the entity expansion is allowed
-    /// TODO: Upgrade to a struct with more options.
-    pub safe_mod: bool,
+}
 
+fn process_qname(tag_name: StrTendril) -> QName {
+    // If tag name can't possibly contain full namespace, skip qualified name
+    // parsing altogether. For a tag to have namespace it must look like:
+    //     a:b
+    // Since StrTendril are UTF-8, we know that minimal size in bytes must be
+    // three bytes minimum.
+    let split = if (&*tag_name).as_bytes().len() <3 {
+        None
+    } else {
+        QNameTokenizer::new((&*tag_name).as_bytes()).run()
+    };
+
+    match split {
+        None => QName::new(Atom::from(""), Atom::from(&*tag_name)),
+        Some(col) => {
+            let len = (&*tag_name).as_bytes().len() as u32;
+            let prefix = tag_name.subtendril(0, col);
+            let local =  tag_name.subtendril(col+1, len - col -1);
+            QName::new(Atom::from(&*prefix), Atom::from(&*local))
+        },
+    }
 }
 
 fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
@@ -65,11 +86,9 @@ impl Default for XmlTokenizerOpts {
             discard_bom: true,
             profile: false,
             initial_state: None,
-            safe_mod: true,
         }
     }
 }
-
 /// The Xml tokenizer.
 pub struct XmlTokenizer<Sink> {
     /// Options controlling the behavior of the tokenizer.
@@ -332,7 +351,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
 
     fn discard_tag(&mut self) {
         self.current_tag_name = StrTendril::new();
-        self.current_tag_attrs = vec!();
+        self.current_tag_attrs = Vec::new();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -376,17 +395,19 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         self.emit_current_tag();
     }
 
+
     fn emit_current_tag(&mut self) {
+
         self.finish_attribute();
 
-        let name = replace(&mut self.current_tag_name, StrTendril::new());
-        let name = Atom::from(&*name);
+        let qname = process_qname(replace(&mut self.current_tag_name, StrTendril::new()));
+
 
         match self.current_tag_kind {
             StartTag | EmptyTag => {},
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error(Borrowed("Attributes on an end tag"));
+                    self.emit_error(Borrowed("Attribtes on an end tag"));
                 }
             },
             ShortTag => {
@@ -397,7 +418,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         }
 
         let token = TagToken(Tag { kind: self.current_tag_kind,
-            name: name,
+            name: qname,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
         self.process_token(token);
@@ -969,7 +990,6 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Indicate that we have reached the end of the input.
-    // FIXME: Copy pasta review carefully
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
@@ -1122,13 +1142,19 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.current_attr_name.clear();
             self.current_attr_value.clear();
         } else {
-            let name = replace(&mut self.current_attr_name, StrTendril::new());
-            self.current_tag_attrs.push(Attribute {
-                // The tree builder will adjust the namespace if necessary.
-                // This only happens in foreign elements.
-                name: QualName::new(ns!(), Atom::from(&*name)),
+            let qname = process_qname(replace(&mut self.current_attr_name, StrTendril::new()));
+            let attr = Attribute {
+                name: qname.clone(),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
-            });
+            };
+
+            if &qname.local == &Atom::from("xmlns") ||
+                &qname.prefix == &Atom::from("xmlns") {
+
+                self.current_tag_attrs.insert(0, attr);
+            } else {
+                self.current_tag_attrs.push(attr);
+            }
         }
     }
 
@@ -1138,4 +1164,51 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         self.current_attr_name.push_char(c);
     }
 
+}
+
+
+#[cfg(test)]
+mod test {
+
+    use tendril::SliceExt;
+    use string_cache::{Atom};
+    use super::{process_qname};
+
+    #[test]
+    fn simple_namespace() {
+        let qname = process_qname("prefix:local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from("prefix"));
+        assert_eq!(qname.local, Atom::from("local"));
+
+        let qname = process_qname("a:b".to_tendril());
+        assert_eq!(qname.prefix, Atom::from("a"));
+        assert_eq!(qname.local, Atom::from("b"));
+    }
+
+    #[test]
+    fn wrong_namespaces() {
+        let qname = process_qname(":local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":local"));
+
+        let qname = process_qname("::local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("::local"));
+
+        let qname = process_qname("a::local".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("a::local"));
+
+        let qname = process_qname("fake::".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from("fake::"));
+
+        let qname = process_qname(":::".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":::"));
+
+        let qname = process_qname(":a:b:".to_tendril());
+        assert_eq!(qname.prefix, Atom::from(""));
+        assert_eq!(qname.local, Atom::from(":a:b:"));
+    }
 }
