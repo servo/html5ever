@@ -112,10 +112,19 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         Element(ref name, ref attrs) => {
             buf.push_str("<");
 
-            match name.prefix {
+            match name.namespace_url {
                  atom!("")  => (),
-                 _          => {buf.push_str(&*name.prefix);buf.push_str(" ");},
+                 _          => {
+                    buf.push_str("{");
+                    buf.push_str(&*name.namespace_url);
+                    buf.push_str("}");
+                },
              };
+
+            if &*name.prefix != "" {
+                buf.push_str(&*name.prefix);
+                buf.push_str(":");
+            }
 
             buf.push_str(&*name.local);
             buf.push_str(">\n");
@@ -128,8 +137,16 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
 
-                buf.push_str(&*attr.name.prefix);
-                buf.push_str(" ");
+                if &*attr.name.namespace_url != "" {
+                    buf.push_str("{");
+                    buf.push_str(&*attr.name.namespace_url);
+                    buf.push_str("}");
+                }
+
+                if &*attr.name.prefix != "" {
+                    buf.push_str(&*attr.name.prefix);
+                    buf.push_str(":");
+                }
 
                 buf.push_str(&format!("{}=\"{}\"\n",
                     attr.name.local, attr.value));
