@@ -32,7 +32,7 @@ use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 use driver::ParseResult;
 
-pub use self::ElementEnum::{Normal, Script, Template};
+pub use self::ElementEnum::{AnnotationXml, Normal, Script, Template};
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
 
 /// The different kinds of elements in the DOM.
@@ -45,6 +45,7 @@ pub enum ElementEnum {
     /// A template element and its template contents.
     /// https://html.spec.whatwg.org/multipage/#template-contents
     Template(Handle),
+    AnnotationXml(bool),
 }
 
 /// The different kinds of nodes in the DOM.
@@ -195,6 +196,14 @@ impl TreeSink for RcDom {
     }
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+        for it in 0..attrs.len() {
+            match attrs[it].name {
+                qualname!(html, "encoding") => {
+                    return new_node(Element(name, AnnotationXml(attrs[it].value.to_lowercase() == "text/html"), attrs));
+                }
+                _ => continue,
+            }
+        }
         let info = match name {
             qualname!(html, "script") => Script(false),
             qualname!(html, "template") => Template(new_node(Document)),
@@ -301,6 +310,13 @@ impl TreeSink for RcDom {
             *script_already_started = true;
         } else {
             panic!("not a script element!");
+        }
+    }
+
+    fn is_mathml_annotation_xml_integration_point(&self) -> bool {
+        match (**self.document).borrow().node {
+            Element(_, AnnotationXml(ret), _) => ret,
+            _ => false,
         }
     }
 }
