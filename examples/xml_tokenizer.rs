@@ -1,3 +1,13 @@
+#!/usr/bin/env run-cargo-script
+//! This is a regular crate doc comment, but it also contains a partial
+//! Cargo manifest.  Note the use of a *fenced* code block, and the
+//! `cargo` "language".
+//!
+//! ```cargo
+//! [dependencies]
+//! xml5ever = "0.1.0"
+//! tendril = "0.1.3"
+//! ```
 extern crate xml5ever;
 extern crate tendril;
 
@@ -9,7 +19,7 @@ use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizerOpts, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
 use xml5ever::tokenizer::{StartTag, EndTag, ShortTag, EmptyTag};
 use xml5ever::tokenizer::{PIToken, Pi};
-use xml5ever::tokenize_xml_to;
+use xml5ever::tokenize_to;
 
 #[derive(Copy, Clone)]
 struct TokenPrinter {
@@ -82,7 +92,7 @@ fn main() {
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
-    tokenize_xml_to(sink, Some(input), XmlTokenizerOpts {
+    tokenize_to(sink, Some(input), XmlTokenizerOpts {
         profile: true,
         exact_errors: true,
         .. Default::default()
