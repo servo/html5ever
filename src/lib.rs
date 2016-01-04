@@ -42,7 +42,7 @@ pub fn one_input<T>(x: T) -> option::IntoIter<T> {
 /// let mut sink = MySink;
 /// parse_xml_to(&mut sink, one_input(my_str), Default::default());
 /// ```
-pub fn parse_xml_to<
+pub fn parse_to<
         Sink:TreeSink,
         It: IntoIterator<Item=tendril::StrTendril>
     >(
@@ -67,11 +67,11 @@ pub fn parse_xml_to<
 /// ```ignore
 /// let dom: RcDom = parse_xml(one_input(my_str), Default::default());
 /// ```
-pub fn parse_xml<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
+pub fn parse<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
     where Output: ParseResult,
           It: IntoIterator<Item=tendril::StrTendril>,
 {
-    let sink = parse_xml_to(Default::default(), input, opts);
+    let sink = parse_to(Default::default(), input, opts);
     ParseResult::get_result(sink)
 }
 
@@ -92,7 +92,7 @@ pub trait ParseResult {
 /// let mut sink = MySink;
 /// tokenize_xml_to(&mut sink, one_input(my_str), Default::default());
 /// ```
-pub fn tokenize_xml_to<
+pub fn tokenize_to<
         Sink: TokenSink,
         It: IntoIterator<Item=tendril::StrTendril>
     >(
