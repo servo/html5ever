@@ -899,18 +899,23 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             }
         }
 
-        if let qualname!(mathml, "annotation-xml") = name {
-            if let TagToken(Tag { kind: StartTag, name: atom!("svg"), .. }) = *token {
-                return false;
-            }
-        }
-
-        if html_integration_point(name.clone()) {
+        if svg_html_integration_point(name.clone()) {
             match *token {
                 CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, .. }) => return false,
                 _ => (),
             }
+        }
+
+        if let qualname!(mathml, "annotation-xml") = name {
+            match *token {
+                TagToken(Tag { kind: StartTag, name: atom!("svg"), .. }) => return false,
+                CharacterTokens(..) | NullCharacterToken |
+                TagToken(Tag { kind: StartTag, .. }) => {
+                    return !self.sink.is_mathml_annotation_xml_integration_point(self.adjusted_current_node())
+                }
+                _ => {}
+            };
         }
 
         true
@@ -1106,7 +1111,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             self.pop();
             while !self.current_node_in(|n| {
                 n.ns == ns!(html) || mathml_text_integration_point(n.clone())
-                    || html_integration_point(n)
+                    || svg_html_integration_point(n)
             }) {
                 self.pop();
             }

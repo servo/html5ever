@@ -52,7 +52,7 @@ declare_tag_set!(pub html_default_scope =
 #[inline(always)] pub fn default_scope(name: QualName) -> bool {
     html_default_scope(name.clone()) ||
     mathml_text_integration_point(name.clone()) ||
-    html_integration_point(name)
+    svg_html_integration_point(name)
 }
 
 declare_tag_set!(pub list_item_scope = [default_scope] + "ol" "ul");
@@ -87,8 +87,9 @@ pub fn mathml_text_integration_point(p: QualName) -> bool {
         | qualname!(mathml, "ms") | qualname!(mathml, "mtext"))
 }
 
-pub fn html_integration_point(p: QualName) -> bool {
-    // FIXME(#119): HTML integration points in MathML
+/// https://html.spec.whatwg.org/multipage/#html-integration-point
+pub fn svg_html_integration_point(p: QualName) -> bool {
+    // annotation-xml are handle in another place
     matches!(p, qualname!(svg, "foreignObject") | qualname!(svg, "desc")
         | qualname!(svg, "title"))
 }
