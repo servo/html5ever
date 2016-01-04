@@ -342,10 +342,7 @@ impl<Handle, Sink> TokenSink
                 return;
             }
 
-            tokenizer::DoctypeToken(_) => {
-                panic!("Doctype not implemented!!");
-            }
-
+            tokenizer::DoctypeToken(d) =>DoctypeToken(d),
             tokenizer::PIToken(x)   => PIToken(x),
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),

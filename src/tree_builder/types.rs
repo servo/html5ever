@@ -3,7 +3,7 @@ pub use self::XmlProcessResult::*;
 pub use self::Token::*;
 
 use tendril::StrTendril;
-use tokenizer::{Tag, Pi};
+use tokenizer::{Tag, Pi, Doctype};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {
@@ -17,6 +17,7 @@ pub enum XmlPhase {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {
     TagToken(Tag),
+    DoctypeToken(Doctype),
     CommentToken(StrTendril),
     CharacterTokens(StrTendril),
     PIToken(Pi),

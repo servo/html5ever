@@ -921,7 +921,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
              //§ after-doctype-system-keyword-state
             XmlState::AfterDoctypeKeyword(System) => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
-                | ' '   => (),
+                | ' '   => go!(self: to BeforeDoctypeIdentifier System),
                 '"'     => go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
                 '\''    => go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System),
                 '>'     => go!(self: error; emit_doctype; to Data),
@@ -932,15 +932,15 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
-                '"'     => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
-                '\''    => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
+                '"'     => go!(self: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
+                '\''    => go!(self: clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
                 '>'     => go!(self: error; emit_doctype; to Data),
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
             //§ doctype_public_identifier_double_quoted_state doctype_system_identifier_double_quoted_state
             XmlState::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self) {
-                '"'     => go!(self: to AfterDoctypeKeyword kind),
+                '"'     => go!(self: to AfterDoctypeIdentifier kind),
                 '>'     => go!(self: error; emit_doctype; to Data),
                 c       => go!(self: push_doctype_id kind c),
                 }

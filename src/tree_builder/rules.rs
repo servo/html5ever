@@ -68,6 +68,10 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     self.sink.parse_error(Borrowed("Unexpected EOF in start phase"));
                     Reprocess(EndPhase, EOFToken)
                 },
+                DoctypeToken(d) => {
+                    self.append_doctype_to_doc(d);
+                    Done
+                },
                 _ => {
                     self.sink.parse_error(Borrowed("Unexpected element in start phase"));
                     Done
@@ -128,6 +132,10 @@ impl<Handle, Sink> XmlTreeBuilderStep
                 },
                 EOFToken | NullCharacterToken=> {
                     Reprocess(EndPhase, EOFToken)
+                }
+                DoctypeToken(_) => {
+                    self.sink.parse_error(Borrowed("Unexpected element in main phase"));
+                    Done
                 }
             },
             EndPhase => match token {

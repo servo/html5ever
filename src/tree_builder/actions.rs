@@ -1,6 +1,6 @@
 use std::borrow::Cow::Borrowed;
-use tendril::StrTendril;
-use tokenizer::{Tag, Pi, QName};
+use tendril::{StrTendril, Tendril};
+use tokenizer::{Tag, Pi, QName, Doctype};
 use tree_builder::interface::{NodeOrText, TreeSink, AppendNode, AppendText};
 use tree_builder::types::{XmlProcessResult, Done};
 
@@ -14,6 +14,7 @@ pub trait XmlTreeBuilderActions<Handle> {
     fn add_to_open_elems(&mut self, el: Handle) -> XmlProcessResult;
     fn append_comment_to_doc(&mut self, comment: StrTendril) -> XmlProcessResult;
     fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult;
+    fn append_doctype_to_doc(&mut self, doctype: Doctype) -> XmlProcessResult;
     fn append_pi_to_doc(&mut self, pi: Pi) -> XmlProcessResult;
     fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult;
     fn append_text(&mut self, chars: StrTendril) -> XmlProcessResult;
@@ -79,6 +80,21 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         let target = self.current_node();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
+        Done
+    }
+
+    fn append_doctype_to_doc(&mut self, doctype: Doctype) -> XmlProcessResult {
+        fn get_tendril(opt: Option<StrTendril>) -> StrTendril {
+            match opt {
+                Some(expr) => expr,
+                None => Tendril::new(),
+            }
+        };
+        self.sink.append_doctype_to_document(
+            get_tendril(doctype.name),
+            get_tendril(doctype.public_id),
+            get_tendril(doctype.system_id),
+        );
         Done
     }
 
