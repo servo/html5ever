@@ -133,6 +133,10 @@ pub trait TreeSink {
     fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
         NextParserState::Continue
     }
+
+    // Returns true if the adjusted current node is an HTML integration point
+    // and the token is a start tag
+    fn is_mathml_annotation_xml_integration_point(&self, handle: &Self::Handle) -> bool;
 }
 
 /// Trace hooks for a garbage-collected DOM.
