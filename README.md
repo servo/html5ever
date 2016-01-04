@@ -17,7 +17,7 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
   - You aren't interested in well-formed documents.
   - You need to get some info from your data even if it has errors (although not all errors are handled).
-  - You want to use fancy XML 1.1 features like character references.
+  - You want to use some advanced features like character references.
 
 ## When you shouldn't use it
 
@@ -41,11 +41,12 @@ Add xml5ever as a dependency in your Cargo.toml file
 xml5ever is meant to be used as a library, so it isn't the most user friendly piece
 of software. However, its still possible to create a toy pretty printer.
 
-Note: Before we start in  examples I'll assume you are using [`cargo script`](https://github.com/DanielKeep/cargo-script) or making a separate crate (the examples
-require `cargo script` or manually setting up `rustc` which is an exercise I leave to
-the reader.
+
 
 #Token printer
+
+Note: Before we start in  examples I'll assume you are using [`cargo script`](https://github.com/DanielKeep/cargo-script) or making a separate crate (the examples require `cargo script` or manually setting up `rustc` which is an exercise I leave to
+the reader.
 
 The basis of xml5ever is its tokenizer and tree builder. Roughly speaking tokenizer
 takes input and returns a set of tokens like comment, processing instruction, start
@@ -102,11 +103,11 @@ To make `SimpleTokenPrinter` a [`TokenSink`](https://ygg01.github.io/docs/xml5ev
 ```
 
 Now we need to actually use `SimpleTokenPrinter` to process some input. For input
-we'll use `stdin`. However, xml5ever `tokenize_xml_to` method only takes `StrTendril`. So we need to construct a
+we'll use `stdin`. However, xml5ever `tokenize_to` method only takes `StrTendril`. So we need to construct a
 [`ByteTendril`](http://doc.servo.org/tendril/type.ByteTendril.html) using `ByteTendril::new()`, then read the `stdin` using [`read_to_tendril`](http://doc.servo.org/tendril/trait.ReadExt.html#tymethod.read_to_tendril).
 
 Once that is set, to make `SimpleTokenPrinter` parse the input, by calling,
-`tokenize_xml_to` with it as the first parameter.
+`tokenize_to` with it as the first parameter.
 
 ```rust
     fn main() {
@@ -124,7 +125,7 @@ Once that is set, to make `SimpleTokenPrinter` parse the input, by calling,
         // on `tokenize_xml_to` signature.
         let input = input.try_reinterpret().unwrap();
 
-        tokenize_xml_to(sink, Some(input), XmlTokenizerOpts {
+        tokenize_to(sink, Some(input), XmlTokenizerOpts {
             profile: true,
             exact_errors: true,
             .. Default::default()
@@ -201,7 +202,7 @@ a `TreeSink` we use the following line:
 
 Let's analyze it a bit. First there is `let dom: RcDom`. We need this part,
 because the type inferencer can't infer which TreeSink implementation we mean
-in this particular scenario.
+in this scenario.
 
 Next is the [`parse`](https://ygg01.github.io/docs/xml5ever/xml5ever/fn.parse.html) function which takes an iterator of StrTendril and TreeBuilder
 settings to produce a ParseResult.
@@ -216,7 +217,11 @@ kind of function that will help us traverse it. We shall call that function `wal
     fn walk(prefix: &str, handle: Handle) {
         let node = handle.borrow();
 
+        // We print out the prefix before we start
         print!("{}", prefix);
+        // We are only interested in following nodes:
+        // Document, Text and Element, so our match
+        // reflects that.
         match node.node {
             Document
                 => println!("#document"),
@@ -233,6 +238,7 @@ kind of function that will help us traverse it. We shall call that function `wal
 
         }
 
+        // We increase indent in child nodes
         let new_indent = {
             let mut temp = String::new();
             temp.push_str(prefix);
@@ -241,22 +247,19 @@ kind of function that will help us traverse it. We shall call that function `wal
         };
 
         for child in node.children.iter()
+            // In order to avoid weird indentation, we filter
+            // only Text/Element nodes.
+            // We don't need to filter Document since its guaranteed
+            // child elements don't contain documents
             .filter(|child| match child.borrow().node {
                 Text(_) | Element (_, _) => true,
                 _ => false,
             }
         ) {
+            // Recursion - Yay!
             walk(&new_indent, child.clone());
         }
     }
 ```
-
-Function `walk` takes current text used for indentation and handle for current node.
-Current text used is appended with more characters to illustrate current level of
-indentation.
-
-For simplicity we only displayed nodes of type `Document`, `Text` or `Element` nodes.
-Similarly we filter to only iterate over Text or Element nodes (there can be only one document and since its the root element it can't be a children node).
-
 
 For full source code check out: [`examples/xml_tree_printer.rs`](https://github.com/Ygg01/xml5ever/blob/master/examples/xml_tree_printer.rs)
