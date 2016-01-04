@@ -24,8 +24,15 @@ pub mod tokenizer;
 pub mod tree_builder;
 pub mod rcdom;
 
+use std::option;
+
 use tokenizer::{XmlTokenizerOpts, XmlTokenizer, TokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
+
+/// Convenience function to turn a single value into an iterator.
+pub fn one_input<T>(x: T) -> option::IntoIter<T> {
+    Some(x).into_iter()
+}
 
 /// Parse and send results to a `TreeSink`.
 ///
