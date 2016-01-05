@@ -49,7 +49,7 @@ pub fn one_input<T>(x: T) -> option::IntoIter<T> {
 ///
 /// ```ignore
 /// let mut sink = MySink;
-/// parse_xml_to(&mut sink, one_input(my_str), Default::default());
+/// parse_to(&mut sink, one_input(my_str), Default::default());
 /// ```
 pub fn parse_to<
         Sink:TreeSink,
@@ -74,7 +74,7 @@ pub fn parse_to<
 /// ## Example
 ///
 /// ```ignore
-/// let dom: RcDom = parse_xml(one_input(my_str), Default::default());
+/// let dom: RcDom = parse(one_input(my_str), Default::default());
 /// ```
 pub fn parse<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
     where Output: ParseResult,
@@ -99,7 +99,7 @@ pub trait ParseResult {
 ///
 /// ```ignore
 /// let mut sink = MySink;
-/// tokenize_xml_to(&mut sink, one_input(my_str), Default::default());
+/// tokenize_to(&mut sink, one_input(my_str), Default::default());
 /// ```
 pub fn tokenize_to<
         Sink: TokenSink,
