@@ -12,7 +12,7 @@ pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
 use std::borrow::Cow;
-use string_cache::{Atom, Namespace};
+use string_cache::{Atom};
 use tendril::StrTendril;
 use super::{states};
 
@@ -31,34 +31,14 @@ impl QName {
             namespace_url: Atom::from(""),
         }
     }
-
+    /// Constructs a new `QName` with only local part.
+    /// Namespace is set to empty atom.
     pub fn new_empty(local: Atom) -> QName {
         QName {
             prefix: Atom::from(""),
             local: local,
             namespace_url: Atom::from(""),
         }
-    }
-
-    pub fn new_with_uri(prefix: Atom, local: Atom, namespace_url: Atom) -> QName{
-        QName {
-            prefix: prefix,
-            local: local,
-            namespace_url: namespace_url,
-        }
-    }
-
-    pub fn from_namespace(ns: Namespace, local: Atom) -> QName {
-        QName {
-            prefix: ns.0,
-            local: local,
-            namespace_url: Atom::from(""),
-        }
-
-    }
-
-    pub fn set_namespace(&mut self, namespace_url: Atom) {
-        self.namespace_url = namespace_url;
     }
 }
 

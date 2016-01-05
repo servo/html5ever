@@ -53,11 +53,6 @@ pub struct Node {
     pub node: NodeEnum,
     pub parent: Option<WeakHandle>,
     pub children: Vec<Handle>,
-
-    /// The "script already started" flag.
-    ///
-    /// Not meaningful for nodes other than HTML `<script>`.
-    pub script_already_started: bool,
 }
 
 impl Node {
@@ -66,7 +61,6 @@ impl Node {
             node: node,
             parent: None,
             children: vec!(),
-            script_already_started: false,
         }
     }
 }

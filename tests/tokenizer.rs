@@ -208,7 +208,7 @@ fn json_to_token(js: &Json) -> Token {
             name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QName::from_namespace(ns!(), Atom::from(&**k)),
+                    name: QName::new_empty(Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -231,7 +231,7 @@ fn json_to_token(js: &Json) -> Token {
             name: QName::new_empty(Atom::from(&*args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QName::from_namespace(ns!(), Atom::from(&**k)),
+                    name: QName::new_empty(Atom::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
