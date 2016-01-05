@@ -48,10 +48,13 @@ pub enum NodeEnum {
     PI(StrTendril, StrTendril),
 }
 
-/// A DOM node.
+/// A simple DOM node.
 pub struct Node {
+    /// Represents this node's data.
     pub node: NodeEnum,
+    /// Parent node.
     pub parent: Option<WeakHandle>,
+    /// Child nodes of this node.
     pub children: Vec<Handle>,
 }
 

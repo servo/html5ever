@@ -7,8 +7,28 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! This crate provides a push based XML parser library that
+//! adheres to XML5 specification. In other words this library
+//! trades well-formedness for error recovery.
+//!
+//! The idea behind this, was to minimize number of errors from
+//! tools that generate XML (e.g. `&#83` won't just return `&#83`
+//! as text, but will parse it into `S` ).
+//! You can check out full specification [here](https://ygg01.github.io/xml5_draft/).
+//!
+//! What this library provides is a solid XML parser that can:
+//!   * Parse somewhat erroneous XML input
+//!   * Provide support for [Numeric character references](https://en.wikipedia.org/wiki/Numeric_character_reference).
+//!   * Provide partial [XML namespace](http://www.w3.org/TR/xml-names11/) support.
+//!   * Provide full set of SVG/MathML entities
+//!
+//! What isn't in scope for this library:
+//!   * Document Type Definition parsing - this is pretty hard to do right and nowadays, its used
+//!
+
 #![crate_name="xml5ever"]
 #![crate_type="dylib"]
+#![deny(missing_docs)]
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
@@ -29,14 +49,19 @@ macro_rules! time {
 }
 
 #[macro_use] mod util;
+
+/// XML5 tokenizer - converts input into tokens
 pub mod tokenizer;
+/// XML5 tree builder - converts tokens into a tree like structure
 pub mod tree_builder;
+/// A simple reference-counted that serves as a default tree structure
 pub mod rcdom;
 
 use std::option;
 
 use tokenizer::{XmlTokenizerOpts, XmlTokenizer, TokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
+
 
 /// Convenience function to turn a single value into an iterator.
 pub fn one_input<T>(x: T) -> option::IntoIter<T> {
@@ -89,7 +114,10 @@ pub fn parse<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
 /// Implement this for your parse tree data type so that it
 /// can be returned by `parse()`.
 pub trait ParseResult {
+    /// Type of consumer of tree modifications.
+    /// It also extends `Default` for convenience.
     type Sink: TreeSink + Default;
+    /// Returns parsed tree data type
     fn get_result(sink: Self::Sink) -> Self;
 }
 

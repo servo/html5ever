@@ -200,14 +200,18 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
             time_in_sink: 0,
         }
     }
+
+    /// Returns destination of token events.
     pub fn unwrap(self) -> Sink {
         self.sink
     }
 
+    /// Immutably borrows destination of token events.
     pub fn sink<'a>(&'a self) -> &'a Sink {
         &self.sink
     }
 
+    /// Mutably borrows destinantion of token events.
     pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
         &mut self.sink
     }

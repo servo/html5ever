@@ -44,7 +44,7 @@ struct NamespaceStack(Vec<Namespace>);
 
 
 impl NamespaceStack{
-    pub fn new() -> NamespaceStack {
+    fn new() -> NamespaceStack {
         NamespaceStack({
             let mut vec = Vec::new();
             vec.push(Namespace::default());
@@ -52,17 +52,17 @@ impl NamespaceStack{
         })
     }
 
-    pub fn push(&mut self, namespace: Namespace) {
+    fn push(&mut self, namespace: Namespace) {
         self.0.push(namespace);
     }
 
-    pub fn pop(&mut self) {
+    fn pop(&mut self) {
         self.0.pop();
     }
 
 }
 
-pub type UriMapping = (Atom, Atom);
+type UriMapping = (Atom, Atom);
 
 #[derive(Debug)]
 struct Namespace {
@@ -149,7 +149,7 @@ impl Namespace {
 }
 
 
-// The XML tree builder.
+/// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
     /// Consumer of tree modifications.
     sink: Sink,
@@ -196,14 +196,17 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         }
     }
 
+    /// Returns consumer of tree modifications.
     pub fn unwrap(self) -> Sink {
         self.sink
     }
 
+    /// Immutably borrows consumer of tree modifications.
     pub fn sink<'a>(&'a self) -> &'a Sink {
         &self.sink
     }
 
+    /// Mutably borrows consumer of tree modifications.
     pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
         &mut self.sink
     }

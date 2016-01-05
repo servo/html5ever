@@ -23,7 +23,10 @@ pub use self::NodeOrText::{AppendNode, AppendText};
 /// Adjacent sibling text nodes are merged into a single node, so
 /// the sink may not want to allocate a `Handle` for each.
 pub enum NodeOrText<Handle> {
+    /// Appends next element like it is a node
     AppendNode(Handle),
+
+    /// Appends next element as if it was a text element
     AppendText(StrTendril),
 }
 
@@ -32,7 +35,9 @@ pub enum NodeOrText<Handle> {
 /// any interruption.
 #[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
 pub enum NextParserState {
+    /// Stop further parsing.
     Suspend,
+    /// Continue without interruptions.
     Continue,
 }
 
@@ -80,6 +85,7 @@ pub trait TreeSink {
 
 /// Trace hooks for a garbage-collected DOM.
 pub trait Tracer {
+    /// Reference to a generic DOM node.
     type Handle;
 
     /// Upon a call to `trace_handles`, the tree builder will call this method
