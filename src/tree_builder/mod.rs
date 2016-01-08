@@ -15,7 +15,7 @@ pub mod interface;
 
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
-use std::collections::{VecDeque, BTreeMap};
+use std::collections::{VecDeque, BTreeMap, HashSet};
 use std::result::Result;
 use std::mem;
 
@@ -37,7 +37,7 @@ macro_rules! atoms {
     (xmlns_uri) => (Atom::from(XMLNS_URI))
 }
 
-type InsResult = Result<Atom, Cow<'static, str>>;
+type InsResult = Result<(), Cow<'static, str>>;
 
 #[derive(Debug)]
 struct NamespaceStack(Vec<Namespace>);
@@ -116,7 +116,7 @@ impl Namespace {
                 if &*attr.value != XML_URI {
                     Err(Borrowed("XML namespace can't be redeclared"))
                 } else {
-                    Ok(atoms!(xmlns_uri))
+                    Ok(())
                 }
             },
 
@@ -136,7 +136,7 @@ impl Namespace {
                     Err(Borrowed("Namespace already defined"))
                 } else {
                     self.scope.insert(ext, opt_uri);
-                    Ok(atoms!(xmlns_uri))
+                    Ok(())
                 }
             },
 
@@ -172,6 +172,9 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     /// Current namespace identifier
     current_namespace: Namespace,
 
+    /// List of already present namespace local name attribute pairs.
+    present_attrs: HashSet<(Atom, Atom)>,
+
     /// Current tree builder phase.
     phase: XmlPhase,
 }
@@ -192,6 +195,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             curr_elem: None,
             namespace_stack: NamespaceStack::new(),
             current_namespace: Namespace::empty(),
+            present_attrs: HashSet::new(),
             phase: StartPhase,
         }
     }
@@ -283,14 +287,33 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         }
     }
 
-    fn bind_attr_qname(&mut self, name: &mut QName) {
+    // This method takes in name qualified name and binds it to the
+    // existing namespace context.
+    //
+    // Returns false if the attribute is a duplicate, returns true otherwise.
+    fn bind_attr_qname(&mut self, name: &mut QName) -> bool {
         // Attributes don't have default namespace
+        let mut not_duplicate = true;
+
         if &*name.prefix != "" {
             self.bind_qname(name);
+            not_duplicate = self.check_duplicate_attr(name);
         }
+        not_duplicate
+    }
+
+    fn check_duplicate_attr(&mut self, name: &QName) -> bool {
+        let pair = (name.namespace_url.clone(), name.local.clone());
+
+        if self.present_attrs.contains(&pair) {
+            return false;
+        }
+        self.present_attrs.insert(pair);
+        true
     }
 
     fn process_namespaces(&mut self, tag: &mut Tag) {
+        let mut new_attr = vec![];
         // First we extract all namespace declarations
         for mut attr in tag.attrs.iter_mut()
             .filter(|attr|  &attr.name.prefix == &atoms!(xmlns)
@@ -299,19 +322,24 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             self.declare_ns(&mut attr);
         }
 
-        // Then we bind those namespace delcarations to attributes
+        // Then we bind those namespace declarations to attributes
         for mut attr in tag.attrs.iter_mut()
             .filter(|attr|  &attr.name.prefix != &atoms!(xmlns)
                           && attr.name.local != atoms!(xmlns)) {
 
-            self.bind_attr_qname(&mut attr.name);
+            if self.bind_attr_qname(&mut attr.name) {
+                new_attr.push(attr.clone());
+            }
+
         }
-        // Then we check if those attributes contain current_namespace
+        mem::replace(&mut tag.attrs, new_attr);
+        // Then we bind the tags namespace.
         self.bind_qname(&mut tag.name);
 
-        // Finally, we dump namespace if its unneeded.
+        // Finally, we dump current namespace if its unneeded.
         let x = mem::replace(&mut self.current_namespace, Namespace::empty());
 
+        // Only start tag doesn't dump current namespace.
         if tag.kind == StartTag {
             self.namespace_stack.push(x);
         }
@@ -345,7 +373,6 @@ impl<Handle, Sink> TokenSink
           Sink: TreeSink<Handle=Handle>,
 {
     fn process_token(&mut self, token: tokenizer::Token) {
-        //let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
