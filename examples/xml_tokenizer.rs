@@ -5,7 +5,7 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = "0.1.0"
+//! xml5ever = "0.1.1"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;

@@ -5,7 +5,7 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = "0.1.0"
+//! xml5ever = "0.1.1"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
@@ -15,7 +15,7 @@ use std::io;
 use std::default::Default;
 use tendril::{ByteTendril, ReadExt};
 
-use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizerOpts, ParseError};
+use xml5ever::tokenizer::{TokenSink, Token, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
 use xml5ever::tokenizer::{PIToken, Pi, CommentToken};
 use xml5ever::tokenizer::{EOFToken, DoctypeToken, Doctype};
@@ -64,11 +64,5 @@ fn main() {
     // into StrTendril.
     let input = input.try_reinterpret().unwrap();
     // Here we execute tokenizer
-    tokenize_to(sink, Some(input), XmlTokenizerOpts {
-        // This displays timing information for our tokenizer.
-        profile: true,
-        // Prints full errors and not shorter placeholder text
-        exact_errors: true,
-        .. Default::default()
-    });
+    tokenize_to(sink, Some(input), Default::default());
 }
