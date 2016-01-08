@@ -28,7 +28,7 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
 #Installation
 
-Add xml5ever as a dependency in your Cargo.toml file
+Add xml5ever as a dependency in your project manifest.
 
 ```toml
     [dependencies]
@@ -45,6 +45,4 @@ And add crate declaration in your lib.rs
 
 xml5ever is meant to be used as a push based parser, that ca
 of software. Here are some examples, what can be done with xml5ever.
-
-
 
