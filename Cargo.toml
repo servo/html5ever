@@ -1,7 +1,12 @@
 [package]
 name = "xml5ever"
 version = "0.1.0"
-authors = ["Daniel Fath <daniel.fath7@gmail.com>"]
+description = "Push based streaming parser for xml"
+documentation = "https://ygg01.github.io/docs/xml5ever/xml5ever/index.html"
+repository = "https://github.com/Ygg01/xml5ever"
+readme = "https://github.com/Ygg01/xml5ever/blob/master/README.md"
+keywords = ["xml", "xml5", "parser", "parsing"]
+authors = ["The xml5ever project developers"]
 license = "MIT / Apache-2.0"
 build = "build.rs"
 
