@@ -13,26 +13,65 @@ use tokenizer::{Tag, Pi, QName, Doctype};
 use tree_builder::interface::{NodeOrText, TreeSink, AppendNode, AppendText};
 use tree_builder::types::{XmlProcessResult, Done};
 
-
+/// Trait that encapsulates common XML tree actions.
 pub trait XmlTreeBuilderActions<Handle> {
+    /// Returns current node of in the XmlTreeBuilder.
     fn current_node(&self) -> Handle;
+
+    /// Inserts node or text to its appropriate place in the tree.
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>);
+
+    /// Inserts tag into the tree and adds it to list of open elements.
     fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult;
+
+    /// Appends current tag to the root of the document.
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult;
+
+    /// Appends tag to the root of the document.
     fn append_tag_to_doc(&mut self, tag: Tag) -> Handle;
+
+    /// Adds element to list of open elements (this should only apply to Tag).
     fn add_to_open_elems(&mut self, el: Handle) -> XmlProcessResult;
+
+    /// Appends comment to root of the document.
     fn append_comment_to_doc(&mut self, comment: StrTendril) -> XmlProcessResult;
+
+    /// Appends comment to the current tag.
     fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult;
+
+    /// Appends Doctype to root of the document.
     fn append_doctype_to_doc(&mut self, doctype: Doctype) -> XmlProcessResult;
+
+    /// Appends Processing Instruction to the root of the document
     fn append_pi_to_doc(&mut self, pi: Pi) -> XmlProcessResult;
+
+    /// Appends Processing Instruction to the current tag.
     fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult;
+
+    /// Appends text to appropriate element.
     fn append_text(&mut self, chars: StrTendril) -> XmlProcessResult;
+
+    /// Checks if given tag is the list of open elements.
     fn tag_in_open_elems(&self, tag: &Tag) -> bool;
+
+    /// Pops elements from list of open elements, until predicate
+    /// `pred` returns true
     fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QName) -> bool;
+
+    /// Checks if current node is in given TagSet
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QName) -> bool;
+
+    /// Close given tag.
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult;
+
+    /// Returns whether or not there are any elements in list of
+    /// open elements.
     fn no_open_elems(&self) -> bool;
+
+    /// Removes last element from list of open elements and returns its value.
     fn pop(&mut self) -> Handle ;
+
+    /// Stops parsing of XML file.
     fn stop_parsing(&mut self) -> XmlProcessResult;
 }
 
@@ -151,10 +190,12 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
         where TagSet: Fn(QName) -> bool
     {
+        // FIXME: take namespace into consideration:
         set(self.sink.elem_name(&self.current_node()))
     }
 
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
+        // FIXME: take namespace into consideration:
         println!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(&self.current_node()), &tag.name);
 

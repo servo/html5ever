@@ -18,7 +18,11 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
     !x.bytes().all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
 }
 
+/// Encapsulates rules needed to build a tree representation.
 pub trait XmlTreeBuilderStep {
+
+    /// Each step presents resolving received Token, in a
+    /// given XmlPhase.
     fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult;
 }
 
