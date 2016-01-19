@@ -9,6 +9,7 @@ keywords = ["xml", "xml5", "parser", "parsing"]
 authors = ["The xml5ever project developers"]
 license = "MIT / Apache-2.0"
 build = "build.rs"
+exclude = ["xml5lib-tests/*"]
 
 [features]
 unstable = ["tendril/unstable", "string_cache/unstable", "rc/unstable"]
