@@ -32,7 +32,7 @@ Add xml5ever as a dependency in your project manifest.
 
 ```toml
     [dependencies]
-    xml5ever = "0.1.0"
+    xml5ever = "0.1.1"
 ```
 
 And add crate declaration in your lib.rs
