@@ -6,7 +6,6 @@ extern crate tendril;
 #[cfg(feature = "unstable")] extern crate test;
 
 extern crate xml5ever;
-extern crate rc;
 
 use std::borrow::Cow::Borrowed;
 use std::env;

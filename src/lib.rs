@@ -34,7 +34,6 @@
 #[macro_use] extern crate mac;
 #[macro_use] extern crate string_cache;
 
-extern crate rc;
 extern crate phf;
 extern crate time;
 

@@ -17,9 +17,9 @@ use std::default::Default;
 
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
+use std::rc::{Rc, Weak};
 
 use tendril::StrTendril;
-use rc::{Rc, Weak};
 
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 use super::tokenizer::{Attribute, QName};

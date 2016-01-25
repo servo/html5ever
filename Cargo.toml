@@ -12,7 +12,7 @@ build = "build.rs"
 exclude = ["xml5lib-tests/*"]
 
 [features]
-unstable = ["tendril/unstable", "string_cache/unstable", "rc/unstable"]
+unstable = ["tendril/unstable", "string_cache/unstable"]
 
 [dependencies]
 time = "0"
@@ -21,7 +21,6 @@ string_cache = "0.2.0"
 phf = "0.7"
 mac = "0"
 tendril = "0.2"
-rc = "0.1.1"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
