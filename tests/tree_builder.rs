@@ -29,12 +29,12 @@ use std::collections::{HashSet, HashMap};
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 
-use html5ever::{ParseOpts, parse, parse_fragment, one_input};
+use html5ever::{ParseOpts, parse_document, parse_fragment};
 use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
 use html5ever::rcdom::{Template, Text};
 
 use string_cache::{Atom, QualName};
-use tendril::StrTendril;
+use tendril::{StrTendril, TendrilSink};
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();
@@ -215,16 +215,14 @@ fn make_test_desc_with_scripting_flag(
             let mut result = String::new();
             match context {
                 None => {
-                    let dom: RcDom = parse(one_input(data.clone()), opts);
+                    let dom = parse_document(RcDom::default(), opts).one(data.clone());
                     for child in dom.document.borrow().children.iter() {
                         serialize(&mut result, 1, child.clone());
                     }
                 },
                 Some(ref context) => {
-                    let dom: RcDom = parse_fragment(one_input(data.clone()),
-                                                    context.clone(),
-                                                    vec![],
-                                                    opts);
+                    let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![])
+                        .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
                     let doc = dom.document.borrow();

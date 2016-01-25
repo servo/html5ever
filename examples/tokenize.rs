@@ -15,9 +15,8 @@ use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
 
-use html5ever::tokenizer::{TokenSink, Token, TokenizerOpts, ParseError};
+use html5ever::tokenizer::{TokenSink, Tokenizer, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
-use html5ever::driver::{tokenize_to, one_input};
 
 #[derive(Copy, Clone)]
 struct TokenPrinter {
@@ -84,9 +83,12 @@ fn main() {
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
-    tokenize_to(sink, one_input(input), TokenizerOpts {
+
+    let mut tok = Tokenizer::new(sink, TokenizerOpts {
         profile: true,
         .. Default::default()
     });
+    tok.feed(input);
+    tok.end();
     sink.is_char(false);
 }

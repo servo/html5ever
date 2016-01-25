@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use std::borrow::Cow;
 use string_cache::QualName;
 
-use tendril::{StrTendril, ByteTendril, ReadExt};
+use tendril::{StrTendril, TendrilSink};
 
-use html5ever::{parse_to, one_input};
+use html5ever::parse_document;
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 
@@ -39,6 +39,8 @@ impl Sink {
 
 impl TreeSink for Sink {
     type Handle = usize;
+    type Output = Self;
+    fn finish(self) -> Self { self }
 
     fn get_document(&mut self) -> usize {
         0
@@ -96,9 +98,9 @@ fn main() {
         next_id: 1,
         names: HashMap::new(),
     };
-
-    let mut input = ByteTendril::new();
-    io::stdin().read_to_tendril(&mut input).unwrap();
-    let input = input.try_reinterpret().unwrap();
-    parse_to(sink, one_input(input), Default::default());
+    let stdin = io::stdin();
+    parse_document(sink, Default::default())
+        .from_utf8()
+        .read_from(&mut stdin.lock())
+        .unwrap();
 }

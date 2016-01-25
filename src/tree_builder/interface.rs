@@ -49,6 +49,19 @@ pub enum NextParserState {
 
 /// Types which can process tree modifications from the tree builder.
 pub trait TreeSink {
+    /// The overall result of parsing.
+    ///
+    /// This should default to Self, but default associated types are not stable yet.
+    /// (https://github.com/rust-lang/rust/issues/29661)
+    type Output;
+
+    /// Consume this sink and return the overall result of parsing.
+    ///
+    /// This should default to `fn finish(self) -> Self::Output { self }`,
+    /// but default associated types are not stable yet.
+    /// (https://github.com/rust-lang/rust/issues/29661)
+    fn finish(self) -> Self::Output;
+
     /// `Handle` is a reference to a DOM node.  The tree builder requires
     /// that a `Handle` implements `Clone` to get another reference to
     /// the same node.

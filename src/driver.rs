@@ -9,39 +9,15 @@
 
 //! High-level interface to the parser.
 
-use tokenizer::{Attribute, TokenSink, Tokenizer, TokenizerOpts};
+use tokenizer::{Attribute, Tokenizer, TokenizerOpts};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
-use std::option;
-use std::default::Default;
+use std::borrow::Cow;
 
 use string_cache::QualName;
+use tendril;
 use tendril::StrTendril;
-
-/// Convenience function to turn a single value into an iterator.
-pub fn one_input<T>(x: T) -> option::IntoIter<T> {
-    Some(x).into_iter()
-}
-
-/// Tokenize and send results to a `TokenSink`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let sink = MySink;
-/// tokenize_to(sink, one_input(my_str), Default::default());
-/// ```
-pub fn tokenize_to<Sink, It>(sink: Sink, input: It, opts: TokenizerOpts) -> Sink
-    where Sink: TokenSink,
-          It: Iterator<Item=StrTendril>,
-{
-    let mut tok = Tokenizer::new(sink, opts);
-    for s in input {
-        tok.feed(s);
-    }
-    tok.end();
-    tok.unwrap()
-}
+use tendril::stream::{TendrilSink, Utf8LossyDecoder};
 
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]
@@ -53,96 +29,52 @@ pub struct ParseOpts {
     pub tree_builder: TreeBuilderOpts,
 }
 
-/// Parse and send results to a `TreeSink`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let sink = MySink;
-/// parse_to(sink, one_input(my_str), Default::default());
-/// ```
-pub fn parse_to<Sink, It>(sink: Sink, input: It, opts: ParseOpts) -> Sink
-    where Sink: TreeSink,
-          It: Iterator<Item=StrTendril>,
-{
+/// Parse an HTML document
+pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where Sink: TreeSink {
     let tb = TreeBuilder::new(sink, opts.tree_builder);
-    let mut tok = Tokenizer::new(tb, opts.tokenizer);
-    for s in input {
-        tok.feed(s);
-    }
-    tok.end();
-    tok.unwrap().unwrap()
+    let tok = Tokenizer::new(tb, opts.tokenizer);
+    Parser { tokenizer: tok }
 }
 
-/// Parse an HTML fragment and send results to a `TreeSink`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let sink = MySink;
-/// parse_fragment_to(sink, one_input(my_str), context_name, context_attrs, Default::default());
-/// ```
-pub fn parse_fragment_to<Sink, It>(mut sink: Sink,
-                                   input: It,
-                                   context_name: QualName,
-                                   context_attrs: Vec<Attribute>,
-                                   opts: ParseOpts) -> Sink
-    where Sink: TreeSink,
-          It: Iterator<Item=StrTendril>
-{
+/// Parse an HTML fragment
+pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
+                            context_name: QualName, context_attrs: Vec<Attribute>)
+                            -> Parser<Sink>
+                            where Sink: TreeSink {
     let context_elem = sink.create_element(context_name, context_attrs);
     let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
         .. opts.tokenizer
     };
-    let mut tok = Tokenizer::new(tb, tok_opts);
-    for s in input {
-        tok.feed(s);
+    let tok = Tokenizer::new(tb, tok_opts);
+    Parser { tokenizer: tok }
+}
+
+pub struct Parser<Sink> where Sink: TreeSink {
+    tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>
+}
+
+impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
+    fn process(&mut self, t: StrTendril) {
+        self.tokenizer.feed(t)
     }
-    tok.end();
-    tok.unwrap().unwrap()
+
+    // FIXME: Is it too noisy to report every character decoding error?
+    fn error(&mut self, desc: Cow<'static, str>) {
+        self.tokenizer.sink_mut().sink_mut().parse_error(desc)
+    }
+
+    type Output = Sink::Output;
+
+    fn finish(mut self) -> Self::Output {
+        self.tokenizer.end();
+        self.tokenizer.unwrap().unwrap().finish()
+    }
 }
 
-/// Results which can be extracted from a `TreeSink`.
-///
-/// Implement this for your parse tree data type so that it
-/// can be returned by `parse()`.
-pub trait ParseResult {
-    type Sink: TreeSink + Default;
-    fn get_result(sink: Self::Sink) -> Self;
-}
-
-/// Parse into a type which implements `ParseResult`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let dom: RcDom = parse(one_input(my_str), Default::default());
-/// ```
-pub fn parse<Output, It>(input: It, opts: ParseOpts) -> Output
-    where Output: ParseResult,
-          It: Iterator<Item=StrTendril>,
-{
-    let sink = parse_to(Default::default(), input, opts);
-    ParseResult::get_result(sink)
-}
-
-/// Parse an HTML fragment into a type which implements `ParseResult`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let dom: RcDom = parse_fragment(
-///     one_input(my_str), context_name, context_attrs, Default::default());
-/// ```
-pub fn parse_fragment<Output, It>(input: It,
-                                  context_name: QualName,
-                                  context_attrs: Vec<Attribute>,
-                                  opts: ParseOpts) -> Output
-    where Output: ParseResult,
-          It: Iterator<Item=StrTendril>,
-{
-    let sink = parse_fragment_to(Default::default(), input, context_name, context_attrs, opts);
-    ParseResult::get_result(sink)
+impl<Sink: TreeSink> Parser<Sink> {
+    pub fn from_utf8(self) -> Utf8LossyDecoder<Self> {
+        Utf8LossyDecoder::new(self)
+    }
 }

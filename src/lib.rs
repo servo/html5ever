@@ -24,8 +24,6 @@ extern crate log;
 #[macro_use]
 extern crate string_cache;
 
-extern crate tendril;
-
 #[macro_use]
 extern crate mac;
 
@@ -34,7 +32,7 @@ extern crate phf;
 extern crate time;
 
 pub use tokenizer::Attribute;
-pub use driver::{one_input, ParseOpts, parse_to, parse_fragment_to, parse, parse_fragment};
+pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 
 pub use serialize::serialize;
 
@@ -52,3 +50,12 @@ pub mod tree_builder;
 pub mod serialize;
 pub mod driver;
 pub mod rcdom;
+
+/// Re-export the tendril crate.
+pub mod tendril {
+    extern crate tendril;
+    pub use self::tendril::*;
+}
+
+/// Re-export the encoding crate.
+pub use tendril::encoding;
