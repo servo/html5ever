@@ -16,7 +16,7 @@ name = "html5ever"
 doctest = false
 
 [features]
-unstable = ["tendril/unstable", "string_cache/unstable", "rc/unstable"]
+unstable = ["tendril/unstable", "string_cache/unstable"]
 heap_size = ["heapsize", "heapsize_plugin"]
 codegen = ["html5ever_macros"]
 
@@ -27,7 +27,6 @@ phf = "0.7"
 string_cache = "0.2.0"
 mac = "0"
 tendril = "0.1.6"
-rc = "0.1.1"
 heapsize = { version = "0.1.1", optional = true }
 heapsize_plugin = { version = "0.1.0", optional = true }
 

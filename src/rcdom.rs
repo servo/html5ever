@@ -20,8 +20,8 @@ use std::borrow::Cow;
 use std::io::{self, Write};
 use std::mem;
 use std::ops::{Deref, DerefMut};
+use std::rc::{Rc, Weak};
 
-use rc::{Rc, Weak};
 use string_cache::QualName;
 use tendril::StrTendril;
 

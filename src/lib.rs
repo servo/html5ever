@@ -18,8 +18,6 @@
 #[cfg(feature = "heap_size")]
 extern crate heapsize;
 
-extern crate rc;
-
 #[macro_use]
 extern crate log;
 
