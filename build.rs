@@ -29,7 +29,9 @@ fn main() {
 
     named_entities_to_phf(
         &Path::new(&manifest_dir).join("data/entities.json"),
-        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"))
+        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
+
+    println!("cargo:rerun-if-changed={}", rules_rs.display());
 }
 
 #[cfg(feature = "codegen")]
