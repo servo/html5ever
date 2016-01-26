@@ -20,7 +20,7 @@ log = "0"
 string_cache = "0.2.0"
 phf = "0.7"
 mac = "0"
-tendril = "0.1.3"
+tendril = "0.2"
 rc = "0.1.1"
 
 [dev-dependencies]
