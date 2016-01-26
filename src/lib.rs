@@ -36,8 +36,13 @@
 
 extern crate rc;
 extern crate phf;
-extern crate tendril;
 extern crate time;
+
+/// Re-export the tendril crate so that users don’t need to depend on it.
+pub mod tendril {
+    extern crate tendril;
+    pub use self::tendril::*;
+}
 
 macro_rules! time {
     ($e:expr) => {{
