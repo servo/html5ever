@@ -16,7 +16,6 @@ use std::borrow::Cow;
 use std::mem;
 
 use encoding::{self, EncodingRef};
-#[cfg(feature = "hyper")] use hyper::client::IntoUrl;
 use string_cache::QualName;
 use tendril;
 use tendril::{StrTendril, ByteTendril};
@@ -114,23 +113,6 @@ impl<Sink: TreeSink> Parser<Sink> {
             state: BytesParserState::Initial { parser: self },
             opts: opts,
         }
-    }
-
-    /// Fetch an HTTP or HTTPS URL with Hyper and parse.
-    #[cfg(feature = "hyper")]
-    pub fn from_http<U: IntoUrl>(self, url: U) -> Result<Sink::Output, ::hyper::Error> {
-        use hyper::Client;
-        use hyper::header::ContentType;
-        use hyper::mime::Attr::Charset;
-        use encoding::label::encoding_from_whatwg_label;
-
-        let mut response = try!(Client::new().get(url).send());
-        let opts = BytesOpts {
-            transport_layer_encoding: response.headers.get::<ContentType>()
-                .and_then(|content_type| content_type.get_param(Charset))
-                .and_then(|charset| encoding_from_whatwg_label(charset))
-        };
-        Ok(try!(self.from_bytes(opts).read_from(&mut response)))
     }
 }
 

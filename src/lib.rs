@@ -18,8 +18,6 @@
 #[cfg(feature = "heap_size")]
 extern crate heapsize;
 
-#[cfg(feature = "hyper")] extern crate hyper;
-
 #[macro_use]
 extern crate log;
 
