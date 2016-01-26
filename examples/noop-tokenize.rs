@@ -17,8 +17,7 @@ use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
 
-use html5ever::tokenizer::{TokenSink, Token};
-use html5ever::driver::{tokenize_to, one_input};
+use html5ever::tokenizer::{TokenSink, Token, Tokenizer};
 
 struct Sink(Vec<Token>);
 
@@ -35,5 +34,7 @@ fn main() {
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
 
-    tokenize_to(Sink(Vec::new()), one_input(input), Default::default());
+    let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
+    tok.feed(input);
+    tok.end();
 }

@@ -9,7 +9,6 @@
 
 extern crate libc;
 #[macro_use] extern crate string_cache;
-extern crate tendril;
 extern crate html5ever;
 
 use libc::c_int;

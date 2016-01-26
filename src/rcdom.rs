@@ -31,7 +31,6 @@ use tree_builder;
 use serialize::{Serializable, Serializer};
 use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
-use driver::ParseResult;
 
 pub use self::ElementEnum::{AnnotationXml, Normal, Script, Template};
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element};
@@ -165,6 +164,9 @@ pub struct RcDom {
 }
 
 impl TreeSink for RcDom {
+    type Output = Self;
+    fn finish(self) -> Self { self }
+
     type Handle = Handle;
 
     fn parse_error(&mut self, msg: Cow<'static, str>) {
@@ -333,14 +335,6 @@ impl Default for RcDom {
             errors: vec!(),
             quirks_mode: tree_builder::NoQuirks,
         }
-    }
-}
-
-impl ParseResult for RcDom {
-    type Sink = RcDom;
-
-    fn get_result(sink: RcDom) -> RcDom {
-        sink
     }
 }
 

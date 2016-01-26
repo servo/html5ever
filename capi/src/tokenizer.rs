@@ -11,6 +11,7 @@
 
 use c_bool;
 
+use html5ever::tendril::{StrTendril, SliceExt};
 use html5ever::tokenizer::{TokenSink, Token, Doctype, Tag, ParseError, DoctypeToken};
 use html5ever::tokenizer::{CommentToken, CharacterTokens, NullCharacterToken};
 use html5ever::tokenizer::{TagToken, StartTag, EndTag, EOFToken, Tokenizer};
@@ -20,7 +21,6 @@ use std::default::Default;
 
 use libc::{c_void, c_int, size_t};
 use string_cache::Atom;
-use tendril::{StrTendril, SliceExt};
 
 #[repr(C)]
 #[derive(Copy, Clone)]

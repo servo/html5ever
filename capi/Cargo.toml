@@ -11,7 +11,6 @@ crate-type = ["staticlib"]
 [dependencies]
 libc = "0.2"
 string_cache = "0.2"
-tendril = "0.1.6"
 
 [dependencies.html5ever]
 path = "../"
