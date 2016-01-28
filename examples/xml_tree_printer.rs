@@ -5,7 +5,7 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = { path = "/home/daniel/dev/proj/xml5ever"}
+//! xml5ever = "0.1.1"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
