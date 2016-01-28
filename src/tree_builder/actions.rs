@@ -195,8 +195,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        // FIXME: take namespace into consideration:
-        println!("Close tag: current_node.name {:?} \n Current tag {:?}",
+        debug!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(&self.current_node()), &tag.name);
 
         if &self.sink.elem_name(&self.current_node()).local != &tag.name.local {

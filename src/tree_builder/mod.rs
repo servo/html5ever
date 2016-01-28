@@ -230,14 +230,14 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
 
-        println!("dump_state on {}", label);
-        println!("    open_elems:");
+        debug!("dump_state on {}", label);
+        debug!("    open_elems:");
         for node in self.open_elems.iter() {
             let QName { prefix, local, .. } = self.sink.elem_name(node);
-            println!(" {:?}:{:?}", prefix,local);
+            debug!(" {:?}:{:?}", prefix,local);
 
         }
-        println!("");
+        debug!("");
     }
 
     #[cfg(for_c)]
