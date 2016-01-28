@@ -1,8 +1,10 @@
 # xml5ever
 
-[![Build Status](https://travis-ci.org/Ygg01/xml5ever.svg?branch=master)](https://travis-ci.org/Ygg01/xml5ever)![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg)![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+[![Build Status](https://travis-ci.org/Ygg01/xml5ever.svg?branch=master)](https://travis-ci.org/Ygg01/xml5ever) ![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg) ![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
 [API documentation](https://Ygg01.github.io/docs/xml5ever/xml5ever/index.html)
+
+**Warning:** This library is alpha quality, so no guarantees are given.
 
 This crate provides a push based XML parser library that trades well-formedness for error recovery.
 
@@ -19,12 +21,14 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
   - You aren't interested in well-formed documents.
   - You need to get some info from your data even if it has errors (although not all possible errors are handled).
-  - You want to use some advanced features like character references or xml namespaces.
+  - You want to features like character references or xml namespaces.
 
 ## When you shouldn't use it
 
   - You need to have your document validated.
   - You require DTD support.
+  - You require an easy to use parser, with lots of extensions (e.g. XPath, XQuery).
+  - You require a battle tested, industry proven solution.
 
 #Installation
 
@@ -43,6 +47,18 @@ And add crate declaration in your lib.rs
 
 #Getting started
 
-xml5ever is meant to be used as a push based parser, that ca
-of software. Here are some examples, what can be done with xml5ever.
+Here is a very simple RcDom backed parser:
 
+```rust
+
+    let input = "<xml></xml>".to_tendril();
+
+    // To parse XML into a tree form, we need a TreeSink
+    // luckily xml5ever comes with a static RC backed tree represetation.
+    let dom: RcDom = parse(one_input(input), Default::default());
+
+    // Do something with dom
+
+```
+The thing that does actual parsing is `parse`. Function `parse` expects an iterator that can be converted into `StrTendril`, so `one_input` is just a way to convert any element
+into an iterator.

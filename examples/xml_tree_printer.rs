@@ -64,7 +64,7 @@ pub fn escape_default(s: &str) -> String {
 fn main() {
     // We need to allocate an input tendril for xml5ever
     let mut input = ByteTendril::new();
-    // Using SliceExt.read_to_tendril functions we can read stdin
+    // Using ReadExt.read_to_tendril functions we can read stdin
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
 
