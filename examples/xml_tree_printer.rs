@@ -9,15 +9,13 @@
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
-extern crate tendril;
-
 
 use std::io::{self, Read};
 use std::default::Default;
 use std::string::String;
 
-use tendril::{ByteTendril, ReadExt};
 use xml5ever::{parse, one_input};
+use xml5ever::tendril::{ByteTendril, ReadExt};
 use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {

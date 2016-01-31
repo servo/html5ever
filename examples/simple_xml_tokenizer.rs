@@ -9,12 +9,11 @@
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
-extern crate tendril;
 
 use std::io;
 use std::default::Default;
-use tendril::{ByteTendril, ReadExt};
 
+use xml5ever::tendril::{ByteTendril, ReadExt};
 use xml5ever::tokenizer::{TokenSink, Token, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
 use xml5ever::tokenizer::{PIToken, Pi, CommentToken};

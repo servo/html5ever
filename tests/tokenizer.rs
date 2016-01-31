@@ -2,7 +2,6 @@
 
 extern crate rustc_serialize;
 #[macro_use] extern crate string_cache;
-extern crate tendril;
 #[cfg(feature = "unstable")] extern crate test;
 
 extern crate xml5ever;
@@ -16,11 +15,12 @@ use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
 use string_cache::{Atom};
-use tendril::{StrTendril, SliceExt};
+
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
+use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Attribute, QName};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
 use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};

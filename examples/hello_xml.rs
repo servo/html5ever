@@ -9,13 +9,12 @@
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
-extern crate tendril;
 
 use std::default::Default;
 
-use tendril::{SliceExt};
 use xml5ever::{parse, one_input};
 use xml5ever::rcdom::{RcDom, NodeEnum, Text};
+use xml5ever::tendril::{SliceExt};
 
 fn main() {
     // Using SliceExt.to_tendril functions we can read stdin

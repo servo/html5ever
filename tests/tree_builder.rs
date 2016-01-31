@@ -6,7 +6,6 @@
 #[macro_use] extern crate string_cache;
 
 extern crate rustc_serialize;
-extern crate tendril;
 extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};
@@ -17,12 +16,13 @@ use std::iter::repeat;
 use std::mem::replace;
 use std::path::Path;
 
-use tendril::SliceExt;
+
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::parse;
+use xml5ever::tendril::SliceExt;
 
 mod util {
     pub mod find_tests;
