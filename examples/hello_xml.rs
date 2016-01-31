@@ -11,10 +11,12 @@
 extern crate xml5ever;
 
 use std::default::Default;
+use std::iter;
 
-use xml5ever::{parse, one_input};
-use xml5ever::rcdom::{RcDom, NodeEnum, Text};
 use xml5ever::tendril::{SliceExt};
+use xml5ever::{parse};
+use xml5ever::tree_builder::{TreeSink};
+use xml5ever::rcdom::{RcDom, Text};
 
 fn main() {
     // Using SliceExt.to_tendril functions we can read stdin
@@ -22,7 +24,7 @@ fn main() {
 
     // To parse XML into a tree form, we need a TreeSink
     // luckily xml5ever comes with a static RC backed tree represetation.
-    let dom: RcDom = parse(one_input(input), Default::default());
+    let dom: RcDom = parse(iter::once(input), Default::default());
 
     // Do some processing
     let doc = &dom.document;

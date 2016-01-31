@@ -13,9 +13,10 @@ extern crate xml5ever;
 use std::io::{self, Read};
 use std::default::Default;
 use std::string::String;
+use std::iter;
 
-use xml5ever::{parse, one_input};
 use xml5ever::tendril::{ByteTendril, ReadExt};
+use xml5ever::{parse};
 use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {
@@ -68,7 +69,7 @@ fn main() {
 
     // To parse XML into a tree form, we need a TreeSink
     // luckily xml5ever comes with a static RC backed tree represetation.
-    let dom: RcDom = parse(one_input(input), Default::default());
+    let dom: RcDom = parse(iter::once(input), Default::default());
 
     // Execute our visualizer on RcDom
     walk("", dom.document);

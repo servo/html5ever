@@ -63,16 +63,9 @@ pub mod tree_builder;
 /// A simple reference-counted that serves as a default tree structure
 pub mod rcdom;
 
-use std::option;
-
 use tokenizer::{XmlTokenizerOpts, XmlTokenizer, TokenSink};
 use tree_builder::{TreeSink, XmlTreeBuilder};
 
-
-/// Convenience function to turn a single value into an iterator.
-pub fn one_input<T>(x: T) -> option::IntoIter<T> {
-    Some(x).into_iter()
-}
 
 /// Parse and send results to a `TreeSink`.
 ///
@@ -80,7 +73,7 @@ pub fn one_input<T>(x: T) -> option::IntoIter<T> {
 ///
 /// ```ignore
 /// let mut sink = MySink;
-/// parse_to(&mut sink, one_input(my_str), Default::default());
+/// parse_to(&mut sink, iter::once(my_str), Default::default());
 /// ```
 pub fn parse_to<
         Sink:TreeSink,
@@ -105,7 +98,7 @@ pub fn parse_to<
 /// ## Example
 ///
 /// ```ignore
-/// let dom: RcDom = parse(one_input(my_str), Default::default());
+/// let dom: RcDom = parse(iter::once(my_str), Default::default());
 /// ```
 pub fn parse<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
     where Output: ParseResult,
@@ -133,7 +126,7 @@ pub trait ParseResult {
 ///
 /// ```ignore
 /// let mut sink = MySink;
-/// tokenize_to(&mut sink, one_input(my_str), Default::default());
+/// tokenize_to(&mut sink, iter::once(my_str), Default::default());
 /// ```
 pub fn tokenize_to<
         Sink: TokenSink,
