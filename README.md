@@ -55,10 +55,9 @@ Here is a very simple RcDom backed parser:
 
     // To parse XML into a tree form, we need a TreeSink
     // luckily xml5ever comes with a static RC backed tree represetation.
-    let dom: RcDom = parse(one_input(input), Default::default());
+    let dom: RcDom = parse(std::iter::once(input), Default::default());
 
     // Do something with dom
 
 ```
-The thing that does actual parsing is `parse`. Function `parse` expects an iterator that can be converted into `StrTendril`, so `one_input` is just a way to convert any element
-into an iterator.
+The thing that does actual parsing is the `parse` function. It expects an iterator that can be converted into `StrTendril`, so you can use `std::iter::once(input)` or  `Some(input).into_iter()` (where `input` is `StrTendril` like structure).
