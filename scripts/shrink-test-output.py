@@ -10,6 +10,7 @@
 
 import re
 import sys
+import subprocess
 
 
 REPLACEMENTS = {
@@ -21,11 +22,12 @@ TEST_RESULT_RE = re.compile(
     r'^test .* \.\.\. ({0})$'.format('|'.join(REPLACEMENTS.keys())))
 
 
-def main():
+def main(args):
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
     while True:
-        line = sys.stdin.readline()
+        line = process.stdout.readline()
         if len(line) is 0:
-            break
+            return process.wait()
         match = TEST_RESULT_RE.match(line)
         if match:
             sys.stdout.write(REPLACEMENTS[match.group(1)])
@@ -35,4 +37,4 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
