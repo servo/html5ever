@@ -10,18 +10,11 @@
 
 set -ex
 
-# Test without unstable first, to make sure src/tree_builder/rules.expanded.rs is up-to-date.
-cargo test --no-run
-cargo test | ./scripts/shrink-test-output.py
-r=${PIPESTATUS[0]}
-if [ $r -ne 0 ]; then exit $r; fi
+./scripts/shrink-test-output.py cargo test --color always
 
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
-    cargo test --no-run --features unstable
-    cargo test --features unstable | ./scripts/shrink-test-output.py
-    r=${PIPESTATUS[0]}
-    if [ $r -ne 0 ]; then exit $r; fi
+    ./scripts/shrink-test-output.py cargo test --color always --features unstable
 
     cargo test --manifest-path capi/Cargo.toml
 fi

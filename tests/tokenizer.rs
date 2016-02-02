@@ -7,12 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(test))]
-
-#[cfg(feature = "unstable")] extern crate test;
 extern crate rustc_serialize;
 #[macro_use] extern crate string_cache;
 extern crate tendril;
+extern crate test;
 
 extern crate html5ever;
 
@@ -24,8 +22,8 @@ use std::ffi::OsStr;
 use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
-#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-#[cfg(feature = "unstable")] use test::ShouldPanic::No;
+use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldPanic::No;
 use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
@@ -308,7 +306,6 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-#[cfg(feature = "unstable")]
 fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
@@ -335,7 +332,6 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
     }
 }
 
-#[cfg(feature = "unstable")]
 fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let obj = js.get_obj();
     let mut input = js.find("input").unwrap().get_str();
@@ -397,7 +393,6 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     }
 }
 
-#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -420,9 +415,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[cfg(feature = "unstable")]
-#[test]
-fn run() {
+fn main() {
     let args: Vec<_> = env::args().collect();
     test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
 }

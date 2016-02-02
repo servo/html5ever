@@ -15,6 +15,17 @@ name = "html5ever"
 # https://github.com/rust-lang/cargo/issues/1512
 doctest = false
 
+[[test]]
+name = "tree_builder"
+harness = false
+
+[[test]]
+name = "tokenizer"
+harness = false
+
+[[test]]
+name = "serializer"
+
 [features]
 unstable = ["tendril/unstable", "string_cache/unstable"]
 heap_size = ["heapsize", "heapsize_plugin"]
@@ -32,6 +43,7 @@ heapsize_plugin = { version = "0.1.0", optional = true }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
+rustc-test = "0.1"
 
 [build-dependencies]
 phf_codegen = "0.7.3"

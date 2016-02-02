@@ -7,9 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(test))]
-
-#[cfg(feature = "unstable")] extern crate test;
+extern crate test;
 #[macro_use] extern crate string_cache;
 extern crate tendril;
 
@@ -26,8 +24,8 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
-#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-#[cfg(feature = "unstable")] use test::ShouldPanic::No;
+use test::{TestDesc, TestDescAndFn, DynTestName, TestFn};
+use test::ShouldPanic::No;
 
 use html5ever::{ParseOpts, parse_document, parse_fragment};
 use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
@@ -152,7 +150,6 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     }
 }
 
-#[cfg(feature = "unstable")]
 fn make_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -176,7 +173,6 @@ fn make_test(
     }
 }
 
-#[cfg(feature = "unstable")]
 fn make_test_desc_with_scripting_flag(
         ignores: &HashSet<String>,
         name: &str,
@@ -209,7 +205,7 @@ fn make_test_desc_with_scripting_flag(
             ignore: ignore,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move || {
+        testfn: TestFn::dyn_test_fn(move || {
             // Do this here because Tendril isn't Send.
             let data = StrTendril::from_slice(&data);
             let mut result = String::new();
@@ -239,11 +235,10 @@ fn make_test_desc_with_scripting_flag(
                 panic!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
                     data, result, expected);
             }
-        })),
+        }),
     }
 }
 
-#[cfg(feature = "unstable")]
 fn context_name(context: &str) -> QualName {
     if context.starts_with("svg ") {
         QualName::new(ns!(svg), Atom::from(&context[4..]))
@@ -254,7 +249,6 @@ fn context_name(context: &str) -> QualName {
     }
 }
 
-#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -274,9 +268,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[cfg(feature = "unstable")]
-#[test]
-fn run() {
+fn main() {
     let args: Vec<_> = env::args().collect();
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
