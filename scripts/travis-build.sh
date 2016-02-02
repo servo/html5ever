@@ -10,7 +10,6 @@
 
 set -ex
 
-# Test without unstable first, to make sure src/tree_builder/rules.expanded.rs is up-to-date.
 cargo test --no-run
 cargo test | ./scripts/shrink-test-output.py
 r=${PIPESTATUS[0]}
