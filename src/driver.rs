@@ -162,7 +162,8 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
         };
         if buffer.len32() >= PRESCAN_BYTES {
             let encoding = detect_encoding(&buffer, &self.opts);
-            let decoder = LossyDecoder::new(encoding, parser);
+            let mut decoder = LossyDecoder::new(encoding, parser);
+            decoder.process(buffer);
             self.state = BytesParserState::Parsing { decoder: decoder }
         } else {
             self.state = BytesParserState::Buffering {
@@ -188,7 +189,8 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
             BytesParserState::Initial { parser } => parser.finish(),
             BytesParserState::Buffering { parser, buffer } => {
                 let encoding = detect_encoding(&buffer, &self.opts);
-                let decoder = LossyDecoder::new(encoding, parser);
+                let mut decoder = LossyDecoder::new(encoding, parser);
+                decoder.process(buffer);
                 decoder.finish()
             },
             BytesParserState::Parsing { decoder } => decoder.finish(),
@@ -217,4 +219,47 @@ fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
     }
     // FIXME: <meta> etc.
     return encoding::all::UTF_8
+}
+
+#[cfg(test)]
+mod tests {
+    use rcdom::RcDom;
+    use serialize::serialize;
+    use std::iter::repeat;
+    use tendril::TendrilSink;
+    use super::*;
+
+    #[test]
+    fn from_utf8() {
+        assert_serialization(
+            parse_document(RcDom::default(), ParseOpts::default())
+                .from_utf8()
+                .one("<title>Test".as_bytes()));
+    }
+
+    #[test]
+    fn from_bytes_one() {
+        assert_serialization(
+            parse_document(RcDom::default(), ParseOpts::default())
+                .from_bytes(BytesOpts::default())
+                .one("<title>Test".as_bytes()));
+    }
+
+    #[test]
+    fn from_bytes_iter() {
+        assert_serialization(
+            parse_document(RcDom::default(), ParseOpts::default())
+                .from_bytes(BytesOpts::default())
+                .from_iter([
+                    "<title>Test".as_bytes(),
+                    repeat(' ').take(1200).collect::<String>().as_bytes(),
+                ].iter().cloned()));
+    }
+
+    fn assert_serialization(dom: RcDom) {
+        let mut serialized = Vec::new();
+        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
+        assert_eq!(String::from_utf8(serialized).unwrap().replace(" ", ""),
+                   "<html><head><title>Test</title></head><body></body></html>");
+    }
 }
