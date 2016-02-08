@@ -262,19 +262,19 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
     pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
-        tracer.trace_handle(self.doc_handle.clone());
-        for e in self.open_elems.iter() {
-            tracer.trace_handle(e.clone());
+        tracer.trace_handle(&self.doc_handle);
+        for e in &self.open_elems {
+            tracer.trace_handle(e);
         }
-        for e in self.active_formatting.iter() {
+        for e in &self.active_formatting {
             match e {
-                &Element(ref h, _) => tracer.trace_handle(h.clone()),
+                &Element(ref h, _) => tracer.trace_handle(h),
                 _ => (),
             }
         }
-        self.head_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
-        self.form_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
-        self.context_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
+        self.head_elem.as_ref().map(|h| tracer.trace_handle(h));
+        self.form_elem.as_ref().map(|h| tracer.trace_handle(h));
+        self.context_elem.as_ref().map(|h| tracer.trace_handle(h));
     }
 
     #[allow(dead_code)]

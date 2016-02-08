@@ -160,5 +160,5 @@ pub trait Tracer {
 
     /// Upon a call to `trace_handles`, the tree builder will call this method
     /// for each handle in its internal state.
-    fn trace_handle(&self, node: Self::Handle);
+    fn trace_handle(&self, node: &Self::Handle);
 }
