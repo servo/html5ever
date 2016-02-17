@@ -78,7 +78,7 @@ pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
 /// An HTML parser,
 /// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
 pub struct Parser<Sink> where Sink: TreeSink {
-    tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
+    pub tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
 }
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
@@ -155,6 +155,26 @@ enum BytesParserState<Sink> where Sink: TreeSink {
         decoder: LossyDecoder<Parser<Sink>>,
     },
     Transient
+}
+
+impl<Sink: TreeSink> BytesParser<Sink> {
+    pub fn str_parser(&self) -> &Parser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref parser } => parser,
+            BytesParserState::Buffering { ref parser, .. } => parser,
+            BytesParserState::Parsing { ref decoder } => decoder.inner_sink(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    pub fn str_parser_mut(&mut self) -> &mut Parser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref mut parser } => parser,
+            BytesParserState::Buffering { ref mut parser, .. } => parser,
+            BytesParserState::Parsing { ref mut decoder } => decoder.inner_sink_mut(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
 }
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
