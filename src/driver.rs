@@ -56,7 +56,17 @@ pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
                             -> Parser<Sink>
                             where Sink: TreeSink {
     let context_elem = sink.create_element(context_name, context_attrs);
-    let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
+    parse_fragment_for_element(sink, opts, context_elem, None)
+}
+
+/// Like `parse_fragment`, but with an existing context element
+/// and optionally a form element.
+pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
+                                        context_element: Sink::Handle,
+                                        form_element: Option<Sink::Handle>)
+                                        -> Parser<Sink>
+                                        where Sink: TreeSink {
+    let tb = TreeBuilder::new_for_fragment(sink, context_element, form_element, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
         .. opts.tokenizer
@@ -68,7 +78,7 @@ pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
 /// An HTML parser,
 /// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
 pub struct Parser<Sink> where Sink: TreeSink {
-    tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
+    pub tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
 }
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
@@ -147,6 +157,60 @@ enum BytesParserState<Sink> where Sink: TreeSink {
     Transient
 }
 
+impl<Sink: TreeSink> BytesParser<Sink> {
+    /// Access the underlying Parser
+    pub fn str_parser(&self) -> &Parser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref parser } => parser,
+            BytesParserState::Buffering { ref parser, .. } => parser,
+            BytesParserState::Parsing { ref decoder } => decoder.inner_sink(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    /// Access the underlying Parser
+    pub fn str_parser_mut(&mut self) -> &mut Parser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref mut parser } => parser,
+            BytesParserState::Buffering { ref mut parser, .. } => parser,
+            BytesParserState::Parsing { ref mut decoder } => decoder.inner_sink_mut(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    /// Insert a Unicode chunk in the middle of the byte stream.
+    ///
+    /// This is e.g. for supporting `document.write`.
+    pub fn process_unicode(&mut self, t: StrTendril) {
+        if let BytesParserState::Parsing { ref mut decoder } = self.state {
+            decoder.inner_sink_mut().process(t)
+        } else {
+            match mem::replace(&mut self.state, BytesParserState::Transient) {
+                BytesParserState::Initial { mut parser } => {
+                    parser.process(t);
+                    self.start_parsing(parser, ByteTendril::new())
+                }
+                BytesParserState::Buffering { parser, buffer } => {
+                    self.start_parsing(parser, buffer);
+                    if let BytesParserState::Parsing { ref mut decoder } = self.state {
+                        decoder.inner_sink_mut().process(t)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                BytesParserState::Parsing { .. } | BytesParserState::Transient => unreachable!(),
+            }
+        }
+    }
+
+    fn start_parsing(&mut self, parser: Parser<Sink>, buffer: ByteTendril) {
+        let encoding = detect_encoding(&buffer, &self.opts);
+        let mut decoder = LossyDecoder::new(encoding, parser);
+        decoder.process(buffer);
+        self.state = BytesParserState::Parsing { decoder: decoder }
+    }
+}
+
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
     fn process(&mut self, t: ByteTendril) {
         if let &mut BytesParserState::Parsing { ref mut decoder } = &mut self.state {
@@ -161,10 +225,7 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
             BytesParserState::Parsing { .. } | BytesParserState::Transient => unreachable!(),
         };
         if buffer.len32() >= PRESCAN_BYTES {
-            let encoding = detect_encoding(&buffer, &self.opts);
-            let mut decoder = LossyDecoder::new(encoding, parser);
-            decoder.process(buffer);
-            self.state = BytesParserState::Parsing { decoder: decoder }
+            self.start_parsing(parser, buffer)
         } else {
             self.state = BytesParserState::Buffering {
                 parser: parser,
