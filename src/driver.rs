@@ -182,6 +182,9 @@ impl<Sink: TreeSink> BytesParser<Sink> {
     ///
     /// This is e.g. for supporting `document.write`.
     pub fn process_unicode(&mut self, t: StrTendril) {
+        if t.is_empty() {
+            return  // Don’t prevent buffering/encoding detection
+        }
         if let BytesParserState::Parsing { ref mut decoder } = self.state {
             decoder.inner_sink_mut().process(t)
         } else {
