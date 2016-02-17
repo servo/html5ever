@@ -56,7 +56,17 @@ pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
                             -> Parser<Sink>
                             where Sink: TreeSink {
     let context_elem = sink.create_element(context_name, context_attrs);
-    let tb = TreeBuilder::new_for_fragment(sink, context_elem, None, opts.tree_builder);
+    parse_fragment_for_element(sink, opts, context_elem, None)
+}
+
+/// Like `parse_fragment`, but with an existing context element
+/// and optionally a form element.
+pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
+                                        context_element: Sink::Handle,
+                                        form_element: Option<Sink::Handle>)
+                                        -> Parser<Sink>
+                                        where Sink: TreeSink {
+    let tb = TreeBuilder::new_for_fragment(sink, context_element, form_element, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
         .. opts.tokenizer
