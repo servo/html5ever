@@ -57,14 +57,7 @@ pub struct TreeBuilderOpts {
     /// Should we drop the DOCTYPE (if any) from the tree?
     pub drop_doctype: bool,
 
-    /// The `<svg>`, `<math>`, and `<template>` tags have special
-    /// parsing rules that are currently unimplemented.  By default
-    /// we `panic!()` if any of these tags is encountered.  If this
-    /// option is enabled, we will instead attempt to parse them
-    /// using the ordinary HTML parsing rules.
-    ///
-    /// **Warning**: This may produce extremely incorrect results
-    /// on some documents!
+    /// Obsolete, ignored.
     pub ignore_missing_rules: bool,
 
     /// Initial TreeBuilder quirks mode. Default: NoQuirks
