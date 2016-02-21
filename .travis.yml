@@ -1,4 +1,3 @@
-sudo: false
 branches:
   except:
       - servo
