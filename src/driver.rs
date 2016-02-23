@@ -264,8 +264,8 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
 }
 
 /// How many bytes does detect_encoding() need
-// NOTE: 3 would be enough for a BOM, but 1024 is specified for <meta> elements.
-const PRESCAN_BYTES: u32 = 1024;
+// FIXME(#18): should be 1024 for <meta> elements.
+const PRESCAN_BYTES: u32 = 3;
 
 /// https://html.spec.whatwg.org/multipage/syntax.html#determining-the-character-encoding
 fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
@@ -281,7 +281,7 @@ fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
     if let Some(encoding) = opts.transport_layer_encoding {
         return encoding
     }
-    // FIXME: <meta> etc.
+    // FIXME(#18): <meta> etc.
     return encoding::all::UTF_8
 }
 
