@@ -26,6 +26,10 @@ harness = false
 [[test]]
 name = "serializer"
 
+[[bench]]
+name = "tokenizer"
+harness = false
+
 [features]
 unstable = ["tendril/unstable", "string_cache/unstable"]
 heap_size = ["heapsize", "heapsize_plugin"]

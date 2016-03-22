@@ -7,13 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(box_syntax, std_misc, start, test)]
-
 extern crate test;
 extern crate tendril;
 extern crate html5ever;
 
-use std::{fs, env, cmp, rt};
+use std::{fs, env, cmp};
 use std::path::PathBuf;
 use std::io::Read;
 use std::default::Default;
@@ -42,6 +40,9 @@ struct Bench {
     clone_only: bool,
     opts: TokenizerOpts,
 }
+
+/// All tendrils in Bench.input are owned.
+unsafe impl Send for Bench {}
 
 impl Bench {
     fn new(name: &str, size: Option<usize>, clone_only: bool,
@@ -114,7 +115,7 @@ fn make_bench(name: &str, size: Option<usize>, clone_only: bool,
             ignore: false,
             should_panic: No,
         },
-        testfn: DynBenchFn(box Bench::new(name, size, clone_only, opts)),
+        testfn: DynBenchFn(Box::new(Bench::new(name, size, clone_only, opts))),
     }
 }
 
@@ -148,16 +149,10 @@ fn tests() -> Vec<TestDescAndFn> {
             }
         }
     }
-
     tests
 }
 
-#[start]
-fn start(argc: isize, argv: *const *const u8) -> isize {
-    unsafe {
-        rt::args::init(argc, argv);
-    }
+fn main() {
     let args: Vec<_> = env::args().collect();
     test::test_main(&args, tests());
-    0
 }
