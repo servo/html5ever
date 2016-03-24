@@ -15,8 +15,6 @@ set -ex
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
     ./scripts/shrink-test-output.py cargo test --color always --features unstable
-
-    cargo test --manifest-path capi/Cargo.toml
 fi
 
 cargo doc
