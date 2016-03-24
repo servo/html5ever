@@ -26,8 +26,6 @@ Then take a look at [`examples/print-rcdom.rs`](https://github.com/servo/html5ev
 
 ## Getting started in other languages
 
-The C API is not yet complete, but it's already possible to do [tokenization](http://mainisusuallyafunction.blogspot.com/2014/08/calling-rust-library-from-c-or-anything.html).
-
 Bindings for Python and other languages are much desired.
 
 
