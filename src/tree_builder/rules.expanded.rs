@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 745840497287382260
+// source SipHash: 18376801535389447229
 
 # ! [
 doc =
@@ -105,7 +105,7 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
             BeforeHead =>
             match token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CharacterTokens(Whitespace, _) => Done,
                 CommentToken(text) => self.append_comment(text),
                 ::tree_builder::types::TagToken(::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,

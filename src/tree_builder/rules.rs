@@ -86,7 +86,7 @@ impl<Handle, Sink> TreeBuilderStep
             //§ the-before-head-insertion-mode
             BeforeHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
+                CharacterTokens(Whitespace, _) => Done,
                 CommentToken(text) => self.append_comment(text),
 
                 <html> => self.step(InBody, token),
