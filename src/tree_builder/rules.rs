@@ -119,10 +119,14 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     self.append_tag(tag)
                 },
                 TagToken(Tag{kind: EndTag, name, attrs}) => {
-                    let tag = Tag {
-                        kind: EndTag,
-                        name: name,
-                        attrs: attrs,
+                    let tag = {
+			let mut tag = Tag {
+                            kind: EndTag,
+                            name: name,
+                            attrs: attrs,
+			};
+			self.process_namespaces(&mut tag);
+			tag
                     };
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {

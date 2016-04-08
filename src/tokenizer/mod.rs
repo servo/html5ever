@@ -30,7 +30,7 @@ use tendril::StrTendril;
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
-use self::states::{Data, TagState, XmlState};
+use self::states::{XmlState};
 use self::states::{DoctypeKind, Public, System};
 use self::qname::{QNameTokenizer};
 use util::smallcharset::SmallCharSet;
