@@ -223,7 +223,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
     pub fn write_doctype(&mut self, name: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<!DOCTYPE "));
         try!(self.writer.write_all(name.as_bytes()));
-        self.writer.write_all(b">\n")
+        self.writer.write_all(b">")
     }
 
     pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
