@@ -105,5 +105,5 @@ fn doctype() {
     dom.document.borrow_mut().children.truncate(1);  // Remove <html>
     let mut result = vec![];
     serialize(&mut result, &dom.document, Default::default()).unwrap();
-    assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>\n");
+    assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
 }
