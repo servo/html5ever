@@ -11,8 +11,9 @@ use std::borrow::Cow::Borrowed;
 use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag, ShortTag, EmptyTag};
 use tree_builder::types::*;
-use tree_builder::interface::TreeSink;
+use tree_builder::interface::{NextParserState, TreeSink};
 use tree_builder::actions::XmlTreeBuilderActions;
+use tokenizer::states::Quiescent;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     !x.bytes().all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
@@ -120,14 +121,20 @@ impl<Handle, Sink> XmlTreeBuilderStep
                 },
                 TagToken(Tag{kind: EndTag, name, attrs}) => {
                     let tag = {
-			let mut tag = Tag {
+                        let mut tag = Tag {
                             kind: EndTag,
                             name: name,
                             attrs: attrs,
-			};
-			self.process_namespaces(&mut tag);
-			tag
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
                     };
+                    if tag.name.local == atom!("script") {
+                        let current = self.pop();
+                        if self.sink.complete_script(current) == NextParserState::Suspend {
+                            self.next_tokenizer_state = Some(Quiescent);
+                        };
+                    }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
                         self.phase = EndPhase;

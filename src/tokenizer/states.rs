@@ -63,6 +63,7 @@ pub enum XmlState {
     BetweenDoctypePublicAndSystemIdentifiers,
     BogusDoctype,
     BogusComment,
+    Quiescent,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
