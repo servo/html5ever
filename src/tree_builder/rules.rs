@@ -117,7 +117,16 @@ impl<Handle, Sink> XmlTreeBuilderStep
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.append_tag(tag)
+                    if tag.name.local == atom!("script") {
+                        self.insert_tag(tag.clone());
+                        let current = self.pop();
+                        if self.sink.complete_script(current) == NextParserState::Suspend {
+                            self.next_tokenizer_state = Some(Quiescent);
+                        }
+                        self.close_tag(tag)
+                    } else {
+                        self.append_tag(tag)
+                    }
                 },
                 TagToken(Tag{kind: EndTag, name, attrs}) => {
                     let tag = {
