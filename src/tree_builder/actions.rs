@@ -10,7 +10,8 @@
 use std::borrow::Cow::Borrowed;
 use tendril::{StrTendril, Tendril};
 use tokenizer::{Tag, Pi, QName, Doctype};
-use tree_builder::interface::{NodeOrText, TreeSink, AppendNode, AppendText};
+use tokenizer::states::Quiescent;
+use tree_builder::interface::{NextParserState, NodeOrText, TreeSink, AppendNode, AppendText};
 use tree_builder::types::{XmlProcessResult, Done};
 
 /// Trait that encapsulates common XML tree actions.
@@ -73,6 +74,9 @@ pub trait XmlTreeBuilderActions<Handle> {
 
     /// Stops parsing of XML file.
     fn stop_parsing(&mut self) -> XmlProcessResult;
+
+    /// Indicated a `script` element is complete and can be prepared
+    fn complete_script(&mut self);
 }
 
 #[doc(hidden)]
@@ -224,5 +228,12 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn stop_parsing(&mut self) -> XmlProcessResult {
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
         Done
+    }
+
+    fn complete_script(&mut self) {
+        let current = self.pop();
+        if self.sink.complete_script(current) == NextParserState::Suspend {
+            self.next_tokenizer_state = Some(Quiescent);
+        }
     }
 }
