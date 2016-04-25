@@ -116,18 +116,27 @@ impl<Handle, Sink> XmlTreeBuilderStep
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.append_tag(tag)
+                    if tag.name.local == atom!("script") {
+                        self.insert_tag(tag.clone());
+                        self.complete_script();
+                        self.close_tag(tag)
+                    } else {
+                        self.append_tag(tag)
+                    }
                 },
                 TagToken(Tag{kind: EndTag, name, attrs}) => {
                     let tag = {
-			let mut tag = Tag {
+                        let mut tag = Tag {
                             kind: EndTag,
                             name: name,
                             attrs: attrs,
-			};
-			self.process_namespaces(&mut tag);
-			tag
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
                     };
+                    if tag.name.local == atom!("script") {
+                        self.complete_script();
+                    }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
                         self.phase = EndPhase;

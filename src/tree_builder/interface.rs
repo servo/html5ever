@@ -81,6 +81,14 @@ pub trait TreeSink {
                                   name: StrTendril,
                                   public_id: StrTendril,
                                   system_id: StrTendril);
+
+    /// Mark a HTML `<script>` as "already started".
+    fn mark_script_already_started(&mut self, _node: Self::Handle) {}
+
+    /// Indicate that a `script` element is complete.
+    fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
+        NextParserState::Continue
+    }
 }
 
 /// Trace hooks for a garbage-collected DOM.
