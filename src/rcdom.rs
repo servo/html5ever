@@ -177,7 +177,7 @@ impl TreeSink for RcDom {
         self.document.clone()
     }
 
-    fn get_template_contents(&self, target: Handle) -> Handle {
+    fn get_template_contents(&mut self, target: Handle) -> Handle {
         if let Element(_, Template(ref contents), _) = target.borrow().node {
             contents.clone()
         } else {

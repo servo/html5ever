@@ -46,7 +46,7 @@ impl TreeSink for Sink {
         0
     }
 
-    fn get_template_contents(&self, target: usize) -> usize {
+    fn get_template_contents(&mut self, target: usize) -> usize {
         if let Some(&qualname!(html, "template")) = self.names.get(&target) {
             target + 1
         } else {
