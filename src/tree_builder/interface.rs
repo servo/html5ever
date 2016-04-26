@@ -76,7 +76,7 @@ pub trait TreeSink {
     /// Get a handle to a template's template contents. The tree builder
     /// promises this will never be called with something else than
     /// a template element.
-    fn get_template_contents(&self, target: Self::Handle) -> Self::Handle;
+    fn get_template_contents(&mut self, target: Self::Handle) -> Self::Handle;
 
     /// Do two handles refer to the same node?
     fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
