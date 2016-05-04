@@ -231,7 +231,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn complete_script(&mut self) {
-        let current = self.pop();
+        let current = self.current_node();
         if self.sink.complete_script(current) == NextParserState::Suspend {
             self.next_tokenizer_state = Some(Quiescent);
         }
