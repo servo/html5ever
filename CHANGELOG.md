@@ -14,3 +14,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
   - Bug in namespace parsing of end tag from @bpowers
   - Removed mention of `one_input` from README.md from @Ygg01
+
+## [0.1.3] - 2016-05-04
+### Fixed
+  - `complete_script` popped the open script tag instead of getting the current node
