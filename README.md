@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/Ygg01/xml5ever.svg?branch=master)](https://travis-ci.org/Ygg01/xml5ever) ![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg) ![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Clippy Linting Result](http://clippy.bashy.io/github/Ygg01/xml5ever/master/badge.svg)](http://clippy.bashy.io/github/Ygg01/xml5ever/master/log)
+[![](http://meritbadge.herokuapp.com/xml5ever)](https://crates.io/crates/xml5ever)
 
 [API documentation](https://Ygg01.github.io/docs/xml5ever/xml5ever/index.html)
 
