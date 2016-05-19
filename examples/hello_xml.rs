@@ -14,7 +14,7 @@ use std::default::Default;
 use std::iter;
 
 use xml5ever::tendril::{SliceExt};
-use xml5ever::{parse};
+use xml5ever::driver::{parse};
 use xml5ever::tree_builder::{TreeSink};
 use xml5ever::rcdom::{RcDom, Text};
 

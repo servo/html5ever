@@ -16,7 +16,7 @@ use std::string::String;
 use std::iter;
 
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::{parse};
+use xml5ever::driver::{parse};
 use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {

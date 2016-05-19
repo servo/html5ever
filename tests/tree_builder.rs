@@ -21,7 +21,7 @@ use std::path::Path;
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
-use xml5ever::parse;
+use xml5ever::driver::parse;
 use xml5ever::tendril::SliceExt;
 
 mod util {

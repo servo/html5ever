@@ -24,7 +24,7 @@ use tendril::StrTendril;
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 use super::tokenizer::{Attribute, QName};
 use super::tree_builder::{TreeSink, NodeOrText};
-use super::ParseResult;
+use super::driver::ParseResult;
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
