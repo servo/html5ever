@@ -14,13 +14,13 @@ use std::io;
 use std::default::Default;
 
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{TokenSink, Token, ParseError};
+use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
 use xml5ever::tokenizer::{PIToken, Pi, CommentToken};
 use xml5ever::tokenizer::{EOFToken, DoctypeToken, Doctype};
-use xml5ever::tokenize_to;
 
 struct SimpleTokenPrinter;
+
 
 impl TokenSink for SimpleTokenPrinter {
     fn process_token(&mut self, token: Token) {
@@ -62,6 +62,8 @@ fn main() {
     // For xml5ever we need StrTendril, so we reinterpret it
     // into StrTendril.
     let input = input.try_reinterpret().unwrap();
-    // Here we execute tokenizer
-    tokenize_to(sink, Some(input), Default::default());
+    // Here we create and run tokenizer
+    let mut tok = XmlTokenizer::new(sink, Default::default());
+    tok.feed(input);
+    tok.end();
 }

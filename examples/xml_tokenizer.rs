@@ -14,11 +14,10 @@ use std::io::{self, Read};
 use std::default::Default;
 
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizerOpts, ParseError};
+use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, XmlTokenizerOpts, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
 use xml5ever::tokenizer::{StartTag, EndTag, ShortTag, EmptyTag};
 use xml5ever::tokenizer::{PIToken, Pi};
-use xml5ever::tokenize_to;
 
 #[derive(Copy, Clone)]
 struct TokenPrinter {
@@ -91,10 +90,12 @@ fn main() {
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input = input.try_reinterpret().unwrap();
-    tokenize_to(sink, Some(input), XmlTokenizerOpts {
+    let mut tok = XmlTokenizer::new(sink, XmlTokenizerOpts {
         profile: true,
         exact_errors: true,
         .. Default::default()
     });
+    tok.feed(input);
+    tok.end();
     sink.is_char(false);
 }

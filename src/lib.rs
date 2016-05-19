@@ -121,26 +121,3 @@ pub trait ParseResult {
     fn get_result(sink: Self::Sink) -> Self;
 }
 
-/// Tokenize and send results to a `XTokenSink`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let mut sink = MySink;
-/// tokenize_to(&mut sink, iter::once(my_str), Default::default());
-/// ```
-pub fn tokenize_to<
-        Sink: TokenSink,
-        It: IntoIterator<Item=tendril::StrTendril>
-    >(
-        sink: Sink,
-        input: It,
-        opts: XmlTokenizerOpts) -> Sink {
-
-    let mut tok = XmlTokenizer::new(sink, opts);
-    for s in input {
-        tok.feed(s);
-    }
-    tok.end();
-    tok.unwrap()
-}

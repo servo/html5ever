@@ -17,7 +17,7 @@ First let's define our dependencies:
 
 ```toml
     [dependencies]
-    xml5ever = "0.1.0"
+    xml5ever = "0.1.3"
     tendril = "0.1.3"
 ```
 
@@ -84,8 +84,10 @@ Once that is set, to make `SimpleTokenPrinter` parse the input, call,
         // need StrTendril and the answer is type inference based
         // on `tokenize_xml_to` signature.
         let input = input.try_reinterpret().unwrap();
-
-        tokenize_to(sink, Some(input), Default::default());
+        // Here we create and run tokenizer
+        let mut tok = XmlTokenizer::new(sink, Default::default());
+        tok.feed(input);
+        tok.end();
     }
 ```
 
