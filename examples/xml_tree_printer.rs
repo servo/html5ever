@@ -5,18 +5,17 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = "0.1.1"
+//! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
 
-use std::io::{self, Read};
+use std::io::{self};
 use std::default::Default;
 use std::string::String;
-use std::iter;
 
-use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::driver::{parse};
+use xml5ever::tendril::{TendrilSink};
+use xml5ever::driver::{parse_document};
 use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {
@@ -61,15 +60,14 @@ pub fn escape_default(s: &str) -> String {
 }
 
 fn main() {
-    // We need to allocate an input tendril for xml5ever
-    let mut input = ByteTendril::new();
-    // Using ReadExt.read_to_tendril functions we can read stdin
-    io::stdin().read_to_tendril(&mut input).unwrap();
-    let input = input.try_reinterpret().unwrap();
+    let stdin = io::stdin();
 
     // To parse XML into a tree form, we need a TreeSink
     // luckily xml5ever comes with a static RC backed tree represetation.
-    let dom: RcDom = parse(iter::once(input), Default::default());
+    let dom: RcDom = parse_document(RcDom::default(), Default::default())
+        .from_utf8()
+        .read_from(&mut stdin.lock())
+        .unwrap();;
 
     // Execute our visualizer on RcDom
     walk("", dom.document);

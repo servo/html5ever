@@ -5,26 +5,27 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = "0.1.1"
+//! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
 
 use std::default::Default;
-use std::iter;
 
-use xml5ever::tendril::{SliceExt};
-use xml5ever::driver::{parse};
+use xml5ever::tendril::TendrilSink;
+use xml5ever::driver::{parse_document, BytesOpts};
 use xml5ever::tree_builder::{TreeSink};
 use xml5ever::rcdom::{RcDom, Text};
 
 fn main() {
-    // Using SliceExt.to_tendril functions we can read stdin
-    let input = "<hello>XML</hello>".to_tendril();
-
-    // To parse XML into a tree form, we need a TreeSink
-    // luckily xml5ever comes with a static RC backed tree represetation.
-    let dom: RcDom = parse(iter::once(input), Default::default());
+    // To parse a string into a tree of nodes, we need to invoke
+    // `parse_document` and supply it with a TreeSink implementation (RcDom).
+    //
+    // Since this is a string, it's best to use `from_bytes` to create a
+    // BytesParser for given string.
+    let dom: RcDom = parse_document(RcDom::default(), Default::default())
+        .from_bytes(BytesOpts::default())
+        .one("<hello>XML</hello>".as_bytes());
 
     // Do some processing
     let doc = &dom.document;

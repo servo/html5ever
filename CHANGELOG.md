@@ -18,3 +18,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.1.3] - 2016-05-04
 ### Fixed
   - `complete_script` popped the open script tag instead of getting the current node
+
+## [0.2.0] - 2016-08-22
+### Added
+  - Support for XML encoding @Ygg01
+  - Serializer for XML @Ygg01
+  - Test for serializing namespace @Ygg01
+
+### Changed
+  - Removed `tokenize_to` method @Ygg01
+  - Moved parse into a separate driver module @Ygg01
+  - Moved `atoms!` macro from src/tree_builder/mod.rs into src/lib.rs @Ygg01
+  - Made NamespaceStack publicly visible but hidden. @Ygg01
+  - Changed serialization rules, to serialize namespace @Ygg01

@@ -17,7 +17,7 @@ First let's define our dependencies:
 
 ```toml
     [dependencies]
-    xml5ever = "0.1.3"
+    xml5ever = "0.2.0"
     tendril = "0.1.3"
 ```
 
@@ -86,7 +86,10 @@ Once that is set, to make `SimpleTokenPrinter` parse the input, call,
         let input = input.try_reinterpret().unwrap();
         // Here we create and run tokenizer
         let mut tok = XmlTokenizer::new(sink, Default::default());
+        // We pass input to parsed.
         tok.feed(input);
+
+        // tok.end must be invoked for final bytes to be processed.
         tok.end();
     }
 ```

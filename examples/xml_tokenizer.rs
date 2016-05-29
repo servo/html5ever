@@ -5,12 +5,12 @@
 //!
 //! ```cargo
 //! [dependencies]
-//! xml5ever = "0.1.1"
+//! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
 //! ```
 extern crate xml5ever;
 
-use std::io::{self, Read};
+use std::io::{self};
 use std::default::Default;
 
 use xml5ever::tendril::{ByteTendril, ReadExt};
