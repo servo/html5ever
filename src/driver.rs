@@ -7,51 +7,49 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use tokenizer::{XmlTokenizerOpts, XmlTokenizer, TokenSink};
-use tree_builder::{TreeSink, XmlTreeBuilder};
+use tokenizer::{XmlTokenizerOpts, XmlTokenizer};
+use tree_builder::{TreeSink, XmlTreeBuilder, XmlTreeBuilderOpts};
 
+use std::borrow::Cow;
+use std::mem;
+
+use encoding::{self, EncodingRef};
 use tendril;
-use tendril::{StrTendril};
+use tendril::{StrTendril, ByteTendril};
+use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
+
+/// All-encompasing parser setting structure.
+#[derive(Clone, Default)]
+pub struct XmlParseOpts {
+    /// Xml tokenizer options.
+    pub tokenizer: XmlTokenizerOpts,
+    /// Xml tree builder .
+    pub tree_builder: XmlTreeBuilderOpts,
+}
+
 /// Parse and send results to a `TreeSink`.
 ///
 /// ## Example
 ///
 /// ```ignore
 /// let mut sink = MySink;
-/// parse_to(&mut sink, iter::once(my_str), Default::default());
+/// parse_document(&mut sink, iter::once(my_str), Default::default());
 /// ```
-pub fn parse_to<
-        Sink:TreeSink,
-        It: IntoIterator<Item=tendril::StrTendril>
-    >(
-        sink: Sink,
-        input: It,
-        opts: XmlTokenizerOpts) -> Sink {
+pub fn parse_document<Sink>(sink: Sink, opts: XmlParseOpts) -> XmlParser<Sink>
+    where Sink: TreeSink {
 
-    let tb = XmlTreeBuilder::new(sink);
-    let mut tok = XmlTokenizer::new(tb, opts);
-    for s in input {
-        tok.feed(s);
-    }
-    tok.end();
-    tok.unwrap().unwrap()
+    let tb = XmlTreeBuilder::new(sink, opts.tree_builder);
+    let tok = XmlTokenizer::new(tb, opts.tokenizer);
+    XmlParser { tokenizer: tok}
 }
 
-
-/// Parse into a type which implements `ParseResult`.
-///
-/// ## Example
-///
-/// ```ignore
-/// let dom: RcDom = parse(iter::once(my_str), Default::default());
-/// ```
-pub fn parse<Output, It>(input: It, opts: XmlTokenizerOpts) -> Output
-    where Output: ParseResult,
-          It: IntoIterator<Item=tendril::StrTendril>,
-{
-    let sink = parse_to(Default::default(), input, opts);
-    ParseResult::get_result(sink)
+/// An XML parser,
+/// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
+pub struct XmlParser<Sink> where Sink: TreeSink {
+    /// Tokenizer used by XmlParser.
+    pub tokenizer: XmlTokenizer<XmlTreeBuilder<Sink::Handle, Sink>>,
 }
+
 
 /// Results which can be extracted from a `TreeSink`.
 ///
@@ -64,6 +62,210 @@ pub trait ParseResult {
     /// Returns parsed tree data type
     fn get_result(sink: Self::Sink) -> Self;
 }
+
+impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
+
+    type Output = Sink::Output;
+
+    fn process(&mut self, t: StrTendril) {
+        self.tokenizer.feed(t)
+    }
+
+    // FIXME: Is it too noisy to report every character decoding error?
+    fn error(&mut self, desc: Cow<'static, str>) {
+        self.tokenizer.sink_mut().sink_mut().parse_error(desc)
+    }
+
+    fn finish(mut self) -> Self::Output {
+        self.tokenizer.end();
+        self.tokenizer.unwrap().unwrap().finish()
+    }
+}
+
+impl<Sink: TreeSink> XmlParser<Sink> {
+    /// Wrap this parser into a `TendrilSink` that accepts UTF-8 bytes.
+    ///
+    /// Use this when your input is bytes that are known to be in the UTF-8 encoding.
+    /// Decoding is lossy, like `String::from_utf8_lossy`.
+    pub fn from_utf8(self) -> Utf8LossyDecoder<Self> {
+        Utf8LossyDecoder::new(self)
+    }
+
+    /// Wrap this parser into a `TendrilSink` that accepts bytes
+    /// and tries to detect the correct character encoding.
+    ///
+    /// Currently this looks for a Byte Order Mark,
+    /// then uses `BytesOpts::transport_layer_encoding`,
+    /// then falls back to UTF-8.
+    ///
+    /// FIXME(https://github.com/servo/html5ever/issues/18): this should look for `<meta>` elements
+    pub fn from_bytes(self, opts: BytesOpts) -> BytesParser<Sink> {
+        BytesParser {
+            state: BytesParserState::Initial { parser: self },
+            opts: opts,
+        }
+    }
+}
+
+/// Options for choosing a character encoding
+#[derive(Clone, Default)]
+pub struct BytesOpts {
+    /// The character encoding specified by the transport layer, if any.
+    /// In HTTP for example, this is the `charset` parameter of the `Content-Type` response header.
+    pub transport_layer_encoding: Option<EncodingRef>,
+}
+
+/// An HTML parser,
+/// ready to recieve bytes input through the `tendril::TendrilSink` trait’s methods.
+///
+/// See `Parser::from_bytes`.
+pub struct BytesParser<Sink> where Sink: TreeSink {
+    state: BytesParserState<Sink>,
+    opts: BytesOpts,
+}
+
+enum BytesParserState<Sink> where Sink: TreeSink {
+    Initial {
+        parser: XmlParser<Sink>,
+    },
+    Buffering {
+        parser: XmlParser<Sink>,
+        buffer: ByteTendril
+    },
+    Parsing {
+        decoder: LossyDecoder<XmlParser<Sink>>,
+    },
+    Transient
+}
+
+impl<Sink: TreeSink> BytesParser<Sink> {
+    /// Access the underlying Parser
+    pub fn str_parser(&self) -> &XmlParser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref parser } => parser,
+            BytesParserState::Buffering { ref parser, .. } => parser,
+            BytesParserState::Parsing { ref decoder } => decoder.inner_sink(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    /// Access the underlying Parser
+    pub fn str_parser_mut(&mut self) -> &mut XmlParser<Sink> {
+        match self.state {
+            BytesParserState::Initial { ref mut parser } => parser,
+            BytesParserState::Buffering { ref mut parser, .. } => parser,
+            BytesParserState::Parsing { ref mut decoder } => decoder.inner_sink_mut(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    /// Insert a Unicode chunk in the middle of the byte stream.
+    ///
+    /// This is e.g. for supporting `document.write`.
+    pub fn process_unicode(&mut self, t: StrTendril) {
+        if t.is_empty() {
+            return  // Don’t prevent buffering/encoding detection
+        }
+        if let BytesParserState::Parsing { ref mut decoder } = self.state {
+            decoder.inner_sink_mut().process(t)
+        } else {
+            match mem::replace(&mut self.state, BytesParserState::Transient) {
+                BytesParserState::Initial { mut parser } => {
+                    parser.process(t);
+                    self.start_parsing(parser, ByteTendril::new())
+                }
+                BytesParserState::Buffering { parser, buffer } => {
+                    self.start_parsing(parser, buffer);
+                    if let BytesParserState::Parsing { ref mut decoder } = self.state {
+                        decoder.inner_sink_mut().process(t)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                BytesParserState::Parsing { .. } | BytesParserState::Transient => unreachable!(),
+            }
+        }
+    }
+
+    fn start_parsing(&mut self, parser: XmlParser<Sink>, buffer: ByteTendril) {
+        let encoding = detect_encoding(&buffer, &self.opts);
+        let mut decoder = LossyDecoder::new(encoding, parser);
+        decoder.process(buffer);
+        self.state = BytesParserState::Parsing { decoder: decoder }
+    }
+}
+
+impl<Sink: TreeSink> TendrilSink<tendril::fmt::Bytes> for BytesParser<Sink> {
+    fn process(&mut self, t: ByteTendril) {
+        if let &mut BytesParserState::Parsing { ref mut decoder } = &mut self.state {
+            return decoder.process(t)
+        }
+        let (parser, buffer) = match mem::replace(&mut self.state, BytesParserState::Transient) {
+            BytesParserState::Initial{ parser } => (parser, t),
+            BytesParserState::Buffering { parser, mut buffer } => {
+                buffer.push_tendril(&t);
+                (parser, buffer)
+            }
+            BytesParserState::Parsing { .. } | BytesParserState::Transient => unreachable!(),
+        };
+        if buffer.len32() >= PRESCAN_BYTES {
+            self.start_parsing(parser, buffer)
+        } else {
+            self.state = BytesParserState::Buffering {
+                parser: parser,
+                buffer: buffer,
+            }
+        }
+    }
+
+    fn error(&mut self, desc: Cow<'static, str>) {
+        match self.state {
+            BytesParserState::Initial { ref mut parser } => parser.error(desc),
+            BytesParserState::Buffering { ref mut parser, .. } => parser.error(desc),
+            BytesParserState::Parsing { ref mut decoder } => decoder.error(desc),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+
+    type Output = Sink::Output;
+
+    fn finish(self) -> Self::Output {
+        match self.state {
+            BytesParserState::Initial { parser } => parser.finish(),
+            BytesParserState::Buffering { parser, buffer } => {
+                let encoding = detect_encoding(&buffer, &self.opts);
+                let mut decoder = LossyDecoder::new(encoding, parser);
+                decoder.process(buffer);
+                decoder.finish()
+            },
+            BytesParserState::Parsing { decoder } => decoder.finish(),
+            BytesParserState::Transient => unreachable!(),
+        }
+    }
+}
+
+/// How many bytes does detect_encoding() need
+// FIXME(#18): should be 1024 for <meta> elements.
+const PRESCAN_BYTES: u32 = 3;
+
+/// https://html.spec.whatwg.org/multipage/syntax.html#determining-the-character-encoding
+fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
+    if bytes.starts_with(b"\xEF\xBB\xBF") {
+        return encoding::all::UTF_8
+    }
+    if bytes.starts_with(b"\xFE\xFF") {
+        return encoding::all::UTF_16BE
+    }
+    if bytes.starts_with(b"\xFF\xFE") {
+        return encoding::all::UTF_16LE
+    }
+    if let Some(encoding) = opts.transport_layer_encoding {
+        return encoding
+    }
+    // FIXME(#18): <meta> etc.
+    return encoding::all::UTF_8
+}
+
 #[cfg(test)]
 mod tests {
     use rcdom::RcDom;

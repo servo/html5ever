@@ -137,10 +137,32 @@ impl NamespaceMap {
         result
     }
 }
+/// Tree builder options, with an impl for Default.
+#[derive(Copy, Clone)]
+pub struct XmlTreeBuilderOpts {
+    /// Report all parse errors described in the spec, at some
+    /// performance penalty?  Default: false
+    pub exact_errors: bool,
 
+    /// Keep a record of how long we spent in each state?  Printed
+    /// when `end()` is called.  Default: false
+    pub profile: bool,
+}
+
+impl Default for XmlTreeBuilderOpts {
+    fn default() -> XmlTreeBuilderOpts {
+        XmlTreeBuilderOpts{
+            exact_errors: false,
+            profile: false,
+        }
+    }
+}
 
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
+    /// Configuration options for XmlTreeBuilder
+    opts: XmlTreeBuilderOpts,
+
     /// Consumer of tree modifications.
     sink: Sink,
 
@@ -175,9 +197,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
     /// The tree builder is also a `TokenSink`.
-    pub fn new(mut sink: Sink) -> XmlTreeBuilder<Handle, Sink> {
+    pub fn new(mut sink: Sink, opts: XmlTreeBuilderOpts) -> XmlTreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
+            opts: opts,
             sink: sink,
             doc_handle: doc_handle,
             next_tokenizer_state: None,

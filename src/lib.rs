@@ -66,6 +66,8 @@ pub mod tree_builder;
 pub mod rcdom;
 /// Entrance to XML5 ever ParseResult
 pub mod driver;
+/// Serializer for XML5.
+pub mod serialize;
 
 /// Re-export the encoding crate.
 pub use tendril::encoding;

@@ -21,8 +21,8 @@ use std::path::Path;
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
-use xml5ever::driver::parse;
-use xml5ever::tendril::SliceExt;
+use xml5ever::driver::parse_document;
+use xml5ever::tendril::{StrTendril, TendrilSink};
 
 mod util {
     pub mod find_tests;
@@ -188,7 +188,8 @@ fn make_xml_test(
         testfn: DynTestFn(Box::new(move |()| {
             let mut result = String::new();
 
-            let dom: RcDom = parse(Some(data.to_tendril()).into_iter(), Default::default());
+            let dom = parse_document(RcDom::default(), Default::default())
+                        .one(data.clone());
             for child in dom.document.borrow().children.iter() {
                 serialize(&mut result, 1, child.clone());
             }
