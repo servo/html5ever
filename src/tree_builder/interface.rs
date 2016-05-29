@@ -1,4 +1,4 @@
-// Copyright 2014 The html5ever Project Developers. See the
+// Copyright 2014 The xml5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -47,6 +47,19 @@ pub trait TreeSink {
     /// that a `Handle` implements `Clone` to get another reference to
     /// the same node.
     type Handle: Clone;
+
+    /// The overall result of parsing.
+    ///
+    /// TODO:This should defualt to Self, but default associated types are not stable yet.
+    /// (https://github.com/rust-lang/rust/issues/29661)
+    type Output;
+
+    /// Consume this sink and return the overall result of parsing.
+    ///
+    /// TODO:This should default to `fn finish(self) -> Self::Output { self }`,
+    /// but default associated types are not stable yet.
+    /// (https://github.com/rust-lang/rust/issues/29661)
+    fn finish(self) -> Self::Output;
 
     /// Signal a parse error.
     fn parse_error(&mut self, msg: Cow<'static, str>);

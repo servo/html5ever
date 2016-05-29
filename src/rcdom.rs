@@ -25,7 +25,7 @@ use tendril::StrTendril;
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 use super::tokenizer::{Attribute, QName};
 use super::tree_builder::{TreeSink, NodeOrText};
-use super::driver::ParseResult;
+use driver::ParseResult;
 use serialize::{Serializable, Serializer};
 use serialize::{TraversalScope};
 use serialize::TraversalScope::{ChildrenOnly, IncludeNode};
@@ -116,6 +116,11 @@ pub struct RcDom {
 
 impl TreeSink for RcDom {
     type Handle = Handle;
+    type Output = Self;
+
+    fn finish(self) -> Self::Output {
+        self
+    }
 
     fn parse_error(&mut self, msg: Cow<'static, str>) {
         self.errors.push(msg);
