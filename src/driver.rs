@@ -64,3 +64,45 @@ pub trait ParseResult {
     /// Returns parsed tree data type
     fn get_result(sink: Self::Sink) -> Self;
 }
+#[cfg(test)]
+mod tests {
+    use rcdom::RcDom;
+    use serialize::serialize;
+    use std::iter::repeat;
+    use tendril::TendrilSink;
+    use super::*;
+
+    #[test]
+    fn from_utf8() {
+        assert_serialization(
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<title>Test".as_bytes()));
+    }
+
+    #[test]
+    fn from_bytes_one() {
+        assert_serialization(
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_bytes(BytesOpts::default())
+                .one("<title>Test".as_bytes()));
+    }
+
+    #[test]
+    fn from_bytes_iter() {
+        assert_serialization(
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_bytes(BytesOpts::default())
+                .from_iter([
+                    "<title>Test".as_bytes(),
+                    repeat(' ').take(1200).collect::<String>().as_bytes(),
+                ].iter().cloned()));
+    }
+
+    fn assert_serialization(dom: RcDom) {
+        let mut serialized = Vec::new();
+        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
+        assert_eq!(String::from_utf8(serialized).unwrap().replace(" ", ""),
+                   "<title>Test</title>");
+    }
+}
