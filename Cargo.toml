@@ -36,7 +36,6 @@ heap_size = ["heapsize", "heapsize_plugin"]
 codegen = ["html5ever_macros"]
 
 [dependencies]
-time = "0"
 log = "0"
 phf = "0.7"
 string_cache = "0.2.0"
