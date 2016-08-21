@@ -14,6 +14,7 @@ if [ $TRAVIS_RUST_VERSION = nightly ]
 then
     cargo test --features "rustc-test/capture"
     cargo test --features "rustc-test/capture unstable"
+    (cd macros && cargo build)
 else
     cargo test
 fi

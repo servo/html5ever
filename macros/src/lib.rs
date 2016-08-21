@@ -18,10 +18,9 @@ extern crate mac;
 // See https://github.com/rust-lang/rust/pull/23857
 macro_rules! panictry {
     ($e:expr) => ({
-        use syntax::diagnostic::FatalError;
         match $e {
             Ok(e) => e,
-            Err(FatalError) => panic!(FatalError)
+            Err(err) => panic!("{:?}", err),
         }
     })
 }

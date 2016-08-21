@@ -32,7 +32,7 @@ pub fn pre_expand(from: &Path, to: &Path) {
 
     let from = from.to_string_lossy().into_owned();
     let tts = parse::parse_tts_from_source_str(from, source, vec![], &sess);
-    let tts = find_and_expand_match_token(&mut cx, tts);
+    let tts = find_and_expand_match_token(&mut cx, tts.unwrap());
     let tts = pretty(&mut cx, tts);
 
     let expanded = print::pprust::tts_to_string(&tts);
