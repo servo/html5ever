@@ -29,8 +29,6 @@ extern crate mac;
 
 extern crate phf;
 
-extern crate time;
-
 pub use tokenizer::Attribute;
 pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 

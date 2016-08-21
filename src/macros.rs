@@ -24,9 +24,10 @@ macro_rules! unwrap_or_return {
 
 macro_rules! time {
     ($e:expr) => {{
-        let t0 = ::time::precise_time_ns();
+        let now = ::std::time::Instant::now();
         let result = $e;
-        let dt = ::time::precise_time_ns() - t0;
+        let d = now.elapsed();
+        let dt = d.as_secs() * 1_000_000_000 + u64::from(d.subsec_nanos());
         (result, dt)
     }}
 }
