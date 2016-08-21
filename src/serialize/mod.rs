@@ -13,6 +13,8 @@ use std::default::Default;
 use string_cache::Atom;
 
 use tokenizer::QName;
+use tree_builder::Namespace;
+use tree_builder;
 
 #[derive(Copy, Clone)]
 /// Struct for setting serializer options.
@@ -63,26 +65,67 @@ pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
 pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
     opts: SerializeOpts,
+    namespace_stack: NamespaceStack,
+}
+
+#[derive(Debug)]
+struct NamespaceStack(Vec<Namespace>);
+
+impl NamespaceStack {
+    fn new() -> NamespaceStack {
+        NamespaceStack(vec![])
+    }
+
+    fn push(&mut self, namespace: Namespace) {
+        self.0.push(namespace);
+    }
+
+    fn pop(&mut self) {
+        self.0.pop();
+    }
+
 }
 
 /// Type representing a single attribute.
 /// Contains qualified name and value to attribute respectivelly.
 pub type AttrRef<'a> = (&'a QName, &'a str);
 
-fn qual_name(name: &QName) -> String {
-    let mut qual_name = String::new();
 
-    if name.prefix != Atom::from("") {
-        qual_name.push_str(&*name.prefix);
-        qual_name.push(':');
-        qual_name.push_str(&*name.local);
-    } else {
-        qual_name.push_str(&*name.local);
+
+/// Writes given text into the Serializer, escaping it,
+/// depending on where the text is written inside the tag or attribute value.
+///
+/// For example
+///```
+///    <tag>'&-quotes'</tag>   becomes      <tag>'&amp;-quotes'</tag>
+///    <tag = "'&-quotes'">    becomes      <tag = "&apos;&amp;-quotes&apos;"
+///```
+fn write_to_buf_escaped(writer: &mut Write, text: &str, attr_mode: bool) -> io::Result<()> {
+    for c in text.chars() {
+        try!(match c {
+            '&' => writer.write_all(b"&amp;"),
+            '\'' if attr_mode => writer.write_all(b"&apos;"),
+            '"' if attr_mode => writer.write_all(b"&quot;"),
+            '<' if !attr_mode => writer.write_all(b"&lt;"),
+            '>' if !attr_mode => writer.write_all(b"&gt;"),
+            c => writer.write_fmt(format_args!("{}", c)),
+        });
     }
-
-    qual_name
+    Ok(())
 }
 
+#[inline]
+fn write_qual_name(writer: &mut Write, name: &QName) -> io::Result<()> {
+    if name.prefix != Atom::from("") {
+        try!(writer.write_all(&*name.prefix.as_bytes()));
+        try!(writer.write_all(b":"));
+        try!(writer.write_all(&*name.local.as_bytes()));
+    } else {
+        try!(writer.write_all(&*name.local.as_bytes()));
+    }
+
+    Ok(())
+}
 
 impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     /// Creates a new Serializier from a writer and given serialization options.
@@ -90,29 +133,43 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
         Serializer {
             writer: writer,
             opts: opts,
+            namespace_stack: NamespaceStack::new(),
         }
     }
 
-    /// Writes given text into the Serializer, escaping it,
-    /// depending on where the text is written inside the tag or attribute value.
-    ///
-    /// For example
-    ///```
-    ///    <tag>'&-quotes'</tag>   becomes      <tag>'&amp;-quotes'</tag>
-    ///    <tag = "'&-quotes'">    becomes      <tag = "&apos;&amp;-quotes&apos;"
-    ///```
-    fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
-        for c in text.chars() {
-            try!(match c {
-                '&' => self.writer.write_all(b"&amp;"),
-                '\'' if attr_mode => self.writer.write_all(b"&apos;"),
-                '"' if attr_mode => self.writer.write_all(b"&quot;"),
-                '<' if !attr_mode => self.writer.write_all(b"&lt;"),
-                '>' if !attr_mode => self.writer.write_all(b"&gt;"),
-                c => self.writer.write_fmt(format_args!("{}", c)),
-            });
+    #[inline(always)]
+    fn qual_name(&mut self, name: &QName) -> io::Result<()> {
+        self.find_or_insert_ns(name);
+        write_qual_name(self.writer, name)
+    }
+
+    #[inline(always)]
+    fn qual_attr_name(&mut self, writer: &mut Write, name: &QName) -> io::Result<()> {
+        self.find_or_insert_ns(name);
+        write_qual_name(writer, name)
+    }
+
+    fn find_uri(&self, name: &QName) -> bool {
+        let mut found = false;
+        for stack in self.namespace_stack.0.iter().rev() {
+
+            if let Some(&Some(ref el)) = stack.get(&name.prefix) {
+                found = *el == name.namespace_url;
+                break;
+            }
         }
-        Ok(())
+        found
+    }
+
+    fn find_or_insert_ns(&mut self, name: &QName) {
+        if &*name.prefix != "" || &*name.namespace_url != "" {
+            if !self.find_uri(name) {
+
+                if let Some(last_ns) = self.namespace_stack.0.last_mut() {
+                    last_ns.insert(name);
+                }
+            }
+        }
     }
 
     /// Serializes given start element into text. Start element contains
@@ -122,26 +179,47 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
         name: QName,
         attrs: AttrIter) -> io::Result<()> {
 
-        try!(self.writer.write_all(b"<"));
-        try!(self.writer.write_all(qual_name(&name).as_bytes()));
-        for (name, value) in attrs {
-            try!(self.writer.write_all(b" "));
+        let mut attr = Vec::new();
+        self.namespace_stack.push(Namespace::empty());
 
-            try!(self.writer.write_all(qual_name(&name).as_bytes()));
-            try!(self.writer.write_all(b"=\""));
-            try!(self.write_escaped(value, true));
-            try!(self.writer.write_all(b"\""))
+        try!(self.writer.write_all(b"<"));
+        try!(self.qual_name(&name));
+        for (name, value) in attrs {
+            try!(attr.write_all(b" "));
+            try!(self.qual_attr_name(&mut attr, &name));
+            try!(attr.write_all(b"=\""));
+            try!(write_to_buf_escaped(&mut attr, value, true));
+            try!(attr.write_all(b"\""));
 
         }
-        try!(self.writer.write_all(b">"));
+        if let Some(current_namespace) = self.namespace_stack.0.last() {
+            for (prefix, url_opt) in current_namespace.get_scope_iter() {
+                try!(self.writer.write_all(b" xmlns"));
+                if prefix != "" {
+                    try!(self.writer.write_all(b":"));
+                    try!(self.writer.write_all(&*prefix.as_bytes()));
+                }
 
+                try!(self.writer.write_all(b"=\""));
+                let url = if let &Some(ref a) = url_opt {
+                    a.as_bytes()
+                } else {
+                    b""
+                };
+                try!(self.writer.write_all(url));
+                try!(self.writer.write_all(b"\""));
+            }
+        }
+        try!(self.writer.write_all(&attr));
+        try!(self.writer.write_all(b">"));
         Ok(())
     }
 
     /// Serializes given end element into text.
     pub fn end_elem(&mut self, name: QName) -> io::Result<()> {
+        self.namespace_stack.pop();
         try!(self.writer.write_all(b"</"));
-        try!(self.writer.write_all(qual_name(&name).as_bytes()));
+        try!(self.qual_name(&name));
         self.writer.write_all(b">")
     }
 
@@ -161,7 +239,7 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
 
     /// Serializes text for a node or an attributes.
     pub fn write_text(&mut self, text: &str) -> io::Result<()> {
-        self.write_escaped(text, false)
+        write_to_buf_escaped(self.writer, text, false)
     }
 
     /// Serializes given processing instruction.
