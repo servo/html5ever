@@ -26,7 +26,8 @@ macro_rules! time {
     ($e:expr) => {{
         let now = ::std::time::Instant::now();
         let result = $e;
-        let dt = now.elapsed().as_secs() as u64;
+        let d = now.elapsed();
+        let dt = d.as_secs() * 1_000_000_000 + u64::from(d.subsec_nanos());
         (result, dt)
     }}
 }
