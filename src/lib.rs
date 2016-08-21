@@ -38,7 +38,6 @@
 extern crate phf;
 extern crate time;
 
-<<<<<<< HEAD
 
 pub use html5ever_atoms::{Prefix, Namespace, LocalName, QualName};
 
@@ -46,14 +45,6 @@ pub use html5ever_atoms::{Prefix, Namespace, LocalName, QualName};
 pub mod tendril {
     extern crate tendril;
     pub use self::tendril::*;
-=======
-macro_rules! atoms {
-    () => (Atom::from(""));
-    (xml) => (Atom::from("xml"));
-    (xml_uri) => (Atom::from(XML_URI));
-    (xmlns) => (Atom::from("xmlns"));
-    (xmlns_uri) => (Atom::from(XMLNS_URI))
->>>>>>> Move macro into lib.rs
 }
 
 macro_rules! time {

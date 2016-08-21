@@ -16,6 +16,7 @@ pub mod interface;
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
 use std::collections::{VecDeque, BTreeMap, HashSet};
+use std::collections::btree_map::{Iter};
 use std::result::Result;
 use std::mem;
 
@@ -48,7 +49,8 @@ impl NamespaceMapStack{
         self.0.push(map);
     }
 
-    fn pop(&mut self) {
+    #[doc(hidden)]
+    pub fn pop(&mut self) {
         self.0.pop();
     }
 
@@ -66,6 +68,7 @@ struct NamespaceMap {
     scope: BTreeMap<Prefix, Option<Namespace>>,
 }
 
+
 impl NamespaceMap {
     // Returns an empty namespace.
     fn empty() -> NamespaceMap {
@@ -75,7 +78,6 @@ impl NamespaceMap {
     }
 
     fn default() -> NamespaceMap {
-        NamespaceMap {
             scope: {
                 let mut map = BTreeMap::new();
                 map.insert(namespace_prefix!(""), None);
@@ -85,9 +87,23 @@ impl NamespaceMap {
             },
         }
     }
+}
+
 
     fn get(&self, prefix: &Prefix) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
+    }
+
+    #[doc(hidden)]
+    pub fn get_scope_iter(&self) -> Iter<Atom, Option<Atom>> {
+        self.scope.iter()
+    }
+
+    #[doc(hidden)]
+    pub fn insert(&mut self, name: &QName)  {
+        let prefix = Atom::from(&*name.prefix);
+        let namespace = Some(Atom::from(&*name.namespace_url));
+        self.scope.insert(prefix, namespace);
     }
 
     fn insert_ns(&mut self, attr: &Attribute) -> InsResult {
