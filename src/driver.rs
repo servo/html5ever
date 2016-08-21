@@ -275,8 +275,56 @@ mod tests {
     use super::*;
 
     #[test]
+    fn el_ns_serialize() {
+        assert_eq_serialization("<a:title xmlns:a=\"http://www.foo.org/\" value=\"test\">Test</a:title>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<a:title xmlns:a=\"http://www.foo.org/\" value=\"test\">Test</title>".as_bytes()));
+    }
+
+    #[test]
+    fn nested_ns_serialize() {
+        assert_eq_serialization("<a:x xmlns:a=\"http://www.foo.org/\" xmlns:b=\"http://www.bar.org/\" value=\"test\"><b:y/></a:x>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<a:x xmlns:a=\"http://www.foo.org/\" xmlns:b=\"http://www.bar.org/\" value=\"test\"><b:y/></a:x>".as_bytes()));
+    }
+
+    #[test]
+    fn def_ns_serialize() {
+        assert_eq_serialization("<table xmlns=\"html4\"><td></td></table>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<table xmlns=\"html4\"><td></td></table>".as_bytes()));
+    }
+
+    #[test]
+    fn undefine_ns_serialize() {
+        assert_eq_serialization("<a:x xmlns:a=\"http://www.foo.org\"><a:y xmlns:a=\"\"><a:z/></a:y</a:x>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<a:x xmlns:a=\"http://www.foo.org\"><a:y xmlns:a=\"\"><a:z/></a:y</a:x>".as_bytes()));
+    }
+
+    #[test]
+    fn redefine_default_ns_serialize() {
+        assert_eq_serialization("<x xmlns=\"http://www.foo.org\"><y xmlns=\"\"><z/></y</x>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<x xmlns=\"http://www.foo.org\"><y xmlns=\"\"><z/></y</x>".as_bytes()));
+    }
+
+    #[test]
+    fn attr_serialize() {
+        assert_serialization("<title value=\"test\">Test</title>",
+            parse_document(RcDom::default(), XmlParseOpts::default())
+                .from_utf8()
+                .one("<title value='test'>Test".as_bytes()));
+    }
+
+    #[test]
     fn from_utf8() {
-        assert_serialization(
+        assert_serialization("<title>Test</title>",
             parse_document(RcDom::default(), XmlParseOpts::default())
                 .from_utf8()
                 .one("<title>Test".as_bytes()));
@@ -284,27 +332,31 @@ mod tests {
 
     #[test]
     fn from_bytes_one() {
-        assert_serialization(
+        assert_serialization("<title>Test</title>",
             parse_document(RcDom::default(), XmlParseOpts::default())
                 .from_bytes(BytesOpts::default())
                 .one("<title>Test".as_bytes()));
     }
 
-    #[test]
-    fn from_bytes_iter() {
-        assert_serialization(
-            parse_document(RcDom::default(), XmlParseOpts::default())
-                .from_bytes(BytesOpts::default())
-                .from_iter([
-                    "<title>Test".as_bytes(),
-                    repeat(' ').take(1200).collect::<String>().as_bytes(),
-                ].iter().cloned()));
-    }
-
-    fn assert_serialization(dom: RcDom) {
+    fn assert_eq_serialization(text: &'static str, dom: RcDom) {
         let mut serialized = Vec::new();
         serialize(&mut serialized, &dom.document, Default::default()).unwrap();
-        assert_eq!(String::from_utf8(serialized).unwrap().replace(" ", ""),
-                   "<title>Test</title>");
+
+        let dom_from_text = parse_document(RcDom::default(), XmlParseOpts::default())
+            .from_bytes(BytesOpts::default())
+            .one(text.as_bytes());
+
+        let mut reserialized = Vec::new();
+        serialize(&mut reserialized, &dom_from_text.document, Default::default()).unwrap();
+
+        assert_eq!(String::from_utf8(serialized).unwrap(),
+                   String::from_utf8(reserialized).unwrap());
+    }
+
+    fn assert_serialization(text: &'static str, dom: RcDom) {
+        let mut serialized = Vec::new();
+        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
+        assert_eq!(String::from_utf8(serialized).unwrap(),
+                   text);
     }
 }
