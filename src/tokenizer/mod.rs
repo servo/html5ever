@@ -773,6 +773,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 c   => go!(self: append_comment "--"; push_comment c; to Comment),
                 }
             },
+            //§ bogus-comment-state
+            XmlState::BogusComment => loop { match get_char!(self) {
+                '>'  => go!(self: emit_comment; to Data),
+                c    => go!(self: push_comment c),
+                }
+            },
             //§ cdata-state
             XmlState::Cdata => loop { match get_char!(self) {
                     ']' => go!(self: to CdataBracket),
@@ -877,12 +883,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     NotFromSet(ref b)   => go!(self: append_value b),
                 }
             },
-            //§ bogus-comment-state
-            XmlState::BogusComment => loop { match get_char!(self) {
-                '>'  => go!(self: emit_comment; to Data),
-                c    => go!(self: push_comment c),
-                }
-            },
+
             //§ doctype-state
             XmlState::Doctype => loop { match get_char!(self) {
                 '\t' | '\n' | '\x0C'
