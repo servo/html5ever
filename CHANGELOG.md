@@ -31,3 +31,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - Moved `atoms!` macro from src/tree_builder/mod.rs into src/lib.rs @Ygg01
   - Made NamespaceStack publicly visible but hidden. @Ygg01
   - Changed serialization rules, to serialize namespace @Ygg01
+  - Changed rules for comment parsing. @Ygg01

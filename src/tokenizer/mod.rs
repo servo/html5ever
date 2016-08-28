@@ -757,7 +757,6 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             //§ comment-state
             XmlState::Comment => loop { match get_char!(self) {
                 '-' => go!(self: to CommentDash),
-                '>' => go!(self: error; emit_comment; to Data),
                 c   => go!(self: push_comment c; to Comment),
                 }
             },
