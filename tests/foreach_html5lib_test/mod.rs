@@ -23,12 +23,19 @@ pub fn foreach_html5lib_test<Mk>(
     test_dir_path.push("html5lib-tests");
     test_dir_path.push(subdir);
 
-    let test_files = fs::read_dir(&test_dir_path).unwrap();
-    for entry in test_files {
-        let path = entry.unwrap().path();
-        if path.extension() == Some(ext) {
-            let file = fs::File::open(&path).unwrap();
-            mk(&path, file);
+    let maybe_test_files = fs::read_dir(&test_dir_path);
+    match maybe_test_files {
+        Ok(test_files) => {
+            for entry in test_files {
+                let path = entry.unwrap().path();
+                if path.extension() == Some(ext) {
+                    let file = fs::File::open(&path).unwrap();
+                    mk(&path, file);
+                }
+            }
+        },
+        Err(e) => {
+            println!("{}", e);
         }
     }
 }
