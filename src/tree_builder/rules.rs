@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! The tree builder rules, as a single, enormous nested match expression.
+// The tree builder rules, as a single, enormous nested match expression.
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
@@ -770,7 +770,7 @@ impl<Handle, Sink> TreeBuilderStep
                     Done
                 }
 
-                // FIXME: This should be unreachable, but match_token! requires a
+                // FIXME: This should be unreachable, but match_token requires a
                 // catch-all case.
                 _ => panic!("impossible case in InBody mode"),
             }),
@@ -808,7 +808,7 @@ impl<Handle, Sink> TreeBuilderStep
 
             //§ parsing-main-intable
             InTable => match_token!(token {
-                // FIXME: hack, should implement pat | pat for match_token!() instead
+                // FIXME: hack, should implement pat | pat for match_token instead
                 NullCharacterToken => self.process_chars_in_table(token),
 
                 CharacterTokens(..) => self.process_chars_in_table(token),
@@ -1487,7 +1487,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
             }
 
-            // FIXME: This should be unreachable, but match_token! requires a
+            // FIXME: This should be unreachable, but match_token requires a
             // catch-all case.
             _ => panic!("impossible case in foreign content"),
         })
