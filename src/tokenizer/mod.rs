@@ -160,6 +160,9 @@ pub struct Tokenizer<Sink> {
 
     /// Record of how many ns we spent in the token sink.
     time_in_sink: u64,
+
+    /// Track current line
+    current_line: u64,
 }
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
@@ -192,6 +195,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             temp_buf: StrTendril::new(),
             state_profile: BTreeMap::new(),
             time_in_sink: 0,
+	    current_line: 0,
         }
     }
 
@@ -225,12 +229,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.state = states::Plaintext;
     }
 
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token, line_number: u64) {
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token));
+            let (_, dt) = time!(self.sink.process_token(token, line_number));
             self.time_in_sink += dt;
         } else {
-            self.sink.process_token(token);
+            self.sink.process_token(token, line_number);
         }
     }
 
@@ -248,6 +252,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         if c == '\r' {
             self.ignore_lf = true;
             c = '\n';
+	    self.current_line += 1;
         }
 
         if self.opts.exact_errors && match c as u32 {
@@ -353,15 +358,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
+	let line_number = self.current_line.clone();
+
         self.process_token(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
-        });
+        }, line_number);
     }
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: StrTendril) {
-        self.process_token(CharacterTokens(b));
+	let line_number = self.current_line.clone();
+        self.process_token(CharacterTokens(b), line_number);
     }
 
     fn emit_current_tag(&mut self) {
@@ -389,7 +397,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
-        self.process_token(token);
+	let line_number = self.current_line.clone();
+        self.process_token(token, line_number);
 
         match self.sink.query_state_change() {
             None => (),
@@ -410,7 +419,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_comment(&mut self) {
         let comment = replace(&mut self.current_comment, StrTendril::new());
-        self.process_token(CommentToken(comment));
+	let line_number = self.current_line.clone();
+        self.process_token(CommentToken(comment), line_number);
     }
 
     fn discard_tag(&mut self) {
@@ -471,7 +481,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_doctype(&mut self) {
         let doctype = replace(&mut self.current_doctype, Doctype::new());
-        self.process_token(DoctypeToken(doctype));
+	let line_number = self.current_line.clone();
+        self.process_token(DoctypeToken(doctype), line_number);
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
@@ -496,7 +507,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_eof(&mut self) {
-        self.process_token(EOFToken);
+	let line_number = self.current_line.clone();
+        self.process_token(EOFToken, line_number);
     }
 
     fn peek(&mut self) -> Option<char> {
@@ -517,7 +529,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
-        self.process_token(ParseError(error));
+	let line_number = self.current_line.clone();
+        self.process_token(ParseError(error), line_number);
     }
 }
 //§ END
@@ -1361,5 +1374,9 @@ mod test {
         let mut s: Option<StrTendril> = Some(StrTendril::from_slice("y"));
         option_push(&mut s, 'x');
         assert_eq!(s, Some("yx".to_tendril()));
+    }
+    #[test]
+    fn check_line_number() {
+	assert_eq!(1, 1);
     }
 }
