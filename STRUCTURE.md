@@ -14,7 +14,7 @@ The module structure is also documented in the output produced by `cargo doc`, a
 
 `dom_sink/`: Types that html5ever can use to represent the DOM, if you do not provide your own DOM implementation.
 
-`macros/`: Rust syntax extensions used within html5ever.  Users of the library do not need this crate.
+`macros/`: Code used at build-time to expand the `match_token!` "macro" in `src/tree_builder/rules.rs`.
 
 `tests/`: Integration tests. This is a single executable crate that runs html5ever on the various [html5lib-tests](https://github.com/html5lib/html5lib-tests). There are also unit tests throughout the library code. See `README.md` for information on running tests.
 

@@ -39,7 +39,11 @@ pub mod interface;
 mod data;
 mod types;
 mod actions;
-#[path = "rules.expanded.rs"] mod rules;
+mod rules {
+    //! The tree builder rules, as a single, enormous nested match expression.
+
+    include!(concat!(env!("OUT_DIR"), "/rules.rs"));
+}
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
