@@ -10,10 +10,8 @@
 use std::io::{self, Write};
 use std::default::Default;
 
-use string_cache::Atom;
-
-use tokenizer::QName;
-use tree_builder::Namespace;
+use tokenizer::{QName, Prefix, Namespace, LocalName};
+use tree_builder::NamespaceMap;
 use tree_builder;
 
 #[derive(Copy, Clone)]
@@ -65,18 +63,18 @@ pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
 pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
     opts: SerializeOpts,
-    namespace_stack: NamespaceStack,
+    namespace_stack: NamespaceMapStack,
 }
 
 #[derive(Debug)]
-struct NamespaceStack(Vec<Namespace>);
+struct NamespaceMapStack(Vec<NamespaceMap>);
 
-impl NamespaceStack {
-    fn new() -> NamespaceStack {
-        NamespaceStack(vec![])
+impl NamespaceMapStack {
+    fn new() -> NamespaceMapStack {
+        NamespaceMapStack(vec![])
     }
 
-    fn push(&mut self, namespace: Namespace) {
+    fn push(&mut self, namespace: NamespaceMap) {
         self.0.push(namespace);
     }
 
@@ -116,7 +114,7 @@ fn write_to_buf_escaped(writer: &mut Write, text: &str, attr_mode: bool) -> io::
 
 #[inline]
 fn write_qual_name(writer: &mut Write, name: &QName) -> io::Result<()> {
-    if name.prefix != Atom::from("") {
+    if name.prefix != namespace_prefix!("") {
         try!(writer.write_all(&*name.prefix.as_bytes()));
         try!(writer.write_all(b":"));
         try!(writer.write_all(&*name.local.as_bytes()));
@@ -133,7 +131,7 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
         Serializer {
             writer: writer,
             opts: opts,
-            namespace_stack: NamespaceStack::new(),
+            namespace_stack: NamespaceMapStack::new(),
         }
     }
 
@@ -180,7 +178,7 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
         attrs: AttrIter) -> io::Result<()> {
 
         let mut attr = Vec::new();
-        self.namespace_stack.push(Namespace::empty());
+        self.namespace_stack.push(NamespaceMap::empty());
 
         try!(self.writer.write_all(b"<"));
         try!(self.qual_name(&name));

@@ -18,13 +18,13 @@ pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag, QName};
 pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
+pub use {Prefix, LocalName, Namespace};
 
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
 
-use {Prefix, LocalName};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -657,7 +657,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             return self.step_char_ref_tokenizer();
         }
 
-        debug!("processing in state {:?}", self.state);
+        println!("processing in state {:?}", self.state);
         match self.state {
             XmlState::Quiescent => {
                 self.state = XmlState::Data;
@@ -744,7 +744,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             //§ markup-declaration-state
             XmlState::MarkupDecl => loop {
                 if eat!(self, "--") {
-                    go!(self: clear_comment; to Comment);
+                    go!(self: clear_comment; to CommentStart);
                 } else if eat!(self, "[CDATA[") {
                     go!(self: to Cdata);
                 } else if eat!(self, "DOCTYPE") {
@@ -754,23 +754,71 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     go!(self: error; to BogusComment);
                 }
             },
-            //§ comment-state
-            XmlState::Comment => loop { match get_char!(self) {
-                '-' => go!(self: to CommentDash),
-                c   => go!(self: push_comment c; to Comment),
+            //§ comment-start-state
+            XmlState::CommentStart => loop { match get_char!(self) {
+                '-' => go!(self: to CommentStartDash),
+                '>' => go!(self: error; emit_comment; to Data),
+                _   => go!(self: reconsume Comment),
                 }
             },
-            //§ comment-dash-state
-            XmlState::CommentDash => loop { match get_char!(self) {
+            //§ comment-start-dash-state
+            XmlState::CommentStartDash => loop { match get_char!(self) {
                 '-' => go!(self: to CommentEnd),
+                '>' => go!(self: error; emit_comment; to Data),
+                _   => go!(self: push_comment '-'; reconsume Comment),
+                }
+            },
+            //§ comment-state
+            XmlState::Comment => loop { match get_char!(self) {
+                '<' => go!(self: push_comment '<'; to CommentLessThan),
+                '-' => go!(self: to CommentEndDash),
                 c   => go!(self: push_comment c),
+                }
+            },
+            //§ comment-less-than-sign-state
+            XmlState::CommentLessThan => loop { match get_char!(self) {
+                '!' => go!(self: push_comment '!';to CommentLessThanBang),
+                '<' => go!(self: push_comment '<'),
+                _   => go!(self: reconsume Comment),
+                }
+            },
+            //§ comment-less-than-sign-bang-state
+            XmlState::CommentLessThanBang => loop { match get_char!(self) {
+                '-' => go!(self: to CommentLessThanBangDash),
+                _   => go!(self: reconsume Comment),
+                }
+            },
+            //§ comment-less-than-sign-bang-dash-state
+            XmlState::CommentLessThanBangDash => loop { match get_char!(self) {
+                '-' => go!(self: to CommentLessThanBangDashDash),
+                _   => go!(self: reconsume CommentEndDash),
+                }
+            },
+            //§ comment-less-than-sign-bang-dash-dash-state
+            XmlState::CommentLessThanBangDashDash => loop { match get_char!(self) {
+                '>' => go!(self: reconsume CommentEnd),
+                _   => go!(self: error; reconsume CommentEnd),
+                }
+            },
+            //§ comment-end-dash-state
+            XmlState::CommentEndDash => loop { match get_char!(self) {
+                '-' => go!(self: to CommentEnd),
+                _   => go!(self: push_comment '-'; reconsume Comment),
                 }
             },
             //§ comment-end-state
             XmlState::CommentEnd => loop { match get_char!(self) {
                 '>' => go!(self: emit_comment; to Data),
+                '!' => go!(self: to CommentEndBang),
                 '-' => go!(self: push_comment '-'),
-                c   => go!(self: append_comment "--"; push_comment c; to Comment),
+                _   => go!(self: append_comment "--"; reconsume Comment),
+                }
+            },
+            //§ comment-end-bang-state
+            XmlState::CommentEndBang => loop { match get_char!(self) {
+                '-' => go!(self: append_comment "--!"; to CommentEndDash),
+                '>' => go!(self: error; emit_comment; to Data),
+                _   => go!(self: append_comment "--!"; reconsume Comment),
                 }
             },
             //§ bogus-comment-state
@@ -1058,6 +1106,18 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::Data
             | XmlState::Quiescent
                 => go!(self: eof),
+            XmlState::CommentStart
+            | XmlState::CommentLessThan
+            | XmlState::CommentLessThanBang
+                => go!(self: reconsume Comment),
+            XmlState::CommentLessThanBangDash
+                => go!(self: reconsume CommentEndDash),
+            XmlState::CommentLessThanBangDashDash
+                => go!(self: reconsume CommentEnd),
+            XmlState::CommentStartDash
+            | XmlState::Comment | XmlState::CommentEndDash
+            | XmlState::CommentEnd | XmlState::CommentEndBang
+                => go!(self: error_eof; emit_comment; eof),
             XmlState::TagState
                 => go!(self: error_eof; emit '<'; to Data),
             XmlState::EndTagState
@@ -1073,9 +1133,6 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 => go!(self: reconsume PiData),
             XmlState::MarkupDecl
                 => go!(self: error_eof; to BogusComment),
-            XmlState::Comment | XmlState::CommentDash
-            | XmlState::CommentEnd
-                => go!(self: error_eof; emit_comment;to Data),
             XmlState::TagName | XmlState::TagAttrNameBefore
             | XmlState::EndTagName | XmlState::TagAttrNameAfter
             | XmlState::EndTagNameAfter | XmlState::TagAttrValueBefore
