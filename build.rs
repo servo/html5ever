@@ -8,7 +8,9 @@
 // except according to those terms.
 
 extern crate phf_codegen;
+#[macro_use] extern crate quote;
 extern crate rustc_serialize;
+extern crate syn;
 
 use rustc_serialize::json::{Json, Decoder};
 use rustc_serialize::Decodable;

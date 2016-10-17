@@ -99,102 +99,81 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
-use std::collections::{HashMap, HashSet};
-use std::fmt::Write as FmtWrite;
+use quote::{ToTokens, Tokens};
+use self::visit::{Visitor, RecursiveVisitor};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::mem;
 use std::path::Path;
+use std::slice;
+use syn;
 
-#[derive(Clone)]
-struct Source<'a> {
-    src: &'a str,
-}
-
-impl<'a> Source<'a> {
-    fn consume(&mut self, n: usize) -> &'a str {
-        let (before, after) = self.src.split_at(n);
-        self.src = after;
-        before
-    }
-
-    fn find(&mut self, s: &str) -> Option<&'a str> {
-        self.src.find(s).map(|position| {
-            let before = self.consume(position);
-            self.consume(s.len());
-            before
-        })
-    }
-
-    fn consume_if_present(&mut self, s: &str) -> bool {
-        let present = self.src.starts_with(s);
-        if present {
-            self.consume(s.len());
-        }
-        present
-    }
-
-    fn expect(&mut self, s: &str) {
-        assert!(self.consume_if_present(s), "{:?}… does not start with {:?}", &self.src[..50], s);
-    }
-
-    /// Not exactly Rust whitespace, but close enough
-    fn consume_whitespace(&mut self) {
-        while self.src.starts_with(&[' ', '\t', '\n', '\r'][..]) {
-            self.consume(1);
-        }
-    }
-
-    /// Not exactly the syntax of a Rust identifier, but close enough
-    fn consume_ident(&mut self) -> Option<&'a str> {
-        let end = self.src.find(|c: char| !c.is_alphanumeric() && c != '_').unwrap_or(self.src.len());
-        if end > 0 {
-            Some(self.consume(end))
-        } else {
-            None
-        }
-    }
-
-    fn find_top_level(&mut self, start_at: usize, delimeter: u8) -> usize {
-        let mut i = start_at;
-        let bytes = self.src.as_bytes();
-        loop {
-            let b = *bytes.get(i).expect("unbalanced brackets");
-            i += 1;
-            if b == delimeter {
-                return i
-            }
-            match b {
-                b'{' => i = self.find_top_level(i, b'}'),
-                b'[' => i = self.find_top_level(i, b']'),
-                b'(' => i = self.find_top_level(i, b')'),
-                _ => {}
-            }
-        }
-    }
-}
+mod visit;
 
 pub fn expand_match_tokens(from: &Path, to: &Path) {
     let mut source = String::new();
     File::open(from).unwrap().read_to_string(&mut source).unwrap();
+    let mut crate_ = syn::parse_crate(&source).expect("Parsing rules.rs module");
+    RecursiveVisitor { node_visitor: ExpanderVisitor }.visit_crate(&mut crate_);
+    let mut tokens = Tokens::new();
+    crate_.to_tokens(&mut tokens);
+    let code = tokens.to_string().replace("{ ", "{\n").replace(" }", "\n}");
+    File::create(to).unwrap().write_all(code.as_bytes()).unwrap();
+}
 
-    let mut source = Source { src: &*source };
+struct ExpanderVisitor;
 
-    let mut file = File::create(to).unwrap();
-    let mut write = |s: &str| file.write_all(s.as_bytes()).unwrap();
-    while let Some(before) = source.find("match_token!") {
-        write(before);
-        source.expect("(token {");
-        let mut arms = Vec::new();
-        loop {
-            source.consume_whitespace();
-            if source.consume_if_present("})") {
-                break
+impl Visitor for ExpanderVisitor {
+    fn visit_expression(&mut self, expr: &mut syn::Expr) {
+        let tts;
+        if let syn::Expr::Mac(ref mut macro_) = *expr {
+            if macro_.path == syn::Path::from("match_token") {
+                tts = mem::replace(&mut macro_.tts, Vec::new());
+            } else {
+                return
             }
-            arms.push(parse_arm(&mut source));
+        } else {
+            return
         }
-        write_match_token(arms, &mut write);
+        let (to_be_matched, arms) = parse_match_token_macro(tts);
+        let tokens = expand_match_token_macro(to_be_matched, arms);
+        *expr = syn::parse_expr(&tokens.to_string()).expect("Parsing a match expression");
     }
-    write(source.src);
+}
+
+fn parse_match_token_macro(tts: Vec<syn::TokenTree>) -> (syn::Ident, Vec<Arm>) {
+    use syn::TokenTree::Delimited;
+    use syn::DelimToken::{Brace, Paren};
+
+    let mut tts = tts.into_iter();
+    let inner_tts = if let Some(Delimited(syn::Delimited { delim: Paren, tts })) = tts.next() {
+        tts
+    } else {
+        panic!("expected one top-level () block")
+    };
+    assert_eq!(tts.len(), 0);
+
+    let mut tts = inner_tts.into_iter();
+    let ident = if let Some(syn::TokenTree::Token(syn::Token::Ident(ident))) = tts.next() {
+        ident
+    } else {
+        panic!("expected ident")
+    };
+
+    let block = if let Some(Delimited(syn::Delimited { delim: Brace, tts })) = tts.next() {
+        tts
+    } else {
+        panic!("expected one {} block")
+    };
+    assert_eq!(tts.len(), 0);
+
+    let mut tts = block.iter();
+    let mut arms = Vec::new();
+    while tts.len() > 0 {
+        arms.push(parse_arm(&mut tts))
+    }
+    (ident, arms)
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -209,13 +188,13 @@ enum TagKind {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 struct Tag {
     kind: TagKind,
-    name: Option<String>,
+    name: Option<syn::Ident>,
 }
 
 /// Left-hand side of a pattern-match arm.
 #[derive(Debug)]
 enum LHS {
-    Pattern(String),
+    Pattern(Tokens),
     Tags(Vec<Tag>),
 }
 
@@ -223,111 +202,115 @@ enum LHS {
 #[derive(Debug)]
 enum RHS {
     Else,
-    Expression(String),
+    Expression(Tokens),
 }
 
 /// A whole arm, including optional outer `name @` binding.
 #[derive(Debug)]
 struct Arm {
-    binding: Option<String>,
+    binding: Option<syn::Ident>,
     lhs: LHS,
     rhs: RHS,
 }
 
-fn parse_arm(source: &mut Source) -> Arm {
-    loop {
-        source.consume_whitespace();
-        if source.consume_if_present("//") {
-            source.find("\n");
-        } else {
-            break
-        }
-    }
-    let start = source.clone();
-    let mut binding = None;
-    if let Some(ident) = source.consume_ident() {
-        source.consume_whitespace();
-        if source.consume_if_present("@") {
-            binding = Some(ident.to_owned())
-        } else {
-            *source = start
-        }
-    }
-
+fn parse_arm(tts: &mut slice::Iter<syn::TokenTree>) -> Arm {
     Arm {
-        binding: binding,
-        lhs: parse_lhs(source),
-        rhs: parse_rhs(source),
+        binding: parse_binding(tts),
+        lhs: parse_lhs(tts),
+        rhs: parse_rhs(tts),
     }
 }
 
-fn parse_lhs(source: &mut Source) -> LHS {
-    source.consume_whitespace();
-    if source.consume_if_present("<") {
+fn parse_binding(tts: &mut slice::Iter<syn::TokenTree>) -> Option<syn::Ident> {
+    let start = tts.clone();
+    if let (Some(&syn::TokenTree::Token(syn::Token::Ident(ref ident))),
+            Some(&syn::TokenTree::Token(syn::Token::At))) = (tts.next(), tts.next()) {
+        Some(ident.clone())
+    } else {
+        *tts = start;
+        None
+    }
+}
+
+fn consume_if_present(tts: &mut slice::Iter<syn::TokenTree>, expected: syn::Token) -> bool {
+    if let Some(&syn::TokenTree::Token(ref first)) = tts.as_slice().first() {
+        if *first == expected {
+            tts.next();
+            return true
+        }
+    }
+    false
+}
+
+fn parse_lhs(tts: &mut slice::Iter<syn::TokenTree>) -> LHS {
+    if consume_if_present(tts, syn::Token::Lt) {
         let mut tags = Vec::new();
         loop {
             tags.push(Tag {
-                kind: if source.consume_if_present("/") {
+                kind: if consume_if_present(tts, syn::Token::BinOp(syn::BinOpToken::Slash)) {
                     TagKind::EndTag
                 } else {
                     TagKind::StartTag
                 },
-                name: if source.consume_if_present("_") {
+                name: if consume_if_present(tts, syn::Token::Underscore) {
                     None
                 } else {
-                    Some(source.consume_ident().expect("expected identifier (tag name)").to_owned())
+                    if let Some(&syn::TokenTree::Token(syn::Token::Ident(ref ident))) = tts.next() {
+                        Some(ident.clone())
+                    } else {
+                        panic!("expected identifier (tag name)")
+                    }
                 }
             });
-            assert!(source.consume_if_present(">"), "expected '>' closing a tag pattern");
-            source.consume_whitespace();
-            if !source.consume_if_present("<") {
+            assert!(consume_if_present(tts, syn::Token::Gt), "expected '>' closing a tag pattern");
+            if !consume_if_present(tts, syn::Token::Lt) {
                 break
             }
         }
-        source.consume_whitespace();
-        assert!(source.consume_if_present("=>"));
+        assert!(consume_if_present(tts, syn::Token::FatArrow));
         LHS::Tags(tags)
     } else {
-        LHS::Pattern(source.find("=>").expect("did not find =>").to_owned())
+        let mut pattern = Tokens::new();
+        for tt in tts {
+            if let &syn::TokenTree::Token(syn::Token::FatArrow) = tt {
+                return LHS::Pattern(pattern)
+            }
+            tt.to_tokens(&mut pattern)
+        }
+        panic!("did not find =>")
     }
 }
 
-fn parse_rhs(source: &mut Source) -> RHS {
-    source.consume_whitespace();
-    let start_at;
-    let delimeter;
-    if source.consume_if_present("else,") {
-        return RHS::Else
-    } else if source.src.starts_with("{") {
-        start_at = 1;
-        delimeter = b'}';
+fn parse_rhs(tts: &mut slice::Iter<syn::TokenTree>) -> RHS {
+    use syn::DelimToken::Brace;
+    let start = tts.clone();
+    let first = tts.next();
+    let after_first = tts.clone();
+    let second = tts.next();
+    if let (Some(&syn::TokenTree::Token(syn::Token::Ident(ref ident))),
+            Some(&syn::TokenTree::Token(syn::Token::Comma))) = (first, second) {
+        if ident == "else" {
+            return RHS::Else
+        }
+    }
+    let mut expression = Tokens::new();
+    if let Some(&syn::TokenTree::Delimited(syn::Delimited { delim: Brace, .. })) = first {
+        first.to_tokens(&mut expression);
+        *tts = after_first;
+        consume_if_present(tts, syn::Token::Comma);
     } else {
-        start_at = 0;
-        delimeter = b',';
+        *tts = start;
+        for tt in tts {
+            tt.to_tokens(&mut expression);
+            if let &syn::TokenTree::Token(syn::Token::Comma) = tt {
+                break
+            }
+        }
     }
-    let end = source.find_top_level(start_at, delimeter);
-    let expr = source.consume(end);
-    if delimeter == b'}' {
-        source.consume_whitespace();
-        source.consume_if_present(",");
-    }
-    RHS::Expression(expr.to_owned())
+    RHS::Expression(expression)
 }
 
-/// Description of a wildcard match arm.
-///
-/// We defer generating code for these until we process the last, catch-all
-/// arm.  This isn't part of the AST produced by `parse()`; it's created
-/// while processing that AST.
-struct WildcardArm {
-    binding: String,
-    kind: TagKind,
-    expr: String,
-}
-
-fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) {
-    write("match token {\n");
-
+fn expand_match_token_macro(to_be_matched: syn::Ident, mut arms: Vec<Arm>) -> Tokens {
     // Handle the last arm specially at the end.
     let last_arm = arms.pop().unwrap();
 
@@ -336,16 +319,19 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
 
     // Case arms for wildcard matching.  We collect these and
     // emit them later.
-    let mut wildcards: Vec<WildcardArm> = Vec::new();
+    let mut wildcards_patterns: Vec<Tokens> = Vec::new();
+    let mut wildcards_expressions: Vec<Tokens> = Vec::new();
 
     // Tags excluded (by an 'else' RHS) from wildcard matching.
-    let mut wild_excluded: HashMap<TagKind, Vec<Tag>> = HashMap::new();
+    let mut wild_excluded_patterns: Vec<Tokens> = Vec::new();
+
+    let mut arms_code = Vec::new();
 
     for Arm { binding, lhs, rhs } in arms {
         // Build Rust syntax for the `name @` binding, if any.
         let binding = match binding {
-            Some(ident) => format!("{} @ ", ident),
-            None => String::new(),
+            Some(ident) => quote!(#ident @),
+            None => quote!(),
         };
 
         match (lhs, rhs) {
@@ -353,10 +339,10 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
 
             // ordinary pattern => expression
             (LHS::Pattern(pat), RHS::Expression(expr)) => {
-                if !wildcards.is_empty() {
+                if !wildcards_patterns.is_empty() {
                     panic!("ordinary patterns may not appear after wildcard tags {:?} {:?}", pat, expr);
                 }
-                write(&format!("    {}{} => {}\n", binding, pat, expr));
+                arms_code.push(quote!(#binding #pat => #expr))
             }
 
             // <tag> <tag> ... => else
@@ -368,7 +354,7 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
                     if tag.name.is_none() {
                         panic!("'else' may not appear with a wildcard tag");
                     }
-                    wild_excluded.entry(tag.kind).or_insert_with(Vec::new).push(tag.clone());
+                    wild_excluded_patterns.push(make_tag_pattern(&Tokens::new(), tag));
                 }
             }
 
@@ -386,7 +372,7 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
                     match tag.name {
                         // <tag>
                         Some(_) => {
-                            if !wildcards.is_empty() {
+                            if !wildcards_patterns.is_empty() {
                                 panic!("specific tags may not appear after wildcard tags");
                             }
 
@@ -396,11 +382,9 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
 
                             if wildcard.is_some() {
                                 // Push the delimeter `|` if it's not the first tag.
-                                write(" |\n    ");
-                            } else {
-                                write("    ");
+                                arms_code.push(quote!( | ))
                             }
-                            write(&make_tag_pattern(&binding, tag));
+                            arms_code.push(make_tag_pattern(&binding, tag));
 
                             wildcard = Some(false);
                         }
@@ -411,22 +395,15 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
                                 panic!("wildcard tags must appear alone");
                             }
                             wildcard = Some(true);
-                            wildcards.push(WildcardArm {
-                                binding: binding.clone(),
-                                kind: tag.kind,
-                                expr: expr.clone(),
-                            });
+                            wildcards_patterns.push(make_tag_pattern(&binding, tag));
+                            wildcards_expressions.push(expr.clone());
                         }
                     }
                 }
 
                 match wildcard {
                     None => panic!("[internal macro error] tag arm with no tags"),
-                    Some(false) => {
-                        write(" =>\n    ");
-                        write(&expr);
-                        write("\n");
-                    }
+                    Some(false) => arms_code.push(quote!( => #expr)),
                     Some(true) => {} // codegen for wildcards is deferred
                 }
             }
@@ -463,40 +440,44 @@ fn write_match_token<F>(mut arms: Vec<Arm>, write: &mut F) where F: FnMut(&str) 
         (None, LHS::Pattern(p), RHS::Expression(e)) => (p, e)
     };
 
-    write("    last_arm_token => {\n");
-    write("        let enable_wildcards = match last_arm_token {\n");
-
-    // Code for the `false` arms inside `let enable_wildcards = ...`.
-    for (_, tags) in wild_excluded {
-        for tag in tags {
-            write(&format!("            {} => false,\n", make_tag_pattern("", tag)));
+    quote! {
+        // Use a no-op macro to work around a bug(?) in syn::parse_exr.
+        as_expr! {
+            match #to_be_matched {
+                #(
+                    #arms_code
+                )*
+                last_arm_token => {
+                    let enable_wildcards = match last_arm_token {
+                        #(
+                            #wild_excluded_patterns => false,
+                        )*
+                        _ => true,
+                    };
+                    match (enable_wildcards, last_arm_token) {
+                        #(
+                            (true, #wildcards_patterns) => #wildcards_expressions
+                        )*
+                        (_, #last_pat) => #last_expr
+                    }
+                }
+            }
         }
     }
-
-    write("            _ => true,\n");
-    write("        };\n");
-    write("        match (enable_wildcards, last_arm_token) {\n");
-
-    // Code for the wildcard actions.
-    for WildcardArm { binding, kind, expr } in wildcards {
-        let pat = make_tag_pattern(&binding, Tag { kind: kind, name: None });
-        write(&format!("            (true, {}) =>\n", pat));
-        write(&format!("                {}\n", expr));
-    }
-
-    write(&format!("            (_, {}) => {}\n", last_pat, last_expr));
-    write("        }\n");
-    write("    }\n");
-    write("}\n");
 }
 
-fn make_tag_pattern(binding: &str, tag: Tag) -> String {
-    let mut s = format!(
-        "::tree_builder::types::TagToken({}::tokenizer::Tag {{ kind: {:?}, ",
-        binding, tag.kind);
-    if let Some(name) = tag.name {
-        write!(s, "name: atom!({:?}), ", name).unwrap();
+fn make_tag_pattern(binding: &Tokens, tag: Tag) -> Tokens {
+    let kind = match tag.kind {
+        TagKind::StartTag => quote!(::tokenizer::StartTag),
+        TagKind::EndTag => quote!(::tokenizer::EndTag),
+    };
+    let name_field = if let Some(name) = tag.name {
+        let name = name.to_string();
+        quote!(name: atom!(#name),)
+    } else {
+        quote!()
+    };
+    quote! {
+        ::tree_builder::types::TagToken(#binding ::tokenizer::Tag { kind: #kind, #name_field .. })
     }
-    s.push_str(".. })");
-    s
 }
