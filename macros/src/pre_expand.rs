@@ -9,12 +9,14 @@
 
 use match_token;
 use std::fs::File;
-use std::hash::{Hash, Hasher, SipHasher};
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::Path;
 use std::rc::Rc;
-use syntax::{ast, codemap, ext, parse, print};
+use syntax::{codemap, ext, parse, print};
+use syntax::ext::base::DummyResolver;
 use syntax::parse::token;
+use syntax::tokenstream::{Delimited, TokenTree};
 
 pub fn pre_expand(from: &Path, to: &Path) {
     let mut source = String::new();
@@ -25,13 +27,13 @@ pub fn pre_expand(from: &Path, to: &Path) {
     write_header(&from, &source, &mut file_to);
 
     let sess = parse::ParseSess::new();
-    let mut feature_gated_cfgs = Vec::new();
+    let mut resolver = DummyResolver;
     let mut cx = ext::base::ExtCtxt::new(&sess, vec![],
         ext::expand::ExpansionConfig::default("".to_owned()),
-        &mut feature_gated_cfgs);
+        &mut resolver);
 
     let from = from.to_string_lossy().into_owned();
-    let tts = parse::parse_tts_from_source_str(from, source, vec![], &sess);
+    let tts = panictry!(parse::parse_tts_from_source_str(from, source, vec![], &sess));
     let tts = find_and_expand_match_token(&mut cx, tts);
     let tts = pretty(&mut cx, tts);
 
@@ -39,22 +41,22 @@ pub fn pre_expand(from: &Path, to: &Path) {
     file_to.write_all(expanded.as_bytes()).unwrap();
 }
 
-fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>)
-                               -> Vec<ast::TokenTree> {
+fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<TokenTree>)
+                               -> Vec<TokenTree> {
     let mut expanded = Vec::new();
     let mut tts = tts.into_iter().peekable();
     while let Some(tt) = tts.next() {
         match tt {
-            ast::TokenTree::Token(span, token::Token::Ident(ident, token::IdentStyle::Plain))
+            TokenTree::Token(span, token::Token::Ident(ident))
             if ident.name.as_str() == "match_token"
             => {
                 // `!`
-                if !matches!(tts.next(), Some(ast::TokenTree::Token(_, token::Token::Not))) {
+                if !matches!(tts.next(), Some(TokenTree::Token(_, token::Token::Not))) {
                     expanded.push(tt);
                     continue
                 }
                 match tts.next() {
-                    Some(ast::TokenTree::Delimited(_, block)) => {
+                    Some(TokenTree::Delimited(_, block)) => {
                         cx.bt_push(expn_info(span));
                         expanded.extend(
                             match match_token::expand_to_tokens(cx, span, &block.tts) {
@@ -69,10 +71,10 @@ fn find_and_expand_match_token(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenT
                     _ => panic!("expected a block after {:?}", span)
                 }
             }
-            ast::TokenTree::Delimited(span, mut block) => {
+            TokenTree::Delimited(span, mut block) => {
                 Rc::make_mut(&mut block);
                 let block = Rc::try_unwrap(block).unwrap();
-                expanded.push(ast::TokenTree::Delimited(span, Rc::new(ast::Delimited {
+                expanded.push(TokenTree::Delimited(span, Rc::new(Delimited {
                     delim: block.delim,
                     open_span: block.open_span,
                     tts: find_and_expand_match_token(cx, block.tts),
@@ -97,7 +99,7 @@ fn expn_info(span: codemap::Span) -> codemap::ExpnInfo {
 }
 
 /// Somehow, going through a parser and back to tokens gives nicer whitespace.
-fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>) -> Vec<ast::TokenTree> {
+fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<TokenTree>) -> Vec<TokenTree> {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), tts);
     let start_span = parser.span;
     let mut items = Vec::new();
@@ -109,7 +111,10 @@ fn pretty(cx: &mut ext::base::ExtCtxt, tts: Vec<ast::TokenTree>) -> Vec<ast::Tok
     quote_tokens!(&mut *cx, $attrs $items)
 }
 
+#[allow(deprecated)]
 fn write_header(source_file_name: &Path, source: &str, file: &mut File) {
+    use std::hash::SipHasher;
+
     let mut hasher = SipHasher::new();
     source.hash(&mut hasher);
     let source_hash = hasher.finish();
