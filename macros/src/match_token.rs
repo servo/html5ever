@@ -100,20 +100,21 @@ matching, by enforcing the following restrictions on its input:
 use std::collections::{HashSet, HashMap};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 
-use syntax::diagnostic::FatalError;
-use syntax::ptr::P;
-use syntax::codemap::{Span, Spanned, spanned};
 use syntax::ast;
-use syntax::parse::parser::{Parser, Restrictions};
-use syntax::parse::{token, parser, classify};
-use syntax::parse;
+use syntax::codemap::{Span, Spanned, spanned};
+use syntax::errors::DiagnosticBuilder;
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
+use syntax::parse;
+use syntax::parse::{token, parser, classify};
+use syntax::parse::parser::{Parser, Restrictions};
+use syntax::ptr::P;
+use syntax::tokenstream::TokenTree;
 
 use self::TagKind::{StartTag, EndTag};
 use self::LHS::{Pat, Tags};
 use self::RHS::{Else, Expr};
 
-type Tokens = Vec<ast::TokenTree>;
+type Tokens = Vec<TokenTree>;
 
 // FIXME: duplicated in src/tokenizer/interface.rs
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -170,22 +171,22 @@ fn push_all<T>(lhs: &mut Vec<T>, rhs: Vec<T>) {
     lhs.extend(rhs.into_iter());
 }
 
-fn parse_spanned_ident(parser: &mut Parser) -> Result<ast::SpannedIdent, FatalError> {
+fn parse_spanned_ident<'a>(parser: &mut Parser<'a>) -> Result<ast::SpannedIdent, DiagnosticBuilder<'a>> {
     let lo = parser.span.lo;
     let ident = try!(parser.parse_ident());
     let hi = parser.last_span.hi;
     Ok(spanned(lo, hi, ident))
 }
 
-fn parse_tag(parser: &mut Parser) -> Result<Spanned<Tag>, FatalError> {
+fn parse_tag<'a>(parser: &mut Parser<'a>) -> Result<Spanned<Tag>, DiagnosticBuilder<'a>> {
     let lo = parser.span.lo;
     try!(parser.expect(&token::Lt));
 
-    let kind = match try!(parser.eat(&token::BinOp(token::Slash))) {
+    let kind = match parser.eat(&token::BinOp(token::Slash)) {
         true => EndTag,
         false => StartTag,
     };
-    let name = match try!(parser.eat(&token::Underscore)) {
+    let name = match parser.eat(&token::Underscore) {
         true => None,
         false => Some((*try!(parser.parse_ident()).name.as_str()).to_owned()),
     };
@@ -198,18 +199,18 @@ fn parse_tag(parser: &mut Parser) -> Result<Spanned<Tag>, FatalError> {
 }
 
 /// Parse a `match_token!` invocation into the little AST defined above.
-fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError> {
+fn parse<'a>(cx: &'a mut ExtCtxt, toks: &[TokenTree]) -> Result<Match, DiagnosticBuilder<'a>> {
     let mut parser = parse::new_parser_from_tts(cx.parse_sess(), cx.cfg(), toks.to_vec());
 
-    let discriminant = try!(parser.parse_expr_res(Restrictions::RESTRICTION_NO_STRUCT_LITERAL));
-    try!(parser.commit_expr_expecting(&*discriminant, token::OpenDelim(token::Brace)));
+    let discriminant = try!(parser.parse_expr_res(Restrictions::RESTRICTION_NO_STRUCT_LITERAL, None));
+    try!(parser.expect(&token::OpenDelim(token::Brace)));
 
     let mut arms: Vec<Arm> = Vec::new();
     while parser.token != token::CloseDelim(token::Brace) {
         let mut binding = None;
         if parser.look_ahead(1, |t| *t == token::At) {
             binding = Some(try!(parse_spanned_ident(&mut parser)));
-            try!(parser.bump()); // Consume the @
+            parser.bump(); // Consume the @
         }
 
         let lhs_lo = parser.span.lo;
@@ -230,11 +231,11 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
 
         let rhs_lo = parser.span.lo;
         let mut rhs_hi = parser.span.hi;
-        let rhs = if try!(parser.eat_keyword(token::keywords::Else)) {
+        let rhs = if parser.eat_keyword(token::keywords::Else) {
             try!(parser.expect(&token::Comma));
             Else
         } else {
-            let expr = try!(parser.parse_expr_res(Restrictions::RESTRICTION_STMT_EXPR));
+            let expr = try!(parser.parse_expr_res(Restrictions::RESTRICTION_STMT_EXPR, None));
             rhs_hi = parser.last_span.hi;
 
             let require_comma =
@@ -242,10 +243,10 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
                 && parser.token != token::CloseDelim(token::Brace);
 
             if require_comma {
-                try!(parser.commit_expr(
-                    &*expr, &[token::Comma], &[token::CloseDelim(token::Brace)]));
+                try!(parser.expect_one_of(
+                    &[token::Comma], &[token::CloseDelim(token::Brace)]));
             } else {
-                try!(parser.eat(&token::Comma));
+                parser.eat(&token::Comma);
             }
 
             Expr(expr)
@@ -259,7 +260,7 @@ fn parse(cx: &mut ExtCtxt, toks: &[ast::TokenTree]) -> Result<Match, FatalError>
     }
 
     // Consume the closing brace
-    try!(parser.bump());
+    parser.bump();
 
     Ok(Match {
         discriminant: discriminant,
@@ -300,8 +301,8 @@ macro_rules! ext_err_if {
 }
 
 /// Expand the `match_token!` macro.
-pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree])
-        -> Result<Vec<ast::TokenTree>, (Span, &'static str)> {
+pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[TokenTree])
+        -> Result<Vec<TokenTree>, (Span, &'static str)> {
     let Match { discriminant, mut arms } = panictry!(parse(cx, toks));
 
     // Handle the last arm specially at the end.
@@ -436,7 +437,7 @@ pub fn expand_to_tokens(cx: &mut ExtCtxt, span: Span, toks: &[ast::TokenTree])
         (None, Tags(_), _) => ext_err!(lhs.span, "the last arm cannot have tag patterns"),
         (None, _, Else) => ext_err!(rhs.span, "the last arm cannot use 'else'"),
         (None, Pat(p), Expr(e)) => match p.node {
-            ast::PatWild | ast::PatIdent(..) => (p, e),
+            ast::PatKind::Wild | ast::PatKind::Ident(..) => (p, e),
             _ => ext_err!(lhs.span, "the last arm must have a wildcard or ident pattern"),
         },
     };
