@@ -39,7 +39,17 @@ pub mod interface;
 mod data;
 mod types;
 mod actions;
-#[path = "rules.expanded.rs"] mod rules;
+
+/// This macro is used in macros/match_token.rs to work around a bug(?) in syn::parse_exr.
+macro_rules! as_expr {
+    ($e: expr) => ($e)
+}
+
+mod rules {
+    //! The tree builder rules, as a single, enormous nested match expression.
+
+    include!(concat!(env!("OUT_DIR"), "/rules.rs"));
+}
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
