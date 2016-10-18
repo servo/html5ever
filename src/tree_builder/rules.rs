@@ -351,8 +351,17 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <address> <article> <aside> <blockquote> <center> <details> <dialog>
                   <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
-                  <hgroup> <main> <menu> <nav> <ol> <p> <section> <summary> <ul> => {
+                  <hgroup> <main> <nav> <ol> <p> <section> <summary> <ul> => {
                     self.close_p_element_in_button_scope();
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <menu> => {
+                    self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_element_for(tag);
                     Done
                 }
@@ -609,13 +618,16 @@ impl<Handle, Sink> TreeBuilderStep
                     DoneAckSelfClosing
                 }
 
-                tag @ <menuitem> <param> <source> <track> => {
+                tag @ <param> <source> <track> => {
                     self.insert_and_pop_element_for(tag);
                     DoneAckSelfClosing
                 }
 
                 tag @ <hr> => {
                     self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
@@ -716,6 +728,15 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <optgroup> <option> => {
                     if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
+                    self.reconstruct_formatting();
+                    self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <menuitem> => {
+                    if self.current_node_named(atom!("menuitem")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();

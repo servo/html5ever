@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 18376801535389447229
+// source SipHash: 15396255956430301524
 
 # ! [
 doc =
@@ -650,9 +650,6 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 name: atom!("main"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!("menu"), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
                                                 name: atom!("nav"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
@@ -672,6 +669,17 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!("ul"), .. }) => {
                     self.close_p_element_in_button_scope();
+                    self.insert_element_for(tag);
+                    Done
+                }
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("menu"), .. }) =>
+                {
+                    self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_element_for(tag);
                     Done
                 }
@@ -1188,10 +1196,6 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!("menuitem"), .. })
-                |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
                                                 name: atom!("param"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
@@ -1207,6 +1211,9 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!("hr"), .. }) => {
                     self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
@@ -1324,6 +1331,17 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 name: atom!("option"), .. })
                 => {
                     if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
+                    self.reconstruct_formatting();
+                    self.insert_element_for(tag);
+                    Done
+                }
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("menuitem"), .. })
+                => {
+                    if self.current_node_named(atom!("menuitem")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();
