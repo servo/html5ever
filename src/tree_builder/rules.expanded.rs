@@ -8,7 +8,7 @@
 // except according to those terms.
 
 // This file is generated from rules.rs
-// source SipHash: 18376801535389447229
+// source SipHash: 3904118393820545335
 
 # ! [
 doc =
@@ -650,9 +650,6 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 name: atom!("main"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!("menu"), .. }) |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
                                                 name: atom!("nav"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
@@ -672,6 +669,17 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!("ul"), .. }) => {
                     self.close_p_element_in_button_scope();
+                    self.insert_element_for(tag);
+                    Done
+                }
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("menu"), .. }) =>
+                {
+                    self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_element_for(tag);
                     Done
                 }
@@ -1188,10 +1196,6 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
-                                                name: atom!("menuitem"), .. })
-                |
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
                                                 name: atom!("param"), .. }) |
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
@@ -1207,6 +1211,9 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 kind: ::tokenizer::StartTag,
                                                 name: atom!("hr"), .. }) => {
                     self.close_p_element_in_button_scope();
+                    if self.current_node_named(atom!("menuitem")) {
+                        self.pop();
+                    }
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
@@ -1218,54 +1225,6 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                     self.unexpected(&tag);
                     self.step(InBody,
                               TagToken(Tag{name: atom!("img"), ..tag}))
-                }
-                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
-                                                kind: ::tokenizer::StartTag,
-                                                name: atom!("isindex"), .. })
-                => {
-                    self.unexpected(&tag);
-                    let in_template =
-                        self.in_html_elem_named(atom!("template"));
-                    if !in_template && self.form_elem.is_some() {
-                        return Done;
-                    }
-                    self.frameset_ok = false;
-                    self.close_p_element_in_button_scope();
-                    let mut form_attrs = vec!();
-                    let mut prompt = None;
-                    let mut input_attrs = vec!();
-                    for attr in tag.attrs.into_iter() {
-                        match attr.name {
-                            qualname!("" , "action") => form_attrs.push(attr),
-                            qualname!("" , "prompt") =>
-                            prompt = Some(attr.value),
-                            qualname!("" , "name") => { }
-                            _ => input_attrs.push(attr),
-                        }
-                    }
-                    input_attrs.push(Attribute{name: qualname!("" , "name"),
-                                               value:
-                                                   "isindex".to_tendril(),});
-                    let form =
-                        self.insert_element(Push, ns!(html), atom!("form"),
-                                            form_attrs);
-                    if !in_template { self.form_elem = Some(form.clone()); }
-                    self.insert_element(NoPush, ns!(html), atom!("hr"),
-                                        vec!());
-                    self.reconstruct_formatting();
-                    self.insert_element(Push, ns!(html), atom!("label"),
-                                        vec!());
-                    self.append_text(prompt.unwrap_or_else(|| {
-                                                           "This is a searchable index. Enter search keywords: ".to_tendril()
-                                                       }));
-                    self.insert_element(NoPush, ns!(html), atom!("input"),
-                                        input_attrs);
-                    self.pop();
-                    self.insert_element(NoPush, ns!(html), atom!("hr"),
-                                        vec!());
-                    self.pop();
-                    if !in_template { self.form_elem = None; }
-                    DoneAckSelfClosing
                 }
                 ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
                                                 kind: ::tokenizer::StartTag,
@@ -1324,6 +1283,17 @@ impl <Handle, Sink> TreeBuilderStep for super::TreeBuilder<Handle, Sink> where
                                                 name: atom!("option"), .. })
                 => {
                     if self.current_node_named(atom!("option")) {
+                        self.pop();
+                    }
+                    self.reconstruct_formatting();
+                    self.insert_element_for(tag);
+                    Done
+                }
+                ::tree_builder::types::TagToken(tag@::tokenizer::Tag {
+                                                kind: ::tokenizer::StartTag,
+                                                name: atom!("menuitem"), .. })
+                => {
+                    if self.current_node_named(atom!("menuitem")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();
