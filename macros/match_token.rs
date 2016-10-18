@@ -441,25 +441,22 @@ fn expand_match_token_macro(to_be_matched: syn::Ident, mut arms: Vec<Arm>) -> To
     };
 
     quote! {
-        // Use a no-op macro to work around a bug(?) in syn::parse_exr.
-        as_expr! {
-            match #to_be_matched {
-                #(
-                    #arms_code
-                )*
-                last_arm_token => {
-                    let enable_wildcards = match last_arm_token {
-                        #(
-                            #wild_excluded_patterns => false,
-                        )*
-                        _ => true,
-                    };
-                    match (enable_wildcards, last_arm_token) {
-                        #(
-                            (true, #wildcards_patterns) => #wildcards_expressions
-                        )*
-                        (_, #last_pat) => #last_expr
-                    }
+        match #to_be_matched {
+            #(
+                #arms_code
+            )*
+            last_arm_token => {
+                let enable_wildcards = match last_arm_token {
+                    #(
+                        #wild_excluded_patterns => false,
+                    )*
+                    _ => true,
+                };
+                match (enable_wildcards, last_arm_token) {
+                    #(
+                        (true, #wildcards_patterns) => #wildcards_expressions
+                    )*
+                    (_, #last_pat) => #last_expr
                 }
             }
         }
