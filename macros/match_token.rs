@@ -100,68 +100,70 @@ matching, by enforcing the following restrictions on its input:
 */
 
 use quote::{ToTokens, Tokens};
-use self::visit::{Visitor, RecursiveVisitor};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::mem;
 use std::path::Path;
 use std::slice;
 use syn;
 
-mod visit;
-
 pub fn expand_match_tokens(from: &Path, to: &Path) {
     let mut source = String::new();
     File::open(from).unwrap().read_to_string(&mut source).unwrap();
-    let mut crate_ = syn::parse_crate(&source).expect("Parsing rules.rs module");
-    RecursiveVisitor { node_visitor: ExpanderVisitor }.visit_crate(&mut crate_);
+    let tts = syn::parse_token_trees(&source).expect("Parsing rules.rs module");
     let mut tokens = Tokens::new();
-    crate_.to_tokens(&mut tokens);
+    tokens.append_all(expand_tts(&tts));
     let code = tokens.to_string().replace("{ ", "{\n").replace(" }", "\n}");
     File::create(to).unwrap().write_all(code.as_bytes()).unwrap();
 }
 
-struct ExpanderVisitor;
+fn expand_tts(tts: &[syn::TokenTree]) -> Vec<syn::TokenTree> {
+    use syn::*;
 
-impl Visitor for ExpanderVisitor {
-    fn visit_expression(&mut self, expr: &mut syn::Expr) {
-        let tts;
-        if let syn::Expr::Mac(ref mut macro_) = *expr {
-            if macro_.path == syn::Path::from("match_token") {
-                tts = mem::replace(&mut macro_.tts, Vec::new());
-            } else {
-                return
+    let mut expanded = Vec::new();
+    let mut tts = tts.iter();
+    while let Some(tt) = tts.next() {
+        match *tt {
+            TokenTree::Token(Token::Ident(ref ident)) if ident == "match_token" => {
+                let start = tts.clone();
+                if let Some(&TokenTree::Token(Token::Not)) = tts.next() {
+                    if let Some(&TokenTree::Delimited(Delimited { ref tts, .. })) = tts.next() {
+                        let (to_be_matched, arms) = parse_match_token_macro(tts);
+                        let tokens = expand_match_token_macro(to_be_matched, arms);
+                        let tts = syn::parse_token_trees(&tokens.to_string())
+                            .expect("parsing macro expansion as token trees");
+                        expanded.extend(tts);
+                        continue
+                    }
+                }
+                tts = start
             }
-        } else {
-            return
+            TokenTree::Token(_) => {
+                expanded.push(tt.clone())
+            }
+            TokenTree::Delimited(Delimited { delim, ref tts }) => {
+                expanded.push(TokenTree::Delimited(Delimited {
+                    delim: delim,
+                    tts: expand_tts(tts),
+                }))
+            }
         }
-        let (to_be_matched, arms) = parse_match_token_macro(tts);
-        let tokens = expand_match_token_macro(to_be_matched, arms);
-        *expr = syn::parse_expr(&tokens.to_string()).expect("Parsing a match expression");
     }
+    expanded
 }
 
-fn parse_match_token_macro(tts: Vec<syn::TokenTree>) -> (syn::Ident, Vec<Arm>) {
+fn parse_match_token_macro(tts: &[syn::TokenTree]) -> (&syn::Ident, Vec<Arm>) {
     use syn::TokenTree::Delimited;
-    use syn::DelimToken::{Brace, Paren};
+    use syn::DelimToken::Brace;
 
-    let mut tts = tts.into_iter();
-    let inner_tts = if let Some(Delimited(syn::Delimited { delim: Paren, tts })) = tts.next() {
-        tts
-    } else {
-        panic!("expected one top-level () block")
-    };
-    assert_eq!(tts.len(), 0);
-
-    let mut tts = inner_tts.into_iter();
-    let ident = if let Some(syn::TokenTree::Token(syn::Token::Ident(ident))) = tts.next() {
+    let mut tts = tts.iter();
+    let ident = if let Some(&syn::TokenTree::Token(syn::Token::Ident(ref ident))) = tts.next() {
         ident
     } else {
         panic!("expected ident")
     };
 
-    let block = if let Some(Delimited(syn::Delimited { delim: Brace, tts })) = tts.next() {
+    let block = if let Some(&Delimited(syn::Delimited { delim: Brace, ref tts })) = tts.next() {
         tts
     } else {
         panic!("expected one {} block")
@@ -310,7 +312,7 @@ fn parse_rhs(tts: &mut slice::Iter<syn::TokenTree>) -> RHS {
     RHS::Expression(expression)
 }
 
-fn expand_match_token_macro(to_be_matched: syn::Ident, mut arms: Vec<Arm>) -> Tokens {
+fn expand_match_token_macro(to_be_matched: &syn::Ident, mut arms: Vec<Arm>) -> Tokens {
     // Handle the last arm specially at the end.
     let last_arm = arms.pop().unwrap();
 
