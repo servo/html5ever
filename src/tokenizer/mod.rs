@@ -1167,16 +1167,25 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ cdata-section-state
-            states::CdataSection => loop {
-                if eat_exact!(self, "]]>") {
-                    go!(self: emit_temp; to Data);
-                } else {
-                    match get_char!(self) {
-                        '\0' => go!(self: emit_temp; emit '\0'),
-                        c    => go!(self: push_temp c)
-                    }
-                }
-            }
+            states::CdataSection => loop { match get_char!(self) {
+                ']' => go!(self: to CdataSectionBracket),
+                '\0' => go!(self: emit_temp; emit '\0'),
+                c => go!(self: push_temp c),
+            }},
+
+            //§ cdata-section-bracket
+            states::CdataSectionBracket => match get_char!(self) {
+                ']' => go!(self: to CdataSectionEnd),
+                _ => go!(self: push_temp ']'; reconsume CdataSection),
+            },
+
+            //§ cdata-section-end
+            states::CdataSectionEnd => loop { match get_char!(self) {
+                ']' => go!(self: push_temp ']'),
+                '>' => go!(self: emit_temp; to Data),
+                _ => go!(self: push_temp ']'; push_temp ']'; reconsume CdataSection),
+            }},
+
             //§ END
         }
     }
@@ -1331,7 +1340,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 => go!(self: error; to BogusComment),
 
             states::CdataSection
-                => go!(self: emit_temp; to Data),
+                => go!(self: emit_temp; error_eof; to Data),
+
+            states::CdataSectionBracket
+                => go!(self: push_temp ']'; to CdataSection),
+
+            states::CdataSectionEnd
+                => go!(self: push_temp ']'; push_temp ']'; to CdataSection),
         }
     }
 }
