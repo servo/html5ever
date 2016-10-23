@@ -1400,9 +1400,7 @@ impl<Handle, Sink> TreeBuilderStep
     }
 
     fn step_foreign(&mut self, token: Token) -> ProcessResult {
-        // Use parens to make this an expression rather than a statement
-        // and work around a limitation of the build.rs script.
-        (match_token!(token {
+        match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
                 self.append_text("\u{fffd}".to_tendril())
@@ -1470,6 +1468,6 @@ impl<Handle, Sink> TreeBuilderStep
             // FIXME: This should be unreachable, but match_token requires a
             // catch-all case.
             _ => panic!("impossible case in foreign content"),
-        }))
+        })
     }
 }
