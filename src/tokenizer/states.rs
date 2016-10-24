@@ -90,5 +90,4 @@ pub enum State {
     CdataSection,
     CdataSectionBracket,
     CdataSectionEnd,
-    Quiescent,
 }

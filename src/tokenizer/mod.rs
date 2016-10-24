@@ -14,7 +14,7 @@
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-pub use self::interface::TokenSink;
+pub use self::interface::{StateChangeQuery, TokenSink};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
@@ -364,7 +364,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token(CharacterTokens(b));
     }
 
-    fn emit_current_tag(&mut self) {
+    fn emit_current_tag(&mut self) -> bool {
         self.finish_attribute();
 
         let name = Atom::from(&*self.current_tag_name);
@@ -392,8 +392,19 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token(token);
 
         match self.sink.query_state_change() {
-            None => (),
-            Some(s) => self.state = s,
+            None => true,
+            Some(StateChangeQuery::Plaintext) => {
+                self.state = states::Plaintext;
+                true
+            },
+            Some(StateChangeQuery::Quiescent) => {
+                self.state = states::Data;
+                false
+            },
+            Some(StateChangeQuery::RawData(kind)) => {
+                self.state = states::RawData(kind);
+                true
+            }
         }
     }
 
@@ -587,8 +598,7 @@ macro_rules! go (
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
         $me.state = states::$s;
-        $me.emit_current_tag();
-        return true;
+        return $me.emit_current_tag();
     });
 
     ( $me:ident : eof ) => ({ $me.emit_eof(); return false; });
@@ -640,13 +650,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         debug!("processing in state {:?}", self.state);
         match self.state {
-            // Reachable only through `query_state_change`. The tree builder wants
-            // the tokenizer to suspend processing.
-            states::Quiescent => {
-                self.state = states::Data;
-                return false;
-            }
-
             //§ data-state
             states::Data => loop {
                 match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
@@ -1278,7 +1281,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)
-            | states::RawData(ScriptData) | states::Plaintext | states::Quiescent
+            | states::RawData(ScriptData) | states::Plaintext
                 => go!(self: eof),
 
             states::TagName | states::RawData(ScriptDataEscaped(_))
