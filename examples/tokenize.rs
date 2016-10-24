@@ -10,7 +10,7 @@
 extern crate tendril;
 extern crate html5ever;
 
-use std::io::{self, Read};
+use std::io;
 use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
