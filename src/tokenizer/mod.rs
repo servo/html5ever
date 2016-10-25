@@ -928,7 +928,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::BeforeAttributeValue => loop { match peek!(self) {
                 '\t' | '\n' | '\r' | '\x0C' | ' ' => go!(self: discard_char),
                 '"'  => go!(self: discard_char; to AttributeValue DoubleQuoted),
-                '&'  => go!(self: to AttributeValue Unquoted),
                 '\'' => go!(self: discard_char; to AttributeValue SingleQuoted),
                 '\0' => go!(self: discard_char; error; push_value '\u{fffd}'; to AttributeValue Unquoted),
                 '>'  => go!(self: discard_char; error; emit_tag Data),
