@@ -8,11 +8,11 @@
 // except according to those terms.
 
 extern crate rustc_serialize;
-#[macro_use] extern crate string_cache;
 extern crate tendril;
 extern crate test;
-
 extern crate html5ever;
+#[macro_use] extern crate html5ever_atoms;
+
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
@@ -28,6 +28,7 @@ use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
 
+use html5ever::{LocalName, QualName};
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
@@ -35,7 +36,6 @@ use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
 use html5ever::tokenizer::buffer_queue::BufferQueue;
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
-use string_cache::{Atom, QualName};
 use tendril::{StrTendril, SliceExt};
 
 // Return all ways of splitting the string into at most n
@@ -219,10 +219,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: LocalName::from(&*args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(), Atom::from(&**k)),
+                    name: QualName::new(ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -234,7 +234,7 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: Atom::from(&*args[0].get_str()),
+            name: LocalName::from(&*args[0].get_str()),
             attrs: vec!(),
             self_closing: false
         }),

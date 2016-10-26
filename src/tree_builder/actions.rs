@@ -28,7 +28,7 @@ use std::mem::replace;
 use std::iter::{Rev, Enumerate};
 use std::borrow::Cow::Borrowed;
 
-use string_cache::{Atom, Namespace, QualName};
+use {LocalName, Namespace, QualName};
 use tendril::StrTendril;
 
 pub use self::PushFlag::*;
@@ -60,7 +60,7 @@ enum Bookmark<Handle> {
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult;
-    fn assert_named(&mut self, node: Handle, name: Atom);
+    fn assert_named(&mut self, node: Handle, name: LocalName);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
     fn append_text(&mut self, text: StrTendril) -> ProcessResult;
@@ -68,10 +68,10 @@ pub trait TreeBuilderActions<Handle> {
     fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult;
     fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
-    fn insert_phantom(&mut self, name: Atom) -> Handle;
+    fn insert_phantom(&mut self, name: LocalName) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
-    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>) -> Handle;
     fn create_root(&mut self, attrs: Vec<Attribute>);
     fn close_the_cell(&mut self);
     fn reset_insertion_mode(&mut self) -> InsertionMode;
@@ -80,16 +80,16 @@ pub trait TreeBuilderActions<Handle> {
     fn is_type_hidden(&self, tag: &Tag) -> bool;
     fn close_p_element_in_button_scope(&mut self);
     fn close_p_element(&mut self);
-    fn expect_to_close(&mut self, name: Atom);
-    fn pop_until_named(&mut self, name: Atom) -> usize;
+    fn expect_to_close(&mut self, name: LocalName);
+    fn pop_until_named(&mut self, name: LocalName) -> usize;
     fn pop_until<TagSet>(&mut self, pred: TagSet) -> usize where TagSet: Fn(QualName) -> bool;
     fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn generate_implied_end_except(&mut self, except: Atom);
+    fn generate_implied_end_except(&mut self, except: LocalName);
     fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool where TagSet: Fn(QualName) -> bool;
-    fn current_node_named(&self, name: Atom) -> bool;
-    fn html_elem_named(&self, elem: Handle, name: Atom) -> bool;
-    fn in_html_elem_named(&self, name: Atom) -> bool;
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool where TagSet: Fn(QualName) -> bool;
+    fn current_node_named(&self, name: LocalName) -> bool;
+    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool;
+    fn in_html_elem_named(&self, name: LocalName) -> bool;
     fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool;
     fn check_body_end(&mut self);
@@ -99,7 +99,7 @@ pub trait TreeBuilderActions<Handle> {
     fn remove_from_stack(&mut self, elem: &Handle);
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
-    fn adoption_agency(&mut self, subject: Atom);
+    fn adoption_agency(&mut self, subject: LocalName);
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
     fn adjusted_current_node(&self) -> Handle;
@@ -115,7 +115,7 @@ pub trait TreeBuilderActions<Handle> {
     fn is_foreign(&mut self, token: &Token) -> bool;
     fn enter_foreign(&mut self, tag: Tag, ns: Namespace) -> ProcessResult;
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
-        where F: FnMut(Atom) -> Option<QualName>;
+        where F: FnMut(LocalName) -> Option<QualName>;
     fn adjust_svg_tag_name(&mut self, tag: &mut Tag);
     fn adjust_svg_attributes(&mut self, tag: &mut Tag);
     fn adjust_mathml_attributes(&mut self, tag: &mut Tag);
@@ -138,7 +138,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         Done
     }
 
-    fn assert_named(&mut self, node: Handle, name: Atom) {
+    fn assert_named(&mut self, node: Handle, name: LocalName) {
         assert!(self.html_elem_named(node, name));
     }
 
@@ -247,7 +247,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.sink.append(html_elem, child);
     }
 
-    fn adoption_agency(&mut self, subject: Atom) {
+    fn adoption_agency(&mut self, subject: LocalName) {
         // 1.
         if self.current_node_named(subject.clone()) {
             if self.position_in_active_formatting(&self.current_node()).is_none() {
@@ -561,19 +561,19 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         set(self.sink.elem_name(elem))
     }
 
-    fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
+    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool {
         self.sink.elem_name(elem) == QualName::new(ns!(html), name)
     }
 
-    fn in_html_elem_named(&self, name: Atom) -> bool {
+    fn in_html_elem_named(&self, name: LocalName) -> bool {
         self.open_elems.iter().any(|elem| self.html_elem_named(elem.clone(), name.clone()))
     }
 
-    fn current_node_named(&self, name: Atom) -> bool {
+    fn current_node_named(&self, name: LocalName) -> bool {
         self.html_elem_named(self.current_node(), name)
     }
 
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
         where TagSet: Fn(QualName) -> bool
     {
         self.in_scope(scope, |elem|
@@ -592,7 +592,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
     }
 
-    fn generate_implied_end_except(&mut self, except: Atom) {
+    fn generate_implied_end_except(&mut self, except: LocalName) {
         self.generate_implied_end(|p| match p {
             QualName { ns: ns!(html), ref local } if *local == except => false,
             _ => cursory_implied_end(p),
@@ -628,13 +628,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         n
     }
 
-    fn pop_until_named(&mut self, name: Atom) -> usize {
+    fn pop_until_named(&mut self, name: LocalName) -> usize {
         self.pop_until(|p| p == QualName::new(ns!(html), name.clone()))
     }
 
     // Pop elements until one with the specified name has been popped.
     // Signal an error if it was not the first one.
-    fn expect_to_close(&mut self, name: Atom) {
+    fn expect_to_close(&mut self, name: LocalName) {
         if self.pop_until_named(name.clone()) != 1 {
             self.sink.parse_error(format_if!(self.opts.exact_errors,
                 "Unexpected open element",
@@ -769,7 +769,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // FIXME: application cache selection algorithm
     }
 
-    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>)
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
         let elem = self.sink.create_element(QualName::new(ns, name), attrs);
         self.insert_appropriately(AppendNode(elem.clone()), None);
@@ -789,7 +789,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.insert_element(NoPush, ns!(html), tag.name, tag.attrs)
     }
 
-    fn insert_phantom(&mut self, name: Atom) -> Handle {
+    fn insert_phantom(&mut self, name: LocalName) -> Handle {
         self.insert_element(Push, ns!(html), name, vec!())
     }
     //§ END
@@ -984,7 +984,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
-        where F: FnMut(Atom) -> Option<QualName>,
+        where F: FnMut(LocalName) -> Option<QualName>,
     {
         for &mut Attribute { ref mut name, .. } in &mut tag.attrs {
             if let Some(replacement) = map(name.local.clone()) {

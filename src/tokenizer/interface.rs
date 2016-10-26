@@ -11,7 +11,7 @@ use tokenizer::states;
 
 use std::borrow::Cow;
 
-use string_cache::{Atom, QualName};
+use {LocalName, QualName};
 use tendril::StrTendril;
 
 pub use self::TagKind::{StartTag, EndTag};
@@ -61,7 +61,7 @@ pub enum TagKind {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Tag {
     pub kind: TagKind,
-    pub name: Atom,
+    pub name: LocalName,
     pub self_closing: bool,
     pub attrs: Vec<Attribute>,
 }

@@ -8,10 +8,9 @@
 // except according to those terms.
 
 extern crate test;
-#[macro_use] extern crate string_cache;
 extern crate tendril;
-
 extern crate html5ever;
+#[macro_use] extern crate html5ever_atoms;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
@@ -27,11 +26,11 @@ use std::collections::{HashSet, HashMap};
 use test::{TestDesc, TestDescAndFn, DynTestName, TestFn};
 use test::ShouldPanic::No;
 
+use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
 use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
 use html5ever::rcdom::{Template, Text};
 
-use string_cache::{Atom, QualName};
 use tendril::{StrTendril, TendrilSink};
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
@@ -241,11 +240,11 @@ fn make_test_desc_with_scripting_flag(
 
 fn context_name(context: &str) -> QualName {
     if context.starts_with("svg ") {
-        QualName::new(ns!(svg), Atom::from(&context[4..]))
+        QualName::new(ns!(svg), LocalName::from(&context[4..]))
     } else if context.starts_with("math ") {
-        QualName::new(ns!(mathml), Atom::from(&context[5..]))
+        QualName::new(ns!(mathml), LocalName::from(&context[5..]))
     } else {
-        QualName::new(ns!(html), Atom::from(context))
+        QualName::new(ns!(html), LocalName::from(context))
     }
 }
 

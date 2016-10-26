@@ -14,7 +14,7 @@ use tokenizer::Attribute;
 
 use std::borrow::Cow;
 
-use string_cache::QualName;
+use QualName;
 use tendril::StrTendril;
 
 pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};

@@ -43,7 +43,7 @@ fn main() {
         .write_to(&mut generated)
         .unwrap();
 
-    writeln!(generated, "macro_rules! ns {{").unwrap();
+    writeln!(generated, "#[macro_export] macro_rules! ns {{").unwrap();
     for &(prefix, url) in NAMESPACES {
         writeln!(generated, "({}) => {{ namespace_url!({:?}) }};", prefix, url).unwrap();
     }

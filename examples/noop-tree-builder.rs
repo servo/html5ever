@@ -7,19 +7,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use]
-extern crate string_cache;
-extern crate tendril;
+#[macro_use] extern crate html5ever_atoms;
 extern crate html5ever;
+extern crate tendril;
 
 use std::io;
 use std::default::Default;
 use std::collections::HashMap;
 use std::borrow::Cow;
-use string_cache::QualName;
 
 use tendril::{StrTendril, TendrilSink};
 
+use html5ever::QualName;
 use html5ever::parse_document;
 use html5ever::tokenizer::Attribute;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};

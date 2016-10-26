@@ -17,7 +17,7 @@ use std::borrow::Cow;
 use std::mem;
 
 use encoding::{self, EncodingRef};
-use string_cache::QualName;
+use QualName;
 use tendril;
 use tendril::{StrTendril, ByteTendril};
 use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};

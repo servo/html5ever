@@ -19,7 +19,7 @@ use self::types::*;
 use self::actions::TreeBuilderActions;
 use self::rules::TreeBuilderStep;
 
-use string_cache::QualName;
+use QualName;
 use tendril::StrTendril;
 
 use tokenizer;
@@ -277,8 +277,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-        use string_cache::QualName;
-
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {

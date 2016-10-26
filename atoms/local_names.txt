@@ -219,6 +219,7 @@ descent
 details
 determinant
 dfn
+dialog
 diff
 diffuseConstant
 dir
@@ -273,6 +274,7 @@ feConvolveMatrix
 feDiffuseLighting
 feDisplacementMap
 feDistantLight
+feDropShadow
 feFlood
 feFuncA
 feFuncB
@@ -702,6 +704,7 @@ radialGradient
 radiogroup
 radius
 rationals
+rb
 readonly
 real
 reals
@@ -738,6 +741,7 @@ rp
 rquote
 rspace
 rt
+rtc
 ruby
 rule
 rules
@@ -925,11 +929,13 @@ x-height
 x1
 x2
 xChannelSelector
+xlink
 xlink:actuate
 xlink:arcrole
 xlink:href
 xlink:role
 xlink:show
+xlink:title
 xlink:type
 xml:base
 xml:lang

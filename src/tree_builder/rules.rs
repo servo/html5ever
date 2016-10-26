@@ -17,6 +17,7 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 use tokenizer::{Attribute, EndTag, StartTag, StateChangeQuery, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
+use QualName;
 use util::str::is_ascii_whitespace;
 
 use std::ascii::AsciiExt;
@@ -402,7 +403,7 @@ impl<Handle, Sink> TreeBuilderStep
                     declare_tag_set!(close_list = "li");
                     declare_tag_set!(close_defn = "dd" "dt");
                     declare_tag_set!(extra_special = [special_tag] - "address" "div" "p");
-                    let can_close: fn(::string_cache::QualName) -> bool = match tag.name {
+                    let can_close: fn(QualName) -> bool = match tag.name {
                         atom!("li") => close_list,
                         atom!("dd") | atom!("dt") => close_defn,
                         _ => unreachable!(),
@@ -511,7 +512,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ </li> </dd> </dt> => {
-                    let scope: fn(::string_cache::QualName) -> bool = match tag.name {
+                    let scope: fn(QualName) -> bool = match tag.name {
                         atom!("li") => list_item_scope,
                         _ => default_scope,
                     };

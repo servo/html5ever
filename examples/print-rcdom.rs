@@ -7,10 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#[macro_use] extern crate html5ever_atoms;
 extern crate html5ever;
-
-#[macro_use]
-extern crate string_cache;
 extern crate tendril;
 
 use std::io;

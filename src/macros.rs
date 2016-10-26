@@ -7,6 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+// FIXME: remove this
+macro_rules! atom {
+    ($string: tt) => { local_name!($string) }
+}
+
 macro_rules! unwrap_or_else {
     ($opt:expr, $else_block:block) => {
         match $opt {

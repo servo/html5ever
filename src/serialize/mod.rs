@@ -10,7 +10,7 @@
 use std::io::{self, Write};
 use std::default::Default;
 
-use string_cache::{Atom, QualName};
+use {LocalName, QualName};
 
 //§ serializing-html-fragments
 #[derive(Copy, Clone, PartialEq)]
@@ -50,7 +50,7 @@ impl Default for SerializeOpts {
 }
 
 struct ElemInfo {
-    html_name: Option<Atom>,
+    html_name: Option<LocalName>,
     ignore_children: bool,
     processed_first_child: bool,
 }
@@ -63,12 +63,12 @@ pub struct Serializer<'wr, Wr:'wr> {
     stack: Vec<ElemInfo>,
 }
 
-fn tagname(name: &QualName) -> Atom {
+fn tagname(name: &QualName) -> LocalName {
     match name.ns {
         ns!(html) | ns!(mathml) | ns!(svg) => (),
         ref ns => {
             // FIXME(#122)
-            warn!("node with weird namespace {:?}", &*ns.0);
+            warn!("node with weird namespace {:?}", ns);
         }
     }
 
@@ -141,7 +141,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
                 ns!(xlink) => try!(self.writer.write_all(b"xlink:")),
                 ref ns => {
                     // FIXME(#122)
-                    warn!("attr with weird namespace {:?}", &*ns.0);
+                    warn!("attr with weird namespace {:?}", ns);
                     try!(self.writer.write_all(b"unknown_namespace:"));
                 }
             }
