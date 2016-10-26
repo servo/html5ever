@@ -18,6 +18,7 @@ use std::default::Default;
 use tendril::{ByteTendril, ReadExt};
 
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer};
+use html5ever::tokenizer::buffer_queue::BufferQueue;
 
 struct Sink(Vec<Token>);
 
@@ -30,11 +31,13 @@ impl TokenSink for Sink {
 }
 
 fn main() {
-    let mut input = ByteTendril::new();
-    io::stdin().read_to_tendril(&mut input).unwrap();
-    let input = input.try_reinterpret().unwrap();
+    let mut chunk = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut chunk).unwrap();
+    let mut input = BufferQueue::new();
+    input.push_back(chunk.try_reinterpret().unwrap());
 
     let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
-    tok.feed(input);
+    tok.feed(&mut input);
+    assert!(input.is_empty());
     tok.end();
 }

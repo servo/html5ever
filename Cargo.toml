@@ -23,9 +23,6 @@ harness = false
 name = "tokenizer"
 harness = false
 
-[[test]]
-name = "serializer"
-
 [[bench]]
 name = "tokenizer"
 harness = false

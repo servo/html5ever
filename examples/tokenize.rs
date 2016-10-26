@@ -17,6 +17,7 @@ use tendril::{ByteTendril, ReadExt};
 
 use html5ever::tokenizer::{TokenSink, Tokenizer, Token, TokenizerOpts, ParseError};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
+use html5ever::tokenizer::buffer_queue::BufferQueue;
 
 #[derive(Copy, Clone)]
 struct TokenPrinter {
@@ -80,15 +81,17 @@ fn main() {
     let mut sink = TokenPrinter {
         in_char_run: false,
     };
-    let mut input = ByteTendril::new();
-    io::stdin().read_to_tendril(&mut input).unwrap();
-    let input = input.try_reinterpret().unwrap();
+    let mut chunk = ByteTendril::new();
+    io::stdin().read_to_tendril(&mut chunk).unwrap();
+    let mut input = BufferQueue::new();
+    input.push_back(chunk.try_reinterpret().unwrap());
 
     let mut tok = Tokenizer::new(sink, TokenizerOpts {
         profile: true,
         .. Default::default()
     });
-    tok.feed(input);
+    tok.feed(&mut input);
+    assert!(input.is_empty());
     tok.end();
     sink.is_char(false);
 }
