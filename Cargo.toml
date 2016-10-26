@@ -20,11 +20,11 @@ name = "tree_builder"
 harness = false
 
 [[test]]
-name = "tokenizer"
-harness = false
+name = "serializer"
 
 [[test]]
-name = "serializer"
+name = "tokenizer"
+harness = false
 
 [[bench]]
 name = "tokenizer"

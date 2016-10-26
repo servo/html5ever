@@ -43,9 +43,9 @@ mod util {
     #[macro_use] pub mod smallcharset;
 }
 
+pub mod serialize;
 pub mod tokenizer;
 pub mod tree_builder;
-pub mod serialize;
 pub mod driver;
 pub mod rcdom;
 

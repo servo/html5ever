@@ -38,6 +38,11 @@ impl BufferQueue {
         }
     }
 
+    /// Returns whether the queue is empty.
+    pub fn is_empty(&self) -> bool {
+        self.buffers.is_empty()
+    }
+
     /// Add a buffer to the beginning of the queue.
     pub fn push_front(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
@@ -55,7 +60,7 @@ impl BufferQueue {
     }
 
     /// Look at the next available character, if any.
-    pub fn peek(&mut self) -> Option<char> {
+    pub fn peek(&self) -> Option<char> {
         // Invariant: all buffers in the queue are non-empty.
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
@@ -111,26 +116,31 @@ impl BufferQueue {
     // Check if the next characters are an ASCII case-insensitive match for
     // `pat`, which must be non-empty.
     //
-    // If so, consume them and return Some(true).
-    // If they do not match, return Some(false).
-    // If not enough characters are available to know, return None.
-    pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
+    // This function panics in case of non-ASCII code points found in `pat`.
+    //
+    // If so, consume them and return Ok(true).
+    // If they do not match, return Ok(false) and don't consume anything.
+    // If a partial match is found, return Err(length) and don't consume anything.
+    pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Result<bool, usize> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;
+        let mut matched = 0;
         if self.buffers.front().is_none() {
-            return None;
+            return Err(matched);
         }
 
         for pattern_byte in pat.bytes() {
+            assert!(pattern_byte < 128);
             if buffers_exhausted >= self.buffers.len() {
-                return None;
+                return Err(matched);
             }
             let ref buf = self.buffers[buffers_exhausted];
 
             if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
-                return Some(false)
+                return Ok(false)
             }
 
+            matched += 1;
             consumed_from_last += 1;
             if consumed_from_last >= buf.len() {
                 buffers_exhausted += 1;
@@ -148,7 +158,7 @@ impl BufferQueue {
             Some(ref mut buf) => buf.pop_front(consumed_from_last as u32),
         }
 
-        Some(true)
+        Ok(true)
     }
 }
 
@@ -210,9 +220,9 @@ mod test {
         let mut bq = BufferQueue::new();
         bq.push_back("a".to_tendril());
         bq.push_back("bc".to_tendril());
-        assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
-        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
-        assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), Err(3));
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Ok(false));
+        assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Ok(true));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
     }
