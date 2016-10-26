@@ -17,7 +17,7 @@ use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag, StartTag, EndTag};
+use tokenizer::{Attribute, Tag, StartTag, StateChangeQuery, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::to_escaped_string;
@@ -178,7 +178,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     // `process_token` of a start tag returns!
     fn to_raw_text_mode(&mut self, k: RawKind) {
         assert!(self.next_tokenizer_state.is_none());
-        self.next_tokenizer_state = Some(RawData(k));
+        self.next_tokenizer_state = Some(StateChangeQuery::RawData(k));
         self.orig_mode = Some(self.mode);
         self.mode = Text;
     }

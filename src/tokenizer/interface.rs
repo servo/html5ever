@@ -97,6 +97,12 @@ pub enum Token {
 // FIXME: rust-lang/rust#22629
 unsafe impl Send for Token { }
 
+pub enum StateChangeQuery {
+    Plaintext,
+    Quiescent,
+    RawData(states::RawKind),
+}
+
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
     /// Process a token.
@@ -113,7 +119,7 @@ pub trait TokenSink {
     /// The tokenizer will call this after emitting any tag.
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.
-    fn query_state_change(&mut self) -> Option<states::State> {
+    fn query_state_change(&mut self) -> Option<StateChangeQuery> {
         None
     }
 }

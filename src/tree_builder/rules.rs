@@ -14,8 +14,8 @@ use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
 use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 
-use tokenizer::{Attribute, EndTag, StartTag, Tag};
-use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext, Quiescent};
+use tokenizer::{Attribute, EndTag, StartTag, StateChangeQuery, Tag};
+use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
 use util::str::is_ascii_whitespace;
 
@@ -438,7 +438,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ <plaintext> => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    self.next_tokenizer_state = Some(Plaintext);
+                    self.next_tokenizer_state = Some(StateChangeQuery::Plaintext);
                     Done
                 }
 
@@ -772,7 +772,7 @@ impl<Handle, Sink> TreeBuilderStep
                     if tag.name == atom!("script") {
                         warn!("FIXME: </script> not fully implemented");
                         if self.sink.complete_script(node) == NextParserState::Suspend {
-                            self.next_tokenizer_state = Some(Quiescent);
+                            self.next_tokenizer_state = Some(StateChangeQuery::Quiescent);
                         }
                     }
                     self.mode = self.orig_mode.take().unwrap();

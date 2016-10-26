@@ -23,7 +23,7 @@ use string_cache::QualName;
 use tendril::StrTendril;
 
 use tokenizer;
-use tokenizer::{Doctype, StartTag, Tag, TokenSink};
+use tokenizer::{Doctype, StartTag, StateChangeQuery, Tag, TokenSink};
 use tokenizer::states as tok_state;
 
 use util::str::is_ascii_whitespace;
@@ -124,7 +124,7 @@ pub struct TreeBuilder<Handle, Sink> {
     //§ END
 
     /// Next state change for the tokenizer, if any.
-    next_tokenizer_state: Option<tokenizer::states::State>,
+    next_tokenizer_state: Option<StateChangeQuery>,
 
     /// Frameset-ok flag.
     frameset_ok: bool,
@@ -428,7 +428,7 @@ impl<Handle, Sink> TokenSink
         self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
     }
 
-    fn query_state_change(&mut self) -> Option<tokenizer::states::State> {
+    fn query_state_change(&mut self) -> Option<StateChangeQuery> {
         self.next_tokenizer_state.take()
     }
 }

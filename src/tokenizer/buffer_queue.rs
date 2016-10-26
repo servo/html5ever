@@ -38,6 +38,11 @@ impl BufferQueue {
         }
     }
 
+    /// Returns whether the queue is empty.
+    pub fn is_empty(&self) -> bool {
+        self.buffers.is_empty()
+    }
+
     /// Add a buffer to the beginning of the queue.
     pub fn push_front(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
@@ -55,7 +60,7 @@ impl BufferQueue {
     }
 
     /// Look at the next available character, if any.
-    pub fn peek(&mut self) -> Option<char> {
+    pub fn peek(&self) -> Option<char> {
         // Invariant: all buffers in the queue are non-empty.
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }

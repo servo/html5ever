@@ -13,7 +13,7 @@ extern crate html5ever;
 extern crate string_cache;
 extern crate tendril;
 
-use std::io::{self, Read};
+use std::io;
 use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
