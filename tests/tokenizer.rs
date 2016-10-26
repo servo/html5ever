@@ -32,6 +32,7 @@ use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::buffer_queue::BufferQueue;
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
 use string_cache::{Atom, QualName};
@@ -134,9 +135,12 @@ impl TokenSink for TokenLogger {
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
+    let mut buffer = BufferQueue::new();
     for chunk in input.into_iter() {
-        tok.feed(chunk);
+        buffer.push_back(chunk);
+        let _ = tok.feed(&mut buffer);
     }
+    tok.feed(&mut buffer);
     tok.end();
     tok.unwrap().get_tokens()
 }

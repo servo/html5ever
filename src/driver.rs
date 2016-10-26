@@ -10,6 +10,7 @@
 //! High-level interface to the parser.
 
 use tokenizer::{Attribute, Tokenizer, TokenizerOpts};
+use tokenizer::buffer_queue::BufferQueue;
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use std::borrow::Cow;
@@ -41,7 +42,7 @@ pub struct ParseOpts {
 pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where Sink: TreeSink {
     let tb = TreeBuilder::new(sink, opts.tree_builder);
     let tok = Tokenizer::new(tb, opts.tokenizer);
-    Parser { tokenizer: tok }
+    Parser { tokenizer: tok, input_buffer: BufferQueue::new() }
 }
 
 /// Parse an HTML fragment
@@ -72,18 +73,20 @@ pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
         .. opts.tokenizer
     };
     let tok = Tokenizer::new(tb, tok_opts);
-    Parser { tokenizer: tok }
+    Parser { tokenizer: tok, input_buffer: BufferQueue::new() }
 }
 
 /// An HTML parser,
 /// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
 pub struct Parser<Sink> where Sink: TreeSink {
     pub tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
+    pub input_buffer: BufferQueue,
 }
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     fn process(&mut self, t: StrTendril) {
-        self.tokenizer.feed(t)
+        self.input_buffer.push_front(t);
+        self.tokenizer.feed(&mut self.input_buffer)
     }
 
     // FIXME: Is it too noisy to report every character decoding error?
@@ -94,6 +97,7 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     type Output = Sink::Output;
 
     fn finish(mut self) -> Self::Output {
+        self.tokenizer.feed(&mut self.input_buffer);
         self.tokenizer.end();
         self.tokenizer.unwrap().unwrap().finish()
     }

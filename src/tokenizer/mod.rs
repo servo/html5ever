@@ -38,10 +38,10 @@ use std::collections::BTreeMap;
 use string_cache::{Atom, QualName};
 use tendril::StrTendril;
 
+pub mod buffer_queue;
 pub mod states;
 mod interface;
 mod char_ref;
-mod buffer_queue;
 
 fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
     match *opt_str {
@@ -99,9 +99,6 @@ pub struct Tokenizer<Sink> {
 
     /// The abstract machine state as described in the spec.
     state: states::State,
-
-    /// Input ready to be tokenized.
-    input_buffers: BufferQueue,
 
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
@@ -174,7 +171,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             sink: sink,
             state: state,
             char_ref_tokenizer: None,
-            input_buffers: BufferQueue::new(),
             at_eof: false,
             current_char: '\0',
             reconsume: false,
@@ -208,17 +204,22 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, mut input: StrTendril) {
+    pub fn feed(&mut self, input: &mut BufferQueue) {
         if input.is_empty() {
             return;
         }
 
-        if self.discard_bom && input.starts_with("\u{feff}") {
-            input.pop_front(3);
+        if self.discard_bom {
+            if let Some(c) = input.peek() {
+                if c == '\u{feff}' {
+                    input.next();
+                }
+            } else {
+                return;
+            }
         };
 
-        self.input_buffers.push_back(input);
-        self.run();
+        self.run(input)
     }
 
     pub fn set_plaintext_state(&mut self) {
@@ -237,11 +238,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //§ preprocessing-the-input-stream
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char) -> Option<char> {
+    fn get_preprocessed_char(
+            &mut self,
+            mut c: char,
+            input: &mut BufferQueue)
+            -> Option<char> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
-                c = unwrap_or_return!(self.input_buffers.next(), None);
+                c = unwrap_or_return!(input.next(), None);
             }
         }
 
@@ -266,29 +271,28 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self) -> Option<char> {
+    fn get_char(&mut self, input: &mut BufferQueue) -> Option<char> {
         if self.reconsume {
             self.reconsume = false;
             Some(self.current_char)
         } else {
-            self.input_buffers.next()
-                .and_then(|c| self.get_preprocessed_char(c))
+            input.next().and_then(|c| self.get_preprocessed_char(c, input))
         }
     }
 
-    fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
+    fn pop_except_from(&mut self, input: &mut BufferQueue, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
         // always do the same thing as the `NotFromSet` case.
         if self.opts.exact_errors || self.reconsume || self.ignore_lf {
-            return self.get_char().map(|x| FromSet(x));
+            return self.get_char(input).map(|x| FromSet(x));
         }
 
-        let d = self.input_buffers.pop_except_from(set);
+        let d = input.pop_except_from(set);
         debug!("got characters {:?}", d);
         match d {
-            Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
+            Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(|x| FromSet(x)),
 
             // NB: We don't set self.current_char for a run of characters not
             // in the set.  It shouldn't matter for the codepaths that use
@@ -302,20 +306,32 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
-    fn eat(&mut self, pat: &str, eq: fn(&u8, &u8) -> bool) -> Option<bool> {
-        match self.input_buffers.eat(pat, eq) {
+    fn eat(
+            &mut self,
+            input: &mut BufferQueue,
+            pat: &str,
+            eq: fn(&u8, &u8) -> bool)
+            -> Option<bool> {
+        input.push_front(replace(&mut self.temp_buf, StrTendril::new()));
+        match input.eat(pat, eq) {
             None if self.at_eof => Some(false),
-            r => r,
+            None => {
+                while let Some(c) = input.next() {
+                    self.temp_buf.push_char(c);
+                }
+                None
+            },
+            Some(matched) => Some(matched),
         }
     }
 
     /// Run the state machine for as long as we can.
-    pub fn run(&mut self) {
+    pub fn run(&mut self, input: &mut BufferQueue) {
         if self.opts.profile {
             loop {
                 let state = self.state;
                 let old_sink = self.time_in_sink;
-                let (run, mut dt) = time!(self.step());
+                let (run, mut dt) = time!(self.step(input));
                 dt -= (self.time_in_sink - old_sink);
                 let new = match self.state_profile.get_mut(&state) {
                     Some(x) => {
@@ -331,8 +347,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 if !run { break; }
             }
         } else {
-            while self.step() {
-            }
+            while self.step(input) {}
         }
     }
 
@@ -510,21 +525,17 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token(EOFToken);
     }
 
-    fn peek(&mut self) -> Option<char> {
+    fn peek(&mut self, input: &BufferQueue) -> Option<char> {
         if self.reconsume {
             Some(self.current_char)
         } else {
-            self.input_buffers.peek()
+            input.peek()
         }
     }
 
-    fn discard_char(&mut self) {
-        let c = self.get_char();
+    fn discard_char(&mut self, input: &mut BufferQueue) {
+        let c = self.get_char(input);
         assert!(c.is_some());
-    }
-
-    fn unconsume(&mut self, buf: StrTendril) {
-        self.input_buffers.push_front(buf);
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
@@ -539,7 +550,7 @@ macro_rules! shorthand (
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
     ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c);                  );
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
-    ( $me:ident : discard_char                     ) => ( $me.discard_char();                                  );
+    ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input);                            );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c);                          );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
@@ -619,40 +630,40 @@ macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) 
 
 // This is a macro because it can cause early return
 // from the function where it is used.
-macro_rules! get_char ( ($me:expr) => (
-    unwrap_or_return!($me.get_char(), false)
+macro_rules! get_char ( ($me:expr, $input:expr) => (
+    unwrap_or_return!($me.get_char($input), false)
 ));
 
-macro_rules! peek ( ($me:expr) => (
-    unwrap_or_return!($me.peek(), false)
+macro_rules! peek ( ($me:expr, $input:expr) => (
+    unwrap_or_return!($me.peek($input), false)
 ));
 
-macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($set), false)
+macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
+    unwrap_or_return!($me.pop_except_from($input, $set), false)
 ));
 
-macro_rules! eat ( ($me:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($pat, u8::eq_ignore_ascii_case), false)
+macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
+    unwrap_or_return!($me.eat($input, $pat, u8::eq_ignore_ascii_case), false)
 ));
 
-macro_rules! eat_exact ( ($me:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($pat, u8::eq), false)
+macro_rules! eat_exact ( ($me:expr, $input:expr, $pat:expr) => (
+    unwrap_or_return!($me.eat($input, $pat, u8::eq), false)
 ));
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
-    fn step(&mut self) -> bool {
+    fn step(&mut self, input: &mut BufferQueue) -> bool {
         if self.char_ref_tokenizer.is_some() {
-            return self.step_char_ref_tokenizer();
+            return self.step_char_ref_tokenizer(input);
         }
 
         debug!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
             states::Data => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<')) {
                     FromSet('\0') => go!(self: error; emit '\0'),
                     FromSet('&')  => go!(self: consume_char_ref),
                     FromSet('<')  => go!(self: to TagOpen),
@@ -663,7 +674,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-state
             states::RawData(Rcdata) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '&' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('<') => go!(self: to RawLessThanSign Rcdata),
@@ -674,7 +685,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rawtext-state
             states::RawData(Rawtext) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('<') => go!(self: to RawLessThanSign Rawtext),
                     FromSet(c) => go!(self: emit c),
@@ -684,7 +695,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-state
             states::RawData(ScriptData) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('<') => go!(self: to RawLessThanSign ScriptData),
                     FromSet(c) => go!(self: emit c),
@@ -694,7 +705,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-escaped-state
             states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '-' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash Escaped),
                     FromSet('<') => go!(self: to RawLessThanSign ScriptDataEscaped Escaped),
@@ -705,7 +716,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0' '-' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash DoubleEscaped),
                     FromSet('<') => go!(self: emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
@@ -716,7 +727,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ plaintext-state
             states::Plaintext => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet(c)    => go!(self: emit c),
                     NotFromSet(b) => self.emit_chars(b),
@@ -724,8 +735,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ tag-open-state
-            states::TagOpen => loop { match get_char!(self) {
-                '!' => go!(self: to MarkupDeclarationOpen),
+            states::TagOpen => loop { match get_char!(self, input) {
+                '!' => go!(self: clear_temp; to MarkupDeclarationOpen),
                 '/' => go!(self: to EndTagOpen),
                 '?' => go!(self: error; clear_comment; push_comment '?'; to BogusComment),
                 c => match lower_ascii_letter(c) {
@@ -735,7 +746,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ end-tag-open-state
-            states::EndTagOpen => loop { match get_char!(self) {
+            states::EndTagOpen => loop { match get_char!(self, input) {
                 '>'  => go!(self: error; to Data),
                 '\0' => go!(self: error; clear_comment; push_comment '\u{fffd}'; to BogusComment),
                 c => match lower_ascii_letter(c) {
@@ -745,7 +756,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ tag-name-state
-            states::TagName => loop { match get_char!(self) {
+            states::TagName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(self: to BeforeAttributeName),
                 '/'  => go!(self: to SelfClosingStartTag),
@@ -755,7 +766,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ script-data-escaped-less-than-sign-state
-            states::RawLessThanSign(ScriptDataEscaped(Escaped)) => loop { match get_char!(self) {
+            states::RawLessThanSign(ScriptDataEscaped(Escaped)) => loop { match get_char!(self, input) {
                 '/' => go!(self: clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
                 c => match lower_ascii_letter(c) {
                     Some(cl) => go!(self: clear_temp; push_temp cl; emit '<'; emit c;
@@ -765,14 +776,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ script-data-double-escaped-less-than-sign-state
-            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => loop { match get_char!(self) {
+            states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => loop { match get_char!(self, input) {
                 '/' => go!(self: clear_temp; emit '/'; to ScriptDataDoubleEscapeEnd),
                 _   => go!(self: reconsume RawData ScriptDataEscaped DoubleEscaped),
             }},
 
             //§ rcdata-less-than-sign-state rawtext-less-than-sign-state script-data-less-than-sign-state
             // otherwise
-            states::RawLessThanSign(kind) => loop { match get_char!(self) {
+            states::RawLessThanSign(kind) => loop { match get_char!(self, input) {
                 '/' => go!(self: clear_temp; to RawEndTagOpen kind),
                 '!' if kind == ScriptData => go!(self: emit '<'; emit '!'; to ScriptDataEscapeStart Escaped),
                 _   => go!(self: emit '<'; reconsume RawData kind),
@@ -780,7 +791,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-end-tag-open-state rawtext-end-tag-open-state script-data-end-tag-open-state script-data-escaped-end-tag-open-state
             states::RawEndTagOpen(kind) => loop {
-                let c = get_char!(self);
+                let c = get_char!(self, input);
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(self: create_tag EndTag cl; push_temp c; to RawEndTagName kind),
                     None     => go!(self: emit '<'; emit '/'; reconsume RawData kind),
@@ -789,7 +800,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-end-tag-name-state rawtext-end-tag-name-state script-data-end-tag-name-state script-data-escaped-end-tag-name-state
             states::RawEndTagName(kind) => loop {
-                let c = get_char!(self);
+                let c = get_char!(self, input);
                 if self.have_appropriate_end_tag() {
                     match c {
                         '\t' | '\n' | '\x0C' | ' '
@@ -808,7 +819,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escape-start-state
             states::ScriptDataEscapeStart(DoubleEscaped) => loop {
-                let c = get_char!(self);
+                let c = get_char!(self, input);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
                         let esc = if &*self.temp_buf == "script" { DoubleEscaped } else { Escaped };
@@ -822,19 +833,19 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ script-data-escape-start-state
-            states::ScriptDataEscapeStart(Escaped) => loop { match get_char!(self) {
+            states::ScriptDataEscapeStart(Escaped) => loop { match get_char!(self, input) {
                 '-' => go!(self: emit '-'; to ScriptDataEscapeStartDash),
                 _   => go!(self: reconsume RawData ScriptData),
             }},
 
             //§ script-data-escape-start-dash-state
-            states::ScriptDataEscapeStartDash => loop { match get_char!(self) {
+            states::ScriptDataEscapeStartDash => loop { match get_char!(self, input) {
                 '-' => go!(self: emit '-'; to ScriptDataEscapedDashDash Escaped),
                 _   => go!(self: reconsume RawData ScriptData),
             }},
 
             //§ script-data-escaped-dash-state script-data-double-escaped-dash-state
-            states::ScriptDataEscapedDash(kind) => loop { match get_char!(self) {
+            states::ScriptDataEscapedDash(kind) => loop { match get_char!(self, input) {
                 '-'  => go!(self: emit '-'; to ScriptDataEscapedDashDash kind),
                 '<'  => {
                     if kind == DoubleEscaped { go!(self: emit '<'); }
@@ -845,7 +856,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ script-data-escaped-dash-dash-state script-data-double-escaped-dash-dash-state
-            states::ScriptDataEscapedDashDash(kind) => loop { match get_char!(self) {
+            states::ScriptDataEscapedDashDash(kind) => loop { match get_char!(self, input) {
                 '-'  => go!(self: emit '-'),
                 '<'  => {
                     if kind == DoubleEscaped { go!(self: emit '<'); }
@@ -858,7 +869,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escape-end-state
             states::ScriptDataDoubleEscapeEnd => loop {
-                let c = get_char!(self);
+                let c = get_char!(self, input);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
                         let esc = if &*self.temp_buf == "script" { Escaped } else { DoubleEscaped };
@@ -872,7 +883,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ before-attribute-name-state
-            states::BeforeAttributeName => loop { match get_char!(self) {
+            states::BeforeAttributeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(self: to SelfClosingStartTag),
                 '>'  => go!(self: emit_tag Data),
@@ -888,7 +899,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ attribute-name-state
-            states::AttributeName => loop { match get_char!(self) {
+            states::AttributeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(self: to AfterAttributeName),
                 '/'  => go!(self: to SelfClosingStartTag),
@@ -906,7 +917,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ after-attribute-name-state
-            states::AfterAttributeName => loop { match get_char!(self) {
+            states::AfterAttributeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '/'  => go!(self: to SelfClosingStartTag),
                 '='  => go!(self: to BeforeAttributeValue),
@@ -925,18 +936,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ before-attribute-value-state
             // Use peek so we can handle the first attr character along with the rest,
             // hopefully in the same zero-copy buffer.
-            states::BeforeAttributeValue => loop { match peek!(self) {
-                '\t' | '\n' | '\r' | '\x0C' | ' ' => go!(self: discard_char),
-                '"'  => go!(self: discard_char; to AttributeValue DoubleQuoted),
-                '\'' => go!(self: discard_char; to AttributeValue SingleQuoted),
-                '\0' => go!(self: discard_char; error; push_value '\u{fffd}'; to AttributeValue Unquoted),
-                '>'  => go!(self: discard_char; error; emit_tag Data),
+            states::BeforeAttributeValue => loop { match peek!(self, input) {
+                '\t' | '\n' | '\r' | '\x0C' | ' ' => go!(self: discard_char input),
+                '"'  => go!(self: discard_char input; to AttributeValue DoubleQuoted),
+                '\'' => go!(self: discard_char input; to AttributeValue SingleQuoted),
+                '\0' => go!(self: discard_char input; error; push_value '\u{fffd}'; to AttributeValue Unquoted),
+                '>'  => go!(self: discard_char input; error; emit_tag Data),
                 _    => go!(self: to AttributeValue Unquoted),
             }},
 
             //§ attribute-value-(double-quoted)-state
             states::AttributeValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '"' '&' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '"' '&' '\0')) {
                     FromSet('"')  => go!(self: to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(self: consume_char_ref '"'),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
@@ -947,7 +958,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(single-quoted)-state
             states::AttributeValue(SingleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\'' '&' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\'' '&' '\0')) {
                     FromSet('\'') => go!(self: to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(self: consume_char_ref '\''),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
@@ -958,7 +969,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(unquoted)-state
             states::AttributeValue(Unquoted) => loop {
-                match pop_except_from!(self, small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')) {
                     FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ')
                      => go!(self: to BeforeAttributeName),
                     FromSet('&')  => go!(self: consume_char_ref '>'),
@@ -974,7 +985,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ after-attribute-value-(quoted)-state
-            states::AfterAttributeValueQuoted => loop { match get_char!(self) {
+            states::AfterAttributeValueQuoted => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(self: to BeforeAttributeName),
                 '/'  => go!(self: to SelfClosingStartTag),
@@ -983,7 +994,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ self-closing-start-tag-state
-            states::SelfClosingStartTag => loop { match get_char!(self) {
+            states::SelfClosingStartTag => loop { match get_char!(self, input) {
                 '>' => {
                     self.current_tag_self_closing = true;
                     go!(self: emit_tag Data);
@@ -992,7 +1003,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ comment-start-state
-            states::CommentStart => loop { match get_char!(self) {
+            states::CommentStart => loop { match get_char!(self, input) {
                 '-'  => go!(self: to CommentStartDash),
                 '\0' => go!(self: error; push_comment '\u{fffd}'; to Comment),
                 '>'  => go!(self: error; emit_comment; to Data),
@@ -1000,7 +1011,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ comment-start-dash-state
-            states::CommentStartDash => loop { match get_char!(self) {
+            states::CommentStartDash => loop { match get_char!(self, input) {
                 '-'  => go!(self: to CommentEnd),
                 '\0' => go!(self: error; append_comment "-\u{fffd}"; to Comment),
                 '>'  => go!(self: error; emit_comment; to Data),
@@ -1008,21 +1019,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ comment-state
-            states::Comment => loop { match get_char!(self) {
+            states::Comment => loop { match get_char!(self, input) {
                 '-'  => go!(self: to CommentEndDash),
                 '\0' => go!(self: error; push_comment '\u{fffd}'),
                 c    => go!(self: push_comment c),
             }},
 
             //§ comment-end-dash-state
-            states::CommentEndDash => loop { match get_char!(self) {
+            states::CommentEndDash => loop { match get_char!(self, input) {
                 '-'  => go!(self: to CommentEnd),
                 '\0' => go!(self: error; append_comment "-\u{fffd}"; to Comment),
                 c    => go!(self: push_comment '-'; push_comment c; to Comment),
             }},
 
             //§ comment-end-state
-            states::CommentEnd => loop { match get_char!(self) {
+            states::CommentEnd => loop { match get_char!(self, input) {
                 '>'  => go!(self: emit_comment; to Data),
                 '\0' => go!(self: error; append_comment "--\u{fffd}"; to Comment),
                 '!'  => go!(self: error; to CommentEndBang),
@@ -1031,7 +1042,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ comment-end-bang-state
-            states::CommentEndBang => loop { match get_char!(self) {
+            states::CommentEndBang => loop { match get_char!(self, input) {
                 '-'  => go!(self: append_comment "--!"; to CommentEndDash),
                 '>'  => go!(self: emit_comment; to Data),
                 '\0' => go!(self: error; append_comment "--!\u{fffd}"; to Comment),
@@ -1039,14 +1050,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ doctype-state
-            states::Doctype => loop { match get_char!(self) {
+            states::Doctype => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                     => go!(self: to BeforeDoctypeName),
                 _   => go!(self: error; reconsume BeforeDoctypeName),
             }},
 
             //§ before-doctype-name-state
-            states::BeforeDoctypeName => loop { match get_char!(self) {
+            states::BeforeDoctypeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '\0' => go!(self: error; create_doctype; push_doctype_name '\u{fffd}'; to DoctypeName),
                 '>'  => go!(self: error; create_doctype; force_quirks; emit_doctype; to Data),
@@ -1055,9 +1066,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ doctype-name-state
-            states::DoctypeName => loop { match get_char!(self) {
+            states::DoctypeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
-                     => go!(self: to AfterDoctypeName),
+                     => go!(self: clear_temp; to AfterDoctypeName),
                 '>'  => go!(self: emit_doctype; to Data),
                 '\0' => go!(self: error; push_doctype_name '\u{fffd}'),
                 c    => go!(self: push_doctype_name (c.to_ascii_lowercase())),
@@ -1065,12 +1076,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ after-doctype-name-state
             states::AfterDoctypeName => loop {
-                if eat!(self, "public") {
+                if eat!(self, input, "public") {
                     go!(self: to AfterDoctypeKeyword Public);
-                } else if eat!(self, "system") {
+                } else if eat!(self, input, "system") {
                     go!(self: to AfterDoctypeKeyword System);
                 } else {
-                    match get_char!(self) {
+                    match get_char!(self, input) {
                         '\t' | '\n' | '\x0C' | ' ' => (),
                         '>' => go!(self: emit_doctype; to Data),
                         _   => go!(self: error; force_quirks; to BogusDoctype),
@@ -1079,7 +1090,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ after-doctype-public-keyword-state after-doctype-system-keyword-state
-            states::AfterDoctypeKeyword(kind) => loop { match get_char!(self) {
+            states::AfterDoctypeKeyword(kind) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(self: to BeforeDoctypeIdentifier kind),
                 '"'  => go!(self: error; clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
@@ -1089,7 +1100,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ before-doctype-public-identifier-state before-doctype-system-identifier-state
-            states::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self) {
+            states::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '"'  => go!(self: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
                 '\'' => go!(self: clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
@@ -1098,7 +1109,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ doctype-public-identifier-(double-quoted)-state doctype-system-identifier-(double-quoted)-state
-            states::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self) {
+            states::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self, input) {
                 '"'  => go!(self: to AfterDoctypeIdentifier kind),
                 '\0' => go!(self: error; push_doctype_id kind '\u{fffd}'),
                 '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
@@ -1106,7 +1117,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ doctype-public-identifier-(single-quoted)-state doctype-system-identifier-(single-quoted)-state
-            states::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self) {
+            states::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self, input) {
                 '\'' => go!(self: to AfterDoctypeIdentifier kind),
                 '\0' => go!(self: error; push_doctype_id kind '\u{fffd}'),
                 '>'  => go!(self: error; force_quirks; emit_doctype; to Data),
@@ -1114,7 +1125,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ after-doctype-public-identifier-state
-            states::AfterDoctypeIdentifier(Public) => loop { match get_char!(self) {
+            states::AfterDoctypeIdentifier(Public) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' '
                      => go!(self: to BetweenDoctypePublicAndSystemIdentifiers),
                 '>'  => go!(self: emit_doctype; to Data),
@@ -1124,14 +1135,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ after-doctype-system-identifier-state
-            states::AfterDoctypeIdentifier(System) => loop { match get_char!(self) {
+            states::AfterDoctypeIdentifier(System) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '>' => go!(self: emit_doctype; to Data),
                 _   => go!(self: error; to BogusDoctype),
             }},
 
             //§ between-doctype-public-and-system-identifiers-state
-            states::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self) {
+            states::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '>'  => go!(self: emit_doctype; to Data),
                 '"'  => go!(self: clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
@@ -1140,13 +1151,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }},
 
             //§ bogus-doctype-state
-            states::BogusDoctype => loop { match get_char!(self) {
+            states::BogusDoctype => loop { match get_char!(self, input) {
                 '>'  => go!(self: emit_doctype; to Data),
                 _    => (),
             }},
 
             //§ bogus-comment-state
-            states::BogusComment => loop { match get_char!(self) {
+            states::BogusComment => loop { match get_char!(self, input) {
                 '>'  => go!(self: emit_comment; to Data),
                 '\0' => go!(self: push_comment '\u{fffd}'),
                 c    => go!(self: push_comment c),
@@ -1154,13 +1165,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ markup-declaration-open-state
             states::MarkupDeclarationOpen => loop {
-                if eat_exact!(self, "--") {
+                if eat_exact!(self, input, "--") {
                     go!(self: clear_comment; to CommentStart);
-                } else if eat!(self, "doctype") {
+                } else if eat!(self, input, "doctype") {
                     go!(self: to Doctype);
                 } else {
                     if self.sink.adjusted_current_node_present_but_not_in_html_namespace() {
-                        if eat_exact!(self, "[CDATA[") {
+                        if eat_exact!(self, input, "[CDATA[") {
                             go!(self: clear_temp; to CdataSection);
                         }
                     }
@@ -1169,20 +1180,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             //§ cdata-section-state
-            states::CdataSection => loop { match get_char!(self) {
+            states::CdataSection => loop { match get_char!(self, input) {
                 ']' => go!(self: to CdataSectionBracket),
                 '\0' => go!(self: emit_temp; emit '\0'),
                 c => go!(self: push_temp c),
             }},
 
             //§ cdata-section-bracket
-            states::CdataSectionBracket => match get_char!(self) {
+            states::CdataSectionBracket => match get_char!(self, input) {
                 ']' => go!(self: to CdataSectionEnd),
                 _ => go!(self: push_temp ']'; reconsume CdataSection),
             },
 
             //§ cdata-section-end
-            states::CdataSectionEnd => loop { match get_char!(self) {
+            states::CdataSectionEnd => loop { match get_char!(self, input) {
                 ']' => go!(self: push_temp ']'),
                 '>' => go!(self: emit_temp; to Data),
                 _ => go!(self: push_temp ']'; push_temp ']'; reconsume CdataSection),
@@ -1192,11 +1203,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self) -> bool {
+    fn step_char_ref_tokenizer(&mut self, input: &mut BufferQueue) -> bool {
         // FIXME HACK: Take and replace the tokenizer so we don't
         // double-mut-borrow self.  This is why it's boxed.
         let mut tok = self.char_ref_tokenizer.take().unwrap();
-        let outcome = tok.step(self);
+        let outcome = tok.step(self, input);
 
         let progress = match outcome {
             char_ref::Done => {
@@ -1238,10 +1249,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
+        let mut input = BufferQueue::new();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
-                tok.end_of_file(self);
+                tok.end_of_file(self, &mut input);
                 self.process_char_ref(tok.get_result());
             }
         }
@@ -1249,11 +1261,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run();
+        self.run(&mut input);
+        assert!(input.is_empty());
 
-        while self.eof_step() {
-            // loop
-        }
+        while self.eof_step() {}
 
         if self.opts.profile {
             self.dump_profile();
