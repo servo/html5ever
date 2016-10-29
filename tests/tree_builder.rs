@@ -188,7 +188,7 @@ fn make_xml_test(
             ignore: ignore,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move || {
+        testfn: DynTestFn(Box::new(move |()| {
             let mut result = String::new();
 
             let dom: RcDom = parse(Some(data.to_tendril()).into_iter(), Default::default());

@@ -283,7 +283,7 @@ fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts
             ignore: false,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move || {
+        testfn: DynTestFn(Box::new(move |()| {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
             for input in insplits.into_iter() {
