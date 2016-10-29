@@ -40,20 +40,20 @@ macro_rules! atoms {
 type InsResult = Result<(), Cow<'static, str>>;
 
 #[derive(Debug)]
-struct NamespaceStack(Vec<Namespace>);
+struct NamespaceMapStack(Vec<NamespaceMap>);
 
 
-impl NamespaceStack{
-    fn new() -> NamespaceStack {
-        NamespaceStack({
+impl NamespaceMapStack{
+    fn new() -> NamespaceMapStack {
+        NamespaceMapStack({
             let mut vec = Vec::new();
-            vec.push(Namespace::default());
+            vec.push(NamespaceMap::default());
             vec
         })
     }
 
-    fn push(&mut self, namespace: Namespace) {
-        self.0.push(namespace);
+    fn push(&mut self, map: NamespaceMap) {
+        self.0.push(map);
     }
 
     fn pop(&mut self) {
@@ -65,7 +65,7 @@ impl NamespaceStack{
 type UriMapping = (Atom, Atom);
 
 #[derive(Debug)]
-struct Namespace {
+struct NamespaceMap {
     // Map that maps prefixes to URI.
     //
     // Key denotes namespace prefix, and value denotes
@@ -76,16 +76,16 @@ struct Namespace {
     scope: BTreeMap<Atom, Option<Atom>>,
 }
 
-impl Namespace {
+impl NamespaceMap {
     // Returns an empty namespace.
-    fn empty() -> Namespace {
-        Namespace{
+    fn empty() -> NamespaceMap {
+        NamespaceMap {
             scope: BTreeMap::new(),
         }
     }
 
-    fn default() -> Namespace {
-        Namespace {
+    fn default() -> NamespaceMap {
+        NamespaceMap {
             scope: {
                 let mut map = BTreeMap::new();
                 map.insert(atoms!(), None);
@@ -167,10 +167,10 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     curr_elem: Option<Handle>,
 
     /// Stack of namespace identifiers and namespaces.
-    namespace_stack: NamespaceStack,
+    namespace_stack: NamespaceMapStack,
 
     /// Current namespace identifier
-    current_namespace: Namespace,
+    current_namespace: NamespaceMap,
 
     /// List of already present namespace local name attribute pairs.
     present_attrs: HashSet<(Atom, Atom)>,
@@ -193,8 +193,8 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             next_tokenizer_state: None,
             open_elems: vec!(),
             curr_elem: None,
-            namespace_stack: NamespaceStack::new(),
-            current_namespace: Namespace::empty(),
+            namespace_stack: NamespaceMapStack::new(),
+            current_namespace: NamespaceMap::empty(),
             present_attrs: HashSet::new(),
             phase: StartPhase,
         }
@@ -337,7 +337,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         self.bind_qname(&mut tag.name);
 
         // Finally, we dump current namespace if its unneeded.
-        let x = mem::replace(&mut self.current_namespace, Namespace::empty());
+        let x = mem::replace(&mut self.current_namespace, NamespaceMap::empty());
 
         // Only start tag doesn't dump current namespace.
         if tag.kind == StartTag {
