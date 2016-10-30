@@ -1,3 +1,4 @@
+*
 a
 abbr
 abs
@@ -113,6 +114,7 @@ basefont
 baseline
 baseline-shift
 bbox
+bdi
 bdo
 begin
 bevelled
@@ -120,6 +122,7 @@ bgcolor
 bgsound
 bias
 big
+blink
 blockquote
 body
 border
@@ -201,6 +204,7 @@ d
 data
 datafld
 dataformatas
+datalist
 datasrc
 datatemplate
 datetime
@@ -224,6 +228,7 @@ diff
 diffuseConstant
 dir
 direction
+dirname
 disabled
 discard
 display
@@ -257,6 +262,7 @@ equalcolumns
 equalrows
 equivalent
 eulergamma
+event
 exists
 exp
 exponent
@@ -327,7 +333,12 @@ for
 forall
 foreignObject
 form
+formaction
 format
+formenctype
+formmethod
+formnovalidate
+formtarget
 frame
 frameborder
 frameset
@@ -501,6 +512,7 @@ mfrac
 mglyph
 mi
 min
+minlength
 minsize
 minus
 missing-glyph
@@ -513,6 +525,7 @@ moment
 momentabout
 movablelimits
 mover
+mozbrowser
 mpadded
 mpath
 mphantom
@@ -530,6 +543,7 @@ mtable
 mtd
 mtext
 mtr
+multicol
 multiple
 munder
 munderover
@@ -539,6 +553,7 @@ naturalnumbers
 nav
 neq
 nest
+nextid
 nobr
 noembed
 noframes
@@ -553,6 +568,7 @@ notation
 notin
 notprsubset
 notsubset
+novalidate
 nowrap
 numOctaves
 object
@@ -605,12 +621,14 @@ onfocusin
 onfocusout
 onformchange
 onforminput
+onhashchange
 onhelp
 oninput
 oninvalid
 onkeydown
 onkeypress
 onkeyup
+onlanguagechange
 onload
 onlosecapture
 onmessage
@@ -625,7 +643,12 @@ onmousewheel
 onmove
 onmoveend
 onmovestart
+onoffline
+ononline
+onpagehide
+onpageshow
 onpaste
+onpopstate
 onpropertychange
 onreadystatechange
 onrepeat
@@ -640,6 +663,7 @@ onselect
 onselectstart
 onstart
 onstop
+onstorage
 onsubmit
 onunload
 onzoom
@@ -675,6 +699,7 @@ pi
 piece
 piecewise
 ping
+placeholder
 plaintext
 plus
 pointer-events
@@ -688,6 +713,7 @@ poster
 power
 pre
 prefetch
+preload
 preserveAlpha
 preserveAspectRatio
 primes
@@ -783,11 +809,13 @@ show
 sin
 sinh
 size
+sizes
 slope
 small
 solidcolor
 source
 space
+spacer
 spacing
 span
 specification
