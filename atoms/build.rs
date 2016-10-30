@@ -38,6 +38,11 @@ fn main() {
     }
     local_names_atom.write_to(&mut generated).unwrap();
 
+    string_cache_codegen::AtomType::new("Prefix", "namespace_prefix!")
+        .atoms(NAMESPACES.iter().map(|&(prefix, _url)| prefix))
+        .write_to(&mut generated)
+        .unwrap();
+
     string_cache_codegen::AtomType::new("Namespace", "namespace_url!")
         .atoms(NAMESPACES.iter().map(|&(_prefix, url)| url))
         .write_to(&mut generated)
