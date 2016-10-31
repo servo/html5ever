@@ -195,7 +195,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             temp_buf: StrTendril::new(),
             state_profile: BTreeMap::new(),
             time_in_sink: 0,
-	    current_line: 0,
+	        current_line: 1,
         }
     }
 
@@ -229,12 +229,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.state = states::Plaintext;
     }
 
-    fn process_token(&mut self, token: Token, line_number: u64) {
+    fn process_token(&mut self, token: Token) {
+	// let line_number = self.current_line.clone();
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token, line_number));
+            let (_, dt) = time!(self.sink.process_token(token, self.current_line));
             self.time_in_sink += dt;
         } else {
-            self.sink.process_token(token, line_number);
+            self.sink.process_token(token, self.current_line);
         }
     }
 
@@ -358,18 +359,16 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-	let line_number = self.current_line.clone();
 
         self.process_token(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
-        }, line_number);
+        });
     }
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: StrTendril) {
-	let line_number = self.current_line.clone();
-        self.process_token(CharacterTokens(b), line_number);
+        self.process_token(CharacterTokens(b));
     }
 
     fn emit_current_tag(&mut self) {
@@ -397,8 +396,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
-	let line_number = self.current_line.clone();
-        self.process_token(token, line_number);
+        self.process_token(token);
 
         match self.sink.query_state_change() {
             None => (),
@@ -419,8 +417,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_comment(&mut self) {
         let comment = replace(&mut self.current_comment, StrTendril::new());
-	let line_number = self.current_line.clone();
-        self.process_token(CommentToken(comment), line_number);
+        self.process_token(CommentToken(comment));
     }
 
     fn discard_tag(&mut self) {
@@ -481,8 +478,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_doctype(&mut self) {
         let doctype = replace(&mut self.current_doctype, Doctype::new());
-	let line_number = self.current_line.clone();
-        self.process_token(DoctypeToken(doctype), line_number);
+        self.process_token(DoctypeToken(doctype));
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
@@ -507,8 +503,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_eof(&mut self) {
-	let line_number = self.current_line.clone();
-        self.process_token(EOFToken, line_number);
+        self.process_token(EOFToken);
     }
 
     fn peek(&mut self) -> Option<char> {
@@ -529,8 +524,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
-	let line_number = self.current_line.clone();
-        self.process_token(ParseError(error), line_number);
+        self.process_token(ParseError(error));
     }
 }
 //§ END
@@ -1348,12 +1342,89 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 }
+#[allow(dead_code)]
+struct TokenMatch {
+    tokens: Vec<Token>,
+    current_str: StrTendril,
+    exact_errors: bool,
+    lines: Vec<u64>,
+}
+#[allow(dead_code)]
+impl TokenMatch {
+    fn new(exact_errors: bool) -> TokenMatch {
+        TokenMatch {
+            tokens: vec!(),
+            current_str: StrTendril::new(),
+            exact_errors: exact_errors,
+            lines: vec!(),
+        }
+    }
+
+    // Push anything other than character tokens
+    fn push(&mut self, token: Token) {
+        self.finish_str();
+        self.tokens.push(token);
+    }
+
+    fn finish_str(&mut self) {
+        if self.current_str.len() > 0 {
+            let s = replace(&mut self.current_str, StrTendril::new());
+            self.tokens.push(CharacterTokens(s));
+        }
+    }
+
+}
+
+impl TokenSink for TokenMatch {
+    fn process_token(&mut self, token: Token, line_number: u64) {
+        self.lines.push(line_number);
+        match token {
+            CharacterTokens(b) => {
+                self.current_str.push_slice(&b);
+            }
+
+            NullCharacterToken => {
+                self.current_str.push_char('\0');
+            }
+
+            ParseError(_) => if self.exact_errors {
+                self.push(ParseError(Borrowed("")));
+            },
+
+            TagToken(mut t) => {
+                // The spec seems to indicate that one can emit
+                // erroneous end tags with attrs, but the test
+                // cases don't contain them.
+                match t.kind {
+                    EndTag => {
+                        t.self_closing = false;
+                        t.attrs = vec!();
+                    }
+                    _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
+                }
+                self.push(TagToken(t));
+            }
+
+            EOFToken => (),
+
+            _ => self.push(token),
+        }
+    }
+}
+
 
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
     use super::option_push; // private items
     use tendril::{StrTendril, SliceExt};
+
+    use std::io::{self};
+    use super::{TokenSink, Tokenizer, TokenizerOpts, TokenMatch};
+
+    pub use super::interface::{Token, DoctypeToken, TagToken, CommentToken};
+    pub use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
+    pub use super::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 
     #[test]
     fn push_to_None_gives_singleton() {
@@ -1375,8 +1446,60 @@ mod test {
         option_push(&mut s, 'x');
         assert_eq!(s, Some("yx".to_tendril()));
     }
-    #[test]
-    fn check_line_number() {
-	assert_eq!(1, 1);
+
+
+    fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<u64> {
+        let sink = TokenMatch::new(opts.exact_errors);
+        let mut tok = Tokenizer::new(sink, opts);
+        for chunk in input.into_iter() {
+            // println!("{}", chunk);
+            tok.feed(chunk);
+        }
+        tok.end();
+        tok.sink.lines
     }
+    #[test]
+    fn check_four_lines() {
+
+        let opts = TokenizerOpts{exact_errors: false, discard_bom: true, profile: false,
+            initial_state: None, last_start_tag_name: None,};
+
+        let vector = vec![StrTendril::from("a\r"), StrTendril::from("b\r"),
+            StrTendril::from("c\r"), StrTendril::from("d\r")];
+        let expected = vec![1, 2, 2, 3, 3, 4, 4, 5, 5];
+
+        let results = tokenize(vector, opts);
+
+        assert_eq!(results, expected);
+        
+    }
+
+    #[test]
+    fn check_one_line_tag() {
+        let opts = TokenizerOpts{exact_errors: false, discard_bom: true, profile: false,
+            initial_state: None, last_start_tag_name: None,};
+
+        let vector = vec![StrTendril::from("<a/>")];
+        let expected = vec![1, 1];
+
+        let results = tokenize(vector, opts);
+
+        assert_eq!(results, expected);
+    }
+
+    #[test]
+    fn check_tags_on_same_line() {
+        let opts = TokenizerOpts{exact_errors: false, discard_bom: true, profile: false,
+            initial_state: None, last_start_tag_name: None,};
+
+        let vector = vec![StrTendril::from("<a href=''>"), 
+        StrTendril::from("www.google.com"), 
+        StrTendril::from("</a>")];
+        let expected = vec![1, 1, 1, 1];
+
+        let results = tokenize(vector, opts);
+
+        assert_eq!(results, expected);
+    }
+
 }

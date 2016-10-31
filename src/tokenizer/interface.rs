@@ -100,6 +100,7 @@ unsafe impl Send for Token { }
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
     /// Process a token.
+    //fn process_token(&mut self, token: Token);
     fn process_token(&mut self, token: Token, line_number: u64);
 
     /// Used in the markup declaration open state. By default, this always
