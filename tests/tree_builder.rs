@@ -3,7 +3,7 @@
 #[cfg(feature = "unstable")] extern crate test;
 
 #[macro_use] extern crate mac;
-#[macro_use] extern crate string_cache;
+#[macro_use] extern crate html5ever_atoms;
 
 extern crate rustc_serialize;
 extern crate xml5ever;
@@ -112,13 +112,10 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         Element(ref name, ref attrs) => {
             buf.push_str("<");
 
-            match name.namespace_url {
-                 atom!("")  => (),
-                 _          => {
-                    buf.push_str("{");
-                    buf.push_str(&*name.namespace_url);
-                    buf.push_str("}");
-                },
+            if name.namespace_url != ns!() {
+                buf.push_str("{");
+                buf.push_str(&*name.namespace_url);
+                buf.push_str("}");
              };
 
             if &*name.prefix != "" {

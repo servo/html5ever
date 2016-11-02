@@ -12,7 +12,7 @@ pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
 use std::borrow::Cow;
-use string_cache::{Atom};
+use {Prefix, Namespace, LocalName};
 use tendril::StrTendril;
 use super::{states};
 
@@ -60,30 +60,30 @@ use super::{states};
 /// ```
 pub struct QName {
     /// Prefix of fully qualified name, used for namespace lookup.
-    pub prefix: Atom,
+    pub prefix: Prefix,
     /// Local name of a value.
-    pub local: Atom,
+    pub local: LocalName,
     /// Resolved namespace of `QName`.
-    pub namespace_url: Atom,
+    pub namespace_url: Namespace,
 }
 
 impl QName {
     /// Constructs a new `QName` from prefix and local part.
-    /// Namespace is set to empty atom.
-    pub fn new(prefix: Atom, local: Atom) -> QName {
+    /// Namespace is set to empty.
+    pub fn new(prefix: Prefix, local: LocalName) -> QName {
         QName {
             prefix: prefix,
             local: local,
-            namespace_url: Atom::from(""),
+            namespace_url: ns!(),
         }
     }
     /// Constructs a new `QName` with only local part.
-    /// Namespace is set to empty atom.
-    pub fn new_empty(local: Atom) -> QName {
+    /// Namespace is set to empty.
+    pub fn new_empty(local: LocalName) -> QName {
         QName {
-            prefix: Atom::from(""),
+            prefix: namespace_prefix!(""),
             local: local,
-            namespace_url: Atom::from(""),
+            namespace_url: ns!(),
         }
     }
 }

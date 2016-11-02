@@ -1,7 +1,6 @@
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
 extern crate rustc_serialize;
-#[macro_use] extern crate string_cache;
 #[cfg(feature = "unstable")] extern crate test;
 
 extern crate xml5ever;
@@ -14,12 +13,12 @@ use std::path::Path;
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
-use string_cache::{Atom};
 
 #[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 #[cfg(feature = "unstable")] use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
+use xml5ever::LocalName;
 use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Attribute, QName};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
@@ -204,10 +203,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: QName::new_empty(Atom::from(&*args[0].get_str())),
+            name: QName::new_empty(LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QName::new_empty(Atom::from(&**k)),
+                    name: QName::new_empty(LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -215,22 +214,22 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: QName::new_empty(Atom::from(&*args[0].get_str())),
+            name: QName::new_empty(LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "ShortTag" => TagToken(Tag {
             kind: ShortTag,
-            name: QName::new_empty(Atom::from(&*args[0].get_str())),
+            name: QName::new_empty(LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "EmptyTag" => TagToken(Tag {
             kind: EmptyTag,
-            name: QName::new_empty(Atom::from(&*args[0].get_str())),
+            name: QName::new_empty(LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QName::new_empty(Atom::from(&**k)),
+                    name: QName::new_empty(LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
