@@ -22,6 +22,7 @@ use test::ShouldPanic::No;
 
 use tendril::{ByteTendril, StrTendril, ReadExt, SliceExt};
 use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::buffer_queue::BufferQueue;
 
 struct Sink;
 
@@ -92,9 +93,12 @@ impl TDynBenchFn for Bench {
                 black_box(input);
             } else {
                 let mut tok = Tokenizer::new(Sink, self.opts.clone());
+                let mut buffer = BufferQueue::new();
                 for buf in input.into_iter() {
-                    tok.feed(buf);
+                    buffer.push_back(buf);
+                    let _ = tok.feed(&mut buffer);
                 }
+                tok.feed(&mut buffer);
                 tok.end();
             }
         });
