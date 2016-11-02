@@ -1,0 +1,23 @@
+[package]
+name = "html5ever-atoms"
+version = "0.1.0"
+authors = [ "The html5ever Project Developers" ]
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "Static strings for html5ever"
+documentation = "https://docs.rs/html5ever-atoms"
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[features]
+heap_size = ["heapsize", "heapsize_plugin"]
+
+[dependencies]
+string_cache = "0.3"
+heapsize = { version = "0.3", optional = true }
+heapsize_plugin = { version = "0.1.0", optional = true }
+
+[build-dependencies]
+string_cache_codegen = "0.3"

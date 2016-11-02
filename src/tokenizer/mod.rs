@@ -35,7 +35,7 @@ use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
-use string_cache::{Atom, QualName};
+use {LocalName, QualName};
 use tendril::StrTendril;
 
 pub mod buffer_queue;
@@ -147,7 +147,7 @@ pub struct Tokenizer<Sink> {
     current_doctype: Doctype,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    last_start_tag_name: Option<Atom>,
+    last_start_tag_name: Option<LocalName>,
 
     /// The "temporary buffer" mentioned in the spec.
     temp_buf: StrTendril,
@@ -163,7 +163,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Create a new tokenizer which feeds tokens to a particular `TokenSink`.
     pub fn new(sink: Sink, mut opts: TokenizerOpts) -> Tokenizer<Sink> {
         let start_tag_name = opts.last_start_tag_name.take()
-            .map(|s| Atom::from(&*s));
+            .map(|s| LocalName::from(&*s));
         let state = opts.initial_state.unwrap_or(states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
@@ -382,7 +382,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn emit_current_tag(&mut self) -> bool {
         self.finish_attribute();
 
-        let name = Atom::from(&*self.current_tag_name);
+        let name = LocalName::from(&*self.current_tag_name);
         self.current_tag_name.clear();
 
         match self.current_tag_kind {
@@ -484,7 +484,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.current_attr_name.clear();
             self.current_attr_value.clear();
         } else {
-            let name = Atom::from(&*self.current_attr_name);
+            let name = LocalName::from(&*self.current_attr_name);
             self.current_attr_name.clear();
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.

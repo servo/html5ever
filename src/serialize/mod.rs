@@ -10,7 +10,7 @@
 use std::io::{self, Write};
 use std::default::Default;
 
-use string_cache::{Atom, QualName};
+use {LocalName, QualName};
 
 //§ serializing-html-fragments
 #[derive(Copy, Clone, PartialEq)]
@@ -50,7 +50,7 @@ impl Default for SerializeOpts {
 }
 
 struct ElemInfo {
-    html_name: Option<Atom>,
+    html_name: Option<LocalName>,
     ignore_children: bool,
     processed_first_child: bool,
 }
@@ -63,12 +63,12 @@ pub struct Serializer<'wr, Wr:'wr> {
     stack: Vec<ElemInfo>,
 }
 
-fn tagname(name: &QualName) -> Atom {
+fn tagname(name: &QualName) -> LocalName {
     match name.ns {
         ns!(html) | ns!(mathml) | ns!(svg) => (),
         ref ns => {
             // FIXME(#122)
-            warn!("node with weird namespace {:?}", &*ns.0);
+            warn!("node with weird namespace {:?}", ns);
         }
     }
 
@@ -134,14 +134,14 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
                 ns!() => (),
                 ns!(xml) => try!(self.writer.write_all(b"xml:")),
                 ns!(xmlns) => {
-                    if name.local != atom!("xmlns") {
+                    if name.local != local_name!("xmlns") {
                         try!(self.writer.write_all(b"xmlns:"));
                     }
                 }
                 ns!(xlink) => try!(self.writer.write_all(b"xlink:")),
                 ref ns => {
                     // FIXME(#122)
-                    warn!("attr with weird namespace {:?}", &*ns.0);
+                    warn!("attr with weird namespace {:?}", ns);
                     try!(self.writer.write_all(b"unknown_namespace:"));
                 }
             }
@@ -154,10 +154,10 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         try!(self.writer.write_all(b">"));
 
         let ignore_children = name.ns == ns!(html) && match name.local {
-            atom!("area") | atom!("base") | atom!("basefont") | atom!("bgsound") | atom!("br")
-            | atom!("col") | atom!("embed") | atom!("frame") | atom!("hr") | atom!("img")
-            | atom!("input") | atom!("keygen") | atom!("link") | atom!("menuitem")
-            | atom!("meta") | atom!("param") | atom!("source") | atom!("track") | atom!("wbr")
+            local_name!("area") | local_name!("base") | local_name!("basefont") | local_name!("bgsound") | local_name!("br")
+            | local_name!("col") | local_name!("embed") | local_name!("frame") | local_name!("hr") | local_name!("img")
+            | local_name!("input") | local_name!("keygen") | local_name!("link") | local_name!("menuitem")
+            | local_name!("meta") | local_name!("param") | local_name!("source") | local_name!("track") | local_name!("wbr")
                 => true,
             _ => false,
         };
@@ -188,7 +188,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         let prepend_lf = text.starts_with("\n") && {
             let parent = self.parent();
             !parent.processed_first_child && match parent.html_name {
-                Some(atom!("pre")) | Some(atom!("textarea")) | Some(atom!("listing")) => true,
+                Some(local_name!("pre")) | Some(local_name!("textarea")) | Some(local_name!("listing")) => true,
                 _ => false,
             }
         };
@@ -198,11 +198,11 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         }
 
         let escape = match self.parent().html_name {
-            Some(atom!("style")) | Some(atom!("script")) | Some(atom!("xmp"))
-            | Some(atom!("iframe")) | Some(atom!("noembed")) | Some(atom!("noframes"))
-            | Some(atom!("plaintext")) => false,
+            Some(local_name!("style")) | Some(local_name!("script")) | Some(local_name!("xmp"))
+            | Some(local_name!("iframe")) | Some(local_name!("noembed")) | Some(local_name!("noframes"))
+            | Some(local_name!("plaintext")) => false,
 
-            Some(atom!("noscript")) => !self.opts.scripting_enabled,
+            Some(local_name!("noscript")) => !self.opts.scripting_enabled,
 
             _ => true,
         };

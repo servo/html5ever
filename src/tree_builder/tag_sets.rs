@@ -9,7 +9,7 @@
 
 //! Various sets of HTML tag names, and macros for declaring them.
 
-use string_cache::QualName;
+use QualName;
 
 macro_rules! declare_tag_set_impl ( ($param:ident, $b:ident, $supr:ident, $($tag:tt)+) => (
     match $param {
@@ -31,13 +31,13 @@ macro_rules! declare_tag_set_body (
 
 macro_rules! declare_tag_set (
     (pub $name:ident = $($toks:tt)+) => (
-        pub fn $name(p: ::string_cache::QualName) -> bool {
+        pub fn $name(p: ::QualName) -> bool {
             declare_tag_set_body!(p = $($toks)+)
         }
     );
 
     ($name:ident = $($toks:tt)+) => (
-        fn $name(p: ::string_cache::QualName) -> bool {
+        fn $name(p: ::QualName) -> bool {
             declare_tag_set_body!(p = $($toks)+)
         }
     );

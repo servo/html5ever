@@ -22,13 +22,14 @@ extern crate heapsize;
 extern crate log;
 
 #[macro_use]
-extern crate string_cache;
+extern crate html5ever_atoms;
 
 #[macro_use]
 extern crate mac;
 
 extern crate phf;
 
+pub use html5ever_atoms::{Namespace, LocalName, QualName};
 pub use tokenizer::Attribute;
 pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 

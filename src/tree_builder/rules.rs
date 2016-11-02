@@ -17,6 +17,7 @@ use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
 use tokenizer::{Attribute, EndTag, StartTag, StateChangeQuery, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
+use QualName;
 use util::str::is_ascii_whitespace;
 
 use std::ascii::AsciiExt;
@@ -102,7 +103,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    self.head_elem = Some(self.insert_phantom(atom!("head")));
+                    self.head_elem = Some(self.insert_phantom(local_name!("head")));
                     Reprocess(InHead, token)
                 }
             }),
@@ -127,7 +128,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <noframes> <style> <noscript> => {
-                    if (!self.opts.scripting_enabled) && (tag.name == atom!("noscript")) {
+                    if (!self.opts.scripting_enabled) && (tag.name == local_name!("noscript")) {
                         self.insert_element_for(tag);
                         self.mode = InHeadNoscript;
                     } else {
@@ -165,11 +166,11 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ </template> => {
-                    if !self.in_html_elem_named(atom!("template")) {
+                    if !self.in_html_elem_named(local_name!("template")) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end(thorough_implied_end);
-                        self.expect_to_close(atom!("template"));
+                        self.expect_to_close(local_name!("template"));
                         self.clear_active_formatting_to_marker();
                         self.template_modes.pop();
                         self.mode = self.reset_insertion_mode();
@@ -255,7 +256,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    self.insert_phantom(atom!("body"));
+                    self.insert_phantom(local_name!("body"));
                     Reprocess(InBody, token)
                 }
             }),
@@ -276,7 +277,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <html> => {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(atom!("template")) {
+                    if !self.in_html_elem_named(local_name!("template")) {
                         let top = self.html_elem();
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
@@ -292,7 +293,7 @@ impl<Handle, Sink> TreeBuilderStep
                     self.unexpected(&tag);
                     match self.body_elem() {
                         Some(ref node) if self.open_elems.len() != 1 &&
-                                          !self.in_html_elem_named(atom!("template")) => {
+                                          !self.in_html_elem_named(local_name!("template")) => {
                             self.frameset_ok = false;
                             self.sink.add_attrs_if_missing(node.clone(), tag.attrs)
                         },
@@ -330,7 +331,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </body> => {
-                    if self.in_scope_named(default_scope, atom!("body")) {
+                    if self.in_scope_named(default_scope, local_name!("body")) {
                         self.check_body_end();
                         self.mode = AfterBody;
                     } else {
@@ -340,7 +341,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </html> => {
-                    if self.in_scope_named(default_scope, atom!("body")) {
+                    if self.in_scope_named(default_scope, local_name!("body")) {
                         self.check_body_end();
                         Reprocess(AfterBody, token)
                     } else {
@@ -359,7 +360,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <menu> => {
                     self.close_p_element_in_button_scope();
-                    if self.current_node_named(atom!("menuitem")) {
+                    if self.current_node_named(local_name!("menuitem")) {
                         self.pop();
                     }
                     self.insert_element_for(tag);
@@ -386,12 +387,12 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <form> => {
                     if self.form_elem.is_some() &&
-                       !self.in_html_elem_named(atom!("template")) {
+                       !self.in_html_elem_named(local_name!("template")) {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
-                        if !self.in_html_elem_named(atom!("template")) {
+                        if !self.in_html_elem_named(local_name!("template")) {
                             self.form_elem = Some(elem);
                         }
                     }
@@ -402,9 +403,9 @@ impl<Handle, Sink> TreeBuilderStep
                     declare_tag_set!(close_list = "li");
                     declare_tag_set!(close_defn = "dd" "dt");
                     declare_tag_set!(extra_special = [special_tag] - "address" "div" "p");
-                    let can_close: fn(::string_cache::QualName) -> bool = match tag.name {
-                        atom!("li") => close_list,
-                        atom!("dd") | atom!("dt") => close_defn,
+                    let can_close: fn(QualName) -> bool = match tag.name {
+                        local_name!("li") => close_list,
+                        local_name!("dd") | local_name!("dt") => close_defn,
                         _ => unreachable!(),
                     };
 
@@ -443,10 +444,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <button> => {
-                    if self.in_scope_named(default_scope, atom!("button")) {
+                    if self.in_scope_named(default_scope, local_name!("button")) {
                         self.sink.parse_error(Borrowed("nested buttons"));
                         self.generate_implied_end(cursory_implied_end);
-                        self.pop_until_named(atom!("button"));
+                        self.pop_until_named(local_name!("button"));
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
@@ -468,7 +469,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </form> => {
-                    if !self.in_html_elem_named(atom!("template")) {
+                    if !self.in_html_elem_named(local_name!("template")) {
                         // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
                         let node = match self.form_elem.take() {
                             None => {
@@ -488,31 +489,31 @@ impl<Handle, Sink> TreeBuilderStep
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
                     } else {
-                        if !self.in_scope_named(default_scope, atom!("form")) {
+                        if !self.in_scope_named(default_scope, local_name!("form")) {
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return Done;
                         }
                         self.generate_implied_end(cursory_implied_end);
-                        if !self.current_node_named(atom!("form")) {
+                        if !self.current_node_named(local_name!("form")) {
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
-                        self.pop_until_named(atom!("form"));
+                        self.pop_until_named(local_name!("form"));
                     }
                     Done
                 }
 
                 </p> => {
-                    if !self.in_scope_named(button_scope, atom!("p")) {
+                    if !self.in_scope_named(button_scope, local_name!("p")) {
                         self.sink.parse_error(Borrowed("No <p> tag to close"));
-                        self.insert_phantom(atom!("p"));
+                        self.insert_phantom(local_name!("p"));
                     }
                     self.close_p_element();
                     Done
                 }
 
                 tag @ </li> </dd> </dt> => {
-                    let scope: fn(::string_cache::QualName) -> bool = match tag.name {
-                        atom!("li") => list_item_scope,
+                    let scope: fn(QualName) -> bool = match tag.name {
+                        local_name!("li") => list_item_scope,
                         _ => default_scope,
                     };
                     if self.in_scope_named(|x| scope(x), tag.name.clone()) {
@@ -552,9 +553,9 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <nobr> => {
                     self.reconstruct_formatting();
-                    if self.in_scope_named(default_scope, atom!("nobr")) {
+                    if self.in_scope_named(default_scope, local_name!("nobr")) {
                         self.sink.parse_error(Borrowed("Nested <nobr>"));
-                        self.adoption_agency(atom!("nobr"));
+                        self.adoption_agency(local_name!("nobr"));
                         self.reconstruct_formatting();
                     }
                     self.create_formatting_element_for(tag);
@@ -607,7 +608,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <area> <br> <embed> <img> <keygen> <wbr> <input> => {
                     let keep_frameset_ok = match tag.name {
-                        atom!("input") => self.is_type_hidden(&tag),
+                        local_name!("input") => self.is_type_hidden(&tag),
                         _ => false,
                     };
                     self.reconstruct_formatting();
@@ -625,7 +626,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <hr> => {
                     self.close_p_element_in_button_scope();
-                    if self.current_node_named(atom!("menuitem")) {
+                    if self.current_node_named(local_name!("menuitem")) {
                         self.pop();
                     }
                     self.insert_and_pop_element_for(tag);
@@ -636,7 +637,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ <image> => {
                     self.unexpected(&tag);
                     self.step(InBody, TagToken(Tag {
-                        name: atom!("img"),
+                        name: local_name!("img"),
                         ..tag
                     }))
                 }
@@ -684,7 +685,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <optgroup> <option> => {
-                    if self.current_node_named(atom!("option")) {
+                    if self.current_node_named(local_name!("option")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();
@@ -693,7 +694,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <menuitem> => {
-                    if self.current_node_named(atom!("menuitem")) {
+                    if self.current_node_named(local_name!("menuitem")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();
@@ -702,10 +703,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <rb> <rtc> => {
-                    if self.in_scope_named(default_scope, atom!("ruby")) {
+                    if self.in_scope_named(default_scope, local_name!("ruby")) {
                         self.generate_implied_end(cursory_implied_end);
                     }
-                    if !self.current_node_named(atom!("ruby")) {
+                    if !self.current_node_named(local_name!("ruby")) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
@@ -713,10 +714,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <rp> <rt> => {
-                    if self.in_scope_named(default_scope, atom!("ruby")) {
-                        self.generate_implied_end_except(atom!("rtc"));
+                    if self.in_scope_named(default_scope, local_name!("ruby")) {
+                        self.generate_implied_end_except(local_name!("rtc"));
                     }
-                    if !self.current_node_named(atom!("rtc")) && !self.current_node_named(atom!("ruby")) {
+                    if !self.current_node_named(local_name!("rtc")) && !self.current_node_named(local_name!("ruby")) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
@@ -734,7 +735,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <_> => {
-                    if self.opts.scripting_enabled && tag.name == atom!("noscript") {
+                    if self.opts.scripting_enabled && tag.name == local_name!("noscript") {
                         self.parse_raw_data(tag, Rawtext);
                     } else {
                         self.reconstruct_formatting();
@@ -759,7 +760,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 EOFToken => {
                     self.unexpected(&token);
-                    if self.current_node_named(atom!("script")) {
+                    if self.current_node_named(local_name!("script")) {
                         let current = self.current_node();
                         self.sink.mark_script_already_started(current);
                     }
@@ -769,7 +770,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ </_> => {
                     let node = self.pop();
-                    if tag.name == atom!("script") {
+                    if tag.name == local_name!("script") {
                         warn!("FIXME: </script> not fully implemented");
                         if self.sink.complete_script(node) == NextParserState::Suspend {
                             self.next_tokenizer_state = Some(StateChangeQuery::Quiescent);
@@ -810,7 +811,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 <col> => {
                     self.pop_until_current(table_scope);
-                    self.insert_phantom(atom!("colgroup"));
+                    self.insert_phantom(local_name!("colgroup"));
                     Reprocess(InColumnGroup, token)
                 }
 
@@ -823,14 +824,14 @@ impl<Handle, Sink> TreeBuilderStep
 
                 <td> <th> <tr> => {
                     self.pop_until_current(table_scope);
-                    self.insert_phantom(atom!("tbody"));
+                    self.insert_phantom(local_name!("tbody"));
                     Reprocess(InTableBody, token)
                 }
 
                 <table> => {
                     self.unexpected(&token);
-                    if self.in_scope_named(table_scope, atom!("table")) {
-                        self.pop_until_named(atom!("table"));
+                    if self.in_scope_named(table_scope, local_name!("table")) {
+                        self.pop_until_named(local_name!("table"));
                         Reprocess(self.reset_insertion_mode(), token)
                     } else {
                         Done
@@ -838,8 +839,8 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </table> => {
-                    if self.in_scope_named(table_scope, atom!("table")) {
-                        self.pop_until_named(atom!("table"));
+                    if self.in_scope_named(table_scope, local_name!("table")) {
+                        self.pop_until_named(local_name!("table"));
                         self.mode = self.reset_insertion_mode();
                     } else {
                         self.unexpected(&token);
@@ -866,7 +867,7 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <form> => {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(atom!("template")) && self.form_elem.is_none() {
+                    if !self.in_html_elem_named(local_name!("template")) && self.form_elem.is_none() {
                         self.form_elem = Some(self.insert_and_pop_element_for(tag));
                     }
                     Done
@@ -921,12 +922,12 @@ impl<Handle, Sink> TreeBuilderStep
             InCaption => match_token!(token {
                 tag @ <caption> <col> <colgroup> <tbody> <td> <tfoot>
                   <th> <thead> <tr> </table> </caption> => {
-                    if self.in_scope_named(table_scope, atom!("caption")) {
+                    if self.in_scope_named(table_scope, local_name!("caption")) {
                         self.generate_implied_end(cursory_implied_end);
-                        self.expect_to_close(atom!("caption"));
+                        self.expect_to_close(local_name!("caption"));
                         self.clear_active_formatting_to_marker();
                         match tag {
-                            Tag { kind: EndTag, name: atom!("caption"), .. } => {
+                            Tag { kind: EndTag, name: local_name!("caption"), .. } => {
                                 self.mode = InTable;
                                 Done
                             }
@@ -958,7 +959,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </colgroup> => {
-                    if self.current_node_named(atom!("colgroup")) {
+                    if self.current_node_named(local_name!("colgroup")) {
                         self.pop();
                         self.mode = InTable;
                     } else {
@@ -974,7 +975,7 @@ impl<Handle, Sink> TreeBuilderStep
                 EOFToken => self.step(InBody, token),
 
                 token => {
-                    if self.current_node_named(atom!("colgroup")) {
+                    if self.current_node_named(local_name!("colgroup")) {
                         self.pop();
                         Reprocess(InTable, token)
                     } else {
@@ -995,7 +996,7 @@ impl<Handle, Sink> TreeBuilderStep
                 <th> <td> => {
                     self.unexpected(&token);
                     self.pop_until_current(table_body_context);
-                    self.insert_phantom(atom!("tr"));
+                    self.insert_phantom(local_name!("tr"));
                     Reprocess(InRow, token)
                 }
 
@@ -1038,10 +1039,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </tr> => {
-                    if self.in_scope_named(table_scope, atom!("tr")) {
+                    if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, atom!("tr"));
+                        self.assert_named(node, local_name!("tr"));
                         self.mode = InTableBody;
                     } else {
                         self.unexpected(&token);
@@ -1050,10 +1051,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> <tr> </table> => {
-                    if self.in_scope_named(table_scope, atom!("tr")) {
+                    if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, atom!("tr"));
+                        self.assert_named(node, local_name!("tr"));
                         Reprocess(InTableBody, token)
                     } else {
                         self.unexpected(&token)
@@ -1062,10 +1063,10 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ </tbody> </tfoot> </thead> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        if self.in_scope_named(table_scope, atom!("tr")) {
+                        if self.in_scope_named(table_scope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
-                            self.assert_named(node, atom!("tr"));
+                            self.assert_named(node, local_name!("tr"));
                             Reprocess(InTableBody, TagToken(tag))
                         } else {
                             Done
@@ -1128,7 +1129,7 @@ impl<Handle, Sink> TreeBuilderStep
                 <html> => self.step(InBody, token),
 
                 tag @ <option> => {
-                    if self.current_node_named(atom!("option")) {
+                    if self.current_node_named(local_name!("option")) {
                         self.pop();
                     }
                     self.insert_element_for(tag);
@@ -1136,10 +1137,10 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <optgroup> => {
-                    if self.current_node_named(atom!("option")) {
+                    if self.current_node_named(local_name!("option")) {
                         self.pop();
                     }
-                    if self.current_node_named(atom!("optgroup")) {
+                    if self.current_node_named(local_name!("optgroup")) {
                         self.pop();
                     }
                     self.insert_element_for(tag);
@@ -1148,12 +1149,12 @@ impl<Handle, Sink> TreeBuilderStep
 
                 </optgroup> => {
                     if self.open_elems.len() >= 2
-                        && self.current_node_named(atom!("option"))
+                        && self.current_node_named(local_name!("option"))
                         && self.html_elem_named(self.open_elems[self.open_elems.len() - 2].clone(),
-                            atom!("optgroup")) {
+                            local_name!("optgroup")) {
                         self.pop();
                     }
-                    if self.current_node_named(atom!("optgroup")) {
+                    if self.current_node_named(local_name!("optgroup")) {
                         self.pop();
                     } else {
                         self.unexpected(&token);
@@ -1162,7 +1163,7 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 </option> => {
-                    if self.current_node_named(atom!("option")) {
+                    if self.current_node_named(local_name!("option")) {
                         self.pop();
                     } else {
                         self.unexpected(&token);
@@ -1171,14 +1172,14 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <select> </select> => {
-                    let in_scope = self.in_scope_named(select_scope, atom!("select"));
+                    let in_scope = self.in_scope_named(select_scope, local_name!("select"));
 
                     if !in_scope || tag.kind == StartTag {
                         self.unexpected(&tag);
                     }
 
                     if in_scope {
-                        self.pop_until_named(atom!("select"));
+                        self.pop_until_named(local_name!("select"));
                         self.mode = self.reset_insertion_mode();
                     }
                     Done
@@ -1186,8 +1187,8 @@ impl<Handle, Sink> TreeBuilderStep
 
                 <input> <keygen> <textarea> => {
                     self.unexpected(&token);
-                    if self.in_scope_named(select_scope, atom!("select")) {
-                        self.pop_until_named(atom!("select"));
+                    if self.in_scope_named(select_scope, local_name!("select")) {
+                        self.pop_until_named(local_name!("select"));
                         Reprocess(self.reset_insertion_mode(), token)
                     } else {
                         Done
@@ -1205,14 +1206,14 @@ impl<Handle, Sink> TreeBuilderStep
             InSelectInTable => match_token!(token {
                 <caption> <table> <tbody> <tfoot> <thead> <tr> <td> <th> => {
                     self.unexpected(&token);
-                    self.pop_until_named(atom!("select"));
+                    self.pop_until_named(local_name!("select"));
                     Reprocess(self.reset_insertion_mode(), token)
                 }
 
                 tag @ </caption> </table> </tbody> </tfoot> </thead> </tr> </td> </th> => {
                     self.unexpected(&tag);
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.pop_until_named(atom!("select"));
+                        self.pop_until_named(local_name!("select"));
                         Reprocess(self.reset_insertion_mode(), TagToken(tag))
                     } else {
                         Done
@@ -1257,11 +1258,11 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 EOFToken => {
-                    if !self.in_html_elem_named(atom!("template")) {
+                    if !self.in_html_elem_named(local_name!("template")) {
                         self.stop_parsing()
                     } else {
                         self.unexpected(&token);
-                        self.pop_until_named(atom!("template"));
+                        self.pop_until_named(local_name!("template"));
                         self.clear_active_formatting_to_marker();
                         self.template_modes.pop();
                         self.mode = self.reset_insertion_mode();
@@ -1321,7 +1322,7 @@ impl<Handle, Sink> TreeBuilderStep
                         self.unexpected(&token);
                     } else {
                         self.pop();
-                        if !self.is_fragment() && !self.current_node_named(atom!("frameset")) {
+                        if !self.is_fragment() && !self.current_node_named(local_name!("frameset")) {
                             self.mode = AfterFrameset;
                         }
                     }

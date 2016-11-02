@@ -28,7 +28,7 @@ use std::mem::replace;
 use std::iter::{Rev, Enumerate};
 use std::borrow::Cow::Borrowed;
 
-use string_cache::{Atom, Namespace, QualName};
+use {LocalName, Namespace, QualName};
 use tendril::StrTendril;
 
 pub use self::PushFlag::*;
@@ -60,7 +60,7 @@ enum Bookmark<Handle> {
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult;
-    fn assert_named(&mut self, node: Handle, name: Atom);
+    fn assert_named(&mut self, node: Handle, name: LocalName);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
     fn append_text(&mut self, text: StrTendril) -> ProcessResult;
@@ -68,10 +68,10 @@ pub trait TreeBuilderActions<Handle> {
     fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult;
     fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
-    fn insert_phantom(&mut self, name: Atom) -> Handle;
+    fn insert_phantom(&mut self, name: LocalName) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
     fn insert_element_for(&mut self, tag: Tag) -> Handle;
-    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>) -> Handle;
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>) -> Handle;
     fn create_root(&mut self, attrs: Vec<Attribute>);
     fn close_the_cell(&mut self);
     fn reset_insertion_mode(&mut self) -> InsertionMode;
@@ -80,16 +80,16 @@ pub trait TreeBuilderActions<Handle> {
     fn is_type_hidden(&self, tag: &Tag) -> bool;
     fn close_p_element_in_button_scope(&mut self);
     fn close_p_element(&mut self);
-    fn expect_to_close(&mut self, name: Atom);
-    fn pop_until_named(&mut self, name: Atom) -> usize;
+    fn expect_to_close(&mut self, name: LocalName);
+    fn pop_until_named(&mut self, name: LocalName) -> usize;
     fn pop_until<TagSet>(&mut self, pred: TagSet) -> usize where TagSet: Fn(QualName) -> bool;
     fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn generate_implied_end_except(&mut self, except: Atom);
+    fn generate_implied_end_except(&mut self, except: LocalName);
     fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool where TagSet: Fn(QualName) -> bool;
-    fn current_node_named(&self, name: Atom) -> bool;
-    fn html_elem_named(&self, elem: Handle, name: Atom) -> bool;
-    fn in_html_elem_named(&self, name: Atom) -> bool;
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool where TagSet: Fn(QualName) -> bool;
+    fn current_node_named(&self, name: LocalName) -> bool;
+    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool;
+    fn in_html_elem_named(&self, name: LocalName) -> bool;
     fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool;
     fn check_body_end(&mut self);
@@ -99,7 +99,7 @@ pub trait TreeBuilderActions<Handle> {
     fn remove_from_stack(&mut self, elem: &Handle);
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
-    fn adoption_agency(&mut self, subject: Atom);
+    fn adoption_agency(&mut self, subject: LocalName);
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
     fn adjusted_current_node(&self) -> Handle;
@@ -115,7 +115,7 @@ pub trait TreeBuilderActions<Handle> {
     fn is_foreign(&mut self, token: &Token) -> bool;
     fn enter_foreign(&mut self, tag: Tag, ns: Namespace) -> ProcessResult;
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
-        where F: FnMut(Atom) -> Option<QualName>;
+        where F: FnMut(LocalName) -> Option<QualName>;
     fn adjust_svg_tag_name(&mut self, tag: &mut Tag);
     fn adjust_svg_attributes(&mut self, tag: &mut Tag);
     fn adjust_mathml_attributes(&mut self, tag: &mut Tag);
@@ -138,7 +138,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         Done
     }
 
-    fn assert_named(&mut self, node: Handle, name: Atom) {
+    fn assert_named(&mut self, node: Handle, name: LocalName) {
         assert!(self.html_elem_named(node, name));
     }
 
@@ -214,7 +214,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
         let target = override_target.unwrap_or_else(|| self.current_node());
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
-            if self.html_elem_named(target.clone(), atom!("template")) {
+            if self.html_elem_named(target.clone(), local_name!("template")) {
                 // No foster parenting (inside template).
                 let contents = self.sink.get_template_contents(target);
                 self.sink.append(contents, child);
@@ -228,11 +228,11 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // Foster parenting
         let mut iter = self.open_elems.iter().rev().peekable();
         while let Some(elem) = iter.next() {
-            if self.html_elem_named(elem.clone(), atom!("template")) {
+            if self.html_elem_named(elem.clone(), local_name!("template")) {
                 let contents = self.sink.get_template_contents(elem.clone());
                 self.sink.append(contents, child);
                 return;
-            } else if self.html_elem_named(elem.clone(), atom!("table")) {
+            } else if self.html_elem_named(elem.clone(), local_name!("table")) {
                 // Try inserting "inside last table's parent node, immediately before last table"
                 if let Err(child) = self.sink.append_before_sibling(elem.clone(), child) {
                     // If last_table has no parent, we regain ownership of the child.
@@ -247,7 +247,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.sink.append(html_elem, child);
     }
 
-    fn adoption_agency(&mut self, subject: Atom) {
+    fn adoption_agency(&mut self, subject: LocalName) {
         // 1.
         if self.current_node_named(subject.clone()) {
             if self.position_in_active_formatting(&self.current_node()).is_none() {
@@ -511,7 +511,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
 
         let node = self.open_elems[1].clone();
-        if self.html_elem_named(node.clone(), atom!("body")) {
+        if self.html_elem_named(node.clone(), local_name!("body")) {
             Some(node)
         } else {
             None
@@ -561,19 +561,19 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         set(self.sink.elem_name(elem))
     }
 
-    fn html_elem_named(&self, elem: Handle, name: Atom) -> bool {
+    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool {
         self.sink.elem_name(elem) == QualName::new(ns!(html), name)
     }
 
-    fn in_html_elem_named(&self, name: Atom) -> bool {
+    fn in_html_elem_named(&self, name: LocalName) -> bool {
         self.open_elems.iter().any(|elem| self.html_elem_named(elem.clone(), name.clone()))
     }
 
-    fn current_node_named(&self, name: Atom) -> bool {
+    fn current_node_named(&self, name: LocalName) -> bool {
         self.html_elem_named(self.current_node(), name)
     }
 
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: Atom) -> bool
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
         where TagSet: Fn(QualName) -> bool
     {
         self.in_scope(scope, |elem|
@@ -592,7 +592,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
     }
 
-    fn generate_implied_end_except(&mut self, except: Atom) {
+    fn generate_implied_end_except(&mut self, except: LocalName) {
         self.generate_implied_end(|p| match p {
             QualName { ns: ns!(html), ref local } if *local == except => false,
             _ => cursory_implied_end(p),
@@ -628,13 +628,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         n
     }
 
-    fn pop_until_named(&mut self, name: Atom) -> usize {
+    fn pop_until_named(&mut self, name: LocalName) -> usize {
         self.pop_until(|p| p == QualName::new(ns!(html), name.clone()))
     }
 
     // Pop elements until one with the specified name has been popped.
     // Signal an error if it was not the first one.
-    fn expect_to_close(&mut self, name: Atom) {
+    fn expect_to_close(&mut self, name: LocalName) {
         if self.pop_until_named(name.clone()) != 1 {
             self.sink.parse_error(format_if!(self.opts.exact_errors,
                 "Unexpected open element",
@@ -645,11 +645,11 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn close_p_element(&mut self) {
         declare_tag_set!(implied = [cursory_implied_end] - "p");
         self.generate_implied_end(implied);
-        self.expect_to_close(atom!("p"));
+        self.expect_to_close(local_name!("p"));
     }
 
     fn close_p_element_in_button_scope(&mut self) {
-        if self.in_scope_named(button_scope, atom!("p")) {
+        if self.in_scope_named(button_scope, local_name!("p")) {
             self.close_p_element();
         }
     }
@@ -697,27 +697,27 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 _ => continue,
             };
             match name {
-                atom!("select") => {
+                local_name!("select") => {
                     for ancestor in self.open_elems[0..i].iter().rev() {
-                        if self.html_elem_named(ancestor.clone(), atom!("template")) {
+                        if self.html_elem_named(ancestor.clone(), local_name!("template")) {
                             return InSelect;
-                        } else if self.html_elem_named(ancestor.clone(), atom!("table")) {
+                        } else if self.html_elem_named(ancestor.clone(), local_name!("table")) {
                             return InSelectInTable;
                         }
                     }
                     return InSelect;
                 },
-                atom!("td") | atom!("th") => if !last { return InCell; },
-                atom!("tr") => return InRow,
-                atom!("tbody") | atom!("thead") | atom!("tfoot") => return InTableBody,
-                atom!("caption") => return InCaption,
-                atom!("colgroup") => return InColumnGroup,
-                atom!("table") => return InTable,
-                atom!("template") => return *self.template_modes.last().unwrap(),
-                atom!("head") => if !last { return InHead },
-                atom!("body") => return InBody,
-                atom!("frameset") => return InFrameset,
-                atom!("html") => match self.head_elem {
+                local_name!("td") | local_name!("th") => if !last { return InCell; },
+                local_name!("tr") => return InRow,
+                local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => return InTableBody,
+                local_name!("caption") => return InCaption,
+                local_name!("colgroup") => return InColumnGroup,
+                local_name!("table") => return InTable,
+                local_name!("template") => return *self.template_modes.last().unwrap(),
+                local_name!("head") => if !last { return InHead },
+                local_name!("body") => return InBody,
+                local_name!("frameset") => return InFrameset,
+                local_name!("html") => match self.head_elem {
                     None => return BeforeHead,
                     Some(_) => return AfterHead,
                 },
@@ -769,7 +769,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // FIXME: application cache selection algorithm
     }
 
-    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: Atom, attrs: Vec<Attribute>)
+    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
         let elem = self.sink.create_element(QualName::new(ns, name), attrs);
         self.insert_appropriately(AppendNode(elem.clone()), None);
@@ -789,7 +789,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.insert_element(NoPush, ns!(html), tag.name, tag.attrs)
     }
 
-    fn insert_phantom(&mut self, name: Atom) -> Handle {
+    fn insert_phantom(&mut self, name: LocalName) -> Handle {
         self.insert_element(Push, ns!(html), name, vec!())
     }
     //§ END
@@ -861,7 +861,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn handle_misnested_a_tags(&mut self, tag: &Tag) {
         let node = unwrap_or_return!(
             self.active_formatting_end_to_marker()
-                .filter(|&(_, n, _)| self.html_elem_named(n.clone(), atom!("a")))
+                .filter(|&(_, n, _)| self.html_elem_named(n.clone(), local_name!("a")))
                 .next()
                 .map(|(_, n, _)| n.clone()),
 
@@ -869,7 +869,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         );
 
         self.unexpected(tag);
-        self.adoption_agency(atom!("a"));
+        self.adoption_agency(local_name!("a"));
         self.position_in_active_formatting(&node)
             .map(|index| self.active_formatting.remove(index));
         self.remove_from_stack(&node);
@@ -894,7 +894,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             match *token {
                 CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, ref name, .. })
-                    if !matches!(*name, atom!("mglyph") | atom!("malignmark")) => return false,
+                    if !matches!(*name, local_name!("mglyph") | local_name!("malignmark")) => return false,
                 _ => (),
             }
         }
@@ -909,7 +909,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
         if let qualname!(mathml, "annotation-xml") = name {
             match *token {
-                TagToken(Tag { kind: StartTag, name: atom!("svg"), .. }) => return false,
+                TagToken(Tag { kind: StartTag, name: local_name!("svg"), .. }) => return false,
                 CharacterTokens(..) | NullCharacterToken |
                 TagToken(Tag { kind: StartTag, .. }) => {
                     return !self.sink.is_mathml_annotation_xml_integration_point(self.adjusted_current_node())
@@ -942,49 +942,49 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn adjust_svg_tag_name(&mut self, tag: &mut Tag) {
         let Tag { ref mut name, .. } = *tag;
         match *name {
-            atom!("altglyph") => *name = atom!("altGlyph"),
-            atom!("altglyphdef") => *name = atom!("altGlyphDef"),
-            atom!("altglyphitem") => *name = atom!("altGlyphItem"),
-            atom!("animatecolor") => *name = atom!("animateColor"),
-            atom!("animatemotion") => *name = atom!("animateMotion"),
-            atom!("animatetransform") => *name = atom!("animateTransform"),
-            atom!("clippath") => *name = atom!("clipPath"),
-            atom!("feblend") => *name = atom!("feBlend"),
-            atom!("fecolormatrix") => *name = atom!("feColorMatrix"),
-            atom!("fecomponenttransfer") => *name = atom!("feComponentTransfer"),
-            atom!("fecomposite") => *name = atom!("feComposite"),
-            atom!("feconvolvematrix") => *name = atom!("feConvolveMatrix"),
-            atom!("fediffuselighting") => *name = atom!("feDiffuseLighting"),
-            atom!("fedisplacementmap") => *name = atom!("feDisplacementMap"),
-            atom!("fedistantlight") => *name = atom!("feDistantLight"),
-            atom!("fedropshadow") => *name = atom!("feDropShadow"),
-            atom!("feflood") => *name = atom!("feFlood"),
-            atom!("fefunca") => *name = atom!("feFuncA"),
-            atom!("fefuncb") => *name = atom!("feFuncB"),
-            atom!("fefuncg") => *name = atom!("feFuncG"),
-            atom!("fefuncr") => *name = atom!("feFuncR"),
-            atom!("fegaussianblur") => *name = atom!("feGaussianBlur"),
-            atom!("feimage") => *name = atom!("feImage"),
-            atom!("femerge") => *name = atom!("feMerge"),
-            atom!("femergenode") => *name = atom!("feMergeNode"),
-            atom!("femorphology") => *name = atom!("feMorphology"),
-            atom!("feoffset") => *name = atom!("feOffset"),
-            atom!("fepointlight") => *name = atom!("fePointLight"),
-            atom!("fespecularlighting") => *name = atom!("feSpecularLighting"),
-            atom!("fespotlight") => *name = atom!("feSpotLight"),
-            atom!("fetile") => *name = atom!("feTile"),
-            atom!("feturbulence") => *name = atom!("feTurbulence"),
-            atom!("foreignobject") => *name = atom!("foreignObject"),
-            atom!("glyphref") => *name = atom!("glyphRef"),
-            atom!("lineargradient") => *name = atom!("linearGradient"),
-            atom!("radialgradient") => *name = atom!("radialGradient"),
-            atom!("textpath") => *name = atom!("textPath"),
+            local_name!("altglyph") => *name = local_name!("altGlyph"),
+            local_name!("altglyphdef") => *name = local_name!("altGlyphDef"),
+            local_name!("altglyphitem") => *name = local_name!("altGlyphItem"),
+            local_name!("animatecolor") => *name = local_name!("animateColor"),
+            local_name!("animatemotion") => *name = local_name!("animateMotion"),
+            local_name!("animatetransform") => *name = local_name!("animateTransform"),
+            local_name!("clippath") => *name = local_name!("clipPath"),
+            local_name!("feblend") => *name = local_name!("feBlend"),
+            local_name!("fecolormatrix") => *name = local_name!("feColorMatrix"),
+            local_name!("fecomponenttransfer") => *name = local_name!("feComponentTransfer"),
+            local_name!("fecomposite") => *name = local_name!("feComposite"),
+            local_name!("feconvolvematrix") => *name = local_name!("feConvolveMatrix"),
+            local_name!("fediffuselighting") => *name = local_name!("feDiffuseLighting"),
+            local_name!("fedisplacementmap") => *name = local_name!("feDisplacementMap"),
+            local_name!("fedistantlight") => *name = local_name!("feDistantLight"),
+            local_name!("fedropshadow") => *name = local_name!("feDropShadow"),
+            local_name!("feflood") => *name = local_name!("feFlood"),
+            local_name!("fefunca") => *name = local_name!("feFuncA"),
+            local_name!("fefuncb") => *name = local_name!("feFuncB"),
+            local_name!("fefuncg") => *name = local_name!("feFuncG"),
+            local_name!("fefuncr") => *name = local_name!("feFuncR"),
+            local_name!("fegaussianblur") => *name = local_name!("feGaussianBlur"),
+            local_name!("feimage") => *name = local_name!("feImage"),
+            local_name!("femerge") => *name = local_name!("feMerge"),
+            local_name!("femergenode") => *name = local_name!("feMergeNode"),
+            local_name!("femorphology") => *name = local_name!("feMorphology"),
+            local_name!("feoffset") => *name = local_name!("feOffset"),
+            local_name!("fepointlight") => *name = local_name!("fePointLight"),
+            local_name!("fespecularlighting") => *name = local_name!("feSpecularLighting"),
+            local_name!("fespotlight") => *name = local_name!("feSpotLight"),
+            local_name!("fetile") => *name = local_name!("feTile"),
+            local_name!("feturbulence") => *name = local_name!("feTurbulence"),
+            local_name!("foreignobject") => *name = local_name!("foreignObject"),
+            local_name!("glyphref") => *name = local_name!("glyphRef"),
+            local_name!("lineargradient") => *name = local_name!("linearGradient"),
+            local_name!("radialgradient") => *name = local_name!("radialGradient"),
+            local_name!("textpath") => *name = local_name!("textPath"),
             _ => (),
         }
     }
 
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
-        where F: FnMut(Atom) -> Option<QualName>,
+        where F: FnMut(LocalName) -> Option<QualName>,
     {
         for &mut Attribute { ref mut name, .. } in &mut tag.attrs {
             if let Some(replacement) = map(name.local.clone()) {
@@ -995,89 +995,89 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     fn adjust_svg_attributes(&mut self, tag: &mut Tag) {
         self.adjust_attributes(tag, |k| match k {
-            atom!("attributename") => Some(qualname!("", "attributeName")),
-            atom!("attributetype") => Some(qualname!("", "attributeType")),
-            atom!("basefrequency") => Some(qualname!("", "baseFrequency")),
-            atom!("baseprofile") => Some(qualname!("", "baseProfile")),
-            atom!("calcmode") => Some(qualname!("", "calcMode")),
-            atom!("clippathunits") => Some(qualname!("", "clipPathUnits")),
-            atom!("diffuseconstant") => Some(qualname!("", "diffuseConstant")),
-            atom!("edgemode") => Some(qualname!("", "edgeMode")),
-            atom!("filterunits") => Some(qualname!("", "filterUnits")),
-            atom!("glyphref") => Some(qualname!("", "glyphRef")),
-            atom!("gradienttransform") => Some(qualname!("", "gradientTransform")),
-            atom!("gradientunits") => Some(qualname!("", "gradientUnits")),
-            atom!("kernelmatrix") => Some(qualname!("", "kernelMatrix")),
-            atom!("kernelunitlength") => Some(qualname!("", "kernelUnitLength")),
-            atom!("keypoints") => Some(qualname!("", "keyPoints")),
-            atom!("keysplines") => Some(qualname!("", "keySplines")),
-            atom!("keytimes") => Some(qualname!("", "keyTimes")),
-            atom!("lengthadjust") => Some(qualname!("", "lengthAdjust")),
-            atom!("limitingconeangle") => Some(qualname!("", "limitingConeAngle")),
-            atom!("markerheight") => Some(qualname!("", "markerHeight")),
-            atom!("markerunits") => Some(qualname!("", "markerUnits")),
-            atom!("markerwidth") => Some(qualname!("", "markerWidth")),
-            atom!("maskcontentunits") => Some(qualname!("", "maskContentUnits")),
-            atom!("maskunits") => Some(qualname!("", "maskUnits")),
-            atom!("numoctaves") => Some(qualname!("", "numOctaves")),
-            atom!("pathlength") => Some(qualname!("", "pathLength")),
-            atom!("patterncontentunits") => Some(qualname!("", "patternContentUnits")),
-            atom!("patterntransform") => Some(qualname!("", "patternTransform")),
-            atom!("patternunits") => Some(qualname!("", "patternUnits")),
-            atom!("pointsatx") => Some(qualname!("", "pointsAtX")),
-            atom!("pointsaty") => Some(qualname!("", "pointsAtY")),
-            atom!("pointsatz") => Some(qualname!("", "pointsAtZ")),
-            atom!("preservealpha") => Some(qualname!("", "preserveAlpha")),
-            atom!("preserveaspectratio") => Some(qualname!("", "preserveAspectRatio")),
-            atom!("primitiveunits") => Some(qualname!("", "primitiveUnits")),
-            atom!("refx") => Some(qualname!("", "refX")),
-            atom!("refy") => Some(qualname!("", "refY")),
-            atom!("repeatcount") => Some(qualname!("", "repeatCount")),
-            atom!("repeatdur") => Some(qualname!("", "repeatDur")),
-            atom!("requiredextensions") => Some(qualname!("", "requiredExtensions")),
-            atom!("requiredfeatures") => Some(qualname!("", "requiredFeatures")),
-            atom!("specularconstant") => Some(qualname!("", "specularConstant")),
-            atom!("specularexponent") => Some(qualname!("", "specularExponent")),
-            atom!("spreadmethod") => Some(qualname!("", "spreadMethod")),
-            atom!("startoffset") => Some(qualname!("", "startOffset")),
-            atom!("stddeviation") => Some(qualname!("", "stdDeviation")),
-            atom!("stitchtiles") => Some(qualname!("", "stitchTiles")),
-            atom!("surfacescale") => Some(qualname!("", "surfaceScale")),
-            atom!("systemlanguage") => Some(qualname!("", "systemLanguage")),
-            atom!("tablevalues") => Some(qualname!("", "tableValues")),
-            atom!("targetx") => Some(qualname!("", "targetX")),
-            atom!("targety") => Some(qualname!("", "targetY")),
-            atom!("textlength") => Some(qualname!("", "textLength")),
-            atom!("viewbox") => Some(qualname!("", "viewBox")),
-            atom!("viewtarget") => Some(qualname!("", "viewTarget")),
-            atom!("xchannelselector") => Some(qualname!("", "xChannelSelector")),
-            atom!("ychannelselector") => Some(qualname!("", "yChannelSelector")),
-            atom!("zoomandpan") => Some(qualname!("", "zoomAndPan")),
+            local_name!("attributename") => Some(qualname!("", "attributeName")),
+            local_name!("attributetype") => Some(qualname!("", "attributeType")),
+            local_name!("basefrequency") => Some(qualname!("", "baseFrequency")),
+            local_name!("baseprofile") => Some(qualname!("", "baseProfile")),
+            local_name!("calcmode") => Some(qualname!("", "calcMode")),
+            local_name!("clippathunits") => Some(qualname!("", "clipPathUnits")),
+            local_name!("diffuseconstant") => Some(qualname!("", "diffuseConstant")),
+            local_name!("edgemode") => Some(qualname!("", "edgeMode")),
+            local_name!("filterunits") => Some(qualname!("", "filterUnits")),
+            local_name!("glyphref") => Some(qualname!("", "glyphRef")),
+            local_name!("gradienttransform") => Some(qualname!("", "gradientTransform")),
+            local_name!("gradientunits") => Some(qualname!("", "gradientUnits")),
+            local_name!("kernelmatrix") => Some(qualname!("", "kernelMatrix")),
+            local_name!("kernelunitlength") => Some(qualname!("", "kernelUnitLength")),
+            local_name!("keypoints") => Some(qualname!("", "keyPoints")),
+            local_name!("keysplines") => Some(qualname!("", "keySplines")),
+            local_name!("keytimes") => Some(qualname!("", "keyTimes")),
+            local_name!("lengthadjust") => Some(qualname!("", "lengthAdjust")),
+            local_name!("limitingconeangle") => Some(qualname!("", "limitingConeAngle")),
+            local_name!("markerheight") => Some(qualname!("", "markerHeight")),
+            local_name!("markerunits") => Some(qualname!("", "markerUnits")),
+            local_name!("markerwidth") => Some(qualname!("", "markerWidth")),
+            local_name!("maskcontentunits") => Some(qualname!("", "maskContentUnits")),
+            local_name!("maskunits") => Some(qualname!("", "maskUnits")),
+            local_name!("numoctaves") => Some(qualname!("", "numOctaves")),
+            local_name!("pathlength") => Some(qualname!("", "pathLength")),
+            local_name!("patterncontentunits") => Some(qualname!("", "patternContentUnits")),
+            local_name!("patterntransform") => Some(qualname!("", "patternTransform")),
+            local_name!("patternunits") => Some(qualname!("", "patternUnits")),
+            local_name!("pointsatx") => Some(qualname!("", "pointsAtX")),
+            local_name!("pointsaty") => Some(qualname!("", "pointsAtY")),
+            local_name!("pointsatz") => Some(qualname!("", "pointsAtZ")),
+            local_name!("preservealpha") => Some(qualname!("", "preserveAlpha")),
+            local_name!("preserveaspectratio") => Some(qualname!("", "preserveAspectRatio")),
+            local_name!("primitiveunits") => Some(qualname!("", "primitiveUnits")),
+            local_name!("refx") => Some(qualname!("", "refX")),
+            local_name!("refy") => Some(qualname!("", "refY")),
+            local_name!("repeatcount") => Some(qualname!("", "repeatCount")),
+            local_name!("repeatdur") => Some(qualname!("", "repeatDur")),
+            local_name!("requiredextensions") => Some(qualname!("", "requiredExtensions")),
+            local_name!("requiredfeatures") => Some(qualname!("", "requiredFeatures")),
+            local_name!("specularconstant") => Some(qualname!("", "specularConstant")),
+            local_name!("specularexponent") => Some(qualname!("", "specularExponent")),
+            local_name!("spreadmethod") => Some(qualname!("", "spreadMethod")),
+            local_name!("startoffset") => Some(qualname!("", "startOffset")),
+            local_name!("stddeviation") => Some(qualname!("", "stdDeviation")),
+            local_name!("stitchtiles") => Some(qualname!("", "stitchTiles")),
+            local_name!("surfacescale") => Some(qualname!("", "surfaceScale")),
+            local_name!("systemlanguage") => Some(qualname!("", "systemLanguage")),
+            local_name!("tablevalues") => Some(qualname!("", "tableValues")),
+            local_name!("targetx") => Some(qualname!("", "targetX")),
+            local_name!("targety") => Some(qualname!("", "targetY")),
+            local_name!("textlength") => Some(qualname!("", "textLength")),
+            local_name!("viewbox") => Some(qualname!("", "viewBox")),
+            local_name!("viewtarget") => Some(qualname!("", "viewTarget")),
+            local_name!("xchannelselector") => Some(qualname!("", "xChannelSelector")),
+            local_name!("ychannelselector") => Some(qualname!("", "yChannelSelector")),
+            local_name!("zoomandpan") => Some(qualname!("", "zoomAndPan")),
             _ => None,
         });
     }
 
     fn adjust_mathml_attributes(&mut self, tag: &mut Tag) {
         self.adjust_attributes(tag, |k| match k {
-            atom!("definitionurl") => Some(qualname!("", "definitionURL")),
+            local_name!("definitionurl") => Some(qualname!("", "definitionURL")),
             _ => None,
         });
     }
 
     fn adjust_foreign_attributes(&mut self, tag: &mut Tag) {
         self.adjust_attributes(tag, |k| match k {
-            atom!("xlink:actuate") => Some(qualname!(xlink, "actuate")),
-            atom!("xlink:arcrole") => Some(qualname!(xlink, "arcrole")),
-            atom!("xlink:href") => Some(qualname!(xlink, "href")),
-            atom!("xlink:role") => Some(qualname!(xlink, "role")),
-            atom!("xlink:show") => Some(qualname!(xlink, "show")),
-            atom!("xlink:title") => Some(qualname!(xlink, "title")),
-            atom!("xlink:type") => Some(qualname!(xlink, "type")),
-            atom!("xml:base") => Some(qualname!(xml, "base")),
-            atom!("xml:lang") => Some(qualname!(xml, "lang")),
-            atom!("xml:space") => Some(qualname!(xml, "space")),
-            atom!("xmlns") => Some(qualname!(xmlns, "xmlns")),
-            atom!("xmlns:xlink") => Some(qualname!(xmlns, "xlink")),
+            local_name!("xlink:actuate") => Some(qualname!(xlink, "actuate")),
+            local_name!("xlink:arcrole") => Some(qualname!(xlink, "arcrole")),
+            local_name!("xlink:href") => Some(qualname!(xlink, "href")),
+            local_name!("xlink:role") => Some(qualname!(xlink, "role")),
+            local_name!("xlink:show") => Some(qualname!(xlink, "show")),
+            local_name!("xlink:title") => Some(qualname!(xlink, "title")),
+            local_name!("xlink:type") => Some(qualname!(xlink, "type")),
+            local_name!("xml:base") => Some(qualname!(xml, "base")),
+            local_name!("xml:lang") => Some(qualname!(xml, "lang")),
+            local_name!("xml:space") => Some(qualname!(xml, "space")),
+            local_name!("xmlns") => Some(qualname!(xmlns, "xmlns")),
+            local_name!("xmlns:xlink") => Some(qualname!(xmlns, "xlink")),
             _ => None,
         });
     }

@@ -71,8 +71,8 @@ tag @ <html> <head> => ...
 expands to something like
 
 ```rust
-TagToken(tag @ Tag { name: atom!("html"), kind: StartTag })
-| TagToken(tag @ Tag { name: atom!("head"), kind: StartTag }) => ...
+TagToken(tag @ Tag { name: local_name!("html"), kind: StartTag })
+| TagToken(tag @ Tag { name: local_name!("head"), kind: StartTag }) => ...
 ```
 
 A wildcard tag matches any tag of the appropriate kind, *unless* it was
@@ -416,8 +416,8 @@ fn expand_match_token_macro(to_be_matched: &syn::Ident, mut arms: Vec<Arm>) -> T
     //
     //     last_arm_token => {
     //         let enable_wildcards = match last_arm_token {
-    //             TagToken(Tag { kind: EndTag, name: atom!("body"), .. }) => false,
-    //             TagToken(Tag { kind: EndTag, name: atom!("html"), .. }) => false,
+    //             TagToken(Tag { kind: EndTag, name: local_name!("body"), .. }) => false,
+    //             TagToken(Tag { kind: EndTag, name: local_name!("html"), .. }) => false,
     //             // ...
     //             _ => true,
     //         };
@@ -472,7 +472,7 @@ fn make_tag_pattern(binding: &Tokens, tag: Tag) -> Tokens {
     };
     let name_field = if let Some(name) = tag.name {
         let name = name.to_string();
-        quote!(name: atom!(#name),)
+        quote!(name: local_name!(#name),)
     } else {
         quote!()
     };

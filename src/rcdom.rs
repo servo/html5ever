@@ -22,9 +22,9 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 
-use string_cache::QualName;
 use tendril::StrTendril;
 
+use QualName;
 use tokenizer::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder;

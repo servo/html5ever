@@ -19,7 +19,7 @@ use self::types::*;
 use self::actions::TreeBuilderActions;
 use self::rules::TreeBuilderStep;
 
-use string_cache::QualName;
+use QualName;
 use tendril::StrTendril;
 
 use tokenizer;
@@ -226,20 +226,20 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             _ => return tok_state::Data
         };
         match name {
-            atom!("title") | atom!("textarea") => tok_state::RawData(tok_state::Rcdata),
+            local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
-            atom!("style") | atom!("xmp") | atom!("iframe")
-                | atom!("noembed") | atom!("noframes") => tok_state::RawData(tok_state::Rawtext),
+            local_name!("style") | local_name!("xmp") | local_name!("iframe")
+                | local_name!("noembed") | local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
 
-            atom!("script") => tok_state::RawData(tok_state::ScriptData),
+            local_name!("script") => tok_state::RawData(tok_state::ScriptData),
 
-            atom!("noscript") => if self.opts.scripting_enabled {
+            local_name!("noscript") => if self.opts.scripting_enabled {
                 tok_state::RawData(tok_state::Rawtext)
             } else {
                 tok_state::Data
             },
 
-            atom!("plaintext") => tok_state::Plaintext,
+            local_name!("plaintext") => tok_state::Plaintext,
 
             _ => tok_state::Data
         }
@@ -277,8 +277,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-        use string_cache::QualName;
-
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
