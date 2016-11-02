@@ -7,8 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "heap_size", feature(plugin, custom_derive))]
-#![cfg_attr(feature = "heap_size", plugin(heapsize_plugin))]
+#![cfg_attr(feature = "heap_size", feature(proc_macro))]
+#[cfg(feature = "heap_size")] #[macro_use] extern crate heapsize_derive;
 #[cfg(feature = "heap_size")] extern crate heapsize;
 extern crate string_cache;
 
