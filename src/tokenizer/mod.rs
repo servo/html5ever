@@ -24,7 +24,7 @@ use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
 
-use string_cache::{Atom};
+use {Prefix, LocalName};
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -71,12 +71,12 @@ fn process_qname(tag_name: StrTendril) -> QName {
     };
 
     match split {
-        None => QName::new(Atom::from(""), Atom::from(&*tag_name)),
+        None => QName::new_empty(LocalName::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QName::new(Atom::from(&*prefix), Atom::from(&*local))
+            QName::new(Prefix::from(&*prefix), LocalName::from(&*local))
         },
     }
 }
@@ -1164,8 +1164,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             };
 
-            if &qname.local == &Atom::from("xmlns") ||
-                &qname.prefix == &Atom::from("xmlns") {
+            if qname.local == local_name!("xmlns") ||
+                qname.prefix == namespace_prefix!("xmlns") {
 
                 self.current_tag_attrs.insert(0, attr);
             } else {
@@ -1187,44 +1187,44 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 mod test {
 
     use tendril::SliceExt;
-    use string_cache::{Atom};
+    use {Prefix, LocalName};
     use super::{process_qname};
 
     #[test]
     fn simple_namespace() {
         let qname = process_qname("prefix:local".to_tendril());
-        assert_eq!(qname.prefix, Atom::from("prefix"));
-        assert_eq!(qname.local, Atom::from("local"));
+        assert_eq!(qname.prefix, Prefix::from("prefix"));
+        assert_eq!(qname.local, LocalName::from("local"));
 
         let qname = process_qname("a:b".to_tendril());
-        assert_eq!(qname.prefix, Atom::from("a"));
-        assert_eq!(qname.local, Atom::from("b"));
+        assert_eq!(qname.prefix, Prefix::from("a"));
+        assert_eq!(qname.local, LocalName::from("b"));
     }
 
     #[test]
     fn wrong_namespaces() {
         let qname = process_qname(":local".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from(":local"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from(":local"));
 
         let qname = process_qname("::local".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from("::local"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from("::local"));
 
         let qname = process_qname("a::local".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from("a::local"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from("a::local"));
 
         let qname = process_qname("fake::".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from("fake::"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from("fake::"));
 
         let qname = process_qname(":::".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from(":::"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from(":::"));
 
         let qname = process_qname(":a:b:".to_tendril());
-        assert_eq!(qname.prefix, Atom::from(""));
-        assert_eq!(qname.local, Atom::from(":a:b:"));
+        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.local, LocalName::from(":a:b:"));
     }
 }

@@ -116,7 +116,7 @@ impl<Handle, Sink> XmlTreeBuilderStep
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    if tag.name.local == atom!("script") {
+                    if tag.name.local == local_name!("script") {
                         self.insert_tag(tag.clone());
                         self.complete_script();
                         self.close_tag(tag)
@@ -134,7 +134,7 @@ impl<Handle, Sink> XmlTreeBuilderStep
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    if tag.name.local == atom!("script") {
+                    if tag.name.local == local_name!("script") {
                         self.complete_script();
                     }
                     let retval = self.close_tag(tag);

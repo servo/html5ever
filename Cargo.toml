@@ -1,6 +1,6 @@
 [package]
 name = "xml5ever"
-version = "0.1.3"
+version = "0.2.0"
 description = "Push based streaming parser for xml"
 homepage = "https://github.com/Ygg01/xml5ever/blob/master/README.md"
 documentation = "https://ygg01.github.io/docs/xml5ever/xml5ever/index.html"
@@ -13,15 +13,15 @@ build = "build.rs"
 exclude = ["xml5lib-tests/*"]
 
 [features]
-unstable = ["tendril/unstable", "string_cache/unstable"]
+unstable = ["tendril/unstable"]
 
 [dependencies]
 time = "0"
 log = "0"
-string_cache = "0.2.0"
 phf = "0.7"
 mac = "0"
 tendril = "0.2"
+html5ever-atoms = "0.1"
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"

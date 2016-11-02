@@ -32,12 +32,13 @@
 #![crate_type="dylib"]
 #![deny(missing_docs)]
 
+#[macro_use] extern crate html5ever_atoms;
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
-#[macro_use] extern crate string_cache;
-
 extern crate phf;
 extern crate time;
+
+pub use html5ever_atoms::{Prefix, Namespace, LocalName, QualName};
 
 /// Re-export the tendril crate so that users don’t need to depend on it.
 pub mod tendril {
