@@ -12,12 +12,12 @@ build = "build.rs"
 path = "lib.rs"
 
 [features]
-heap_size = ["heapsize", "heapsize_plugin"]
+heap_size = ["heapsize", "heapsize_derive", "string_cache/heap_size"]
 
 [dependencies]
 string_cache = "0.3"
 heapsize = { version = "0.3", optional = true }
-heapsize_plugin = { version = "0.1.0", optional = true }
+heapsize_derive = { version = "0.1", optional = true }
 
 [build-dependencies]
 string_cache_codegen = "0.3"
