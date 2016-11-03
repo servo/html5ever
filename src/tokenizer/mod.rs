@@ -230,7 +230,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn process_token(&mut self, token: Token) {
-	// let line_number = self.current_line.clone();
         if self.opts.profile {
             let (_, dt) = time!(self.sink.process_token(token, self.current_line));
             self.time_in_sink += dt;
@@ -1342,6 +1341,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 }
+
+/// A struct with implementation of TokenSink to test behavior of Tokenizer when calling process_token
 #[allow(dead_code)]
 struct TokenMatch {
     tokens: Vec<Token>,
