@@ -17,7 +17,7 @@ use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag, StartTag, StateChangeQuery, EndTag};
+use tokenizer::{Attribute, Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::to_escaped_string;
@@ -103,8 +103,8 @@ pub trait TreeBuilderActions<Handle> {
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
     fn adjusted_current_node(&self) -> Handle;
-    fn parse_raw_data(&mut self, tag: Tag, k: RawKind);
-    fn to_raw_text_mode(&mut self, k: RawKind);
+    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult;
+    fn to_raw_text_mode(&mut self, k: RawKind) -> ProcessResult;
     fn stop_parsing(&mut self) -> ProcessResult;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle>;
@@ -176,17 +176,16 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     // switch the tokenizer to a raw-data state.
     // The latter only takes effect after the current / next
     // `process_token` of a start tag returns!
-    fn to_raw_text_mode(&mut self, k: RawKind) {
-        assert!(self.next_tokenizer_state.is_none());
-        self.next_tokenizer_state = Some(StateChangeQuery::RawData(k));
+    fn to_raw_text_mode(&mut self, k: RawKind) -> ProcessResult {
         self.orig_mode = Some(self.mode);
         self.mode = Text;
+        ToRawData(k)
     }
 
     // The generic raw text / RCDATA parsing algorithm.
-    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) {
+    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult {
         self.insert_element_for(tag);
-        self.to_raw_text_mode(k);
+        self.to_raw_text_mode(k)
     }
     //§ END
 

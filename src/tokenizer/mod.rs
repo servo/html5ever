@@ -14,7 +14,7 @@
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-pub use self::interface::{StateChangeQuery, TokenSink};
+pub use self::interface::{TokenSink, ProcessResult};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
@@ -226,13 +226,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.state = states::Plaintext;
     }
 
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token) -> ProcessResult {
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token));
+            let (ret, dt) = time!(self.sink.process_token(token));
             self.time_in_sink += dt;
+            ret
         } else {
-            self.sink.process_token(token);
+            self.sink.process_token(token)
         }
+    }
+
+    fn process_token_and_continue(&mut self, token: Token) {
+        assert_eq!(self.process_token(token), ProcessResult::Continue);
     }
 
     //§ preprocessing-the-input-stream
@@ -368,7 +373,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.process_token(match c {
+        self.process_token_and_continue(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
         });
@@ -376,7 +381,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: StrTendril) {
-        self.process_token(CharacterTokens(b));
+        self.process_token_and_continue(CharacterTokens(b));
     }
 
     fn emit_current_tag(&mut self) -> bool {
@@ -404,19 +409,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
-        self.process_token(token);
 
-        match self.sink.query_state_change() {
-            None => true,
-            Some(StateChangeQuery::Plaintext) => {
+        match self.process_token(token) {
+            ProcessResult::Continue => true,
+            ProcessResult::Plaintext => {
                 self.state = states::Plaintext;
                 true
             },
-            Some(StateChangeQuery::Quiescent) => {
+            ProcessResult::Quiescent => {
                 self.state = states::Data;
                 false
             },
-            Some(StateChangeQuery::RawData(kind)) => {
+            ProcessResult::RawData(kind) => {
                 self.state = states::RawData(kind);
                 true
             }
@@ -436,7 +440,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_comment(&mut self) {
         let comment = replace(&mut self.current_comment, StrTendril::new());
-        self.process_token(CommentToken(comment));
+        self.process_token_and_continue(CommentToken(comment));
     }
 
     fn discard_tag(&mut self) {
@@ -497,7 +501,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_doctype(&mut self) {
         let doctype = replace(&mut self.current_doctype, Doctype::new());
-        self.process_token(DoctypeToken(doctype));
+        self.process_token_and_continue(DoctypeToken(doctype));
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
@@ -522,7 +526,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_eof(&mut self) {
-        self.process_token(EOFToken);
+        self.process_token_and_continue(EOFToken);
     }
 
     fn peek(&mut self, input: &BufferQueue) -> Option<char> {
@@ -539,7 +543,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
-        self.process_token(ParseError(error));
+        self.process_token_and_continue(ParseError(error));
     }
 }
 //§ END
