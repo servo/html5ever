@@ -15,7 +15,7 @@ use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
 
-use html5ever::tokenizer::{TokenSink, Tokenizer, Token, TokenizerOpts, ParseError};
+use html5ever::tokenizer::{TokenSink, Tokenizer, Token, TokenizerOpts, ParseError, TokenSinkResult};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
 use html5ever::tokenizer::buffer_queue::BufferQueue;
 
@@ -41,7 +41,9 @@ impl TokenPrinter {
 }
 
 impl TokenSink for TokenPrinter {
-    fn process_token(&mut self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
@@ -74,6 +76,7 @@ impl TokenSink for TokenPrinter {
                 println!("OTHER: {:?}", token);
             }
         }
+        TokenSinkResult::Continue
     }
 }
 

@@ -17,7 +17,7 @@ use tree_builder::tag_sets::*;
 use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag, StartTag, StateChangeQuery, EndTag};
+use tokenizer::{Attribute, Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::to_escaped_string;
@@ -59,14 +59,14 @@ enum Bookmark<Handle> {
 
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
-    fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult;
+    fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult<Handle>;
     fn assert_named(&mut self, node: Handle, name: LocalName);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
-    fn append_text(&mut self, text: StrTendril) -> ProcessResult;
-    fn append_comment(&mut self, text: StrTendril) -> ProcessResult;
-    fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult;
-    fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult;
+    fn append_text(&mut self, text: StrTendril) -> ProcessResult<Handle>;
+    fn append_comment(&mut self, text: StrTendril) -> ProcessResult<Handle>;
+    fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult<Handle>;
+    fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult<Handle>;
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>, override_target: Option<Handle>);
     fn insert_phantom(&mut self, name: LocalName) -> Handle;
     fn insert_and_pop_element_for(&mut self, tag: Tag) -> Handle;
@@ -75,8 +75,8 @@ pub trait TreeBuilderActions<Handle> {
     fn create_root(&mut self, attrs: Vec<Attribute>);
     fn close_the_cell(&mut self);
     fn reset_insertion_mode(&mut self) -> InsertionMode;
-    fn process_chars_in_table(&mut self, token: Token) -> ProcessResult;
-    fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult;
+    fn process_chars_in_table(&mut self, token: Token) -> ProcessResult<Handle>;
+    fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult<Handle>;
     fn is_type_hidden(&self, tag: &Tag) -> bool;
     fn close_p_element_in_button_scope(&mut self);
     fn close_p_element(&mut self);
@@ -103,9 +103,9 @@ pub trait TreeBuilderActions<Handle> {
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
     fn current_node(&self) -> Handle;
     fn adjusted_current_node(&self) -> Handle;
-    fn parse_raw_data(&mut self, tag: Tag, k: RawKind);
-    fn to_raw_text_mode(&mut self, k: RawKind);
-    fn stop_parsing(&mut self) -> ProcessResult;
+    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult<Handle>;
+    fn to_raw_text_mode(&mut self, k: RawKind) -> ProcessResult<Handle>;
+    fn stop_parsing(&mut self) -> ProcessResult<Handle>;
     fn set_quirks_mode(&mut self, mode: QuirksMode);
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingIter<'a, Handle>;
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool;
@@ -113,15 +113,15 @@ pub trait TreeBuilderActions<Handle> {
     fn process_end_tag_in_body(&mut self, tag: Tag);
     fn handle_misnested_a_tags(&mut self, tag: &Tag);
     fn is_foreign(&mut self, token: &Token) -> bool;
-    fn enter_foreign(&mut self, tag: Tag, ns: Namespace) -> ProcessResult;
+    fn enter_foreign(&mut self, tag: Tag, ns: Namespace) -> ProcessResult<Handle>;
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
         where F: FnMut(LocalName) -> Option<QualName>;
     fn adjust_svg_tag_name(&mut self, tag: &mut Tag);
     fn adjust_svg_attributes(&mut self, tag: &mut Tag);
     fn adjust_mathml_attributes(&mut self, tag: &mut Tag);
     fn adjust_foreign_attributes(&mut self, tag: &mut Tag);
-    fn foreign_start_tag(&mut self, tag: Tag) -> ProcessResult;
-    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult;
+    fn foreign_start_tag(&mut self, tag: Tag) -> ProcessResult<Handle>;
+    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult<Handle>;
 }
 
 #[doc(hidden)]
@@ -130,7 +130,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn unexpected<T: fmt::Debug>(&mut self, _thing: &T) -> ProcessResult {
+    fn unexpected<T: fmt::Debug>(&mut self, _thing: &T) -> ProcessResult<Handle> {
         self.sink.parse_error(format_if!(
             self.opts.exact_errors,
             "Unexpected token",
@@ -166,7 +166,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.sink.set_quirks_mode(mode);
     }
 
-    fn stop_parsing(&mut self) -> ProcessResult {
+    fn stop_parsing(&mut self) -> ProcessResult<Handle> {
         warn!("stop_parsing not implemented, full speed ahead!");
         Done
     }
@@ -176,17 +176,16 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     // switch the tokenizer to a raw-data state.
     // The latter only takes effect after the current / next
     // `process_token` of a start tag returns!
-    fn to_raw_text_mode(&mut self, k: RawKind) {
-        assert!(self.next_tokenizer_state.is_none());
-        self.next_tokenizer_state = Some(StateChangeQuery::RawData(k));
+    fn to_raw_text_mode(&mut self, k: RawKind) -> ProcessResult<Handle> {
         self.orig_mode = Some(self.mode);
         self.mode = Text;
+        ToRawData(k)
     }
 
     // The generic raw text / RCDATA parsing algorithm.
-    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) {
+    fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult<Handle> {
         self.insert_element_for(tag);
-        self.to_raw_text_mode(k);
+        self.to_raw_text_mode(k)
     }
     //§ END
 
@@ -662,7 +661,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
     }
 
-    fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult {
+    fn foster_parent_in_body(&mut self, token: Token) -> ProcessResult<Handle> {
         warn!("foster parenting not implemented");
         self.foster_parenting = true;
         let res = self.step(InBody, token);
@@ -671,7 +670,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         res
     }
 
-    fn process_chars_in_table(&mut self, token: Token) -> ProcessResult {
+    fn process_chars_in_table(&mut self, token: Token) -> ProcessResult<Handle> {
         declare_tag_set!(table_outer = "table" "tbody" "tfoot" "thead" "tr");
         if self.current_node_in(table_outer) {
             assert!(self.pending_table_text.is_empty());
@@ -736,25 +735,25 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         self.clear_active_formatting_to_marker();
     }
 
-    fn append_text(&mut self, text: StrTendril) -> ProcessResult {
+    fn append_text(&mut self, text: StrTendril) -> ProcessResult<Handle> {
         self.insert_appropriately(AppendText(text), None);
         Done
     }
 
-    fn append_comment(&mut self, text: StrTendril) -> ProcessResult {
+    fn append_comment(&mut self, text: StrTendril) -> ProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.insert_appropriately(AppendNode(comment), None);
         Done
     }
 
-    fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult {
+    fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult<Handle> {
         let target = self.doc_handle.clone();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
     }
 
-    fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult {
+    fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult<Handle> {
         let target = self.html_elem();
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
@@ -922,7 +921,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
     //§ END
 
-    fn enter_foreign(&mut self, mut tag: Tag, ns: Namespace) -> ProcessResult {
+    fn enter_foreign(&mut self, mut tag: Tag, ns: Namespace) -> ProcessResult<Handle> {
         match ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),
             ns!(svg) => self.adjust_svg_attributes(&mut tag),
@@ -1082,7 +1081,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         });
     }
 
-    fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult {
+    fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult<Handle> {
         let cur = self.sink.elem_name(self.adjusted_current_node());
         match cur.ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),
@@ -1103,7 +1102,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         }
     }
 
-    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult {
+    fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult<Handle> {
         self.unexpected(&tag);
         if self.is_fragment() {
             self.foreign_start_tag(tag)

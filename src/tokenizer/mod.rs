@@ -14,7 +14,7 @@
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-pub use self::interface::{StateChangeQuery, TokenSink};
+pub use self::interface::{TokenSink, TokenSinkResult};
 
 use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
@@ -42,6 +42,17 @@ pub mod buffer_queue;
 pub mod states;
 mod interface;
 mod char_ref;
+
+pub enum ProcessResult<Handle> {
+    Continue,
+    Suspend,
+    Script(Handle)
+}
+
+pub enum TokenizerResult<Handle> {
+    Done,
+    Script(Handle)
+}
 
 fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
     match *opt_str {
@@ -204,9 +215,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: &mut BufferQueue) {
+    pub fn feed(&mut self, input: &mut BufferQueue) -> TokenizerResult<Sink::Handle> {
         if input.is_empty() {
-            return;
+            return TokenizerResult::Done;
         }
 
         if self.discard_bom {
@@ -215,7 +226,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     input.next();
                 }
             } else {
-                return;
+                return TokenizerResult::Done;
             }
         };
 
@@ -226,13 +237,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.state = states::Plaintext;
     }
 
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token) -> TokenSinkResult<Sink::Handle> {
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token));
+            let (ret, dt) = time!(self.sink.process_token(token));
             self.time_in_sink += dt;
+            ret
         } else {
-            self.sink.process_token(token);
+            self.sink.process_token(token)
         }
+    }
+
+    fn process_token_and_continue(&mut self, token: Token) {
+        assert!(matches!(self.process_token(token), TokenSinkResult::Continue));
     }
 
     //§ preprocessing-the-input-stream
@@ -326,7 +342,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Run the state machine for as long as we can.
-    pub fn run(&mut self, input: &mut BufferQueue) {
+    fn run(&mut self, input: &mut BufferQueue) -> TokenizerResult<Sink::Handle> {
         if self.opts.profile {
             loop {
                 let state = self.state;
@@ -344,11 +360,22 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // do this here because of borrow shenanigans
                     self.state_profile.insert(state, dt);
                 }
-                if !run { break; }
+                match run {
+                    ProcessResult::Continue => (),
+                    ProcessResult::Suspend => break,
+                    ProcessResult::Script(node) => return TokenizerResult::Script(node),
+                }
             }
         } else {
-            while self.step(input) {}
+            loop {
+                match self.step(input) {
+                    ProcessResult::Continue => (),
+                    ProcessResult::Suspend => break,
+                    ProcessResult::Script(node) => return TokenizerResult::Script(node),
+                }
+            }
         }
+        TokenizerResult::Done
     }
 
     fn bad_char_error(&mut self) {
@@ -368,7 +395,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_char(&mut self, c: char) {
-        self.process_token(match c {
+        self.process_token_and_continue(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
         });
@@ -376,10 +403,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     // The string must not contain '\0'!
     fn emit_chars(&mut self, b: StrTendril) {
-        self.process_token(CharacterTokens(b));
+        self.process_token_and_continue(CharacterTokens(b));
     }
 
-    fn emit_current_tag(&mut self) -> bool {
+    fn emit_current_tag(&mut self) -> ProcessResult<Sink::Handle> {
         self.finish_attribute();
 
         let name = LocalName::from(&*self.current_tag_name);
@@ -404,21 +431,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec!()),
         });
-        self.process_token(token);
 
-        match self.sink.query_state_change() {
-            None => true,
-            Some(StateChangeQuery::Plaintext) => {
+        match self.process_token(token) {
+            TokenSinkResult::Continue => ProcessResult::Continue,
+            TokenSinkResult::Plaintext => {
                 self.state = states::Plaintext;
-                true
+                ProcessResult::Continue
             },
-            Some(StateChangeQuery::Quiescent) => {
+            TokenSinkResult::Script(node) => {
                 self.state = states::Data;
-                false
+                ProcessResult::Script(node)
             },
-            Some(StateChangeQuery::RawData(kind)) => {
+            TokenSinkResult::RawData(kind) => {
                 self.state = states::RawData(kind);
-                true
+                ProcessResult::Continue
             }
         }
     }
@@ -436,7 +462,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_comment(&mut self) {
         let comment = replace(&mut self.current_comment, StrTendril::new());
-        self.process_token(CommentToken(comment));
+        self.process_token_and_continue(CommentToken(comment));
     }
 
     fn discard_tag(&mut self) {
@@ -497,7 +523,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_current_doctype(&mut self) {
         let doctype = replace(&mut self.current_doctype, Doctype::new());
-        self.process_token(DoctypeToken(doctype));
+        self.process_token_and_continue(DoctypeToken(doctype));
     }
 
     fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
@@ -522,7 +548,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_eof(&mut self) {
-        self.process_token(EOFToken);
+        self.process_token_and_continue(EOFToken);
     }
 
     fn peek(&mut self, input: &BufferQueue) -> Option<char> {
@@ -539,7 +565,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
-        self.process_token(ParseError(error));
+        self.process_token_and_continue(ParseError(error));
     }
 }
 //§ END
@@ -595,16 +621,16 @@ macro_rules! go (
 
     // These can only come at the end.
 
-    ( $me:ident : to $s:ident                    ) => ({ $me.state = states::$s; return true;           });
-    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state = states::$s($k1); return true;      });
-    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return true; });
+    ( $me:ident : to $s:ident                    ) => ({ $me.state = states::$s; return ProcessResult::Continue;           });
+    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state = states::$s($k1); return ProcessResult::Continue;      });
+    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return ProcessResult::Continue; });
 
     ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume = true; go!($me: to $s);         });
     ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
     ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
 
-    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
-    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
+    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return ProcessResult::Continue;         });
+    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return ProcessResult::Continue; });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
@@ -612,7 +638,7 @@ macro_rules! go (
         return $me.emit_current_tag();
     });
 
-    ( $me:ident : eof ) => ({ $me.emit_eof(); return false; });
+    ( $me:ident : eof ) => ({ $me.emit_eof(); return ProcessResult::Suspend; });
 
     // If nothing else matched, it's a single command
     ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+); );
@@ -631,30 +657,30 @@ macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) 
 // This is a macro because it can cause early return
 // from the function where it is used.
 macro_rules! get_char ( ($me:expr, $input:expr) => (
-    unwrap_or_return!($me.get_char($input), false)
+    unwrap_or_return!($me.get_char($input), ProcessResult::Suspend)
 ));
 
 macro_rules! peek ( ($me:expr, $input:expr) => (
-    unwrap_or_return!($me.peek($input), false)
+    unwrap_or_return!($me.peek($input), ProcessResult::Suspend)
 ));
 
 macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($input, $set), false)
+    unwrap_or_return!($me.pop_except_from($input, $set), ProcessResult::Suspend)
 ));
 
 macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($input, $pat, u8::eq_ignore_ascii_case), false)
+    unwrap_or_return!($me.eat($input, $pat, u8::eq_ignore_ascii_case), ProcessResult::Suspend)
 ));
 
 macro_rules! eat_exact ( ($me:expr, $input:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($input, $pat, u8::eq), false)
+    unwrap_or_return!($me.eat($input, $pat, u8::eq), ProcessResult::Suspend)
 ));
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
-    fn step(&mut self, input: &mut BufferQueue) -> bool {
+    fn step(&mut self, input: &mut BufferQueue) -> ProcessResult<Sink::Handle> {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer(input);
         }
@@ -1203,7 +1229,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self, input: &mut BufferQueue) -> bool {
+    fn step_char_ref_tokenizer(&mut self, input: &mut BufferQueue) -> ProcessResult<Sink::Handle> {
         // FIXME HACK: Take and replace the tokenizer so we don't
         // double-mut-borrow self.  This is why it's boxed.
         let mut tok = self.char_ref_tokenizer.take().unwrap();
@@ -1212,11 +1238,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let progress = match outcome {
             char_ref::Done => {
                 self.process_char_ref(tok.get_result());
-                return true;
+                return ProcessResult::Continue;
             }
 
-            char_ref::Stuck => false,
-            char_ref::Progress => true,
+            char_ref::Stuck => ProcessResult::Suspend,
+            char_ref::Progress => ProcessResult::Continue,
         };
 
         self.char_ref_tokenizer = Some(tok);
@@ -1264,7 +1290,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.run(&mut input);
         assert!(input.is_empty());
 
-        while self.eof_step() {}
+        loop {
+            match self.eof_step() {
+                ProcessResult::Continue => (),
+                ProcessResult::Suspend => break,
+                ProcessResult::Script(_) => unreachable!(),
+            }
+        }
 
         if self.opts.profile {
             self.dump_profile();
@@ -1287,7 +1319,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn eof_step(&mut self) -> bool {
+    fn eof_step(&mut self) -> ProcessResult<Sink::Handle> {
         debug!("processing EOF in state {:?}", self.state);
         match self.state {
             states::Data | states::RawData(Rcdata) | states::RawData(Rawtext)

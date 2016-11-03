@@ -12,9 +12,9 @@
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
-use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
+use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 
-use tokenizer::{Attribute, EndTag, StartTag, StateChangeQuery, Tag};
+use tokenizer::{Attribute, EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
 use QualName;
@@ -33,18 +33,18 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
 }
 
 // This goes in a trait so that we can control visibility.
-pub trait TreeBuilderStep {
-    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult;
-    fn step_foreign(&mut self, token: Token) -> ProcessResult;
+pub trait TreeBuilderStep<Handle> {
+    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle>;
+    fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle>;
 }
 
 #[doc(hidden)]
-impl<Handle, Sink> TreeBuilderStep
+impl<Handle, Sink> TreeBuilderStep<Handle>
     for super::TreeBuilder<Handle, Sink>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult {
+    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
@@ -123,18 +123,17 @@ impl<Handle, Sink> TreeBuilderStep
                 }
 
                 tag @ <title> => {
-                    self.parse_raw_data(tag, Rcdata);
-                    Done
+                    self.parse_raw_data(tag, Rcdata)
                 }
 
                 tag @ <noframes> <style> <noscript> => {
                     if (!self.opts.scripting_enabled) && (tag.name == local_name!("noscript")) {
                         self.insert_element_for(tag);
                         self.mode = InHeadNoscript;
+                        Done
                     } else {
-                        self.parse_raw_data(tag, Rawtext);
+                        self.parse_raw_data(tag, Rawtext)
                     }
-                    Done
                 }
 
                 tag @ <script> => {
@@ -144,8 +143,7 @@ impl<Handle, Sink> TreeBuilderStep
                     }
                     self.insert_appropriately(AppendNode(elem.clone()), None);
                     self.open_elems.push(elem);
-                    self.to_raw_text_mode(ScriptData);
-                    Done
+                    self.to_raw_text_mode(ScriptData)
                 }
 
                 </head> => {
@@ -439,8 +437,7 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ <plaintext> => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    self.next_tokenizer_state = Some(StateChangeQuery::Plaintext);
-                    Done
+                    ToPlaintext
                 }
 
                 tag @ <button> => {
@@ -645,27 +642,23 @@ impl<Handle, Sink> TreeBuilderStep
                 tag @ <textarea> => {
                     self.ignore_lf = true;
                     self.frameset_ok = false;
-                    self.parse_raw_data(tag, Rcdata);
-                    Done
+                    self.parse_raw_data(tag, Rcdata)
                 }
 
                 tag @ <xmp> => {
                     self.close_p_element_in_button_scope();
                     self.reconstruct_formatting();
                     self.frameset_ok = false;
-                    self.parse_raw_data(tag, Rawtext);
-                    Done
+                    self.parse_raw_data(tag, Rawtext)
                 }
 
                 tag @ <iframe> => {
                     self.frameset_ok = false;
-                    self.parse_raw_data(tag, Rawtext);
-                    Done
+                    self.parse_raw_data(tag, Rawtext)
                 }
 
                 tag @ <noembed> => {
-                    self.parse_raw_data(tag, Rawtext);
-                    Done
+                    self.parse_raw_data(tag, Rawtext)
                 }
 
                 // <noscript> handled in wildcard case below
@@ -736,12 +729,12 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ <_> => {
                     if self.opts.scripting_enabled && tag.name == local_name!("noscript") {
-                        self.parse_raw_data(tag, Rawtext);
+                        self.parse_raw_data(tag, Rawtext)
                     } else {
                         self.reconstruct_formatting();
                         self.insert_element_for(tag);
+                        Done
                     }
-                    Done
                 }
 
                 tag @ </_> => {
@@ -770,13 +763,10 @@ impl<Handle, Sink> TreeBuilderStep
 
                 tag @ </_> => {
                     let node = self.pop();
-                    if tag.name == local_name!("script") {
-                        warn!("FIXME: </script> not fully implemented");
-                        if self.sink.complete_script(node) == NextParserState::Suspend {
-                            self.next_tokenizer_state = Some(StateChangeQuery::Quiescent);
-                        }
-                    }
                     self.mode = self.orig_mode.take().unwrap();
+                    if tag.name == local_name!("script") {
+                        return Script(node);
+                    }
                     Done
                 }
 
@@ -1400,7 +1390,7 @@ impl<Handle, Sink> TreeBuilderStep
         }
     }
 
-    fn step_foreign(&mut self, token: Token) -> ProcessResult {
+    fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle> {
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
