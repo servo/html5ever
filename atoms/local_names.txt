@@ -186,6 +186,7 @@ contentScriptType
 contentStyleType
 contenteditable
 contextmenu
+controllerchange
 controls
 coords
 cos
@@ -298,6 +299,7 @@ feSpotLight
 feTile
 feTurbulence
 fence
+fetch
 fieldset
 figcaption
 figure
@@ -828,6 +830,7 @@ srcdoc
 standby
 start
 startOffset
+statechange
 stdDeviation
 stemh
 stemv
@@ -893,6 +896,7 @@ time
 times
 title
 to
+toggle
 tr
 track
 transform
