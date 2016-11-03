@@ -10,6 +10,7 @@
 //! Types used within the tree builder code.  Not exported to users.
 
 use tokenizer::Tag;
+use tokenizer::states::RawKind;
 
 use tendril::StrTendril;
 
@@ -70,6 +71,9 @@ pub enum ProcessResult {
     SplitWhitespace(StrTendril),
     Reprocess(InsertionMode, Token),
     ReprocessForeign(Token),
+    Quiescent,
+    ToPlaintext,
+    ToRawData(RawKind),
 }
 
 pub enum FormatEntry<Handle> {

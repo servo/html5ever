@@ -97,16 +97,19 @@ pub enum Token {
 // FIXME: rust-lang/rust#22629
 unsafe impl Send for Token { }
 
-pub enum StateChangeQuery {
-    Plaintext,
+#[derive(Debug, PartialEq)]
+#[must_use]
+pub enum ProcessResult {
+    Continue,
     Quiescent,
-    RawData(states::RawKind),
+    Plaintext,
+    RawData(states::RawKind)
 }
 
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
     /// Process a token.
-    fn process_token(&mut self, token: Token);
+    fn process_token(&mut self, token: Token) -> ProcessResult;
 
     /// Used in the markup declaration open state. By default, this always
     /// returns false and thus all CDATA sections are tokenized as bogus
@@ -114,12 +117,5 @@ pub trait TokenSink {
     /// https://html.spec.whatwg.org/multipage/#markup-declaration-open-state
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         false
-    }
-
-    /// The tokenizer will call this after emitting any tag.
-    /// This allows the tree builder to change the tokenizer's state.
-    /// By default no state changes occur.
-    fn query_state_change(&mut self) -> Option<StateChangeQuery> {
-        None
     }
 }

@@ -23,7 +23,7 @@ use QualName;
 use tendril::StrTendril;
 
 use tokenizer;
-use tokenizer::{Doctype, StartTag, StateChangeQuery, Tag, TokenSink};
+use tokenizer::{Doctype, StartTag, Tag, TokenSink};
 use tokenizer::states as tok_state;
 
 use util::str::is_ascii_whitespace;
@@ -123,9 +123,6 @@ pub struct TreeBuilder<Handle, Sink> {
     form_elem: Option<Handle>,
     //§ END
 
-    /// Next state change for the tokenizer, if any.
-    next_tokenizer_state: Option<StateChangeQuery>,
-
     /// Frameset-ok flag.
     frameset_ok: bool,
 
@@ -167,7 +164,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             active_formatting: vec!(),
             head_elem: None,
             form_elem: None,
-            next_tokenizer_state: None,
             frameset_ok: true,
             ignore_lf: false,
             foster_parenting: false,
@@ -199,7 +195,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             active_formatting: vec!(),
             head_elem: None,
             form_elem: form_elem,
-            next_tokenizer_state: None,
             frameset_ok: true,
             ignore_lf: false,
             foster_parenting: false,
@@ -308,7 +303,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
     }
 
-    fn process_to_completion(&mut self, mut token: Token) {
+    fn process_to_completion(&mut self, mut token: Token) -> tokenizer::ProcessResult {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -327,10 +322,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     if should_have_acknowledged_self_closing_flag {
                         self.sink.parse_error(Borrowed("Unacknowledged self-closing tag"));
                     }
-                    token = unwrap_or_return!(more_tokens.pop_front(), ());
+                    token = unwrap_or_return!(more_tokens.pop_front(), tokenizer::ProcessResult::Continue);
                 }
                 DoneAckSelfClosing => {
-                    token = unwrap_or_return!(more_tokens.pop_front(), ());
+                    token = unwrap_or_return!(more_tokens.pop_front(), tokenizer::ProcessResult::Continue);
                 }
                 Reprocess(m, t) => {
                     self.mode = m;
@@ -341,13 +336,25 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 }
                 SplitWhitespace(mut buf) => {
                     let p = buf.pop_front_char_run(is_ascii_whitespace);
-                    let (first, is_ws) = unwrap_or_return!(p, ());
+                    let (first, is_ws) = unwrap_or_return!(p, tokenizer::ProcessResult::Continue);
                     let status = if is_ws { Whitespace } else { NotWhitespace };
                     token = CharacterTokens(status, first);
 
                     if buf.len32() > 0 {
                         more_tokens.push_back(CharacterTokens(NotSplit, buf));
                     }
+                }
+                Quiescent => {
+                    assert!(more_tokens.is_empty());
+                    return tokenizer::ProcessResult::Quiescent;
+                }
+                ToPlaintext => {
+                    assert!(more_tokens.is_empty());
+                    return tokenizer::ProcessResult::Plaintext;
+                }
+                ToRawData(k) => {
+                    assert!(more_tokens.is_empty());
+                    return tokenizer::ProcessResult::RawData(k);
                 }
             }
         }
@@ -364,14 +371,14 @@ impl<Handle, Sink> TokenSink
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn process_token(&mut self, token: tokenizer::Token) {
+    fn process_token(&mut self, token: tokenizer::Token) -> tokenizer::ProcessResult {
         let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
-                return;
+                return tokenizer::ProcessResult::Continue;
             }
 
             tokenizer::DoctypeToken(dt) => if self.mode == Initial {
@@ -393,13 +400,13 @@ impl<Handle, Sink> TokenSink
                 self.set_quirks_mode(quirk);
 
                 self.mode = BeforeHtml;
-                return;
+                return tokenizer::ProcessResult::Continue;
             } else {
                 self.sink.parse_error(format_if!(
                     self.opts.exact_errors,
                     "DOCTYPE in body",
                     "DOCTYPE in insertion mode {:?}", self.mode));
-                return;
+                return tokenizer::ProcessResult::Continue;
             },
 
             tokenizer::TagToken(x) => TagToken(x),
@@ -412,21 +419,17 @@ impl<Handle, Sink> TokenSink
                     x.pop_front(1);
                 }
                 if x.is_empty() {
-                    return;
+                    return tokenizer::ProcessResult::Continue;
                 }
                 CharacterTokens(NotSplit, x)
             }
         };
 
-        self.process_to_completion(token);
+        self.process_to_completion(token)
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
         self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
-    }
-
-    fn query_state_change(&mut self) -> Option<StateChangeQuery> {
-        self.next_tokenizer_state.take()
     }
 }
