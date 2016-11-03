@@ -13,7 +13,7 @@
 
 pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::interface::{NodeOrText, AppendNode, AppendText};
-pub use self::interface::{TreeSink, Tracer, NextParserState};
+pub use self::interface::{TreeSink, Tracer};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;

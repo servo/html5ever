@@ -12,7 +12,7 @@
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
-use tree_builder::interface::{TreeSink, Quirks, AppendNode, NextParserState};
+use tree_builder::interface::{TreeSink, Quirks, AppendNode};
 
 use tokenizer::{Attribute, EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
@@ -765,10 +765,7 @@ impl<Handle, Sink> TreeBuilderStep
                     let node = self.pop();
                     self.mode = self.orig_mode.take().unwrap();
                     if tag.name == local_name!("script") {
-                        warn!("FIXME: </script> not fully implemented");
-                        if self.sink.complete_script(node) == NextParserState::Suspend {
-                            return Quiescent;
-                        }
+                        return Quiescent;
                     }
                     Done
                 }
