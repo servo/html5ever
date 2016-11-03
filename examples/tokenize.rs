@@ -40,7 +40,7 @@ impl TokenPrinter {
 }
 
 impl TokenSink for TokenPrinter {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token, line_number: u64) {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {

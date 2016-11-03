@@ -22,7 +22,7 @@ use html5ever::tokenizer::{TokenSink, Token, Tokenizer};
 struct Sink(Vec<Token>);
 
 impl TokenSink for Sink {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token, line_number: u64) {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         self.0.push(token);

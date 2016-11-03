@@ -96,7 +96,7 @@ impl TokenLogger {
 }
 
 impl TokenSink for TokenLogger {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&mut self, token: Token, line_number: u64) {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
@@ -254,8 +254,8 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     for tok in js.get_list().iter() {
         match *tok {
             Json::String(ref s)
-                if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
-            _ => sink.process_token(json_to_token(tok)),
+                if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed("")), 0),
+            _ => sink.process_token(json_to_token(tok), 0),
         }
     }
     sink.get_tokens()
