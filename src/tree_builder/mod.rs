@@ -364,7 +364,7 @@ impl<Handle, Sink> TokenSink
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {
-    fn process_token(&mut self, token: tokenizer::Token) {
+    fn process_token(&mut self, token: tokenizer::Token, line_number: u64) {
         let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
