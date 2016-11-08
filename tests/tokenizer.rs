@@ -32,7 +32,7 @@ use html5ever::{LocalName, QualName};
 use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tokenizer::buffer_queue::BufferQueue;
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
 
@@ -97,7 +97,9 @@ impl TokenLogger {
 }
 
 impl TokenSink for TokenLogger {
-    fn process_token(&mut self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
@@ -129,6 +131,7 @@ impl TokenSink for TokenLogger {
 
             _ => self.push(token),
         }
+        TokenSinkResult::Continue
     }
 }
 
@@ -256,11 +259,11 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
-        match *tok {
+        assert_eq!(match *tok {
             Json::String(ref s)
                 if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed(""))),
             _ => sink.process_token(json_to_token(tok)),
-        }
+        }, TokenSinkResult::Continue);
     }
     sink.get_tokens()
 }

@@ -17,16 +17,19 @@ use std::default::Default;
 
 use tendril::{ByteTendril, ReadExt};
 
-use html5ever::tokenizer::{TokenSink, Token, Tokenizer};
+use html5ever::tokenizer::{TokenSinkResult, TokenSink, Token, Tokenizer};
 use html5ever::tokenizer::buffer_queue::BufferQueue;
 
 struct Sink(Vec<Token>);
 
 impl TokenSink for Sink {
-    fn process_token(&mut self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         self.0.push(token);
+        TokenSinkResult::Continue
     }
 }
 
