@@ -49,6 +49,7 @@ pub enum ProcessResult<Handle> {
     Script(Handle)
 }
 
+#[must_use]
 pub enum TokenizerResult<Handle> {
     Done,
     Script(Handle)
@@ -1287,7 +1288,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run(&mut input);
+        assert!(matches!(self.run(&mut input), TokenizerResult::Done));
         assert!(input.is_empty());
 
         loop {

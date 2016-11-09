@@ -9,7 +9,7 @@
 
 //! High-level interface to the parser.
 
-use tokenizer::{Attribute, Tokenizer, TokenizerOpts};
+use tokenizer::{Attribute, Tokenizer, TokenizerOpts, TokenizerResult};
 use tokenizer::buffer_queue::BufferQueue;
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
@@ -86,7 +86,8 @@ pub struct Parser<Sink> where Sink: TreeSink {
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     fn process(&mut self, t: StrTendril) {
         self.input_buffer.push_back(t);
-        let _ = self.tokenizer.feed(&mut self.input_buffer);
+        // FIXME: Properly support </script> somehow.
+        while let TokenizerResult::Script(_) = self.tokenizer.feed(&mut self.input_buffer) {}
     }
 
     // FIXME: Is it too noisy to report every character decoding error?
@@ -97,7 +98,9 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     type Output = Sink::Output;
 
     fn finish(mut self) -> Self::Output {
-        self.tokenizer.feed(&mut self.input_buffer);
+        // FIXME: Properly support </script> somehow.
+        while let TokenizerResult::Script(_) = self.tokenizer.feed(&mut self.input_buffer) {}
+        assert!(self.input_buffer.is_empty());
         self.tokenizer.end();
         self.tokenizer.unwrap().unwrap().finish()
     }
