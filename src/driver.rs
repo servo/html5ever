@@ -85,7 +85,7 @@ pub struct Parser<Sink> where Sink: TreeSink {
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     fn process(&mut self, t: StrTendril) {
-        self.input_buffer.push_front(t);
+        self.input_buffer.push_back(t);
         let _ = self.tokenizer.feed(&mut self.input_buffer);
     }
 
