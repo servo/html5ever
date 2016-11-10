@@ -20,6 +20,7 @@ align
 alignment-baseline
 alignmentscope
 alink
+allowfullscreen
 alphabetic
 alt
 altGlyph
