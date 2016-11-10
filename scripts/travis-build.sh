@@ -12,9 +12,11 @@ set -ex
 
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
+    cargo test --features "rustc-test/capture" --bench tokenizer
     cargo test --features "rustc-test/capture"
     cargo test --features "rustc-test/capture unstable"
 else
+    cargo test --bench tokenizer
     cargo test
 fi
 
