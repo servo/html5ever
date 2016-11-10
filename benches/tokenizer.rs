@@ -21,16 +21,19 @@ use test::{DynTestName, DynBenchFn, TDynBenchFn};
 use test::ShouldPanic::No;
 
 use tendril::{ByteTendril, StrTendril, ReadExt, SliceExt};
-use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tokenizer::buffer_queue::BufferQueue;
 
 struct Sink;
 
 impl TokenSink for Sink {
-    fn process_token(&mut self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         black_box(token);
+        TokenSinkResult::Continue
     }
 }
 
