@@ -43,6 +43,11 @@ impl BufferQueue {
         self.buffers.is_empty()
     }
 
+    /// Get the tendril at the beginning of the queue.
+    pub fn pop_front(&mut self) -> Option<StrTendril> {
+        self.buffers.pop_front()
+    }
+
     /// Add a buffer to the beginning of the queue.
     pub fn push_front(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
