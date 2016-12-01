@@ -373,7 +373,7 @@ impl<Handle, Sink> TokenSink
 {
     type Handle = Handle;
 
-    fn process_token(&mut self, token: tokenizer::Token) -> TokenSinkResult<Handle> {
+    fn process_token(&mut self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
         let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
