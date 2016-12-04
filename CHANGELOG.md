@@ -19,7 +19,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
   - `complete_script` popped the open script tag instead of getting the current node
 
-## [0.2.0] - 2016-08-22
+## [0.2.0] - 2016-11-02
+### Added
+  - Add `LocalName`, `Prefix`, `Namespace` types. @SimonSapin
+  - Added `html5ever_macros` instead of `string_cache`. @SimonSapin
+
+### Changed
+  - Changes API names: @SimonSapin
+    - `Namespace` -> `NamespaceMap`
+    - `NamespaceStack`-> `NamespaceMapStack`
+
+
+### Removed
+  - Removes `string_cache` in favor of `html5ever_macros`. @SimonSapin
+
+## [0.3.0] - 2016-12-04
 ### Added
   - Support for XML encoding @Ygg01
   - Serializer for XML @Ygg01
