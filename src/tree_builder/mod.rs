@@ -16,6 +16,7 @@ pub mod interface;
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
 use std::collections::{VecDeque, BTreeMap, HashSet};
+use std::collections::btree_map::{Iter};
 use std::result::Result;
 use std::mem;
 
@@ -48,14 +49,16 @@ impl NamespaceMapStack{
         self.0.push(map);
     }
 
-    fn pop(&mut self) {
+    #[doc(hidden)]
+    pub fn pop(&mut self) {
         self.0.pop();
     }
 
 }
 
 #[derive(Debug)]
-struct NamespaceMap {
+#[doc(hidden)]
+pub struct NamespaceMap {
     // Map that maps prefixes to URI.
     //
     // Key denotes namespace prefix, and value denotes
@@ -66,9 +69,11 @@ struct NamespaceMap {
     scope: BTreeMap<Prefix, Option<Namespace>>,
 }
 
+
 impl NamespaceMap {
     // Returns an empty namespace.
-    fn empty() -> NamespaceMap {
+    #[doc(hidden)]
+    pub fn empty() -> NamespaceMap {
         NamespaceMap {
             scope: BTreeMap::new(),
         }
@@ -86,8 +91,22 @@ impl NamespaceMap {
         }
     }
 
-    fn get(&self, prefix: &Prefix) -> Option<&Option<Namespace>> {
+
+    #[doc(hidden)]
+    pub fn get(&self, prefix: &Prefix) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
+    }
+
+    #[doc(hidden)]
+    pub fn get_scope_iter(&self) -> Iter<Prefix, Option<Namespace>> {
+        self.scope.iter()
+    }
+
+    #[doc(hidden)]
+    pub fn insert(&mut self, name: &QName)  {
+        let prefix = Prefix::from(&*name.prefix);
+        let namespace = Some(Namespace::from(&*name.namespace_url));
+        self.scope.insert(prefix, namespace);
     }
 
     fn insert_ns(&mut self, attr: &Attribute) -> InsResult {
@@ -137,10 +156,32 @@ impl NamespaceMap {
         result
     }
 }
+/// Tree builder options, with an impl for Default.
+#[derive(Copy, Clone)]
+pub struct XmlTreeBuilderOpts {
+    /// Report all parse errors described in the spec, at some
+    /// performance penalty?  Default: false
+    pub exact_errors: bool,
 
+    /// Keep a record of how long we spent in each state?  Printed
+    /// when `end()` is called.  Default: false
+    pub profile: bool,
+}
+
+impl Default for XmlTreeBuilderOpts {
+    fn default() -> XmlTreeBuilderOpts {
+        XmlTreeBuilderOpts{
+            exact_errors: false,
+            profile: false,
+        }
+    }
+}
 
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
+    /// Configuration options for XmlTreeBuilder
+    opts: XmlTreeBuilderOpts,
+
     /// Consumer of tree modifications.
     sink: Sink,
 
@@ -175,9 +216,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
     /// The tree builder is also a `TokenSink`.
-    pub fn new(mut sink: Sink) -> XmlTreeBuilder<Handle, Sink> {
+    pub fn new(mut sink: Sink, opts: XmlTreeBuilderOpts) -> XmlTreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
+            opts: opts,
             sink: sink,
             doc_handle: doc_handle,
             next_tokenizer_state: None,

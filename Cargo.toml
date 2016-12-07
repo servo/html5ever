@@ -27,7 +27,7 @@ html5ever-atoms = "0.1"
 rustc-serialize = "0.3.15"
 
 [build-dependencies]
-phf_codegen = "0.7.3"
+phf_codegen = "0.7"
 rustc-serialize = "0.3.15"
 
 [profile.dev]

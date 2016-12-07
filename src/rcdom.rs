@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::default::Default;
 
 use std::borrow::Cow;
+use std::io::{self, Write};
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 
@@ -24,7 +25,10 @@ use tendril::StrTendril;
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 use super::tokenizer::{Attribute, QName};
 use super::tree_builder::{TreeSink, NodeOrText};
-use super::ParseResult;
+use driver::ParseResult;
+use serialize::{Serializable, Serializer};
+use serialize::{TraversalScope};
+use serialize::TraversalScope::{ChildrenOnly, IncludeNode};
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -112,6 +116,11 @@ pub struct RcDom {
 
 impl TreeSink for RcDom {
     type Handle = Handle;
+    type Output = Self;
+
+    fn finish(self) -> Self::Output {
+        self
+    }
 
     fn parse_error(&mut self, msg: Cow<'static, str>) {
         self.errors.push(msg);
@@ -179,5 +188,48 @@ impl ParseResult for RcDom {
 
     fn get_result(sink: RcDom) -> RcDom {
         sink
+    }
+}
+
+impl Serializable for Handle {
+    fn serialize<'wr, Wr>(&self, serializer: &mut Serializer<'wr, Wr>,
+                            traversal_scope: TraversalScope) -> io::Result<()>
+        where Wr: Write {
+
+        let node = self.borrow();
+        match (traversal_scope, &node.node) {
+            (_, &Element(ref name, ref attrs)) => {
+                if traversal_scope == IncludeNode {
+                    try!(serializer.start_elem(name.clone(),
+                        attrs.iter().map(|at| (&at.name, &at.value[..]))));
+                }
+
+                for handle in node.children.iter() {
+                    try!(handle.clone().serialize(serializer, IncludeNode));
+                }
+
+                if traversal_scope == IncludeNode {
+                    try!(serializer.end_elem(name.clone()));
+                }
+                Ok(())
+            }
+
+            (ChildrenOnly, &Document) => {
+                for handle in node.children.iter() {
+                    try!(handle.clone().serialize(serializer, IncludeNode));
+                }
+                Ok(())
+            }
+
+            (ChildrenOnly, _) => Ok(()),
+
+            (IncludeNode, &Doctype(ref name, _, _)) => serializer.write_doctype(&name),
+            (IncludeNode, &Text(ref text)) => serializer.write_text(&text),
+            (IncludeNode, &Comment(ref text)) => serializer.write_comment(&text),
+            (IncludeNode, &PI(ref target, ref data)) => {
+                serializer.write_processing_instruction(&target, data)
+            },
+            (IncludeNode, &Document) => panic!("Can't serialize Document node itself"),
+        }
     }
 }

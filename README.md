@@ -63,3 +63,23 @@ Here is a very simple RcDom backed parser:
 
 ```
 The thing that does actual parsing is the `parse` function. It expects an iterator that can be converted into `StrTendril`, so you can use `std::iter::once(input)` or  `Some(input).into_iter()` (where `input` is `StrTendril` like structure).
+
+#Working on xml5ever
+
+To build examples and tests you need to do something along the lines of:
+
+```rust
+    git submodule update --init # to fetch xml5lib-tests
+    cargo build --features unstable
+    cargo test --features unstable
+```
+
+This will fetch tests from outside repository and it will invoke cargo to
+build and test the crate. If you need docs checkout either [API docs](https://ygg01.github.io/docs/xml5ever/xml5ever/index.html) or run `cargo docs`
+to generate documentation.
+
+##Easy first tasks
+
+What I generally recommend is to look at Clippy Linting badge results and create
+a PR for fixing the said lints. Other than that try to look for any tasks labeled
+easy or just update docs/examples.
