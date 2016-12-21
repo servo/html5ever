@@ -203,7 +203,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             temp_buf: StrTendril::new(),
             state_profile: BTreeMap::new(),
             time_in_sink: 0,
-	    current_line: 1,
+            current_line: 1,
         }
     }
 
@@ -274,7 +274,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         if c == '\r' {
             self.ignore_lf = true;
             c = '\n';
-	    self.current_line += 1;
+        }
+
+        if c == '\n' {
+            self.current_line += 1;
         }
 
         if self.opts.exact_errors && match c as u32 {
@@ -1402,10 +1405,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 }
 
-
-
-
-
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
@@ -1415,37 +1414,38 @@ mod test {
     use std::io::{self};
     use super::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
 
-    pub use super::interface::{Token, DoctypeToken, TagToken, CommentToken};
-    pub use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-    pub use super::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
+    use super::interface::{Token, DoctypeToken, TagToken, CommentToken};
+    use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
+    use super::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 
     use super::buffer_queue::{BufferQueue};
     use std::mem::replace;
     use std::borrow::Cow::{self, Borrowed};
 
-    // TokenMatch implements the TokenSink trait. It is used for testing to see 
+    use {LocalName};
+
+    // LinesMatch implements the TokenSink trait. It is used for testing to see 
     // if current_line is being updated when process_token is called. The lines
     // vector is a collection of the line numbers that each token is on.
-    struct TokenMatch {
+    struct LinesMatch {
         tokens: Vec<Token>,
         current_str: StrTendril,
-        exact_errors: bool,
-        lines: Vec<u64>,
+        lines: Vec<(Token, u64)>,
     }
     
-    impl TokenMatch {
-        fn new(exact_errors: bool) -> TokenMatch {
-            TokenMatch {
+    impl LinesMatch {
+        fn new() -> LinesMatch {
+            LinesMatch {
                 tokens: vec!(),
                 current_str: StrTendril::new(),
-                exact_errors: exact_errors,
                 lines: vec!(),
             }
         }
 
-        fn push(&mut self, token: Token) {
+        fn push(&mut self, token: Token, line_number: u64) {
             self.finish_str();
-            self.tokens.push(token);
+            // self.tokens.push(token);
+            self.lines.push((token, line_number));
         }
 
         fn finish_str(&mut self) {
@@ -1457,14 +1457,12 @@ mod test {
 
     }
 
-    impl TokenSink for TokenMatch {
+    impl TokenSink for LinesMatch {
         
         type Handle = ();
 
-        fn process_token(&mut self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle>{
+        fn process_token(&mut self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle> {
             
-            self.lines.push(line_number);
-
             match token {
                 CharacterTokens(b) => {
                     self.current_str.push_slice(&b);
@@ -1474,9 +1472,9 @@ mod test {
                     self.current_str.push_char('\0');
                 }
 
-                ParseError(_) => if self.exact_errors {
-                    self.push(ParseError(Borrowed("")));
-                },
+                ParseError(_) => {
+                    panic!("unexpected parse error");
+                }
 
                 TagToken(mut t) => {
                     // The spec seems to indicate that one can emit
@@ -1489,12 +1487,12 @@ mod test {
                         }
                         _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                     }
-                    self.push(TagToken(t));
+                    self.push(TagToken(t), line_number);
                 }
 
                 EOFToken => (),
 
-                _ => self.push(token),
+                _ => self.push(token, line_number),
             }
             TokenSinkResult::Continue
         }
@@ -1502,8 +1500,8 @@ mod test {
 
     // Take in tokens, process them, and return vector with line 
     // numbers that each token is on
-    fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<u64> {
-        let sink = TokenMatch::new(opts.exact_errors);
+    fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<(Token, u64)> {
+        let sink = LinesMatch::new();
         let mut tok = Tokenizer::new(sink, opts);
         let mut buffer = BufferQueue::new();
         for chunk in input.into_iter() {
@@ -1512,6 +1510,17 @@ mod test {
         }
         tok.end();
         tok.sink.lines
+    }
+
+    // Create a tag token
+    fn create_tag(token: StrTendril, tagkind: TagKind) -> Token {
+        let name = LocalName::from(&*token);
+        let token = TagToken(Tag { kind: tagkind,
+            name: name,
+            self_closing: false,
+            attrs: vec!(),
+        });
+        token
     }
 
     #[test]
@@ -1537,17 +1546,31 @@ mod test {
 
     #[test]
     fn check_lines() {
-
-        let opts = TokenizerOpts{exact_errors: false, discard_bom: true, profile: false,
-            initial_state: None, last_start_tag_name: None,};
-
+        let opts = TokenizerOpts { exact_errors: false, discard_bom: true, profile: false,
+            initial_state: None, last_start_tag_name: None,
+        };
         let vector = vec![StrTendril::from("<a>\r"), StrTendril::from("<b>\r"),
             StrTendril::from("</b>\r"), StrTendril::from("</a>\r")];
-        let expected = vec![1, 2, 2, 3, 3, 4, 4, 5, 5];
-
+        let expected = vec![(create_tag(StrTendril::from("a"), StartTag), 1),
+            (create_tag(StrTendril::from("b"), StartTag), 2), 
+            (create_tag(StrTendril::from("b"), EndTag), 3), 
+            (create_tag(StrTendril::from("a"), EndTag), 4)];
         let results = tokenize(vector, opts);
-
         assert_eq!(results, expected);
-        
+    }
+
+    #[test]
+    fn check_lines_with_new_line() {
+        let opts = TokenizerOpts { exact_errors: false, discard_bom: true, profile: false,
+            initial_state: None, last_start_tag_name: None,
+        };
+        let vector = vec![StrTendril::from("<a>\r\n"), StrTendril::from("<b>\r\n"),
+            StrTendril::from("</b>\r\n"), StrTendril::from("</a>\r\n")];
+        let expected = vec![(create_tag(StrTendril::from("a"), StartTag), 1),
+            (create_tag(StrTendril::from("b"), StartTag), 2), 
+            (create_tag(StrTendril::from("b"), EndTag), 3), 
+            (create_tag(StrTendril::from("a"), EndTag), 4)];
+        let results = tokenize(vector, opts);
+        assert_eq!(results, expected);
     }
 }
