@@ -698,7 +698,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         match self.state {
             //§ data-state
             states::Data => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\0'),
                     FromSet('&')  => go!(self: consume_char_ref),
                     FromSet('<')  => go!(self: to TagOpen),
@@ -709,7 +709,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-state
             states::RawData(Rcdata) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('<') => go!(self: to RawLessThanSign Rcdata),
@@ -720,7 +720,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rawtext-state
             states::RawData(Rawtext) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('<') => go!(self: to RawLessThanSign Rawtext),
                     FromSet(c) => go!(self: emit c),
@@ -730,7 +730,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-state
             states::RawData(ScriptData) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('<') => go!(self: to RawLessThanSign ScriptData),
                     FromSet(c) => go!(self: emit c),
@@ -740,7 +740,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-escaped-state
             states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash Escaped),
                     FromSet('<') => go!(self: to RawLessThanSign ScriptDataEscaped Escaped),
@@ -751,7 +751,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash DoubleEscaped),
                     FromSet('<') => go!(self: emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped),
@@ -762,7 +762,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ plaintext-state
             states::Plaintext => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\0' '\n')) {
                     FromSet('\0') => go!(self: error; emit '\u{fffd}'),
                     FromSet(c)    => go!(self: emit c),
                     NotFromSet(b) => self.emit_chars(b),
@@ -982,7 +982,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(double-quoted)-state
             states::AttributeValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '"' '&' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '"' '&' '\0' '\n')) {
                     FromSet('"')  => go!(self: to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(self: consume_char_ref '"'),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
@@ -993,7 +993,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(single-quoted)-state
             states::AttributeValue(SingleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\'' '&' '\0')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '\'' '&' '\0' '\n')) {
                     FromSet('\'') => go!(self: to AfterAttributeValueQuoted),
                     FromSet('&')  => go!(self: consume_char_ref '\''),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
@@ -1411,7 +1411,6 @@ mod test {
     use super::option_push; // private items
     use tendril::{StrTendril, SliceExt};
 
-    use std::io::{self};
     use super::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
 
     use super::interface::{Token, DoctypeToken, TagToken, CommentToken};
@@ -1420,7 +1419,6 @@ mod test {
 
     use super::buffer_queue::{BufferQueue};
     use std::mem::replace;
-    use std::borrow::Cow::{self, Borrowed};
 
     use {LocalName};
 
@@ -1444,7 +1442,6 @@ mod test {
 
         fn push(&mut self, token: Token, line_number: u64) {
             self.finish_str();
-            // self.tokens.push(token);
             self.lines.push((token, line_number));
         }
 
@@ -1546,11 +1543,15 @@ mod test {
 
     #[test]
     fn check_lines() {
-        let opts = TokenizerOpts { exact_errors: false, discard_bom: true, profile: false,
-            initial_state: None, last_start_tag_name: None,
+        let opts = TokenizerOpts { 
+            exact_errors: false, 
+            discard_bom: true, 
+            profile: false,
+            initial_state: None, 
+            last_start_tag_name: None,
         };
-        let vector = vec![StrTendril::from("<a>\r"), StrTendril::from("<b>\r"),
-            StrTendril::from("</b>\r"), StrTendril::from("</a>\r")];
+        let vector = vec![StrTendril::from("<a>\n"), StrTendril::from("<b>\n"),
+            StrTendril::from("</b>\n"), StrTendril::from("</a>\n")];
         let expected = vec![(create_tag(StrTendril::from("a"), StartTag), 1),
             (create_tag(StrTendril::from("b"), StartTag), 2), 
             (create_tag(StrTendril::from("b"), EndTag), 3), 
@@ -1561,8 +1562,12 @@ mod test {
 
     #[test]
     fn check_lines_with_new_line() {
-        let opts = TokenizerOpts { exact_errors: false, discard_bom: true, profile: false,
-            initial_state: None, last_start_tag_name: None,
+        let opts = TokenizerOpts { 
+            exact_errors: false, 
+            discard_bom: true, 
+            profile: false,
+            initial_state: None, 
+            last_start_tag_name: None,
         };
         let vector = vec![StrTendril::from("<a>\r\n"), StrTendril::from("<b>\r\n"),
             StrTendril::from("</b>\r\n"), StrTendril::from("</a>\r\n")];

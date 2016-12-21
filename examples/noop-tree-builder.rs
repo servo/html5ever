@@ -90,6 +90,7 @@ impl TreeSink for Sink {
     fn remove_from_parent(&mut self, _target: usize) { }
     fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
     fn mark_script_already_started(&mut self, _node: usize) { }
+    fn set_current_line(&mut self, line_number: u64) { }
 }
 
 fn main() {
