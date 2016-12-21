@@ -161,6 +161,9 @@ pub struct RcDom {
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
+    
+    /// The current line being parsed
+    pub current_line: u64,
 }
 
 impl TreeSink for RcDom {
@@ -326,6 +329,10 @@ impl TreeSink for RcDom {
             _ => unreachable!(),
         }
     }
+
+    fn set_current_line(&mut self, line_number: u64) {
+        self.current_line = line_number;
+    }
 }
 
 impl Default for RcDom {
@@ -334,6 +341,7 @@ impl Default for RcDom {
             document: new_node(Document),
             errors: vec!(),
             quirks_mode: tree_builder::NoQuirks,
+            current_line: 1,
         }
     }
 }

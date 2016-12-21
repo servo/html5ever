@@ -33,6 +33,13 @@ use std::mem::replace;
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 
+pub use rcdom::ElementEnum::{AnnotationXml, Normal, Template};
+pub use rcdom::NodeEnum::{Document, Comment};
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
+
+use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
+
 #[macro_use] mod tag_sets;
 // "pub" is a workaround for rust#18241 (?)
 pub mod interface;
@@ -135,6 +142,9 @@ pub struct TreeBuilder<Handle, Sink> {
     /// The context element for the fragment parsing algorithm.
     context_elem: Option<Handle>,
 
+    /// Track current line
+    current_line: u64,
+
     // WARNING: If you add new fields that contain Handles, you
     // must add them to trace_handles() below to preserve memory
     // safety!
@@ -168,6 +178,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             ignore_lf: false,
             foster_parenting: false,
             context_elem: None,
+            current_line: 1,
         }
     }
 
@@ -199,6 +210,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             ignore_lf: false,
             foster_parenting: false,
             context_elem: Some(context_elem),
+            current_line: 1,
         };
 
         // https://html.spec.whatwg.org/multipage/syntax.html#parsing-html-fragments
@@ -374,6 +386,9 @@ impl<Handle, Sink> TokenSink
     type Handle = Handle;
 
     fn process_token(&mut self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
+        if line_number != self.current_line {
+            self.sink.set_current_line(line_number);
+        }
         let ignore_lf = replace(&mut self.ignore_lf, false);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
@@ -433,5 +448,159 @@ impl<Handle, Sink> TokenSink
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
         self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test {
+    use super::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+    use super::interface::{NodeOrText, AppendNode, AppendText};
+    use super::interface::{TreeSink, Tracer};
+
+    use super::types::*;
+    use super::actions::TreeBuilderActions;
+    use super::rules::TreeBuilderStep;
+
+    use QualName;
+    use tendril::StrTendril;
+    use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
+
+    use tokenizer;
+    use tokenizer::{Tokenizer, TokenizerOpts};
+    use tokenizer::{Doctype, StartTag, Tag, TokenSink};
+    use tokenizer::states as tok_state;
+
+    use util::str::is_ascii_whitespace;
+
+    use std::default::Default;
+    use std::mem::replace;
+    use std::borrow::Cow;
+    use std::borrow::Cow::Borrowed;
+    use std::collections::VecDeque;
+
+    use driver::*;
+    use super::{TreeBuilderOpts, TreeBuilder};
+    use tokenizer::Attribute;
+    use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
+
+    pub struct LineCountingDOM {
+        pub line_vec: Vec<(QualName, u64)>,
+        pub rcdom: RcDom,
+    }
+
+    impl TreeSink for LineCountingDOM {
+        type Output = Self;
+
+        fn finish(self) -> Self { self }
+
+        type Handle = Handle;
+
+        fn parse_error(&mut self, msg: Cow<'static, str>) {
+            self.rcdom.parse_error(msg);
+        }
+
+        fn get_document(&mut self) -> Handle {
+            self.rcdom.get_document()
+        }
+
+        fn get_template_contents(&mut self, target: Handle) -> Handle {
+            self.rcdom.get_template_contents(target)
+        }
+
+        fn set_quirks_mode(&mut self, mode: QuirksMode) {
+            self.rcdom.set_quirks_mode(mode)
+        }
+
+        fn same_node(&self, x: Handle, y: Handle) -> bool {
+            self.rcdom.same_node(x, y)
+        }
+
+        fn elem_name(&self, target: Handle) -> QualName {
+            self.rcdom.elem_name(target)
+        }
+
+        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+            self.line_vec.push((name.clone(), self.rcdom.current_line));
+            self.rcdom.create_element(name, attrs)
+        }
+
+        fn create_comment(&mut self, text: StrTendril) -> Handle {
+            self.rcdom.create_comment(text)
+        }
+
+        fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
+            self.rcdom.append(parent, child)
+        }
+
+        fn append_before_sibling(&mut self,
+                sibling: Handle,
+                child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
+            self.rcdom.append_before_sibling(sibling, child)
+        }
+
+        fn append_doctype_to_document(&mut self,
+                                      name: StrTendril,
+                                      public_id: StrTendril,
+                                      system_id: StrTendril) {
+            self.rcdom.append_doctype_to_document(name, public_id, system_id);
+        }
+
+        fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>) {
+            self.rcdom.add_attrs_if_missing(target, attrs);
+        }
+
+        fn remove_from_parent(&mut self, target: Handle) {
+            self.rcdom.remove_from_parent(target);
+        }
+
+        fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
+            self.rcdom.reparent_children(node, new_parent);
+        }
+
+        fn mark_script_already_started(&mut self, target: Handle) {
+            self.rcdom.mark_script_already_started(target);
+        }
+
+        fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
+            self.rcdom.is_mathml_annotation_xml_integration_point(handle)
+        }
+
+        fn set_current_line(&mut self, line_number: u64) {
+            self.set_current_line(line_number);
+            self.rcdom.set_current_line(line_number);
+        }
+    }
+
+    impl Default for LineCountingDOM {
+        fn default() -> LineCountingDOM {
+            LineCountingDOM {
+                line_vec: vec!(),
+                rcdom: RcDom::default(),
+            }
+        }
+    }
+
+    #[test]
+    fn check_four_lines() {
+        // Input
+        let sink = LineCountingDOM::default();
+        let opts = ParseOpts::default();
+        let mut resultTok = parse_document(sink, opts);
+        resultTok.process(StrTendril::from("<a>"));
+        resultTok.process(StrTendril::from("</a>"));
+        resultTok.process(StrTendril::from("<b>"));
+        resultTok.process(StrTendril::from("</b>"));
+        // Actual Output
+        let actual = resultTok.finish();
+        // Expected Output
+        let expected = vec![(qualname!(html, "html"), 1),
+                            (qualname!(html, "head"), 1),
+                            (qualname!(html, "body"), 1),
+                            (qualname!(html, "a"), 1),
+                            (qualname!(html, "b"), 1)];
+        let result = actual.line_vec.clone();
+        // Assertion
+        assert_eq!(result, expected);
     }
 }
