@@ -411,6 +411,7 @@ inputmode
 ins
 int
 integers
+integrity
 intercept
 intersect
 interval
@@ -418,7 +419,6 @@ inverse
 irrelevant
 isindex
 ismap
-integrity
 k
 k1
 k2
