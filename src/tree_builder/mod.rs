@@ -33,13 +33,6 @@ use std::mem::replace;
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 
-pub use rcdom::ElementEnum::{AnnotationXml, Normal, Template};
-pub use rcdom::NodeEnum::{Document, Comment};
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
-
-use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
-
 #[macro_use] mod tag_sets;
 // "pub" is a workaround for rust#18241 (?)
 pub mod interface;
@@ -486,6 +479,7 @@ mod test {
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,
+        pub current_line: u64,
         pub rcdom: RcDom,
     }
 
@@ -521,7 +515,7 @@ mod test {
         }
 
         fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
-            self.line_vec.push((name.clone(), self.rcdom.current_line));
+            self.line_vec.push((name.clone(), self.current_line));
             self.rcdom.create_element(name, attrs)
         }
 
@@ -567,29 +561,23 @@ mod test {
         }
 
         fn set_current_line(&mut self, line_number: u64) {
-            self.set_current_line(line_number);
-            self.rcdom.set_current_line(line_number);
-        }
-    }
-
-    impl Default for LineCountingDOM {
-        fn default() -> LineCountingDOM {
-            LineCountingDOM {
-                line_vec: vec!(),
-                rcdom: RcDom::default(),
-            }
+            self.current_line = line_number;
         }
     }
 
     #[test]
     fn check_four_lines() {
         // Input
-        let sink = LineCountingDOM::default();
+        let sink = LineCountingDOM {
+                line_vec: vec!(),
+                current_line: 1,
+                rcdom: RcDom::default(),
+            };
         let opts = ParseOpts::default();
         let mut resultTok = parse_document(sink, opts);
-        resultTok.process(StrTendril::from("<a>"));
-        resultTok.process(StrTendril::from("</a>"));
-        resultTok.process(StrTendril::from("<b>"));
+        resultTok.process(StrTendril::from("<a>\n"));
+        resultTok.process(StrTendril::from("</a>\n"));
+        resultTok.process(StrTendril::from("<b>\n"));
         resultTok.process(StrTendril::from("</b>"));
         // Actual Output
         let actual = resultTok.finish();
@@ -598,9 +586,8 @@ mod test {
                             (qualname!(html, "head"), 1),
                             (qualname!(html, "body"), 1),
                             (qualname!(html, "a"), 1),
-                            (qualname!(html, "b"), 1)];
-        let result = actual.line_vec.clone();
+                            (qualname!(html, "b"), 3)];
         // Assertion
-        assert_eq!(result, expected);
+        assert_eq!(actual.line_vec, expected);
     }
 }
