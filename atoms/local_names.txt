@@ -411,6 +411,7 @@ inputmode
 ins
 int
 integers
+integrity
 intercept
 intersect
 interval
