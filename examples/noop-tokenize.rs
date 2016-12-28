@@ -25,7 +25,7 @@ struct Sink(Vec<Token>);
 impl TokenSink for Sink {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
+    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         self.0.push(token);

@@ -111,7 +111,7 @@ pub trait TokenSink {
     type Handle;
 
     /// Process a token.
-    fn process_token(&mut self, token: Token) -> TokenSinkResult<Self::Handle>;
+    fn process_token(&mut self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle>;
 
     /// Used in the markup declaration open state. By default, this always
     /// returns false and thus all CDATA sections are tokenized as bogus

@@ -43,7 +43,7 @@ impl TokenPrinter {
 impl TokenSink for TokenPrinter {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token) -> TokenSinkResult<()> {
+    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
