@@ -138,7 +138,7 @@ pub trait TreeSink {
     fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
         false
     }
-    
+
     fn set_current_line(&mut self, line_number: u64);
 }
 
