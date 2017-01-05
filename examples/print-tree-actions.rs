@@ -136,6 +136,10 @@ impl TreeSink for Sink {
     fn set_current_line(&mut self, line_number: u64) {
         println!("Set current line to {}", line_number);
     }
+
+    fn pop(&mut self, elem: usize) {
+        println!("Popped element {}", elem);
+    }
 }
 
 // FIXME: Copy of str::escape_default from std, which is currently unstable
