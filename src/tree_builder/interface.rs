@@ -139,7 +139,7 @@ pub trait TreeSink {
         false
     }
 
-    fn set_current_line(&mut self, line_number: u64);
+    fn set_current_line(&mut self, line_number: u64) {}
 }
 
 /// Trace hooks for a garbage-collected DOM.

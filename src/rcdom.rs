@@ -326,8 +326,6 @@ impl TreeSink for RcDom {
             _ => unreachable!(),
         }
     }
-
-    fn set_current_line(&mut self, _line_number: u64) { }
 }
 
 impl Default for RcDom {
