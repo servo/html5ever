@@ -439,13 +439,20 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn pop(&mut self) -> Handle {
-        self.open_elems.pop().expect("no current element")
+        let elem = self.open_elems.pop().expect("no current element");
+        self.sink.pop(elem.clone());
+        elem
     }
 
     fn remove_from_stack(&mut self, elem: &Handle) {
-        let mut open_elems = replace(&mut self.open_elems, vec!());
-        open_elems.retain(|x| !self.sink.same_node(elem.clone(), x.clone()));
-        self.open_elems = open_elems;
+        let sink = &mut self.sink;
+        let position = self.open_elems
+            .iter()
+            .rposition(|x| sink.same_node(elem.clone(), x.clone()));
+        if let Some(position) = position {
+            self.open_elems.remove(position);
+            sink.pop(elem.clone());
+        }
     }
 
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {

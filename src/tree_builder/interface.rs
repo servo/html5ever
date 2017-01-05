@@ -133,13 +133,17 @@ pub trait TreeSink {
     /// Mark a HTML `<script>` element as "already started".
     fn mark_script_already_started(&mut self, node: Self::Handle);
 
-    // Returns true if the adjusted current node is an HTML integration point
-    // and the token is a start tag
+    /// Returns true if the adjusted current node is an HTML integration point
+    /// and the token is a start tag.
     fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
         false
     }
-    
-    fn set_current_line(&mut self, line_number: u64);
+
+    /// Called whenever the line number changes.
+    fn set_current_line(&mut self, line_number: u64) {}
+
+    /// Called whenever an element is popped from the stack of open elements.
+    fn pop(&mut self, elem: Self::Handle) {}
 }
 
 /// Trace hooks for a garbage-collected DOM.

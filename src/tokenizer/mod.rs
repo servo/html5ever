@@ -1543,11 +1543,11 @@ mod test {
 
     #[test]
     fn check_lines() {
-        let opts = TokenizerOpts { 
-            exact_errors: false, 
-            discard_bom: true, 
+        let opts = TokenizerOpts {
+            exact_errors: false,
+            discard_bom: true,
             profile: false,
-            initial_state: None, 
+            initial_state: None,
             last_start_tag_name: None,
         };
         let vector = vec![StrTendril::from("<a>\n"), StrTendril::from("<b>\n"),
@@ -1562,11 +1562,11 @@ mod test {
 
     #[test]
     fn check_lines_with_new_line() {
-        let opts = TokenizerOpts { 
-            exact_errors: false, 
-            discard_bom: true, 
+        let opts = TokenizerOpts {
+            exact_errors: false,
+            discard_bom: true,
             profile: false,
-            initial_state: None, 
+            initial_state: None,
             last_start_tag_name: None,
         };
         let vector = vec![StrTendril::from("<a>\r\n"), StrTendril::from("<b>\r\n"),

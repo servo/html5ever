@@ -132,8 +132,14 @@ impl TreeSink for Sink {
     fn mark_script_already_started(&mut self, node: usize) {
         println!("Mark script {} as already started", node);
     }
-    
-    fn set_current_line(&mut self, line_number: u64) { }
+
+    fn set_current_line(&mut self, line_number: u64) {
+        println!("Set current line to {}", line_number);
+    }
+
+    fn pop(&mut self, elem: usize) {
+        println!("Popped element {}", elem);
+    }
 }
 
 // FIXME: Copy of str::escape_default from std, which is currently unstable
