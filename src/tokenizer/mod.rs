@@ -1307,6 +1307,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }
         }
 
+        self.sink.end();
+
         if self.opts.profile {
             self.dump_profile();
         }

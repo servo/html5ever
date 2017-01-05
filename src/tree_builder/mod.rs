@@ -378,7 +378,6 @@ impl<Handle, Sink> TokenSink
 {
     type Handle = Handle;
 
-
     fn process_token(&mut self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
         if line_number != self.current_line {
             self.sink.set_current_line(line_number);
