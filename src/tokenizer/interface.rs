@@ -202,6 +202,9 @@ pub trait TokenSink {
     /// Process a token.
     fn process_token(&mut self, token: Token);
 
+    /// Signal to the sink that parsing has ended.
+    fn end(&mut self) {}
+
     /// The tokenizer will call this after emitting any start tag.
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.

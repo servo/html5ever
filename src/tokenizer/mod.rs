@@ -1073,10 +1073,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             // loop
         }
 
+        self.sink.end();
+
         if self.opts.profile {
             self.dump_profile();
         }
     }
+
     #[cfg(for_c)]
     fn dump_profile(&self) {
         unreachable!();

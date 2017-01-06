@@ -405,7 +405,6 @@ impl<Handle, Sink> TokenSink
           Sink: TreeSink<Handle=Handle>,
 {
     fn process_token(&mut self, token: tokenizer::Token) {
-
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
             tokenizer::ParseError(e) => {
@@ -420,10 +419,15 @@ impl<Handle, Sink> TokenSink
             tokenizer::NullCharacterToken => NullCharacterToken,
             tokenizer::EOFToken => EOFToken,
             tokenizer::CharacterTokens(x) => CharacterTokens(x),
-
         };
 
         self.process_to_completion(token);
+    }
+
+    fn end(&mut self) {
+        for node in self.open_elems.drain(..).rev() {
+            self.sink.pop(node);
+        }
     }
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::XmlState> {

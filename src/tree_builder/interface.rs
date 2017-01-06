@@ -102,6 +102,9 @@ pub trait TreeSink {
     fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
         NextParserState::Continue
     }
+
+    /// Indicate that a node was popped off the stack of open elements.
+    fn pop(&mut self, _node: Self::Handle) {}
 }
 
 /// Trace hooks for a garbage-collected DOM.

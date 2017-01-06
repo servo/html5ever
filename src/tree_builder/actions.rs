@@ -103,7 +103,8 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
         let child = self.sink.create_element(tag.name, tag.attrs);
-        self.insert_appropriately(AppendNode(child));
+        self.insert_appropriately(AppendNode(child.clone()));
+        self.sink.pop(child);
         Done
     }
 
@@ -186,8 +187,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
             if self.current_node_in(|x| pred(x)) {
                 break;
             }
-            self.open_elems.pop();
-            self.namespace_stack.pop();
+            self.pop();
         }
     }
 
@@ -222,7 +222,9 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
 
     fn pop(&mut self) -> Handle {
         self.namespace_stack.pop();
-        self.open_elems.pop().expect("no current element")
+        let node = self.open_elems.pop().expect("no current element");
+        self.sink.pop(node.clone());
+        node
     }
 
     fn stop_parsing(&mut self) -> XmlProcessResult {
