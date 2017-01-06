@@ -51,7 +51,6 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     self.phase = MainPhase;
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
-
                 },
                 TagToken(Tag{kind: EmptyTag, name, attrs}) => {
                     let tag = {
@@ -64,7 +63,8 @@ impl<Handle, Sink> XmlTreeBuilderStep
                         tag
                     };
                     self.phase = EndPhase;
-                    self.append_tag_to_doc(tag);
+                    let handle = self.append_tag_to_doc(tag);
+                    self.sink.pop(handle);
                     Done
                 },
                 CommentToken(comment) => {
