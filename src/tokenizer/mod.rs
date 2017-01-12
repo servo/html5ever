@@ -657,7 +657,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             return self.step_char_ref_tokenizer();
         }
 
-        println!("processing in state {:?}", self.state);
+        debug!("processing in state {:?}", self.state);
         match self.state {
             XmlState::Quiescent => {
                 self.state = XmlState::Data;
