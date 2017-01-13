@@ -46,3 +46,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - Made NamespaceStack publicly visible but hidden. @Ygg01
   - Changed serialization rules, to serialize namespace @Ygg01
   - Changed rules for comment parsing. @Ygg01
+
+## [0.3.1] - 2017-01-06
+### Added
+  - Mechanism to signal sink that a node was popped @nox
+
+## [0.3.2] - 2017-01-11
+### Changed
+  - Replaced `println!` with `debug!`in tokenizer @Freyskeyd
