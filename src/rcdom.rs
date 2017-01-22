@@ -223,12 +223,6 @@ impl TreeSink for RcDom {
         new_node(Comment(text))
     }
 
-    fn same_home_subtree(&self, _x: Handle, _y: Handle) -> bool {
-        true
-    }
-
-    fn associate_with_form(&mut self, _target: Handle, _form: Handle) {}
-
     fn has_parent_node(&self, node: Handle) -> bool {
         let node = node.borrow();
         node.parent.is_some()

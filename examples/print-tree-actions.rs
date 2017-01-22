@@ -65,10 +65,6 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn same_home_subtree(&self, _x: usize, _y: usize) -> bool {
-        true
-    }
-
     fn elem_name(&self, target: usize) -> QualName {
         self.names.get(&target).expect("not an element").clone()
     }

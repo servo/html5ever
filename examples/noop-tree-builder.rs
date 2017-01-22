@@ -93,7 +93,6 @@ impl TreeSink for Sink {
     fn add_attrs_if_missing(&mut self, target: usize, _attrs: Vec<Attribute>) {
         assert!(self.names.contains_key(&target), "not an element");
     }
-    fn associate_with_form(&mut self, _target: usize, _form: usize) { }
     fn remove_from_parent(&mut self, _target: usize) { }
     fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
     fn mark_script_already_started(&mut self, _node: usize) { }
