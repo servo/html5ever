@@ -370,39 +370,44 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         self.context_elem.is_some()
     }
 
-    fn appropriate_place_for_insertion(&self, override_target: Option<Handle>) -> InsertionPoint<Handle> {
+    fn appropriate_place_for_insertion(&mut self,
+                                       override_target: Option<Handle>)
+                                       -> InsertionPoint<Handle> {
         use self::tag_sets::*;
 
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
         let target = override_target.unwrap_or_else(|| self.current_node());
         if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
-            // No foster parenting (the common case).
-            return LastChild(target)
+            if self.html_elem_named(target.clone(), local_name!("template")) {
+                // No foster parenting (inside template).
+                let contents = self.sink.get_template_contents(target);
+                return LastChild(contents);
+            } else {
+                // No foster parenting (the common case).
+                return LastChild(target);
+            }
         }
 
         // Foster parenting
-        // FIXME: <template>
-        let last_table = self.open_elems.iter()
-            .enumerate()
-            .rev()
-            .filter(|&(_, e)| self.html_elem_named(e.clone(), local_name!("table")))
-            .next();
-
-        match last_table {
-            None => {
-                LastChild(self.html_elem())
-            }
-            Some((idx, last_table)) => {
+        let mut iter = self.open_elems.iter().rev().peekable();
+        while let Some(elem) = iter.next() {
+            if self.html_elem_named(elem.clone(), local_name!("template")) {
+                let contents = self.sink.get_template_contents(elem.clone());
+                return LastChild(contents);
+            } else if self.html_elem_named(elem.clone(), local_name!("table")) {
                 // Try inserting "inside last table's parent node, immediately before last table"
-                if self.sink.has_parent_node(last_table.clone()) {
-                    BeforeSibling(last_table.clone())
+                if self.sink.has_parent_node(elem.clone()) {
+                    return BeforeSibling(elem.clone());
                 } else {
+                    // If elem has no parent, we regain ownership of the child.
                     // Insert "inside previous element, after its last child (if any)"
-                    let previous_element = self.open_elems[idx-1].clone();
-                    LastChild(previous_element)
+                    let previous_element = (*iter.peek().unwrap()).clone();
+                    return LastChild(previous_element);
                 }
             }
         }
+        let html_elem = self.html_elem();
+        LastChild(html_elem)
     }
 
     fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
