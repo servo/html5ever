@@ -747,7 +747,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
         declare_tag_set!(form_associatable =
-            "button" "fieldset" "input" "keygen" "label"
+            "button" "fieldset" "input" "keygen" "label" "legend"
             "object" "output" "select" "textarea" "img");
 
         declare_tag_set!(reassociatable = [form_associatable] - "img");
