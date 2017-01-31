@@ -9,7 +9,6 @@
 
 use util::smallcharset::SmallCharSet;
 
-use std::ascii::AsciiExt;
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
@@ -166,7 +165,7 @@ impl BufferQueue {
 #[allow(non_snake_case)]
 mod test {
     use std::ascii::AsciiExt;
-    use tendril::{StrTendril, SliceExt};
+    use tendril::SliceExt;
     use super::{BufferQueue, FromSet, NotFromSet};
 
     #[test]

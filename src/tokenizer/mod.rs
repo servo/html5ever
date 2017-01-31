@@ -9,14 +9,11 @@
 
 //! The HTML5 tokenizer.
 
-#![allow(unused_imports)]
-
 pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 pub use self::interface::{TokenSink, TokenSinkResult};
 
-use self::states::{RawLessThanSign, RawEndTagOpen, RawEndTagName};
 use self::states::{Rcdata, Rawtext, ScriptData, ScriptDataEscaped};
 use self::states::{Escaped, DoubleEscaped};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
@@ -1415,9 +1412,9 @@ mod test {
 
     use super::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
 
-    use super::interface::{Token, DoctypeToken, TagToken, CommentToken};
+    use super::interface::{Token, TagToken};
     use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
-    use super::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
+    use super::interface::{TagKind, StartTag, EndTag, Tag};
 
     use super::buffer_queue::{BufferQueue};
     use std::mem::replace;
