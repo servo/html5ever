@@ -40,7 +40,7 @@ fn main() {
     input.push_back(chunk.try_reinterpret().unwrap());
 
     let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
-    tok.feed(&mut input);
+    let _ = tok.feed(&mut input);
     assert!(input.is_empty());
     tok.end();
 }

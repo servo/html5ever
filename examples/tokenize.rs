@@ -93,7 +93,7 @@ fn main() {
         profile: true,
         .. Default::default()
     });
-    tok.feed(&mut input);
+    let _ = tok.feed(&mut input);
     assert!(input.is_empty());
     tok.end();
     sink.is_char(false);

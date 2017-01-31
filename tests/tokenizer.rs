@@ -99,7 +99,7 @@ impl TokenLogger {
 impl TokenSink for TokenLogger {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token, line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
@@ -143,7 +143,7 @@ fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
         buffer.push_back(chunk);
         let _ = tok.feed(&mut buffer);
     }
-    tok.feed(&mut buffer);
+    let _ = tok.feed(&mut buffer);
     tok.end();
     tok.unwrap().get_tokens()
 }

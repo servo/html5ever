@@ -13,7 +13,6 @@ extern crate html5ever;
 
 use std::{fs, env, cmp};
 use std::path::PathBuf;
-use std::io::Read;
 use std::default::Default;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
@@ -101,7 +100,7 @@ impl TDynBenchFn for Bench {
                     buffer.push_back(buf);
                     let _ = tok.feed(&mut buffer);
                 }
-                tok.feed(&mut buffer);
+                let _ = tok.feed(&mut buffer);
                 tok.end();
             }
         });
