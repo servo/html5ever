@@ -369,6 +369,53 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn is_fragment(&self) -> bool {
         self.context_elem.is_some()
     }
+
+    fn appropriate_place_for_insertion(&mut self,
+                                       override_target: Option<Handle>)
+                                       -> InsertionPoint<Handle> {
+        use self::tag_sets::*;
+
+        declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
+        let target = override_target.unwrap_or_else(|| self.current_node());
+        if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
+            if self.html_elem_named(target.clone(), local_name!("template")) {
+                // No foster parenting (inside template).
+                let contents = self.sink.get_template_contents(target);
+                return LastChild(contents);
+            } else {
+                // No foster parenting (the common case).
+                return LastChild(target);
+            }
+        }
+
+        // Foster parenting
+        let mut iter = self.open_elems.iter().rev().peekable();
+        while let Some(elem) = iter.next() {
+            if self.html_elem_named(elem.clone(), local_name!("template")) {
+                let contents = self.sink.get_template_contents(elem.clone());
+                return LastChild(contents);
+            } else if self.html_elem_named(elem.clone(), local_name!("table")) {
+                // Try inserting "inside last table's parent node, immediately before last table"
+                if self.sink.has_parent_node(elem.clone()) {
+                    return BeforeSibling(elem.clone());
+                } else {
+                    // If elem has no parent, we regain ownership of the child.
+                    // Insert "inside previous element, after its last child (if any)"
+                    let previous_element = (*iter.peek().unwrap()).clone();
+                    return LastChild(previous_element);
+                }
+            }
+        }
+        let html_elem = self.html_elem();
+        LastChild(html_elem)
+    }
+
+    fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
+        match insertion_point {
+            LastChild(parent) => self.sink.append(parent, child),
+            BeforeSibling(sibling) => self.sink.append_before_sibling(sibling, child)
+        }
+    }
 }
 
 impl<Handle, Sink> TokenSink
@@ -529,13 +576,18 @@ mod test {
             self.rcdom.create_comment(text)
         }
 
+        fn has_parent_node(&self, node: Handle) -> bool {
+            let node = node.borrow();
+            node.parent.is_some()
+        }
+
         fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
             self.rcdom.append(parent, child)
         }
 
         fn append_before_sibling(&mut self,
                 sibling: Handle,
-                child: NodeOrText<Handle>) -> Result<(), NodeOrText<Handle>> {
+                child: NodeOrText<Handle>) {
             self.rcdom.append_before_sibling(sibling, child)
         }
 
