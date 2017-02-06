@@ -743,15 +743,16 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // FIXME: application cache selection algorithm
     }
 
-    // https://html.spec.whatwg.org/multipage/syntax.html#create-an-element-for-the-token
+    // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
     fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
         declare_tag_set!(form_associatable =
-            "button" "fieldset" "input" "keygen" "label" "legend"
-            "object" "output" "select" "textarea" "img");
+            "button" "fieldset" "input" "object"
+            "output" "select" "textarea" "img");
 
-        declare_tag_set!(reassociatable = [form_associatable] - "img");
+        declare_tag_set!(listed = [form_associatable] - "img");
 
+        // Step 7.
         let qname = QualName::new(ns, name);
         let elem = self.sink.create_element(qname.clone(), attrs.clone());
 
@@ -761,15 +762,15 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             BeforeSibling(ref p) => p.clone()
         };
 
-        // Step 4.
+        // Step 12.
         // TODO: Handle template element case
-        if form_associatable(qname.clone())
-           && self.form_elem.is_some()
-           && !(reassociatable(qname.clone())
-               && attrs.iter().any(|a| a.name == qualname!("","form"))) {
+        if form_associatable(qname.clone()) &&
+           self.form_elem.is_some() &&
+           !(listed(qname.clone()) &&
+                attrs.iter().any(|a| a.name == qualname!("","form"))) {
 
                let form = self.form_elem.as_ref().unwrap().clone();
-               if self.sink.same_home_subtree(tree_node, form.clone()) {
+               if self.sink.same_tree(tree_node, form.clone()) {
                    self.sink.associate_with_form(elem.clone(), form)
                }
         }

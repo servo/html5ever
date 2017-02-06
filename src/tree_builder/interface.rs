@@ -73,8 +73,7 @@ pub trait TreeSink {
     fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
 
     /// Are two handles present in the same tree
-    /// https://html.spec.whatwg.org/multipage/infrastructure.html#home-subtree
-    fn same_home_subtree(&self, x: Self::Handle, y: Self::Handle) -> bool {
+    fn same_tree(&self, x: Self::Handle, y: Self::Handle) -> bool {
         true
     }
 
