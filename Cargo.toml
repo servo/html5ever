@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.13.0"
+version = "0.12.1"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -41,7 +41,7 @@ mac = "0"
 tendril = "0.2.2"
 heapsize = { version = "0.3", optional = true }
 heapsize_derive = { version = "0.1", optional = true }
-html5ever-atoms = { version = "0.2", path = "./atoms" }
+html5ever-atoms = { version = "0.1", path = "./atoms" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
