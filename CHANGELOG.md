@@ -58,3 +58,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.4.0] - 2017-02-17
 ### Changed
   - Updated html5ever-atoms to 0.2
+
+## [0.4.1] - 2017-02-17
+### Changed
+  - Changed dependency constraints to be more precise
