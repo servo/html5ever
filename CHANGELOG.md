@@ -54,3 +54,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.3.2] - 2017-01-11
 ### Changed
   - Replaced `println!` with `debug!`in tokenizer @Freyskeyd
+
+## [0.4.0] - 2017-02-17
+### Changed
+  - Updated html5ever-atoms to 0.2
