@@ -313,7 +313,7 @@ fn unescape_json(js: &Json) -> Json {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
+fn mk_test(desc: String, input: String, expect: Json, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc {
@@ -330,7 +330,8 @@ fn mk_test(desc: String, input: String, expect: Vec<Token>, opts: TokenizerOpts)
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
-                if output != expect {
+                let expect_toks = json_to_tokens(&expect, opts.exact_errors);
+                if output != expect_toks {
                     panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
                         input, output, expect);
                 }
@@ -384,8 +385,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
                 newdesc = format!("{} (exact errors)", newdesc);
             }
 
-            let expect_toks = json_to_tokens(&expect, exact_errors);
-            tests.push(mk_test(newdesc, input.clone(), expect_toks, TokenizerOpts {
+            tests.push(mk_test(newdesc, input.clone(), expect.clone(), TokenizerOpts {
                 exact_errors: exact_errors,
                 initial_state: state,
                 last_start_tag_name: start_tag.clone(),
