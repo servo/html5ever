@@ -10,17 +10,18 @@
 
 set -ex
 
+# Test without unstable first, to make sure src/tree_builder/rules.expanded.rs is up-to-date.
+cargo test --no-run
+cargo test | ./scripts/shrink-test-output.py
+r=${PIPESTATUS[0]}
+if [ $r -ne 0 ]; then exit $r; fi
+
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
-    cargo test --features "rustc-test/capture" --bench tokenizer
-    cargo test --features "rustc-test/capture"
-    cargo test --features "rustc-test/capture unstable"
-    cargo test --features "rustc-test/capture" --manifest-path xml5ever/Cargo.toml
-else
-    cargo test --bench tokenizer
-    cargo test
-    cargo test --manifest-path xml5ever/Cargo.toml
+    cargo test --no-run --features unstable
+    cargo test --features unstable | ./scripts/shrink-test-output.py
+    r=${PIPESTATUS[0]}
+    if [ $r -ne 0 ]; then exit $r; fi
 fi
 
 cargo doc
-cargo doc --manifest-path xml5ever/Cargo.toml

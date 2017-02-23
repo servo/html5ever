@@ -1,0 +1,36 @@
+sudo: false
+language: rust
+cache: cargo
+
+# necessary for `travis-cargo coveralls --no-sudo`
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+
+before_script:
+  - |
+      pip install 'travis-cargo<0.2' --user &&
+      export PATH=$HOME/.local/bin:$PATH
+
+# the main build
+script:
+  - |
+      travis-cargo build &&
+      travis-cargo doc &&
+      scripts/travis-build.sh
+
+after_success:
+  # upload the documentation from the build with beta (automatically only actually
+  # runs on the master branch)
+  - curl https://raw.githubusercontent.com/kmcallister/travis-doc-upload/master/travis-doc-upload.sh | sh
+
