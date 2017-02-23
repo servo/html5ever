@@ -1,10 +1,10 @@
 [package]
 name = "xml5ever"
-version = "0.4.1"
+version = "0.4.2"
 description = "Push based streaming parser for xml"
-homepage = "https://github.com/Ygg01/xml5ever/blob/master/README.md"
-documentation = "https://ygg01.github.io/docs/xml5ever/xml5ever/index.html"
-repository = "https://github.com/Ygg01/xml5ever"
+homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
+documentation = "https://docs.rs/xml5ever/"
+repository = "https://github.com/servo/html5ever"
 readme = "README.md"
 keywords = ["xml", "xml5", "parser", "parsing"]
 authors = ["The xml5ever project developers"]
