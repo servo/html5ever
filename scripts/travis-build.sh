@@ -15,9 +15,12 @@ then
     cargo test --features "rustc-test/capture" --bench tokenizer
     cargo test --features "rustc-test/capture"
     cargo test --features "rustc-test/capture unstable"
+    cargo test --features "rustc-test/capture" --manifest-path xml5ever/Cargo.toml
 else
     cargo test --bench tokenizer
     cargo test
+    cargo test --manifest-path xml5ever/Cargo.toml
 fi
 
 cargo doc
+cargo doc --manifest-path xml5ever/Cargo.toml
