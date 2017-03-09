@@ -183,7 +183,6 @@ compose
 condition
 conjugate
 content
-contents
 contentScriptType
 contentStyleType
 contenteditable
@@ -792,7 +791,6 @@ scriptminsize
 scriptsizemultiplier
 scrolldelay
 scrolling
-scroll-position
 sdev
 seamless
 sec
