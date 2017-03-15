@@ -72,6 +72,11 @@ pub trait TreeSink {
     /// Do two handles refer to the same node?
     fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
 
+    /// Are two handles present in the same tree
+    fn same_tree(&self, x: Self::Handle, y: Self::Handle) -> bool {
+        true
+    }
+
     /// What is the name of this element?
     ///
     /// Should never be called on a non-element node;
@@ -93,6 +98,9 @@ pub trait TreeSink {
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
 
+    /// Does the node have a parent?
+    fn has_parent_node(&self, node: Self::Handle) -> bool;
+
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
     /// instead.
@@ -100,8 +108,8 @@ pub trait TreeSink {
     /// The child node will not already have a parent.
     fn append(&mut self, parent: Self::Handle, child: NodeOrText<Self::Handle>);
 
-    /// Append a node as the sibling immediately before the given node.  If that node
-    /// has no parent, do nothing and return Err(new_node).
+    /// Append a node as the sibling immediately before the given node.
+    /// This method will only be called if has_parent_node(sibling) is true
     ///
     /// The tree builder promises that `sibling` is not a text node.  However its
     /// old previous sibling, which would become the new node's previous sibling,
@@ -111,7 +119,7 @@ pub trait TreeSink {
     /// NB: `new_node` may have an old parent, from which it should be removed.
     fn append_before_sibling(&mut self,
         sibling: Self::Handle,
-        new_node: NodeOrText<Self::Handle>) -> Result<(), NodeOrText<Self::Handle>>;
+        new_node: NodeOrText<Self::Handle>);
 
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self,
@@ -123,6 +131,9 @@ pub trait TreeSink {
     /// already exists. The tree builder promises this will never be called
     /// with something else than an element.
     fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
+
+    /// Associate the given form-associatable element with the form element
+    fn associate_with_form(&mut self, target: Self::Handle, form: Self::Handle) {}
 
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: Self::Handle);
