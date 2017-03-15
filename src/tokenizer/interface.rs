@@ -94,9 +94,6 @@ pub enum Token {
     ParseError(Cow<'static, str>),
 }
 
-// FIXME: rust-lang/rust#22629
-unsafe impl Send for Token { }
-
 #[derive(Debug, PartialEq)]
 #[must_use]
 pub enum TokenSinkResult<Handle> {
