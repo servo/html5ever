@@ -358,9 +358,6 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 tag @ <menu> => {
                     self.close_p_element_in_button_scope();
-                    if self.current_node_named(local_name!("menuitem")) {
-                        self.pop();
-                    }
                     self.insert_element_for(tag);
                     Done
                 }
@@ -623,9 +620,6 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 tag @ <hr> => {
                     self.close_p_element_in_button_scope();
-                    if self.current_node_named(local_name!("menuitem")) {
-                        self.pop();
-                    }
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok = false;
                     DoneAckSelfClosing
@@ -679,15 +673,6 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 tag @ <optgroup> <option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    self.reconstruct_formatting();
-                    self.insert_element_for(tag);
-                    Done
-                }
-
-                tag @ <menuitem> => {
-                    if self.current_node_named(local_name!("menuitem")) {
                         self.pop();
                     }
                     self.reconstruct_formatting();
