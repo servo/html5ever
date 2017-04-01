@@ -1,6 +1,6 @@
 [package]
 name = "xml5ever"
-version = "0.4.2"
+version = "0.4.3"
 description = "Push based streaming parser for xml"
 homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
 documentation = "https://docs.rs/xml5ever/"
