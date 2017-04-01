@@ -94,7 +94,7 @@ pub type AttrRef<'a> = (&'a QName, &'a str);
 /// depending on where the text is written inside the tag or attribute value.
 ///
 /// For example
-///```
+///```text
 ///    <tag>'&-quotes'</tag>   becomes      <tag>'&amp;-quotes'</tag>
 ///    <tag = "'&-quotes'">    becomes      <tag = "&apos;&amp;-quotes&apos;"
 ///```
