@@ -62,3 +62,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.4.1] - 2017-02-17
 ### Changed
   - Changed dependency constraints to be more precise
+
+## [0.5.0] - 2017-04-07
+### Changed
+  - Breaking string-cache update.

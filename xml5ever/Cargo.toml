@@ -1,6 +1,6 @@
 [package]
 name = "xml5ever"
-version = "0.4.3"
+version = "0.5.0"
 description = "Push based streaming parser for xml"
 homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
 documentation = "https://docs.rs/xml5ever/"
@@ -21,7 +21,7 @@ log = "0.3"
 phf = "0.7"
 mac = "0.1"
 tendril = "0.2"
-html5ever-atoms = "0.2"
+html5ever-atoms = {version = "0.3", path = "../atoms" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
