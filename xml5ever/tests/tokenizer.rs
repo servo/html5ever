@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
 extern crate rustc_serialize;
-#[cfg(feature = "unstable")] extern crate test;
+extern crate test;
 
 extern crate xml5ever;
 
@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
 
-#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-#[cfg(feature = "unstable")] use test::ShouldPanic::No;
+use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
 use xml5ever::LocalName;
@@ -273,7 +273,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     sink.get_tokens()
 }
 
-#[cfg(feature = "unstable")]
+
 fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
@@ -282,7 +282,7 @@ fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts
             ignore: false,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move |()| {
+        testfn: DynTestFn(Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
             for input in insplits.into_iter() {
@@ -300,7 +300,7 @@ fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts
         })),
     }
 }
-#[cfg(feature = "unstable")]
+
 fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let input = js.find("input").unwrap().as_string().unwrap();
     let expect = js.find("output").unwrap().clone();
@@ -337,7 +337,6 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     }
 }
 
-#[cfg(feature = "unstable")]
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
     foreach_xml5lib_test(src_dir, "tokenizer",
@@ -359,7 +358,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[cfg(feature = "unstable")]
+
 #[test]
 fn run() {
     let args: Vec<_> = env::args().collect();

@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
-#[cfg(feature = "unstable")] extern crate test;
+extern crate test;
 
 #[macro_use] extern crate mac;
 #[macro_use] extern crate html5ever_atoms;
@@ -17,8 +17,8 @@ use std::mem::replace;
 use std::path::Path;
 
 
-#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-#[cfg(feature = "unstable")] use test::ShouldPanic::No;
+use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::driver::parse_document;
@@ -160,7 +160,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<template"];
 
-#[cfg(feature = "unstable")]
+
 fn make_xml_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -185,7 +185,7 @@ fn make_xml_test(
             ignore: ignore,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move |()| {
+        testfn: DynTestFn(Box::new(move || {
             let mut result = String::new();
 
             let dom = parse_document(RcDom::default(), Default::default())
@@ -205,7 +205,7 @@ fn make_xml_test(
     });
 }
 
-#[cfg(feature = "unstable")]
+
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -226,7 +226,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[cfg(feature = "unstable")]
+
 #[test]
 fn run() {
     let args: Vec<_> = env::args().collect();
