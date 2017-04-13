@@ -1,16 +1,24 @@
 [package]
+
 name = "xml5ever"
 version = "0.5.0"
-description = "Push based streaming parser for xml"
-homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
-documentation = "https://docs.rs/xml5ever/"
-repository = "https://github.com/servo/html5ever"
-readme = "README.md"
-keywords = ["xml", "xml5", "parser", "parsing"]
 authors = ["The xml5ever project developers"]
 license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "Push based streaming parser for xml"
+documentation = "https://docs.rs/xml5ever/"
 build = "build.rs"
+
+homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
+readme = "README.md"
+keywords = ["xml", "xml5", "parser", "parsing"]
 exclude = ["xml5lib-tests/*"]
+
+[lib]
+name = "xml5ever"
+
+# https://github.com/rust-lang/cargo/issues/1512
+doctest = false
 
 [features]
 unstable = ["tendril/unstable"]
