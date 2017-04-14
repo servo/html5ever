@@ -21,14 +21,14 @@
 extern crate log;
 
 #[macro_use]
-extern crate html5ever_atoms;
+extern crate markup5ever;
 
 #[macro_use]
 extern crate mac;
 
 extern crate phf;
 
-pub use html5ever_atoms::{Namespace, LocalName, QualName};
+pub use markup5ever::{Namespace, LocalName, QualName};
 pub use tokenizer::Attribute;
 pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 

@@ -7,7 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] extern crate html5ever_atoms;
+#[macro_use] 
+extern crate markup5ever;
+
 extern crate html5ever;
 extern crate tendril;
 

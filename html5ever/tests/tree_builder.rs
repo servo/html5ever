@@ -10,7 +10,9 @@
 extern crate test;
 extern crate tendril;
 extern crate html5ever;
-#[macro_use] extern crate html5ever_atoms;
+
+#[macro_use] 
+extern crate markup5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;

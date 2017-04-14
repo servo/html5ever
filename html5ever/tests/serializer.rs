@@ -9,7 +9,9 @@
 
 extern crate tendril;
 extern crate html5ever;
-#[macro_use] extern crate html5ever_atoms;
+
+#[macro_use] 
+extern crate markup5ever;
 
 use std::default::Default;
 

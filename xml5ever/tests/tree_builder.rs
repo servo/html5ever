@@ -3,7 +3,7 @@
 extern crate test;
 
 #[macro_use] extern crate mac;
-#[macro_use] extern crate html5ever_atoms;
+#[macro_use] extern crate markup5ever;
 
 extern crate rustc_serialize;
 extern crate xml5ever;

@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.15.0"
+version = "0.16.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -32,7 +32,7 @@ harness = false
 
 [features]
 unstable = ["tendril/unstable"]
-heap_size = ["heapsize", "heapsize_derive", "html5ever-atoms/heap_size"]
+heap_size = ["heapsize", "heapsize_derive", "markup5ever/heap_size"]
 
 [dependencies]
 log = "0"
@@ -41,7 +41,7 @@ mac = "0"
 tendril = "0.2.2"
 heapsize = { version = "0.3", optional = true }
 heapsize_derive = { version = "0.1", optional = true }
-html5ever-atoms = { version = "0.3", path = "../atoms" }
+markup5ever = { version = "0.1", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
