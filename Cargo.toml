@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "atoms",
+    "markup5ever",
     "html5ever",
     "xml5ever"
 ]
