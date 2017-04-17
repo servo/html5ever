@@ -41,7 +41,7 @@ mac = "0"
 tendril = "0.2.2"
 heapsize = { version = "0.3", optional = true }
 heapsize_derive = { version = "0.1", optional = true }
-html5ever-atoms = { version = "0.3", path = "./atoms" }
+html5ever-atoms = { version = "0.3", path = "../atoms" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
