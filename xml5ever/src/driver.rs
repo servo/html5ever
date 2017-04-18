@@ -44,7 +44,7 @@ pub fn parse_document<Sink>(sink: Sink, opts: XmlParseOpts) -> XmlParser<Sink>
 }
 
 /// An XML parser,
-/// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
+/// ready to receive Unicode input through the `tendril::TendrilSink` trait’s methods.
 pub struct XmlParser<Sink> where Sink: TreeSink {
     /// Tokenizer used by XmlParser.
     pub tokenizer: XmlTokenizer<XmlTreeBuilder<Sink::Handle, Sink>>,
@@ -116,7 +116,7 @@ pub struct BytesOpts {
 }
 
 /// An HTML parser,
-/// ready to recieve bytes input through the `tendril::TendrilSink` trait’s methods.
+/// ready to receive bytes input through the `tendril::TendrilSink` trait’s methods.
 ///
 /// See `Parser::from_bytes`.
 pub struct BytesParser<Sink> where Sink: TreeSink {
