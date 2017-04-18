@@ -77,7 +77,7 @@ pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
 }
 
 /// An HTML parser,
-/// ready to recieve Unicode input through the `tendril::TendrilSink` trait’s methods.
+/// ready to receive Unicode input through the `tendril::TendrilSink` trait’s methods.
 pub struct Parser<Sink> where Sink: TreeSink {
     pub tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
     pub input_buffer: BufferQueue,
@@ -142,7 +142,7 @@ pub struct BytesOpts {
 }
 
 /// An HTML parser,
-/// ready to recieve bytes input through the `tendril::TendrilSink` trait’s methods.
+/// ready to receive bytes input through the `tendril::TendrilSink` trait’s methods.
 ///
 /// See `Parser::from_bytes`.
 pub struct BytesParser<Sink> where Sink: TreeSink {
