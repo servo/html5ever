@@ -20,7 +20,7 @@ use std::borrow::Cow::Borrowed;
 pub use self::Status::*;
 use self::State::*;
 
-mod data;
+use markup5ever::data;
 
 //§ tokenizing-character-references
 pub struct CharRef {

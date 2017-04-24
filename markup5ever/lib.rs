@@ -11,6 +11,9 @@
 #[cfg(feature = "heap_size")] #[macro_use] extern crate heapsize_derive;
 #[cfg(feature = "heap_size")] extern crate heapsize;
 extern crate string_cache;
+extern crate phf;
+
+pub mod data;
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 

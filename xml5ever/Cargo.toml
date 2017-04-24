@@ -7,7 +7,6 @@ license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "Push based streaming parser for xml"
 documentation = "https://docs.rs/xml5ever/"
-build = "build.rs"
 
 homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
 readme = "README.md"

@@ -1,4 +1,4 @@
-// Copyright 2014 The html5ever Project Developers. See the
+// Copyright 2016 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -6,7 +6,6 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-
 use phf::Map;
 
 /// The spec replaces most characters in the ISO-2022 C1 control code range

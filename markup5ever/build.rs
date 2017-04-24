@@ -8,7 +8,13 @@
 // except according to those terms.
 
 extern crate string_cache_codegen;
+extern crate phf_codegen;
+extern crate rustc_serialize;
+extern crate syn;
 
+use rustc_serialize::json::{Json, Decoder};
+use rustc_serialize::Decodable;
+use std::collections::HashMap;
 use std::ascii::AsciiExt;
 use std::env;
 use std::fs::File;
@@ -29,6 +35,12 @@ static NAMESPACES: &'static [(&'static str, &'static str)] = &[
 fn main() {
     let generated = Path::new(&env::var("OUT_DIR").unwrap()).join("generated.rs");
     let mut generated = BufWriter::new(File::create(&generated).unwrap());
+
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    named_entities_to_phf(
+        &Path::new(&manifest_dir).join("data").join("entities.json"),
+        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
 
     let local_names = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("local_names.txt");
     let mut local_names_atom = string_cache_codegen::AtomType::new("LocalName", "local_name!");
@@ -54,4 +66,39 @@ fn main() {
         writeln!(generated, "({}) => {{ namespace_url!({:?}) }};", prefix, url).unwrap();
     }
     writeln!(generated, "}}").unwrap();
+}
+
+fn named_entities_to_phf(from: &Path, to: &Path) {
+    // A struct matching the entries in entities.json.
+    #[derive(RustcDecodable)]
+    struct CharRef {
+        codepoints: Vec<u32>,
+        //characters: String,  // Present in the file but we don't need it
+    }
+
+    let json = Json::from_reader(&mut File::open(from).unwrap()).unwrap();
+    let entities: HashMap<String, CharRef> = Decodable::decode(&mut Decoder::new(json)).unwrap();
+    let mut entities: HashMap<&str, (u32, u32)> = entities.iter().map(|(name, char_ref)| {
+        assert!(name.starts_with("&"));
+        assert!(char_ref.codepoints.len() <= 2);
+        (&name[1..], (char_ref.codepoints[0], *char_ref.codepoints.get(1).unwrap_or(&0)))
+    }).collect();
+
+    // Add every missing prefix of those keys, mapping to NULL characters.
+    for key in entities.keys().cloned().collect::<Vec<_>>() {
+        for n in 1 .. key.len() {
+            entities.entry(&key[..n]).or_insert((0, 0));
+        }
+    }
+    entities.insert("", (0, 0));
+
+    let mut phf_map = phf_codegen::Map::new();
+    for (key, value) in entities {
+        phf_map.entry(key, &format!("{:?}", value));
+    }
+
+    let mut file = File::create(to).unwrap();
+    write!(&mut file, "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = ").unwrap();
+    phf_map.build(&mut file).unwrap();
+    write!(&mut file, ";\n").unwrap();
 }
