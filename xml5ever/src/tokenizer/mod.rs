@@ -33,7 +33,7 @@ use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{XmlState};
 use self::states::{DoctypeKind, Public, System};
 use self::qname::{QNameTokenizer};
-use util::smallcharset::SmallCharSet;
+use markup5ever::SmallCharSet;
 
 
 

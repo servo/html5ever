@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] pub mod smallcharset;
-
 
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {

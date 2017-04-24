@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::smallcharset::SmallCharSet;
 
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
+use markup5ever::SmallCharSet;
 
 pub use self::SetResult::{FromSet, NotFromSet};
 

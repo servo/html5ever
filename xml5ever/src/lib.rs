@@ -39,7 +39,7 @@ extern crate phf;
 extern crate time;
 
 
-pub use markup5ever::{Prefix, Namespace, LocalName, QualName};
+pub use markup5ever::*;
 
 /// Re-export the tendril crate so that users don’t need to depend on it.
 pub mod tendril {
@@ -56,7 +56,7 @@ macro_rules! time {
     }}
 }
 
-#[macro_use] mod util;
+mod util;
 
 /// XML5 tokenizer - converts input into tokens
 pub mod tokenizer;

@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use util::smallcharset::SmallCharSet;
+use markup5ever::SmallCharSet;
 
 use std::ascii::AsciiExt;
 use std::collections::VecDeque;

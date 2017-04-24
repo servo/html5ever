@@ -17,18 +17,13 @@
 #[cfg(feature = "heap_size")] #[macro_use] extern crate heapsize_derive;
 #[cfg(feature = "heap_size")] extern crate heapsize;
 
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate markup5ever;
-
-#[macro_use]
-extern crate mac;
+#[macro_use] extern crate log;
+#[macro_use] extern crate markup5ever;
+#[macro_use] extern crate mac;
 
 extern crate phf;
 
-pub use markup5ever::{Namespace, LocalName, QualName};
+pub use markup5ever::*;
 pub use tokenizer::Attribute;
 pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 
@@ -37,10 +32,8 @@ pub use serialize::serialize;
 #[macro_use]
 mod macros;
 
-#[macro_use]
 mod util {
     pub mod str;
-    #[macro_use] pub mod smallcharset;
 }
 
 pub mod serialize;

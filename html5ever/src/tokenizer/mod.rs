@@ -24,7 +24,6 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 use util::str::lower_ascii_letter;
-use util::smallcharset::SmallCharSet;
 
 use std::ascii::AsciiExt;
 use std::mem::replace;
@@ -34,6 +33,7 @@ use std::collections::BTreeMap;
 
 use {LocalName, QualName};
 use tendril::StrTendril;
+use markup5ever::SmallCharSet;
 
 pub mod buffer_queue;
 pub mod states;
