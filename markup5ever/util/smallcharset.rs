@@ -7,12 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_export]
-macro_rules! small_char_set ( ($($e:expr)+) => (
-    ::markup5ever::SmallCharSet {
-        bits: $( (1 << ($e as usize)) )|+
-    }
-));
+
 
 /// Represents a set of "small characters", those with Unicode scalar
 /// values less than 64.

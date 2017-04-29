@@ -10,7 +10,6 @@
 extern crate string_cache_codegen;
 extern crate phf_codegen;
 extern crate rustc_serialize;
-extern crate syn;
 
 use rustc_serialize::json::{Json, Decoder};
 use rustc_serialize::Decodable;

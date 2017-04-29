@@ -17,14 +17,14 @@ extern crate tendril;
 #[macro_export]
 macro_rules! qualname {
     ("", $local:tt) => {
-        ::markup5ever::QualName {
+        $ crate::QualName {
             ns: ns!(),
             prefix: None,
             local: local_name!($local),
         }
     };
     ($ns:tt, $local:tt) => {
-        ::markup5ever::QualName {
+        $ crate::QualName {
             ns: ns!($ns),
             prefix: None,
             local: local_name!($local),
@@ -32,15 +32,95 @@ macro_rules! qualname {
     }
 }
 
+#[macro_export]
+macro_rules! small_char_set ( ($($e:expr)+) => (
+    $ crate ::SmallCharSet {
+        bits: $( (1 << ($e as usize)) )|+
+    }
+));
+
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 
 pub mod data;
 pub mod interface;
 pub mod util {
-    pub mod buffer_queue;
     pub mod smallcharset;
+    pub mod buffer_queue;
+    
 }
 
 pub use interface::{QualName, Attribute};
 pub use util::smallcharset::SmallCharSet;
+
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test {
+    use std::ascii::AsciiExt;
+    use tendril::SliceExt;
+
+    use super::{QualName};
+    use super::util::buffer_queue::{BufferQueue, FromSet, NotFromSet};
+
+
+
+    #[test]
+    fn smoke_test() {
+        let mut bq = BufferQueue::new();
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
+
+        bq.push_back("abc".to_tendril());
+        assert_eq!(bq.peek(), Some('a'));
+        assert_eq!(bq.next(), Some('a'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.peek(), Some('c'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
+    }
+
+    #[test]
+    fn can_unconsume() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc".to_tendril());
+        assert_eq!(bq.next(), Some('a'));
+
+        bq.push_front("xy".to_tendril());
+        assert_eq!(bq.next(), Some('x'));
+        assert_eq!(bq.next(), Some('y'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
+
+    #[test]
+    fn can_pop_except_set() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc&def".to_tendril());
+        let mut pop = || bq.pop_except_from(small_char_set!('&'));
+        assert_eq!(pop(), Some(NotFromSet("abc".to_tendril())));
+        assert_eq!(pop(), Some(FromSet('&')));
+        assert_eq!(pop(), Some(NotFromSet("def".to_tendril())));
+        assert_eq!(pop(), None);
+    }
+
+    #[test]
+    fn can_eat() {
+        // This is not very comprehensive.  We rely on the tokenizer
+        // integration tests for more thorough testing with many
+        // different input buffer splits.
+        let mut bq = BufferQueue::new();
+        bq.push_back("a".to_tendril());
+        bq.push_back("bc".to_tendril());
+        assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
+        assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
+}

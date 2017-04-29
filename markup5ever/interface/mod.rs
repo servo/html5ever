@@ -91,7 +91,7 @@ impl QualName {
         QualName {
             ns: ns!(),
             local: local,
-            prefix: Some(prefix),            
+            prefix: Some(prefix),
         }
     }
 }
@@ -129,14 +129,14 @@ mod tests {
     #[test]
     fn qualname() {
         assert_eq!(QualName::new(ns!(), local_name!("")),
-                   QualName { ns: ns!(), local: LocalName::from("") });
+                   QualName { ns: ns!(), local: LocalName::from(""), prefix: None });
         assert_eq!(QualName::new(ns!(xml), local_name!("base")),
-                   QualName { ns: ns!(xml), local: local_name!("base") });
+                   QualName { ns: ns!(xml), local: local_name!("base"), prefix: None });
     }
 
     #[test]
     fn qualname_macro() {
-        assert_eq!(qualname!("", ""), QualName { ns: ns!(), local: local_name!("") });
-        assert_eq!(qualname!(xml, "base"), QualName { ns: ns!(xml), local: local_name!("base") });
+        assert_eq!(qualname!("", ""), QualName { ns: ns!(), local: local_name!(""), prefix: None });
+        assert_eq!(qualname!(xml, "base"), QualName { ns: ns!(xml), local: local_name!("base"), prefix: None });
     }
 }
