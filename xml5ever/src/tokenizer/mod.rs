@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-mod buffer_queue;
 mod char_ref;
 mod interface;
 mod qname;
@@ -26,6 +25,7 @@ use std::collections::{BTreeMap};
 use std::mem::replace;
 
 use tendril::StrTendril;
+use markup5ever::SmallCharSet;
 use markup5ever::interface::{Attribute, QualName};
 use markup5ever::util::buffer_queue;
 
@@ -34,7 +34,6 @@ use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{XmlState};
 use self::states::{DoctypeKind, Public, System};
-use markup5ever::SmallCharSet;
 use self::qname::{QualNameTokenizer};
 
 
@@ -312,7 +311,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
     fn eat(&mut self, pat: &str) -> Option<bool> {
-        match self.input_buffers.eat(pat) {
+        match self.input_buffers.eat(pat, u8::eq_ignore_ascii_case) {
             None if self.at_eof => Some(false),
             r => r,
         }

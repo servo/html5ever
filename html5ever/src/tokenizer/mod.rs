@@ -21,8 +21,6 @@ use self::states::{DoctypeIdKind, Public, System};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
 
-use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
-
 use util::str::lower_ascii_letter;
 
 use std::ascii::AsciiExt;
@@ -33,11 +31,10 @@ use std::collections::BTreeMap;
 
 use {LocalName, QualName};
 use tendril::StrTendril;
-use markup5ever::SmallCharSet;
+use markup5ever::{SmallCharSet};
 use markup5ever::interface::{Attribute};
 pub use markup5ever::util::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
-pub mod buffer_queue;
 pub mod states;
 mod interface;
 mod char_ref;
@@ -1418,7 +1415,7 @@ mod test {
     use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
     use super::interface::{TagKind, StartTag, EndTag, Tag};
 
-    use super::buffer_queue::{BufferQueue};
+    use markup5ever::util::buffer_queue::{BufferQueue};
     use std::mem::replace;
 
     use {LocalName};

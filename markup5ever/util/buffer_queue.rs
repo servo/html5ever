@@ -8,12 +8,13 @@
 // except according to those terms.
 
 
+use std::ascii::AsciiExt;
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
-use markup5ever::SmallCharSet;
 
 pub use self::SetResult::{FromSet, NotFromSet};
+use util::smallcharset::SmallCharSet;
 
 /// Result from `pop_except_from`.
 #[derive(PartialEq, Eq, Debug)]

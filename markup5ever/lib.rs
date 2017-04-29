@@ -37,6 +37,10 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 pub mod data;
 pub mod interface;
+pub mod util {
+    pub mod buffer_queue;
+    pub mod smallcharset;
 }
 
 pub use interface::{QualName, Attribute};
+pub use util::smallcharset::SmallCharSet;

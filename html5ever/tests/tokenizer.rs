@@ -8,7 +8,6 @@
 // except according to those terms.
 
 extern crate rustc_serialize;
-extern crate tendril;
 extern crate test;
 extern crate html5ever;
 
@@ -31,14 +30,15 @@ use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
 
 use html5ever::{LocalName, QualName};
-use html5ever::tokenizer::{Doctype, Attribute, StartTag, EndTag, Tag};
+use html5ever::tokenizer::{Doctype, StartTag, EndTag, Tag};
 use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
-use html5ever::tokenizer::buffer_queue::BufferQueue;
+use html5ever::tokenizer::{BufferQueue};
 use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+use html5ever::tendril::*;
+use html5ever::{Attribute};
 
-use tendril::{StrTendril, SliceExt};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.

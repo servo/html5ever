@@ -9,8 +9,8 @@
 
 //! High-level interface to the parser.
 
-use tokenizer::buffer_queue::BufferQueue;
 use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
+use markup5ever::util::buffer_queue::BufferQueue;
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use std::borrow::Cow;

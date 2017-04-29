@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use super::{Tokenizer, TokenSink};
-use super::buffer_queue::BufferQueue;
+use markup5ever::util::buffer_queue::BufferQueue;
 
 use util::str::{is_ascii_alnum};
 
