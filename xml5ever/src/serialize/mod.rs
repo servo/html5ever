@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
