@@ -12,15 +12,16 @@ set -ex
 
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
-    cargo test --features "rustc-test/capture" --bench tokenizer
-    cargo test --features "rustc-test/capture"
-    cargo test --features "rustc-test/capture unstable"
-    cargo test --features "rustc-test/capture" --manifest-path xml5ever/Cargo.toml
+    cargo test -p html5ever --features "rustc-test/capture" --bench tokenizer
+    cargo test -p html5ever --features "rustc-test/capture" 
+    cargo test -p html5ever --features "rustc-test/capture unstable" 
+    cargo test -p xml5ever --features "rustc-test/capture" 
 else
-    cargo test --bench tokenizer
-    cargo test
-    cargo test --manifest-path xml5ever/Cargo.toml
+    cargo test -p html5ever --bench tokenizer
+    cargo test -p html5ever
+    cargo test -p xml5ever
 fi
 
-cargo doc
-cargo doc --manifest-path xml5ever/Cargo.toml
+# This is a hack until cargo doc lands on stable
+cargo doc -p html5ever
+cargo doc -p xml5ever
