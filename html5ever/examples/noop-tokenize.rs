@@ -10,15 +10,12 @@
 // Run a single benchmark once.  For use with profiling tools.
 
 extern crate html5ever;
-extern crate tendril;
 
 use std::io;
 use std::default::Default;
 
-use tendril::{ByteTendril, ReadExt};
-
-use html5ever::tokenizer::{TokenSinkResult, TokenSink, Token, Tokenizer};
-use html5ever::tokenizer::buffer_queue::BufferQueue;
+use html5ever::tokenizer::{BufferQueue, TokenSinkResult, TokenSink, Token, Tokenizer};
+use html5ever::tendril::*;
 
 struct Sink(Vec<Token>);
 

@@ -11,19 +11,16 @@
 extern crate markup5ever;
 
 extern crate html5ever;
-extern crate tendril;
 
 use std::io;
 use std::default::Default;
 use std::collections::HashMap;
 use std::borrow::Cow;
 
-use tendril::{StrTendril, TendrilSink};
-
-use html5ever::QualName;
-use html5ever::tokenizer::Attribute;
+use html5ever::{QualName, Attribute};
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use html5ever::parse_document;
+use html5ever::tendril::*;
 
 struct Sink {
     next_id: usize,
@@ -67,9 +64,18 @@ impl TreeSink for Sink {
         x == y
     }
 
+    fn same_node_ref(&self, x: &usize, y: &usize) -> bool {
+        x == y
+    }
+
     fn elem_name(&self, target: usize) -> QualName {
         self.names.get(&target).expect("not an element").clone()
     }
+
+    fn elem_name_ref(&self, target: &usize) -> QualName {
+        self.names.get(target).expect("not an element").clone()
+    }
+
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {
         let id = self.get_id();
@@ -82,6 +88,11 @@ impl TreeSink for Sink {
         let id = self.get_id();
         println!("Created comment \"{}\" as {}", escape_default(&text), id);
         id
+    }
+
+    #[allow(unused_variables)]
+    fn create_pi(&mut self, target: StrTendril, value: StrTendril) -> usize {
+        unimplemented!()
     }
 
     fn has_parent_node(&self, _node: usize) -> bool  {

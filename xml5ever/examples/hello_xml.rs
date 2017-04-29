@@ -31,7 +31,7 @@ fn main() {
     let doc = &dom.document;
 
     let hello_node = &doc.borrow().children[0];
-    let hello_tag = &*dom.elem_name(hello_node).local;
+    let hello_tag = &*dom.elem_name_ref(hello_node).local;
     let text_node = &hello_node.borrow().children[0];
 
     let xml = {

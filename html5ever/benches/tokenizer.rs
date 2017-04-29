@@ -8,7 +8,6 @@
 // except according to those terms.
 
 extern crate test;
-extern crate tendril;
 extern crate html5ever;
 
 use std::{fs, env, cmp};
@@ -19,9 +18,8 @@ use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
 use test::ShouldPanic::No;
 
-use tendril::{ByteTendril, StrTendril, ReadExt, SliceExt};
-use html5ever::tokenizer::{TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
-use html5ever::tokenizer::buffer_queue::BufferQueue;
+use html5ever::tokenizer::{BufferQueue, TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
+use html5ever::tendril::*;
 
 struct Sink;
 

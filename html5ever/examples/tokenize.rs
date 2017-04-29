@@ -7,17 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate tendril;
 extern crate html5ever;
 
 use std::io;
 use std::default::Default;
 
-use tendril::{ByteTendril, ReadExt};
-
 use html5ever::tokenizer::{TokenSink, Tokenizer, Token, TokenizerOpts, ParseError, TokenSinkResult};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken, StartTag, EndTag};
-use html5ever::tokenizer::buffer_queue::BufferQueue;
+use html5ever::tokenizer::BufferQueue;
+use html5ever::tendril::*;
 
 #[derive(Copy, Clone)]
 struct TokenPrinter {

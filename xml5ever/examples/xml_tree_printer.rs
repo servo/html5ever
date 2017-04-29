@@ -30,7 +30,7 @@ fn walk(prefix: &str, handle: Handle) {
             println!("#text {}", escape_default(text))
         },
 
-        Element(ref name, _) => {
+        Element(ref name, ..) => {
             println!("{}", name.local);
         },
 
@@ -47,7 +47,7 @@ fn walk(prefix: &str, handle: Handle) {
 
     for child in node.children.iter()
         .filter(|child| match child.borrow().node {
-            Text(_) | Element (_, _) => true,
+            Text(_) | Element (_, _, _) => true,
             _ => false,
         }
     ) {
