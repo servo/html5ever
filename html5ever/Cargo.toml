@@ -12,8 +12,7 @@ build = "build.rs"
 [lib]
 name = "html5ever"
 
-# https://github.com/rust-lang/cargo/issues/1512
-doctest = false
+doctest = true
 
 [[test]]
 name = "tree_builder"

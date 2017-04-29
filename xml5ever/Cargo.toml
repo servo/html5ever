@@ -16,8 +16,7 @@ exclude = ["xml5lib-tests/*"]
 [lib]
 name = "xml5ever"
 
-# https://github.com/rust-lang/cargo/issues/1512
-doctest = false
+doctest = true
 
 [features]
 unstable = ["tendril/unstable"]
