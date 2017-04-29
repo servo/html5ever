@@ -64,10 +64,10 @@ pub mod tokenizer;
 pub mod tree_builder;
 /// A simple reference-counted that serves as a default tree structure
 pub mod rcdom;
-/// Entrance to XML5 ever ParseResult
-pub mod driver;
 /// Serializer for XML5.
 pub mod serialize;
+/// Driver
+pub mod driver;
 
 /// Re-export the encoding crate.
 pub use tendril::encoding;

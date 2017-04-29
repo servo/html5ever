@@ -11,8 +11,9 @@ use tokenizer::states;
 
 use std::borrow::Cow;
 
-use {LocalName, QualName};
+use {LocalName};
 use tendril::StrTendril;
+use markup5ever::interface::Attribute;
 
 pub use self::TagKind::{StartTag, EndTag};
 pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
@@ -37,18 +38,6 @@ impl Doctype {
             force_quirks: false,
         }
     }
-}
-
-/// A tag attribute.
-///
-/// The namespace on the attribute name is almost always ns!("").
-/// The tokenizer creates all attributes this way, but the tree
-/// builder will adjust certain attribute names inside foreign
-/// content (MathML, SVG).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-pub struct Attribute {
-    pub name: QualName,
-    pub value: StrTendril,
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]

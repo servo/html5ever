@@ -1,4 +1,4 @@
-// Copyright 2014 The html5ever Project Developers. See the
+// Copyright 2016 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,27 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! The interface for consumers of the tree builder (and thus the
-//! parser overall).
-
-use tokenizer::Attribute;
-
+/// Something which can be inserted into the DOM.
+///
+/// Adjacent sibling text nodes are merged into a single node, so
+/// the sink may not want to allocate a `Handle` for each.
 use std::borrow::Cow;
-
-use QualName;
 use tendril::StrTendril;
+use interface::{QualName, Attribute};
 
-pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 pub use self::NodeOrText::{AppendNode, AppendText};
-
-/// A document's quirks mode.
-#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
-pub enum QuirksMode {
-    Quirks,
-    LimitedQuirks,
-    NoQuirks,
-}
+pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
 
 /// Something which can be inserted into the DOM.
 ///
@@ -38,8 +27,33 @@ pub enum NodeOrText<Handle> {
     AppendText(StrTendril),
 }
 
-/// Types which can process tree modifications from the tree builder.
+/// A document's quirks mode.
+#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
+pub enum QuirksMode {
+    Quirks,
+    LimitedQuirks,
+    NoQuirks,
+}
+
+/// Whether to interrupt further parsing of the current input until
+/// the next explicit resumption of the tokenizer, or continue without
+/// any interruption.
+#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
+pub enum NextParserState {
+    /// Stop further parsing.
+    Suspend,
+    /// Continue without interruptions.
+    Continue,
+}
+
+
 pub trait TreeSink {
+    /// `Handle` is a reference to a DOM node.  The tree builder requires
+    /// that a `Handle` implements `Clone` to get another reference to
+    /// the same node.
+    type Handle: Clone;
+
     /// The overall result of parsing.
     ///
     /// This should default to Self, but default associated types are not stable yet.
@@ -48,15 +62,10 @@ pub trait TreeSink {
 
     /// Consume this sink and return the overall result of parsing.
     ///
-    /// This should default to `fn finish(self) -> Self::Output { self }`,
+    /// TODO:This should default to `fn finish(self) -> Self::Output { self }`,
     /// but default associated types are not stable yet.
     /// (https://github.com/rust-lang/rust/issues/29661)
     fn finish(self) -> Self::Output;
-
-    /// `Handle` is a reference to a DOM node.  The tree builder requires
-    /// that a `Handle` implements `Clone` to get another reference to
-    /// the same node.
-    type Handle: Clone;
 
     /// Signal a parse error.
     fn parse_error(&mut self, msg: Cow<'static, str>);
@@ -64,29 +73,16 @@ pub trait TreeSink {
     /// Get a handle to the `Document` node.
     fn get_document(&mut self) -> Self::Handle;
 
-    /// Get a handle to a template's template contents. The tree builder
-    /// promises this will never be called with something else than
-    /// a template element.
-    fn get_template_contents(&mut self, target: Self::Handle) -> Self::Handle;
-
-    /// Do two handles refer to the same node?
-    fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
-
-    /// Are two handles present in the same tree
-    fn same_tree(&self, x: Self::Handle, y: Self::Handle) -> bool {
-        true
-    }
-
     /// What is the name of this element?
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
     fn elem_name(&self, target: Self::Handle) -> QualName;
 
-    /// Set the document's quirks mode.
-    fn set_quirks_mode(&mut self, mode: QuirksMode);
+    /// Possible duplicate of elem_name
+    fn elem_name_ref(&self, target: &Self::Handle) -> QualName;
 
-    /// Create an element.
+	/// Create an element.
     ///
     /// When creating a template element (`name == qualname!(html, "template")`),
     /// an associated document fragment called the "template contents" should
@@ -98,8 +94,8 @@ pub trait TreeSink {
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
 
-    /// Does the node have a parent?
-    fn has_parent_node(&self, node: Self::Handle) -> bool;
+    /// Create a Processing Instruction node.
+    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Self::Handle;
 
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
@@ -107,6 +103,40 @@ pub trait TreeSink {
     ///
     /// The child node will not already have a parent.
     fn append(&mut self, parent: Self::Handle, child: NodeOrText<Self::Handle>);
+
+    /// Append a `DOCTYPE` element to the `Document` node.
+    fn append_doctype_to_document(&mut self,
+                                  name: StrTendril,
+                                  public_id: StrTendril,
+                                  system_id: StrTendril);
+
+    /// Mark a HTML `<script>` as "already started".
+    fn mark_script_already_started(&mut self, _node: Self::Handle);
+
+    /// Indicate that a node was popped off the stack of open elements.
+    fn pop(&mut self, _node: Self::Handle) {}
+
+    /// Get a handle to a template's template contents. The tree builder
+    /// promises this will never be called with something else than
+    /// a template element.
+    fn get_template_contents(&mut self, target: Self::Handle) -> Self::Handle;
+
+    /// Do two handles refer to the same node?
+    fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
+
+    /// Do two handles refer to the same node?
+    fn same_node_ref(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
+
+    /// Are two handles present in the same tree
+    fn same_tree(&self, x: Self::Handle, y: Self::Handle) -> bool {
+        true
+    }
+
+    /// Set the document's quirks mode.
+    fn set_quirks_mode(&mut self, mode: QuirksMode);
+
+    /// Does the node have a parent?
+    fn has_parent_node(&self, node: Self::Handle) -> bool;
 
     /// Append a node as the sibling immediately before the given node.
     /// This method will only be called if has_parent_node(sibling) is true
@@ -120,12 +150,6 @@ pub trait TreeSink {
     fn append_before_sibling(&mut self,
         sibling: Self::Handle,
         new_node: NodeOrText<Self::Handle>);
-
-    /// Append a `DOCTYPE` element to the `Document` node.
-    fn append_doctype_to_document(&mut self,
-                                  name: StrTendril,
-                                  public_id: StrTendril,
-                                  system_id: StrTendril);
 
     /// Add each attribute to the given element, if no attribute with that name
     /// already exists. The tree builder promises this will never be called
@@ -141,9 +165,6 @@ pub trait TreeSink {
     /// Remove all the children from node and append them to new_parent.
     fn reparent_children(&mut self, node: Self::Handle, new_parent: Self::Handle);
 
-    /// Mark a HTML `<script>` element as "already started".
-    fn mark_script_already_started(&mut self, node: Self::Handle);
-
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
     fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
@@ -153,8 +174,10 @@ pub trait TreeSink {
     /// Called whenever the line number changes.
     fn set_current_line(&mut self, line_number: u64) {}
 
-    /// Called whenever an element is popped from the stack of open elements.
-    fn pop(&mut self, elem: Self::Handle) {}
+    /// Indicate that a `script` element is complete.
+    fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
+        NextParserState::Continue
+    }
 }
 
 /// Trace hooks for a garbage-collected DOM.

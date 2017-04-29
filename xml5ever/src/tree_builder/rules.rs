@@ -11,7 +11,7 @@ use std::borrow::Cow::Borrowed;
 use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag, ShortTag, EmptyTag};
 use tree_builder::types::*;
-use tree_builder::interface::TreeSink;
+use markup5ever::interface::TreeSink;
 use tree_builder::actions::XmlTreeBuilderActions;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {

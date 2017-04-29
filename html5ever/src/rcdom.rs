@@ -25,7 +25,7 @@ use std::rc::{Rc, Weak};
 use tendril::StrTendril;
 
 use QualName;
-use tokenizer::Attribute;
+use markup5ever::Attribute;
 use tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder;
 use serialize::{Serializable, Serializer};
@@ -193,6 +193,10 @@ impl TreeSink for RcDom {
         same_node(&x, &y)
     }
 
+    fn same_node_ref(&self, x: &Handle, y: &Handle) -> bool {
+        same_node(x, y)
+    }
+
     fn elem_name(&self, target: Handle) -> QualName {
         // FIXME: rust-lang/rust#22252
         if let Element(ref name, _, _) = target.borrow().node {
@@ -201,6 +205,14 @@ impl TreeSink for RcDom {
             panic!("not an element!")
         }
     }
+
+    fn elem_name_ref(&self, target: &Handle) -> QualName {
+        return match target.borrow().node {
+            Element(ref name, _, _) => name.clone(),
+            _ => panic!("not an element!"),
+        };
+    }
+
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
         let info = match name {
@@ -221,6 +233,11 @@ impl TreeSink for RcDom {
 
     fn create_comment(&mut self, text: StrTendril) -> Handle {
         new_node(Comment(text))
+    }
+
+    #[allow(unused_variables)]
+    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Handle{
+        panic!(" HTML files, can't create PI")
     }
 
     fn has_parent_node(&self, node: Handle) -> bool {

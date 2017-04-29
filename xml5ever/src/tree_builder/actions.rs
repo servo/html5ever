@@ -8,11 +8,15 @@
 // except according to those terms.
 
 use std::borrow::Cow::Borrowed;
+
 use tendril::{StrTendril, Tendril};
-use tokenizer::{Tag, Pi, QName, Doctype};
+use markup5ever::interface::{NodeOrText, TreeSink, AppendNode};
+use markup5ever::interface::{AppendText, QualName, NextParserState};
+
+use tokenizer::{Tag, Pi, Doctype};
 use tokenizer::states::Quiescent;
-use tree_builder::interface::{NextParserState, NodeOrText, TreeSink, AppendNode, AppendText};
 use tree_builder::types::{XmlProcessResult, Done};
+
 
 /// Trait that encapsulates common XML tree actions.
 pub trait XmlTreeBuilderActions<Handle> {
@@ -57,10 +61,10 @@ pub trait XmlTreeBuilderActions<Handle> {
 
     /// Pops elements from list of open elements, until predicate
     /// `pred` returns true
-    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QName) -> bool;
+    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
 
     /// Checks if current node is in given TagSet
-    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QName) -> bool;
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
 
     /// Close given tag.
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult;
@@ -175,13 +179,13 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn tag_in_open_elems(&self, tag: &Tag) -> bool {
         self.open_elems
             .iter()
-            .any(|a| self.sink.elem_name(a) == tag.name)
+            .any(|a| self.sink.elem_name_ref(a) == tag.name)
     }
 
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P)
-        where P: Fn(QName) -> bool
+        where P: Fn(QualName) -> bool
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -192,17 +196,17 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(QName) -> bool
+        where TagSet: Fn(QualName) -> bool
     {
         // FIXME: take namespace into consideration:
-        set(self.sink.elem_name(&self.current_node()))
+        set(self.sink.elem_name_ref(&self.current_node().clone()))
     }
 
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
         debug!("Close tag: current_node.name {:?} \n Current tag {:?}",
-                 self.sink.elem_name(&self.current_node()), &tag.name);
+                 self.sink.elem_name_ref(&self.current_node()), &tag.name);
 
-        if &self.sink.elem_name(&self.current_node()).local != &tag.name.local {
+        if &self.sink.elem_name(self.current_node().clone()).local != &tag.name.local {
             self.sink.parse_error(Borrowed("Current node doesn't match tag"));
         }
 

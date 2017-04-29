@@ -109,17 +109,17 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, ref attrs) => {
+        Element(ref name, _, ref attrs) => {
             buf.push_str("<");
 
-            if name.namespace_url != ns!() {
+            if name.ns != ns!() {
                 buf.push_str("{");
-                buf.push_str(&*name.namespace_url);
+                buf.push_str(&*name.ns);
                 buf.push_str("}");
              };
 
-            if &*name.prefix != "" {
-                buf.push_str(&*name.prefix);
+            if let Some(ref prefix) = name.prefix {
+                buf.push_str(&*prefix);
                 buf.push_str(":");
             }
 
@@ -134,14 +134,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
 
-                if &*attr.name.namespace_url != "" {
+                if &*attr.name.ns != "" {
                     buf.push_str("{");
-                    buf.push_str(&*attr.name.namespace_url);
+                    buf.push_str(&*attr.name.ns);
                     buf.push_str("}");
                 }
 
-                if &*attr.name.prefix != "" {
-                    buf.push_str(&*attr.name.prefix);
+                if let Some(attr_prefix) = attr.name.prefix {
+                    buf.push_str(&*attr_prefix);
                     buf.push_str(":");
                 }
 

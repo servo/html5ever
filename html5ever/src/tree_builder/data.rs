@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use tokenizer::Doctype;
-use tree_builder::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 
 use std::ascii::AsciiExt;
 use tendril::StrTendril;

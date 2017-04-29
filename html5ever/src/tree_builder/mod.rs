@@ -11,9 +11,9 @@
 
 //! The HTML5 tree builder.
 
-pub use self::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use self::interface::{NodeOrText, AppendNode, AppendText};
-pub use self::interface::{TreeSink, Tracer};
+pub use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
+pub use markup5ever::interface::{TreeSink, Tracer};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;
@@ -34,8 +34,7 @@ use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 
 #[macro_use] mod tag_sets;
-// "pub" is a workaround for rust#18241 (?)
-pub mod interface;
+
 mod data;
 mod types;
 mod actions;
@@ -222,7 +221,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.clone().expect("no context element");
         let name = match self.sink.elem_name(elem) {
-            QualName { ns: ns!(html), local } => local,
+            QualName { ns: ns!(html), local, .. } => local,
             _ => return tok_state::Data
         };
         match name {
@@ -280,7 +279,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { ns, local } = self.sink.elem_name(node.clone());
+            let QualName { ns, local, .. } = self.sink.elem_name(node.clone());
             match ns {
                 ns!(html) => print!(" {}", &local[..]),
                 _ => panic!(),
@@ -292,7 +291,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             match entry {
                 &Marker => print!(" Marker"),
                 &Element(ref h, _) => {
-                    let QualName { ns, local } = self.sink.elem_name(h.clone());
+                    let QualName { ns, local, .. } = self.sink.elem_name(h.clone());
                     match ns {
                         ns!(html) => print!(" {}", &local[..]),
                         _ => panic!(),
@@ -501,9 +500,9 @@ impl<Handle, Sink> TokenSink
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use super::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-    use super::interface::{NodeOrText, AppendNode, AppendText};
-    use super::interface::{TreeSink, Tracer};
+    use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+    use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
+    use markup5ever::interface::{TreeSink, Tracer};
 
     use super::types::*;
     use super::actions::TreeBuilderActions;
@@ -528,7 +527,7 @@ mod test {
 
     use driver::*;
     use super::{TreeBuilderOpts, TreeBuilder};
-    use tokenizer::Attribute;
+    use markup5ever::Attribute;
     use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
 
     pub struct LineCountingDOM {
@@ -564,8 +563,16 @@ mod test {
             self.rcdom.same_node(x, y)
         }
 
+        fn same_node_ref(&self, x: &Handle, y: &Handle) -> bool {
+            self.rcdom.same_node_ref(x, y)
+        }
+
         fn elem_name(&self, target: Handle) -> QualName {
             self.rcdom.elem_name(target)
+        }
+
+        fn elem_name_ref(&self, target: &Handle) -> QualName {
+            self.rcdom.elem_name_ref(target)
         }
 
         fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
@@ -575,6 +582,10 @@ mod test {
 
         fn create_comment(&mut self, text: StrTendril) -> Handle {
             self.rcdom.create_comment(text)
+        }
+
+        fn create_pi(&mut self, target: StrTendril, content: StrTendril) -> Handle {
+            self.rcdom.create_pi(target, content)
         }
 
         fn has_parent_node(&self, node: Handle) -> bool {

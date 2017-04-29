@@ -10,9 +10,10 @@
 use std::io::{self, Write};
 use std::default::Default;
 
-use tokenizer::{QName, Prefix, Namespace, LocalName};
-use tree_builder::NamespaceMap;
-use tree_builder;
+use markup5ever::{QualName};
+
+use tokenizer::{Prefix, Namespace, LocalName};
+use tree_builder::{self, NamespaceMap};
 
 #[derive(Copy, Clone)]
 /// Struct for setting serializer options.
@@ -86,7 +87,7 @@ impl NamespaceMapStack {
 
 /// Type representing a single attribute.
 /// Contains qualified name and value to attribute respectivelly.
-pub type AttrRef<'a> = (&'a QName, &'a str);
+pub type AttrRef<'a> = (&'a QualName, &'a str);
 
 
 
@@ -113,9 +114,9 @@ fn write_to_buf_escaped(writer: &mut Write, text: &str, attr_mode: bool) -> io::
 }
 
 #[inline]
-fn write_qual_name(writer: &mut Write, name: &QName) -> io::Result<()> {
-    if name.prefix != namespace_prefix!("") {
-        try!(writer.write_all(&*name.prefix.as_bytes()));
+fn write_qual_name(writer: &mut Write, name: &QualName) -> io::Result<()> {
+    if let Some(ref prefix) = name.prefix {
+        try!(writer.write_all(&prefix.as_bytes()));
         try!(writer.write_all(b":"));
         try!(writer.write_all(&*name.local.as_bytes()));
     } else {
@@ -136,31 +137,31 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     }
 
     #[inline(always)]
-    fn qual_name(&mut self, name: &QName) -> io::Result<()> {
+    fn qual_name(&mut self, name: &QualName) -> io::Result<()> {
         self.find_or_insert_ns(name);
         write_qual_name(self.writer, name)
     }
 
     #[inline(always)]
-    fn qual_attr_name(&mut self, writer: &mut Write, name: &QName) -> io::Result<()> {
+    fn qual_attr_name(&mut self, writer: &mut Write, name: &QualName) -> io::Result<()> {
         self.find_or_insert_ns(name);
         write_qual_name(writer, name)
     }
 
-    fn find_uri(&self, name: &QName) -> bool {
+    fn find_uri(&self, name: &QualName) -> bool {
         let mut found = false;
         for stack in self.namespace_stack.0.iter().rev() {
 
             if let Some(&Some(ref el)) = stack.get(&name.prefix) {
-                found = *el == name.namespace_url;
+                found = *el == name.ns;
                 break;
             }
         }
         found
     }
 
-    fn find_or_insert_ns(&mut self, name: &QName) {
-        if &*name.prefix != "" || &*name.namespace_url != "" {
+    fn find_or_insert_ns(&mut self, name: &QualName) {
+        if name.prefix.is_some() || &*name.ns != "" {
             if !self.find_uri(name) {
 
                 if let Some(last_ns) = self.namespace_stack.0.last_mut() {
@@ -174,7 +175,7 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     /// qualified name and an attributes iterator.
     pub fn start_elem<'a, AttrIter: Iterator<Item=AttrRef<'a>>>(
         &mut self,
-        name: QName,
+        name: QualName,
         attrs: AttrIter) -> io::Result<()> {
 
         let mut attr = Vec::new();
@@ -193,9 +194,9 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
         if let Some(current_namespace) = self.namespace_stack.0.last() {
             for (prefix, url_opt) in current_namespace.get_scope_iter() {
                 try!(self.writer.write_all(b" xmlns"));
-                if prefix != "" {
+                if let &Some(ref p) = prefix {
                     try!(self.writer.write_all(b":"));
-                    try!(self.writer.write_all(&*prefix.as_bytes()));
+                    try!(self.writer.write_all(&*p.as_bytes()));
                 }
 
                 try!(self.writer.write_all(b"=\""));
@@ -214,7 +215,7 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     }
 
     /// Serializes given end element into text.
-    pub fn end_elem(&mut self, name: QName) -> io::Result<()> {
+    pub fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         self.namespace_stack.pop();
         try!(self.writer.write_all(b"</"));
         try!(self.qual_name(&name));

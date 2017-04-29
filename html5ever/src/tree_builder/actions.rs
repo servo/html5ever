@@ -14,10 +14,10 @@
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::interface::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use markup5ever::interface::{Attribute, TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use tree_builder::rules::TreeBuilderStep;
 
-use tokenizer::{Attribute, Tag, StartTag, EndTag};
+use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
 
 use util::str::to_escaped_string;
@@ -568,7 +568,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     fn generate_implied_end_except(&mut self, except: LocalName) {
         self.generate_implied_end(|p| match p {
-            QualName { ns: ns!(html), ref local } if *local == except => false,
+            QualName { ns: ns!(html), ref local, .. } if *local == except => false,
             _ => cursory_implied_end(p),
         });
     }
@@ -667,7 +667,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 node = ctx;
             }
             let name = match self.sink.elem_name(node.clone()) {
-                QualName { ns: ns!(html), local } => local,
+                QualName { ns: ns!(html), local, .. } => local,
                 _ => continue,
             };
             match name {

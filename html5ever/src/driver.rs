@@ -9,18 +9,18 @@
 
 //! High-level interface to the parser.
 
-use tokenizer::{Attribute, Tokenizer, TokenizerOpts, TokenizerResult};
 use tokenizer::buffer_queue::BufferQueue;
+use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
 use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
 
 use std::borrow::Cow;
 use std::mem;
 
 use encoding::{self, EncodingRef};
-use QualName;
 use tendril;
 use tendril::{StrTendril, ByteTendril};
 use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
+use markup5ever::{Attribute, QualName};
 
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]

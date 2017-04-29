@@ -9,7 +9,7 @@
 
 //! The HTML5 tokenizer.
 
-pub use self::interface::{Doctype, Attribute, TagKind, StartTag, EndTag, Tag};
+pub use self::interface::{Doctype, TagKind, StartTag, EndTag, Tag};
 pub use self::interface::{Token, DoctypeToken, TagToken, CommentToken};
 pub use self::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 pub use self::interface::{TokenSink, TokenSinkResult};
@@ -34,6 +34,8 @@ use std::collections::BTreeMap;
 use {LocalName, QualName};
 use tendril::StrTendril;
 use markup5ever::SmallCharSet;
+use markup5ever::interface::{Attribute};
+pub use markup5ever::util::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 pub mod buffer_queue;
 pub mod states;

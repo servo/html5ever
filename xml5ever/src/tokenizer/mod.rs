@@ -13,8 +13,8 @@ mod interface;
 mod qname;
 pub mod states;
 
-pub use self::interface::{Attribute, Doctype, Pi};
-pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag, QName};
+pub use self::interface::{Doctype, Pi};
+pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag};
 pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
@@ -26,14 +26,17 @@ use std::collections::{BTreeMap};
 use std::mem::replace;
 
 use tendril::StrTendril;
+use markup5ever::interface::{Attribute, QualName};
+use markup5ever::util::buffer_queue;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{XmlState};
 use self::states::{DoctypeKind, Public, System};
-use self::qname::{QNameTokenizer};
 use markup5ever::SmallCharSet;
+use self::qname::{QualNameTokenizer};
+
 
 
 
@@ -58,7 +61,7 @@ pub struct XmlTokenizerOpts {
 
 }
 
-fn process_qname(tag_name: StrTendril) -> QName {
+fn process_qname(tag_name: StrTendril) -> QualName {
     // If tag name can't possibly contain full namespace, skip qualified name
     // parsing altogether. For a tag to have namespace it must look like:
     //     a:b
@@ -67,16 +70,16 @@ fn process_qname(tag_name: StrTendril) -> QName {
     let split = if (&*tag_name).as_bytes().len() <3 {
         None
     } else {
-        QNameTokenizer::new((&*tag_name).as_bytes()).run()
+        QualNameTokenizer::new((&*tag_name).as_bytes()).run()
     };
 
     match split {
-        None => QName::new_empty(LocalName::from(&*tag_name)),
+        None => QualName::new_localname(LocalName::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QName::new(Prefix::from(&*prefix), LocalName::from(&*local))
+            QualName::new_prefixed(Prefix::from(&*prefix), LocalName::from(&*local))
         },
     }
 }
@@ -1225,7 +1228,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             };
 
             if qname.local == local_name!("xmlns") ||
-                qname.prefix == namespace_prefix!("xmlns") {
+                qname.prefix == Some(namespace_prefix!("xmlns")) {
 
                 self.current_tag_attrs.insert(0, attr);
             } else {
@@ -1253,38 +1256,38 @@ mod test {
     #[test]
     fn simple_namespace() {
         let qname = process_qname("prefix:local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from("prefix"));
+        assert_eq!(qname.prefix, Some(Prefix::from("prefix")));
         assert_eq!(qname.local, LocalName::from("local"));
 
         let qname = process_qname("a:b".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from("a"));
+        assert_eq!(qname.prefix, Some(Prefix::from("a")));
         assert_eq!(qname.local, LocalName::from("b"));
     }
 
     #[test]
     fn wrong_namespaces() {
         let qname = process_qname(":local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":local"));
 
         let qname = process_qname("::local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("::local"));
 
         let qname = process_qname("a::local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("a::local"));
 
         let qname = process_qname("fake::".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("fake::"));
 
         let qname = process_qname(":::".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":::"));
 
         let qname = process_qname(":a:b:".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":a:b:"));
     }
 }
