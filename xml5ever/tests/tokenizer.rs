@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "unstable", feature(start, test))]
-
 extern crate rustc_serialize;
 extern crate test;
 

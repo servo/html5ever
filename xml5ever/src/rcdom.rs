@@ -38,9 +38,12 @@ pub use self::ElementEnum::{Normal, Script, Template};
 pub enum ElementEnum {
     /// Regular element.
     Normal,
-    /// A script element and its "already started" flag.
-    /// https://html.spec.whatwg.org/multipage/#already-started
-    Script(bool),
+    /// A script element
+    Script{
+        /// Script element's already-started flag
+        /// https://html.spec.whatwg.org/multipage/#already-started
+        script_already_started: bool
+    },
     /// A template element and its template contents.
     /// https://html.spec.whatwg.org/multipage/#template-contents
     Template(Handle),
@@ -106,10 +109,8 @@ fn new_node(node: NodeEnum) -> Handle {
     Handle(Rc::new(RefCell::new(Node::new(node))))
 }
 
-#[allow(trivial_casts)]
 fn same_node(x: &Handle, y: &Handle) -> bool {
-    // FIXME: This shouldn't really need to touch the borrow flags, right?
-    (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
+    Rc::ptr_eq(&x, &y)
 }
 
 fn append(new_parent: &Handle, child: Handle) {
@@ -232,7 +233,7 @@ impl TreeSink for RcDom {
     }
 
     fn mark_script_already_started(&mut self, target: Handle) {
-        if let Element(_, Script(ref mut script_already_started), _) = target.borrow_mut().node {
+        if let Element(_, Script {ref mut script_already_started}, _) = target.borrow_mut().node {
             *script_already_started = true;
         } else {
             panic!("not a script element!");
