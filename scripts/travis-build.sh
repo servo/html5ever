@@ -18,10 +18,7 @@ then
     cargo test -p xml5ever --features "rustc-test/capture" 
 else
     cargo test -p html5ever --bench tokenizer
-    cargo test -p html5ever
-    cargo test -p xml5ever
+    cargo test --all
 fi
 
-# This is a hack until cargo doc lands on stable
-cargo doc -p html5ever
-cargo doc -p xml5ever
+cargo doc --all
