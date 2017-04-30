@@ -101,12 +101,6 @@ impl Deref for Handle {
 /// Weak reference to a DOM node, used for parent pointers.
 pub type WeakHandle = Weak<RefCell<Node>>;
 
-#[allow(trivial_casts)]
-fn same_node(x: &Handle, y: &Handle) -> bool {
-    // FIXME: This shouldn't really need to touch the borrow flags, right?
-    (&*x.borrow() as *const Node) == (&*y.borrow() as *const Node)
-}
-
 fn new_node(node: NodeEnum) -> Handle {
     Handle(Rc::new(RefCell::new(Node::new(node))))
 }
@@ -124,7 +118,7 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
         .upgrade().expect("dangling weak pointer");
 
     let i = match parent.borrow_mut().children.iter().enumerate()
-                .find(|&(_, n)| same_node(n, target)) {
+                .find(|&(_, child)| Rc::ptr_eq(child, target)) {
         Some((i, _)) => i,
         None => panic!("have parent but couldn't find in parent's children!"),
     };
@@ -190,11 +184,11 @@ impl TreeSink for RcDom {
     }
 
     fn same_node(&self, x: Handle, y: Handle) -> bool {
-        same_node(&x, &y)
+        self.same_node_ref(&x, &y)
     }
 
     fn same_node_ref(&self, x: &Handle, y: &Handle) -> bool {
-        same_node(x, y)
+        Rc::ptr_eq(x, y)
     }
 
     fn elem_name(&self, target: Handle) -> QualName {
