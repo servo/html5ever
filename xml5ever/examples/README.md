@@ -165,9 +165,6 @@ Let's analyze it a bit. First there is `let dom: RcDom`. We need this part,
 because the type inferencer can't infer which TreeSink implementation we mean
 in this scenario.
 
-Next is the [`parse`](https://ygg01.github.io/docs/xml5ever/xml5ever/fn.parse.html) function which takes an iterator of StrTendril and TreeBuilder
-settings to produce a ParseResult.
-
 Function [`one_input`](https://ygg01.github.io/docs/xml5ever/xml5ever/fn.one_input.html) is a convenience function that turns any value into an iterator. In this case
 it converts a StrTendril into an Iterator over itself.
 

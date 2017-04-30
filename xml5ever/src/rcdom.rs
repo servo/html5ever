@@ -339,26 +339,6 @@ impl Default for RcDom {
     }
 }
 
-/// Results which can be extracted from a `TreeSink`.
-///
-/// Implement this for your parse tree data type so that it
-/// can be returned by `parse()`.
-pub trait ParseResult {
-    /// Type of consumer of tree modifications.
-    /// It also extends `Default` for convenience.
-    type Sink: TreeSink + Default;
-    /// Returns parsed tree data type
-    fn get_result(sink: Self::Sink) -> Self;
-}
-
-impl ParseResult for RcDom {
-    type Sink = RcDom;
-
-    fn get_result(sink: RcDom) -> RcDom {
-        sink
-    }
-}
-
 impl Serializable for Handle {
     fn serialize<'wr, Wr>(&self, serializer: &mut Serializer<'wr, Wr>,
                             traversal_scope: TraversalScope) -> io::Result<()>
