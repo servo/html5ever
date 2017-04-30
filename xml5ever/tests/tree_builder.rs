@@ -11,7 +11,6 @@
 
 extern crate test;
 
-#[macro_use] extern crate mac;
 #[macro_use] extern crate markup5ever;
 
 extern crate rustc_serialize;
@@ -31,7 +30,7 @@ use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::driver::parse_document;
-use xml5ever::tendril::{StrTendril, TendrilSink};
+use xml5ever::tendril::TendrilSink;
 
 mod util {
     pub mod find_tests;

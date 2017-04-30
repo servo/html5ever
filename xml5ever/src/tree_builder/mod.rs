@@ -16,10 +16,9 @@ use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
 use std::collections::{VecDeque, BTreeMap, HashSet};
 use std::collections::btree_map::{Iter};
+use std::fmt::{Formatter, Debug, Error};
 use std::result::Result;
 use std::mem;
-
-
 
 use markup5ever::interface::{self, QualName, Attribute};
 
@@ -82,13 +81,11 @@ pub struct NamespaceMap {
     scope: BTreeMap<Option<Prefix>, Option<Namespace>>,
 }
 
-use std::fmt::{self, Formatter, Debug, Error};
-
 impl Debug for NamespaceMap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "\nNamespaceMap[");
+        write!(f, "\nNamespaceMap[")?;
         for (key, value) in &self.scope {
-            write!(f, "   {:?} : {:?}\n", key, value);
+            write!(f, "   {:?} : {:?}\n", key, value)?;
         }
         write!(f, "]")
     }
@@ -194,23 +191,15 @@ impl NamespaceMap {
         result
     }
 }
+
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
 pub struct XmlTreeBuilderOpts {
-    /// Report all parse errors described in the spec, at some
-    /// performance penalty?  Default: false
-    pub exact_errors: bool,
-
-    /// Keep a record of how long we spent in each state?  Printed
-    /// when `end()` is called.  Default: false
-    pub profile: bool,
 }
 
 impl Default for XmlTreeBuilderOpts {
     fn default() -> XmlTreeBuilderOpts {
         XmlTreeBuilderOpts{
-            exact_errors: false,
-            profile: false,
         }
     }
 }
@@ -219,7 +208,7 @@ impl Default for XmlTreeBuilderOpts {
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
     /// Configuration options for XmlTreeBuilder
-    opts: XmlTreeBuilderOpts,
+    _opts: XmlTreeBuilderOpts,
 
     /// Consumer of tree modifications.
     sink: Sink,
@@ -258,7 +247,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     pub fn new(mut sink: Sink, opts: XmlTreeBuilderOpts) -> XmlTreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
-            opts: opts,
+            _opts: opts,
             sink: sink,
             doc_handle: doc_handle,
             next_tokenizer_state: None,

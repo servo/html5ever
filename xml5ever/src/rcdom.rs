@@ -253,7 +253,7 @@ impl TreeSink for RcDom {
     }
 
 
-    fn set_quirks_mode(&mut self, mode: QuirksMode) {
+    fn set_quirks_mode(&mut self, _mode: QuirksMode) {
         // XML doesn't have quirks mode
     }
 

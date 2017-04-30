@@ -16,7 +16,6 @@ pub use self::TagKind::{StartTag, EndTag, EmptyTag, ShortTag};
 pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
-use {Prefix, Namespace, LocalName};
 use super::{states};
 
 /// Tag kind denotes which kind of tag did we encounter.

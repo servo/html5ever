@@ -61,10 +61,7 @@ mod test {
     use std::ascii::AsciiExt;
     use tendril::SliceExt;
 
-    use super::{QualName};
     use super::util::buffer_queue::{BufferQueue, FromSet, NotFromSet};
-
-
 
     #[test]
     fn smoke_test() {

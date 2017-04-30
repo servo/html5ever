@@ -270,7 +270,6 @@ fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
 mod tests {
     use rcdom::RcDom;
     use serialize::serialize;
-    use std::iter::repeat;
     use tendril::TendrilSink;
     use super::*;
 

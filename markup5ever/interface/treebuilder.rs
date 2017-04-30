@@ -128,7 +128,7 @@ pub trait TreeSink {
     fn same_node_ref(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
 
     /// Are two handles present in the same tree
-    fn same_tree(&self, x: Self::Handle, y: Self::Handle) -> bool {
+    fn same_tree(&self, _x: Self::Handle, _y: Self::Handle) -> bool {
         true
     }
 
@@ -157,7 +157,7 @@ pub trait TreeSink {
     fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
-    fn associate_with_form(&mut self, target: Self::Handle, form: Self::Handle) {}
+    fn associate_with_form(&mut self, _target: Self::Handle, _form: Self::Handle) {}
 
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: Self::Handle);
@@ -167,12 +167,12 @@ pub trait TreeSink {
 
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
-    fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
+    fn is_mathml_annotation_xml_integration_point(&self, _handle: Self::Handle) -> bool {
         false
     }
 
     /// Called whenever the line number changes.
-    fn set_current_line(&mut self, line_number: u64) {}
+    fn set_current_line(&mut self, _line_number: u64) {}
 
     /// Indicate that a `script` element is complete.
     fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {

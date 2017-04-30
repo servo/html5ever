@@ -12,8 +12,7 @@ use std::default::Default;
 
 use markup5ever::{QualName};
 
-use tokenizer::{Prefix, Namespace, LocalName};
-use tree_builder::{self, NamespaceMap};
+use tree_builder::NamespaceMap;
 
 #[derive(Copy, Clone)]
 /// Struct for setting serializer options.
@@ -52,7 +51,7 @@ pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
                         -> io::Result<()>
     where Wr: Write, T: Serializable {
 
-    let mut ser = Serializer::new(writer, opts);
+    let mut ser = Serializer::new(writer);
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
@@ -63,7 +62,6 @@ pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
 /// that make parsing nodes easier.
 pub struct Serializer<'wr, Wr:'wr> {
     writer: &'wr mut Wr,
-    opts: SerializeOpts,
     namespace_stack: NamespaceMapStack,
 }
 
@@ -128,10 +126,9 @@ fn write_qual_name(writer: &mut Write, name: &QualName) -> io::Result<()> {
 
 impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     /// Creates a new Serializier from a writer and given serialization options.
-    pub fn new(writer: &'wr mut Wr, opts: SerializeOpts) -> Serializer<'wr, Wr> {
+    pub fn new(writer: &'wr mut Wr) -> Serializer<'wr, Wr> {
         Serializer {
             writer: writer,
-            opts: opts,
             namespace_stack: NamespaceMapStack::new(),
         }
     }
