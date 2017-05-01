@@ -44,7 +44,7 @@ impl TreeSink for Sink {
         0
     }
 
-    fn get_template_contents(&mut self, target: usize) -> usize {
+    fn get_template_contents(&mut self, target: &usize) -> usize {
         if let Some(&qualname!(html, "template")) = self.names.get(&target) {
             target + 1
         } else {
@@ -52,23 +52,15 @@ impl TreeSink for Sink {
         }
     }
 
-    fn same_node(&self, x: usize, y: usize) -> bool {
+    fn same_node(&self, x: &usize, y: &usize) -> bool {
         x == y
     }
 
-    fn same_node_ref(&self, x: &usize, y: &usize) -> bool {
-        x == y
-    }
-
-    fn same_tree(&self, _x: usize, _y: usize) -> bool {
+    fn same_tree(&self, _x: &usize, _y: &usize) -> bool {
         true
     }
 
-    fn elem_name(&self, target: usize) -> QualName {
-        self.names.get(&target).expect("not an element").clone()
-    }
-
-    fn elem_name_ref(&self, target: &usize) -> QualName {
+    fn elem_name(&self, target: &usize) -> QualName {
         self.names.get(target).expect("not an element").clone()
     }
 
@@ -87,27 +79,27 @@ impl TreeSink for Sink {
         unimplemented!()
     }
 
-    fn has_parent_node(&self, _node: usize) -> bool {
+    fn has_parent_node(&self, _node: &usize) -> bool {
         // `node` will have a parent unless a script moved it, and we're
         // not running scripts.  Therefore we can aways return true.
         true
     }
 
     fn append_before_sibling(&mut self,
-            _sibling: usize,
+            _sibling: &usize,
             _new_node: NodeOrText<usize>) { }
 
     fn parse_error(&mut self, _msg: Cow<'static, str>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
-    fn append(&mut self, _parent: usize, _child: NodeOrText<usize>) { }
+    fn append(&mut self, _parent: &usize, _child: NodeOrText<usize>) { }
 
     fn append_doctype_to_document(&mut self, _: StrTendril, _: StrTendril, _: StrTendril) { }
-    fn add_attrs_if_missing(&mut self, target: usize, _attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&mut self, target: &usize, _attrs: Vec<Attribute>) {
         assert!(self.names.contains_key(&target), "not an element");
     }
-    fn remove_from_parent(&mut self, _target: usize) { }
-    fn reparent_children(&mut self, _node: usize, _new_parent: usize) { }
-    fn mark_script_already_started(&mut self, _node: usize) { }
+    fn remove_from_parent(&mut self, _target: &usize) { }
+    fn reparent_children(&mut self, _node: &usize, _new_parent: &usize) { }
+    fn mark_script_already_started(&mut self, _node: &usize) { }
 }
 
 fn main() {

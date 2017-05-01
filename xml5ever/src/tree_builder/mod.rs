@@ -293,7 +293,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         debug!("dump_state on {}", label);
         debug!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { prefix, local, .. } = self.sink.elem_name_ref(node);
+            let QualName { prefix, local, .. } = self.sink.elem_name(node);
             debug!(" {:?}:{:?}", prefix,local);
 
         }
@@ -454,7 +454,7 @@ impl<Handle, Sink> TokenSink
 
     fn end(&mut self) {
         for node in self.open_elems.drain(..).rev() {
-            self.sink.pop(node);
+            self.sink.pop(&node);
         }
     }
 

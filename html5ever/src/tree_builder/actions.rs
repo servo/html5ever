@@ -60,7 +60,7 @@ enum Bookmark<Handle> {
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult<Handle>;
-    fn assert_named(&mut self, node: Handle, name: LocalName);
+    fn assert_named(&mut self, node: &Handle, name: LocalName);
     fn clear_active_formatting_to_marker(&mut self);
     fn create_formatting_element_for(&mut self, tag: Tag) -> Handle;
     fn append_text(&mut self, text: StrTendril) -> ProcessResult<Handle>;
@@ -90,25 +90,25 @@ pub trait TreeBuilderActions<Handle> {
     where TagSet: Fn(ExpandedName) -> bool;
 
     fn current_node_named(&self, name: LocalName) -> bool;
-    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool;
+    fn html_elem_named(&self, elem: &Handle, name: LocalName) -> bool;
     fn in_html_elem_named(&self, name: LocalName) -> bool;
-    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool
+    fn elem_in<TagSet>(&self, elem: &Handle, set: TagSet) -> bool
     where TagSet: Fn(ExpandedName) -> bool;
 
     fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool
     where TagSet: Fn(ExpandedName) -> bool, Pred: Fn(Handle) -> bool;
 
     fn check_body_end(&mut self);
-    fn body_elem(&mut self) -> Option<Handle>;
-    fn html_elem(&self) -> Handle;
+    fn body_elem(&self) -> Option<&Handle>;
+    fn html_elem(&self) -> &Handle;
     fn reconstruct_formatting(&mut self);
     fn remove_from_stack(&mut self, elem: &Handle);
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
     fn adoption_agency(&mut self, subject: LocalName);
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(ExpandedName) -> bool;
-    fn current_node(&self) -> Handle;
-    fn adjusted_current_node(&self) -> Handle;
+    fn current_node(&self) -> &Handle;
+    fn adjusted_current_node(&self) -> &Handle;
     fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult<Handle>;
     fn to_raw_text_mode(&mut self, k: RawKind) -> ProcessResult<Handle>;
     fn stop_parsing(&mut self) -> ProcessResult<Handle>;
@@ -130,6 +130,10 @@ pub trait TreeBuilderActions<Handle> {
     fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult<Handle>;
 }
 
+pub fn html_elem<Handle>(open_elems: &[Handle]) -> &Handle {
+     &open_elems[0]
+}
+
 #[doc(hidden)]
 impl<Handle, Sink> TreeBuilderActions<Handle>
     for super::TreeBuilder<Handle, Sink>
@@ -144,8 +148,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         Done
     }
 
-    fn assert_named(&mut self, node: Handle, name: LocalName) {
-        assert!(self.html_elem_named(node, name));
+    fn assert_named(&mut self, node: &Handle, name: LocalName) {
+        assert!(self.html_elem_named(&node, name));
     }
 
     /// Iterate over the active formatting elements (with index in the list) from the end
@@ -162,7 +166,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             .position(|n| {
                 match n {
                     &Marker => false,
-                    &Element(ref handle, _) => self.sink.same_node(handle.clone(), element.clone())
+                    &Element(ref handle, _) => self.sink.same_node(handle, element)
                 }
             })
     }
@@ -195,14 +199,14 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
     //§ END
 
-    fn current_node(&self) -> Handle {
-        self.open_elems.last().expect("no current element").clone()
+    fn current_node(&self) -> &Handle {
+        self.open_elems.last().expect("no current element")
     }
 
-    fn adjusted_current_node(&self) -> Handle {
+    fn adjusted_current_node(&self) -> &Handle {
         if self.open_elems.len() == 1 {
             if let Some(ctx) = self.context_elem.as_ref() {
-                return ctx.clone();
+                return ctx;
             }
         }
         self.current_node()
@@ -223,7 +227,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn adoption_agency(&mut self, subject: LocalName) {
         // 1.
         if self.current_node_named(subject.clone()) {
-            if self.position_in_active_formatting(&self.current_node()).is_none() {
+            if self.position_in_active_formatting(self.current_node()).is_none() {
                 self.pop();
                 return;
             }
@@ -251,7 +255,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
             let fmt_elem_stack_index = unwrap_or_return!(
                 self.open_elems.iter()
-                    .rposition(|n| self.sink.same_node(n.clone(), fmt_elem.clone())),
+                    .rposition(|n| self.sink.same_node(n, &fmt_elem)),
 
                 {
                     self.sink.parse_error(Borrowed("Formatting element not open"));
@@ -260,13 +264,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             );
 
             // 7.
-            if !self.in_scope(default_scope, |n| self.sink.same_node(n.clone(), fmt_elem.clone())) {
+            if !self.in_scope(default_scope, |n| self.sink.same_node(&n, &fmt_elem)) {
                 self.sink.parse_error(Borrowed("Formatting element not in scope"));
                 return;
             }
 
             // 8.
-            if !self.sink.same_node(self.current_node(), fmt_elem.clone()) {
+            if !self.sink.same_node(self.current_node(), &fmt_elem) {
                 self.sink.parse_error(Borrowed("Formatting element not current node"));
             }
 
@@ -275,7 +279,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 self.open_elems.iter()
                     .enumerate()
                     .skip(fmt_elem_stack_index)
-                    .filter(|&(_, open_element)| self.elem_in(open_element.clone(), special_tag))
+                    .filter(|&(_, open_element)| self.elem_in(open_element, special_tag))
                     .next()
                     .map(|(i, h)| (i, h.clone())),
 
@@ -308,7 +312,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 node = self.open_elems[node_index].clone();
 
                 // 13.4.
-                if self.sink.same_node(node.clone(), fmt_elem.clone()) {
+                if self.sink.same_node(&node, &fmt_elem) {
                     break;
                 }
 
@@ -333,7 +337,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 // 13.7.
                 let tag = match self.active_formatting[node_formatting_index] {
                     Element(ref h, ref t) => {
-                        assert!(self.sink.same_node(h.clone(), node.clone()));
+                        assert!(self.sink.same_node(h, &node));
                         t.clone()
                     }
                     Marker => panic!("Found marker during adoption agency"),
@@ -347,13 +351,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 node = new_element;
 
                 // 13.8.
-                if self.sink.same_node(last_node.clone(), furthest_block.clone()) {
+                if self.sink.same_node(&last_node, &furthest_block) {
                     bookmark = Bookmark::InsertAfter(node.clone());
                 }
 
                 // 13.9.
-                self.sink.remove_from_parent(last_node.clone());
-                self.sink.append(node.clone(), AppendNode(last_node.clone()));
+                self.sink.remove_from_parent(&last_node);
+                self.sink.append(&node, AppendNode(last_node.clone()));
 
                 // 13.10.
                 last_node = node.clone();
@@ -362,7 +366,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             }
 
             // 14.
-            self.sink.remove_from_parent(last_node.clone());
+            self.sink.remove_from_parent(&last_node);
             self.insert_appropriately(AppendNode(last_node.clone()), Some(common_ancestor));
 
             // 15.
@@ -373,10 +377,10 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             let new_entry = Element(new_element.clone(), fmt_elem_tag);
 
             // 16.
-            self.sink.reparent_children(furthest_block.clone(), new_element.clone());
+            self.sink.reparent_children(&furthest_block, &new_element);
 
             // 17.
-            self.sink.append(furthest_block.clone(), AppendNode(new_element.clone()));
+            self.sink.append(&furthest_block, AppendNode(new_element.clone()));
 
             // 18.
             // FIXME: We could probably get rid of the position_in_active_formatting() calls here
@@ -400,7 +404,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             // 19.
             self.remove_from_stack(&fmt_elem);
             let new_furthest_block_index = self.open_elems.iter()
-                .position(|n| self.sink.same_node(n.clone(), furthest_block.clone()))
+                .position(|n| self.sink.same_node(n, &furthest_block))
                 .expect("furthest block missing from open element stack");
             self.open_elems.insert(new_furthest_block_index + 1, new_element);
 
@@ -414,7 +418,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     fn pop(&mut self) -> Handle {
         let elem = self.open_elems.pop().expect("no current element");
-        self.sink.pop(elem.clone());
+        self.sink.pop(&elem);
         elem
     }
 
@@ -422,10 +426,10 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         let sink = &mut self.sink;
         let position = self.open_elems
             .iter()
-            .rposition(|x| sink.same_node(elem.clone(), x.clone()));
+            .rposition(|x| sink.same_node(elem, &x));
         if let Some(position) = position {
             self.open_elems.remove(position);
-            sink.pop(elem.clone());
+            sink.pop(elem);
         }
     }
 
@@ -435,7 +439,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             Element(ref node, _) => {
                 self.open_elems.iter()
                     .rev()
-                    .any(|n| self.sink.same_node(n.clone(), node.clone()))
+                    .any(|n| self.sink.same_node(&n, &node))
             }
         }
     }
@@ -480,18 +484,18 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     /// Get the first element on the stack, which will be the <html> element.
-    fn html_elem(&self) -> Handle {
-         self.open_elems[0].clone()
+    fn html_elem(&self) -> &Handle {
+         &self.open_elems[0]
     }
 
     /// Get the second element on the stack, if it's a HTML body element.
-    fn body_elem(&mut self) -> Option<Handle> {
+    fn body_elem(&self) -> Option<&Handle> {
         if self.open_elems.len() <= 1 {
             return None;
         }
 
-        let node = self.open_elems[1].clone();
-        if self.html_elem_named(node.clone(), local_name!("body")) {
+        let node = &self.open_elems[1];
+        if self.html_elem_named(node, local_name!("body")) {
             Some(node)
         } else {
             None
@@ -506,7 +510,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             "thead" "tr" "body" "html");
 
         for elem in self.open_elems.iter() {
-            let name = self.sink.elem_name(elem.clone());
+            let name = self.sink.elem_name(elem);
             if !body_end_ok(name.expanded()) {
                 self.sink.parse_error(format_if!(self.opts.exact_errors,
                     "Unexpected open tag at end of body",
@@ -525,7 +529,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             if pred(node.clone()) {
                 return true;
             }
-            if scope(self.sink.elem_name(node.clone()).expanded()) {
+            if scope(self.sink.elem_name(node).expanded()) {
                 return false;
             }
         }
@@ -535,18 +539,18 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         false
     }
 
-    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool
+    fn elem_in<TagSet>(&self, elem: &Handle, set: TagSet) -> bool
         where TagSet: Fn(ExpandedName) -> bool
     {
         set(self.sink.elem_name(elem).expanded())
     }
 
-    fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool {
+    fn html_elem_named(&self, elem: &Handle, name: LocalName) -> bool {
         self.sink.elem_name(elem) == QualName::new(ns!(html), name)
     }
 
     fn in_html_elem_named(&self, name: LocalName) -> bool {
-        self.open_elems.iter().any(|elem| self.html_elem_named(elem.clone(), name.clone()))
+        self.open_elems.iter().any(|elem| self.html_elem_named(elem, name.clone()))
     }
 
     fn current_node_named(&self, name: LocalName) -> bool {
@@ -556,8 +560,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
         where TagSet: Fn(ExpandedName) -> bool
     {
-        self.in_scope(scope, |elem|
-            self.html_elem_named(elem, name.clone()))
+        self.in_scope(scope, |elem| self.html_elem_named(&elem, name.clone()))
     }
 
     //§ closing-elements-that-have-implied-end-tags
@@ -565,9 +568,11 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         where TagSet: Fn(ExpandedName) -> bool
     {
         loop {
-            let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
-            let nsname = self.sink.elem_name(elem);
-            if !set(nsname.expanded()) { return; }
+            {
+                let elem = unwrap_or_return!(self.open_elems.last(), ());
+                let nsname = self.sink.elem_name(elem);
+                if !set(nsname.expanded()) { return; }
+            }
             self.pop();
         }
     }
@@ -605,7 +610,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             n += 1;
             match self.open_elems.pop() {
                 None => break,
-                Some(elem) => if pred(self.sink.elem_name(elem).expanded()) { break; },
+                Some(elem) => if pred(self.sink.elem_name(&elem).expanded()) { break; },
             }
         }
         n
@@ -675,16 +680,16 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             if let (true, Some(ctx)) = (last, self.context_elem.as_ref()) {
                 node = ctx;
             }
-            let name = match self.sink.elem_name(node.clone()) {
+            let name = match self.sink.elem_name(node) {
                 QualName { ns: ns!(html), local, .. } => local,
                 _ => continue,
             };
             match name {
                 local_name!("select") => {
                     for ancestor in self.open_elems[0..i].iter().rev() {
-                        if self.html_elem_named(ancestor.clone(), local_name!("template")) {
+                        if self.html_elem_named(ancestor, local_name!("template")) {
                             return InSelect;
-                        } else if self.html_elem_named(ancestor.clone(), local_name!("table")) {
+                        } else if self.html_elem_named(ancestor, local_name!("table")) {
                             return InSelectInTable;
                         }
                     }
@@ -731,14 +736,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn append_comment_to_doc(&mut self, text: StrTendril) -> ProcessResult<Handle> {
-        let target = self.doc_handle.clone();
         let comment = self.sink.create_comment(text);
-        self.sink.append(target, AppendNode(comment));
+        self.sink.append(&self.doc_handle, AppendNode(comment));
         Done
     }
 
     fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult<Handle> {
-        let target = self.html_elem();
+        let target = html_elem(&self.open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
@@ -748,7 +752,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = self.sink.create_element(qualname!(html, "html"), attrs);
         self.push(&elem);
-        self.sink.append(self.doc_handle.clone(), AppendNode(elem));
+        self.sink.append(&self.doc_handle, AppendNode(elem));
         // FIXME: application cache selection algorithm
     }
 
@@ -779,8 +783,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 attrs.iter().any(|a| a.name == qualname!("","form"))) {
 
                let form = self.form_elem.as_ref().unwrap().clone();
-               if self.sink.same_tree(tree_node, form.clone()) {
-                   self.sink.associate_with_form(elem.clone(), form)
+               if self.sink.same_tree(&tree_node, &form) {
+                   self.sink.associate_with_form(&elem, &form)
                }
         }
 
@@ -840,12 +844,12 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         // Look back for a matching open element.
         let mut match_idx = None;
         for (i, elem) in self.open_elems.iter().enumerate().rev() {
-            if self.html_elem_named(elem.clone(), tag.name.clone()) {
+            if self.html_elem_named(elem, tag.name.clone()) {
                 match_idx = Some(i);
                 break;
             }
 
-            if self.elem_in(elem.clone(), special_tag) {
+            if self.elem_in(elem, special_tag) {
                 self.sink.parse_error(Borrowed("Found special tag while closing generic tag"));
                 return;
             }
@@ -874,7 +878,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     fn handle_misnested_a_tags(&mut self, tag: &Tag) {
         let node = unwrap_or_return!(
             self.active_formatting_end_to_marker()
-                .filter(|&(_, n, _)| self.html_elem_named(n.clone(), local_name!("a")))
+                .filter(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
                 .next()
                 .map(|(_, n, _)| n.clone()),
 

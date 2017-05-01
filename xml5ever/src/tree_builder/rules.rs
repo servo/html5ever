@@ -64,7 +64,7 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     };
                     self.phase = EndPhase;
                     let handle = self.append_tag_to_doc(tag);
-                    self.sink.pop(handle);
+                    self.sink.pop(&handle);
                     Done
                 },
                 CommentToken(comment) => {

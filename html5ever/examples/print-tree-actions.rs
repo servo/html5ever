@@ -48,8 +48,8 @@ impl TreeSink for Sink {
         0
     }
 
-    fn get_template_contents(&mut self, target: usize) -> usize {
-        if let Some(&qualname!(html, "template")) = self.names.get(&target) {
+    fn get_template_contents(&mut self, target: &usize) -> usize {
+        if let Some(&qualname!(html, "template")) = self.names.get(target) {
             target + 1
         } else {
             panic!("not a template element")
@@ -60,19 +60,11 @@ impl TreeSink for Sink {
         println!("Set quirks mode to {:?}", mode);
     }
 
-    fn same_node(&self, x: usize, y: usize) -> bool {
+    fn same_node(&self, x: &usize, y: &usize) -> bool {
         x == y
     }
 
-    fn same_node_ref(&self, x: &usize, y: &usize) -> bool {
-        x == y
-    }
-
-    fn elem_name(&self, target: usize) -> QualName {
-        self.names.get(&target).expect("not an element").clone()
-    }
-
-    fn elem_name_ref(&self, target: &usize) -> QualName {
+    fn elem_name(&self, target: &usize) -> QualName {
         self.names.get(target).expect("not an element").clone()
     }
 
@@ -95,13 +87,13 @@ impl TreeSink for Sink {
         unimplemented!()
     }
 
-    fn has_parent_node(&self, _node: usize) -> bool  {
+    fn has_parent_node(&self, _node: &usize) -> bool  {
         // `node` will have a parent unless a script moved it, and we're
         // not running scripts.  Therefore we can aways return true
         true
     }
 
-    fn append(&mut self, parent: usize, child: NodeOrText<usize>) {
+    fn append(&mut self, parent: &usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n)
                 => println!("Append node {} to {}", n, parent),
@@ -111,7 +103,7 @@ impl TreeSink for Sink {
     }
 
     fn append_before_sibling(&mut self,
-            sibling: usize,
+            sibling: &usize,
             new_node: NodeOrText<usize>) {
         match new_node {
             AppendNode(n)
@@ -128,29 +120,29 @@ impl TreeSink for Sink {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
-    fn add_attrs_if_missing(&mut self, target: usize, attrs: Vec<Attribute>) {
-        assert!(self.names.contains_key(&target), "not an element");
+    fn add_attrs_if_missing(&mut self, target: &usize, attrs: Vec<Attribute>) {
+        assert!(self.names.contains_key(target), "not an element");
         println!("Add missing attributes to {}:", target);
         for attr in attrs.into_iter() {
             println!("    {:?} = {}", attr.name, attr.value);
         }
     }
 
-    fn associate_with_form(&mut self, _target: usize, _form: usize) {
+    fn associate_with_form(&mut self, _target: &usize, _form: &usize) {
         // No form owner support. Since same_tree always returns
         // true we cannot be sure that this associate_with_form call is
         // valid
     }
 
-    fn remove_from_parent(&mut self, target: usize) {
+    fn remove_from_parent(&mut self, target: &usize) {
         println!("Remove {} from parent", target);
     }
 
-    fn reparent_children(&mut self, node: usize, new_parent: usize) {
+    fn reparent_children(&mut self, node: &usize, new_parent: &usize) {
         println!("Move children from {} to {}", node, new_parent);
     }
 
-    fn mark_script_already_started(&mut self, node: usize) {
+    fn mark_script_already_started(&mut self, node: &usize) {
         println!("Mark script {} as already started", node);
     }
 
@@ -158,7 +150,7 @@ impl TreeSink for Sink {
         println!("Set current line to {}", line_number);
     }
 
-    fn pop(&mut self, elem: usize) {
+    fn pop(&mut self, elem: &usize) {
         println!("Popped element {}", elem);
     }
 }

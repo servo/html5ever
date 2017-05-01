@@ -109,9 +109,9 @@ fn new_node(node: NodeEnum) -> Handle {
 }
 
 fn append(new_parent: &Handle, child: Handle) {
-    new_parent.children.borrow_mut().push(child.clone());
-    assert!(child.parent.take().is_none());
-    child.parent.set(Some(Rc::downgrade(new_parent)));
+    let previous_parent = child.parent.replace(Some(Rc::downgrade(new_parent)));
+    assert!(previous_parent.is_none());
+    new_parent.children.borrow_mut().push(child);
 }
 
 fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
@@ -172,7 +172,7 @@ impl TreeSink for RcDom {
         self.document.clone()
     }
 
-    fn get_template_contents(&mut self, target: Handle) -> Handle {
+    fn get_template_contents(&mut self, target: &Handle) -> Handle {
         if let Element(_, Template(ref contents), _) = target.node {
             contents.clone()
         } else {
@@ -184,23 +184,11 @@ impl TreeSink for RcDom {
         self.quirks_mode = mode;
     }
 
-    fn same_node(&self, x: Handle, y: Handle) -> bool {
-        self.same_node_ref(&x, &y)
-    }
-
-    fn same_node_ref(&self, x: &Handle, y: &Handle) -> bool {
+    fn same_node(&self, x: &Handle, y: &Handle) -> bool {
         Rc::ptr_eq(x, y)
     }
 
-    fn elem_name(&self, target: Handle) -> QualName {
-        if let Element(ref name, _, _) = target.node {
-            name.clone()
-        } else {
-            panic!("not an element!")
-        }
-    }
-
-    fn elem_name_ref(&self, target: &Handle) -> QualName {
+    fn elem_name(&self, target: &Handle) -> QualName {
         return match target.node {
             Element(ref name, _, _) => name.clone(),
             _ => panic!("not an element!"),
@@ -232,14 +220,14 @@ impl TreeSink for RcDom {
         new_node(PI(target, data))
     }
 
-    fn has_parent_node(&self, node: Handle) -> bool {
+    fn has_parent_node(&self, node: &Handle) -> bool {
         let parent = node.parent.take();
         let has_parent = parent.is_some();
         node.parent.set(parent);
         has_parent
     }
 
-    fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
+    fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
         match child {
             AppendText(ref text) => match parent.children.borrow().last() {
@@ -256,7 +244,7 @@ impl TreeSink for RcDom {
     }
 
     fn append_before_sibling(&mut self,
-            sibling: Handle,
+            sibling: &Handle,
             child: NodeOrText<Handle>) {
         let (parent, i) = get_parent_and_index(&sibling)
             .expect("append_before_sibling called on node without parent");
@@ -295,7 +283,7 @@ impl TreeSink for RcDom {
         append(&self.document, new_node(Doctype(name, public_id, system_id)));
     }
 
-    fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&mut self, target: &Handle, attrs: Vec<Attribute>) {
         let mut existing = if let Element(_, _, ref attrs) = target.node {
             attrs.borrow_mut()
         } else {
@@ -309,11 +297,11 @@ impl TreeSink for RcDom {
         }));
     }
 
-    fn remove_from_parent(&mut self, target: Handle) {
+    fn remove_from_parent(&mut self, target: &Handle) {
         remove_from_parent(&target);
     }
 
-    fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
+    fn reparent_children(&mut self, node: &Handle, new_parent: &Handle) {
         let mut children = node.children.borrow_mut();
         let mut new_children = new_parent.children.borrow_mut();
         for child in children.iter() {
@@ -323,7 +311,7 @@ impl TreeSink for RcDom {
         new_children.extend(mem::replace(&mut *children, Vec::new()));
     }
 
-    fn mark_script_already_started(&mut self, target: Handle) {
+    fn mark_script_already_started(&mut self, target: &Handle) {
         if let Element(_, Script(ref script_already_started), _) = target.node {
             script_already_started.set(true);
         } else {
@@ -331,7 +319,7 @@ impl TreeSink for RcDom {
         }
     }
 
-    fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
+    fn is_mathml_annotation_xml_integration_point(&self, handle: &Handle) -> bool {
         match handle.node {
             Element(_, AnnotationXml(ret), _) => ret,
             _ => unreachable!(),

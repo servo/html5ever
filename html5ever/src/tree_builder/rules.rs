@@ -11,7 +11,7 @@
 
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
+use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
 use tokenizer::{EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
@@ -34,6 +34,10 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
 pub trait TreeBuilderStep<Handle> {
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle>;
     fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle>;
+}
+
+fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
+    open_elems.last().expect("no current element")
 }
 
 #[doc(hidden)]
@@ -137,7 +141,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 tag @ <script> => {
                     let elem = self.sink.create_element(qualname!(html, "script"), tag.attrs);
                     if self.is_fragment() {
-                        self.sink.mark_script_already_started(elem.clone());
+                        self.sink.mark_script_already_started(&elem);
                     }
                     self.insert_appropriately(AppendNode(elem.clone()), None);
                     self.open_elems.push(elem);
@@ -274,7 +278,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 tag @ <html> => {
                     self.unexpected(&tag);
                     if !self.in_html_elem_named(local_name!("template")) {
-                        let top = self.html_elem();
+                        let top = html_elem(&self.open_elems);
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
                     Done
@@ -287,11 +291,11 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 tag @ <body> => {
                     self.unexpected(&tag);
-                    match self.body_elem() {
+                    match self.body_elem().cloned() {
                         Some(ref node) if self.open_elems.len() != 1 &&
                                           !self.in_html_elem_named(local_name!("template")) => {
                             self.frameset_ok = false;
-                            self.sink.add_attrs_if_missing(node.clone(), tag.attrs)
+                            self.sink.add_attrs_if_missing(node, tag.attrs)
                         },
                         _ => {}
                     }
@@ -302,12 +306,8 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     self.unexpected(&tag);
                     if !self.frameset_ok { return Done; }
 
-                    // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-                    let body = match self.body_elem() {
-                        None => return Done,
-                        Some(x) => x,
-                    };
-                    self.sink.remove_from_parent(body);
+                    let body = unwrap_or_return!(self.body_elem(), Done).clone();
+                    self.sink.remove_from_parent(&body);
 
                     // FIXME: can we get here in the fragment case?
                     // What to do with the first element then?
@@ -406,7 +406,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                     let mut to_close = None;
                     for node in self.open_elems.iter().rev() {
-                        let name = self.sink.elem_name(node.clone());
+                        let name = self.sink.elem_name(node);
                         let can_close = if list {
                             close_list(name.expanded())
                         } else {
@@ -475,14 +475,14 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                             }
                             Some(x) => x,
                         };
-                        if !self.in_scope(default_scope, |n| self.sink.same_node(node.clone(), n)) {
+                        if !self.in_scope(default_scope, |n| self.sink.same_node(&node, &n)) {
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return Done;
                         }
                         self.generate_implied_end(cursory_implied_end);
-                        let current = self.current_node();
+                        let current = self.current_node().clone();
                         self.remove_from_stack(&node);
-                        if !self.sink.same_node(current, node) {
+                        if !self.sink.same_node(&current, &node) {
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
                     } else {
@@ -524,7 +524,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 tag @ </h1> </h2> </h3> </h4> </h5> </h6> => {
-                    if self.in_scope(default_scope, |n| self.elem_in(n.clone(), heading_tag)) {
+                    if self.in_scope(default_scope, |n| self.elem_in(&n, heading_tag)) {
                         self.generate_implied_end(cursory_implied_end);
                         if !self.current_node_named(tag.name) {
                             self.sink.parse_error(Borrowed("Closing wrong heading tag"));
@@ -743,7 +743,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 EOFToken => {
                     self.unexpected(&token);
                     if self.current_node_named(local_name!("script")) {
-                        let current = self.current_node();
+                        let current = current_node(&self.open_elems);
                         self.sink.mark_script_already_started(current);
                     }
                     self.pop();
@@ -992,7 +992,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> </table> => {
                     declare_tag_set!(table_outer = "table" "tbody" "tfoot");
-                    if self.in_scope(table_scope, |e| self.elem_in(e, table_outer)) {
+                    if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
                         self.pop_until_current(table_body_context);
                         self.pop();
                         Reprocess(InTable, token)
@@ -1021,7 +1021,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, local_name!("tr"));
+                        self.assert_named(&node, local_name!("tr"));
                         self.mode = InTableBody;
                     } else {
                         self.unexpected(&token);
@@ -1033,7 +1033,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
-                        self.assert_named(node, local_name!("tr"));
+                        self.assert_named(&node, local_name!("tr"));
                         Reprocess(InTableBody, token)
                     } else {
                         self.unexpected(&token)
@@ -1045,7 +1045,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                         if self.in_scope_named(table_scope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
-                            self.assert_named(node, local_name!("tr"));
+                            self.assert_named(&node, local_name!("tr"));
                             Reprocess(InTableBody, TagToken(tag))
                         } else {
                             Done
@@ -1076,7 +1076,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 <caption> <col> <colgroup> <tbody> <td> <tfoot> <th> <thead> <tr> => {
-                    if self.in_scope(table_scope, |n| self.elem_in(n.clone(), td_th)) {
+                    if self.in_scope(table_scope, |n| self.elem_in(&n, td_th)) {
                         self.close_the_cell();
                         Reprocess(InRow, token)
                     } else {
@@ -1129,7 +1129,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 </optgroup> => {
                     if self.open_elems.len() >= 2
                         && self.current_node_named(local_name!("option"))
-                        && self.html_elem_named(self.open_elems[self.open_elems.len() - 2].clone(),
+                        && self.html_elem_named(&self.open_elems[self.open_elems.len() - 2],
                             local_name!("optgroup")) {
                         self.pop();
                     }
@@ -1425,8 +1425,7 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                         return Done;
                     }
 
-                    let node = self.open_elems[stack_idx].clone();
-                    let node_name = self.sink.elem_name(node);
+                    let node_name = self.sink.elem_name(&self.open_elems[stack_idx]);
                     if !first && node_name.ns == ns!(html) {
                         let mode = self.mode;
                         return self.step(mode, TagToken(tag));

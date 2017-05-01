@@ -77,10 +77,7 @@ pub trait TreeSink {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name(&self, target: Self::Handle) -> QualName;
-
-    /// Possible duplicate of elem_name
-    fn elem_name_ref(&self, target: &Self::Handle) -> QualName;
+    fn elem_name(&self, target: &Self::Handle) -> QualName;
 
     /// Create an element.
     ///
@@ -102,7 +99,7 @@ pub trait TreeSink {
     /// instead.
     ///
     /// The child node will not already have a parent.
-    fn append(&mut self, parent: Self::Handle, child: NodeOrText<Self::Handle>);
+    fn append(&mut self, parent: &Self::Handle, child: NodeOrText<Self::Handle>);
 
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self,
@@ -111,32 +108,27 @@ pub trait TreeSink {
                                   system_id: StrTendril);
 
     /// Mark a HTML `<script>` as "already started".
-    fn mark_script_already_started(&mut self, _node: Self::Handle);
+    fn mark_script_already_started(&mut self, node: &Self::Handle);
 
     /// Indicate that a node was popped off the stack of open elements.
-    fn pop(&mut self, _node: Self::Handle) {}
+    fn pop(&mut self, _node: &Self::Handle) {}
 
     /// Get a handle to a template's template contents. The tree builder
     /// promises this will never be called with something else than
     /// a template element.
-    fn get_template_contents(&mut self, target: Self::Handle) -> Self::Handle;
+    fn get_template_contents(&mut self, target: &Self::Handle) -> Self::Handle;
 
     /// Do two handles refer to the same node?
-    fn same_node(&self, x: Self::Handle, y: Self::Handle) -> bool;
-
-    /// Do two handles refer to the same node?
-    fn same_node_ref(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
+    fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
 
     /// Are two handles present in the same tree
-    fn same_tree(&self, _x: Self::Handle, _y: Self::Handle) -> bool {
-        true
-    }
+    fn same_tree(&self, _x: &Self::Handle, _y: &Self::Handle) -> bool { true }
 
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
     /// Does the node have a parent?
-    fn has_parent_node(&self, node: Self::Handle) -> bool;
+    fn has_parent_node(&self, node: &Self::Handle) -> bool;
 
     /// Append a node as the sibling immediately before the given node.
     /// This method will only be called if has_parent_node(sibling) is true
@@ -148,26 +140,26 @@ pub trait TreeSink {
     ///
     /// NB: `new_node` may have an old parent, from which it should be removed.
     fn append_before_sibling(&mut self,
-        sibling: Self::Handle,
+        sibling: &Self::Handle,
         new_node: NodeOrText<Self::Handle>);
 
     /// Add each attribute to the given element, if no attribute with that name
     /// already exists. The tree builder promises this will never be called
     /// with something else than an element.
-    fn add_attrs_if_missing(&mut self, target: Self::Handle, attrs: Vec<Attribute>);
+    fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
-    fn associate_with_form(&mut self, _target: Self::Handle, _form: Self::Handle) {}
+    fn associate_with_form(&mut self, _target: &Self::Handle, _form: &Self::Handle) {}
 
     /// Detach the given node from its parent.
-    fn remove_from_parent(&mut self, target: Self::Handle);
+    fn remove_from_parent(&mut self, target: &Self::Handle);
 
     /// Remove all the children from node and append them to new_parent.
-    fn reparent_children(&mut self, node: Self::Handle, new_parent: Self::Handle);
+    fn reparent_children(&mut self, node: &Self::Handle, new_parent: &Self::Handle);
 
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
-    fn is_mathml_annotation_xml_integration_point(&self, _handle: Self::Handle) -> bool {
+    fn is_mathml_annotation_xml_integration_point(&self, _handle: &Self::Handle) -> bool {
         false
     }
 
@@ -175,7 +167,7 @@ pub trait TreeSink {
     fn set_current_line(&mut self, _line_number: u64) {}
 
     /// Indicate that a `script` element is complete.
-    fn complete_script(&mut self, _node: Self::Handle) -> NextParserState {
+    fn complete_script(&mut self, _node: &Self::Handle) -> NextParserState {
         NextParserState::Continue
     }
 }
