@@ -589,8 +589,7 @@ mod test {
         }
 
         fn has_parent_node(&self, node: Handle) -> bool {
-            let node = node.borrow();
-            node.parent.is_some()
+            self.rcdom.has_parent_node(node)
         }
 
         fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {

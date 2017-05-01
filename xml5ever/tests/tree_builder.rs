@@ -84,7 +84,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
-    let node = handle.borrow();
+    let node = handle;
     match node.node {
         Document => panic!("should not reach Document"),
 
@@ -99,7 +99,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
         Text(ref text) => {
             buf.push_str("\"");
-            buf.push_str(&text);
+            buf.push_str(&text.borrow());
             buf.push_str("\"\n");
         }
 
@@ -134,7 +134,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.clone();
+            let mut attrs = attrs.borrow().clone();
             attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
@@ -159,7 +159,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         }
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 }
@@ -198,7 +198,7 @@ fn make_xml_test(
 
             let dom = parse_document(RcDom::default(), Default::default())
                         .one(data.clone());
-            for child in dom.document.borrow().children.iter() {
+            for child in dom.document.children.borrow().iter() {
                 serialize(&mut result, 1, child.clone());
             }
 

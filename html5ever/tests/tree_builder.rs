@@ -82,7 +82,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
-    let node = handle.borrow();
+    let node = handle;
     match node.node {
         Document => panic!("should not reach Document"),
 
@@ -97,7 +97,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
         Text(ref text) => {
             buf.push_str("\"");
-            buf.push_str(&text);
+            buf.push_str(&text.borrow());
             buf.push_str("\"\n");
         }
 
@@ -117,7 +117,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.clone();
+            let mut attrs = attrs.borrow().clone();
             attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
@@ -138,7 +138,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         PI(..) => unreachable!()
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 
@@ -146,7 +146,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         buf.push_str("|");
         buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
         buf.push_str("content\n");
-        for child in &content.borrow().children {
+        for child in content.children.borrow().iter() {
             serialize(buf, indent+4, child.clone());
         }
     }
@@ -214,7 +214,7 @@ fn make_test_desc_with_scripting_flag(
             match context {
                 None => {
                     let dom = parse_document(RcDom::default(), opts).one(data.clone());
-                    for child in dom.document.borrow().children.iter() {
+                    for child in dom.document.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
                 },
@@ -223,9 +223,9 @@ fn make_test_desc_with_scripting_flag(
                         .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
-                    let doc = dom.document.borrow();
-                    let root = doc.children[0].borrow();
-                    for child in root.children.iter() {
+                    let doc = dom.document;
+                    let root = &doc.children.borrow()[0];
+                    for child in root.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
                 },

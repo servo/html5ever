@@ -25,7 +25,7 @@ use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, PI, RcDom, Han
 // This is not proper HTML serialization, of course.
 
 fn walk(indent: usize, handle: Handle) {
-    let node = handle.borrow();
+    let node = handle;
     // FIXME: don't allocate
     print!("{}", repeat(" ").take(indent).collect::<String>());
     match node.node {
@@ -36,7 +36,7 @@ fn walk(indent: usize, handle: Handle) {
             => println!("<!DOCTYPE {} \"{}\" \"{}\">", *name, *public, *system),
 
         Text(ref text)
-            => println!("#text: {}", escape_default(text)),
+            => println!("#text: {}", escape_default(&text.borrow())),
 
         Comment(ref text)
             => println!("<!-- {} -->", escape_default(text)),
@@ -44,7 +44,7 @@ fn walk(indent: usize, handle: Handle) {
         Element(ref name, _, ref attrs) => {
             assert!(name.ns == ns!(html));
             print!("<{}", name.local);
-            for attr in attrs.iter() {
+            for attr in attrs.borrow().iter() {
                 assert!(attr.name.ns == ns!());
                 print!(" {}=\"{}\"", attr.name.local, attr.value);
             }
@@ -54,7 +54,7 @@ fn walk(indent: usize, handle: Handle) {
         PI(..) => unreachable!()
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         walk(indent+4, child.clone());
     }
 }

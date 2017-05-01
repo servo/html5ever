@@ -19,7 +19,7 @@ use xml5ever::driver::{parse_document};
 use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {
-    let node = handle.borrow();
+    let node = handle;
 
     print!("{}", prefix);
     match node.node {
@@ -27,7 +27,7 @@ fn walk(prefix: &str, handle: Handle) {
             => println!("#document"),
 
         Text(ref text)  => {
-            println!("#text {}", escape_default(text))
+            println!("#text {}", escape_default(&text.borrow()))
         },
 
         Element(ref name, ..) => {
@@ -45,8 +45,8 @@ fn walk(prefix: &str, handle: Handle) {
         temp
     };
 
-    for child in node.children.iter()
-        .filter(|child| match child.borrow().node {
+    for child in node.children.borrow().iter()
+        .filter(|child| match child.node {
             Text(_) | Element (_, _, _) => true,
             _ => false,
         }

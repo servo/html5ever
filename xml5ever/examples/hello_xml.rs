@@ -30,18 +30,18 @@ fn main() {
     // Do some processing
     let doc = &dom.document;
 
-    let hello_node = &doc.borrow().children[0];
+    let hello_node = &doc.children.borrow()[0];
     let hello_tag = &*dom.elem_name_ref(hello_node).local;
-    let text_node = &hello_node.borrow().children[0];
+    let text_node = &hello_node.children.borrow()[0];
 
     let xml = {
         let mut xml = String::new();
 
-        match &text_node.borrow().node {
+        match &text_node.node {
             &Text(ref text) => {
-                xml.push_str(&*text);
+                xml.push_str(&**text.borrow());
             },
-            e => {println!("{:?}", e);},
+            _ => {}
         };
 
         xml
