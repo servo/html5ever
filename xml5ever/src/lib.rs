@@ -62,8 +62,6 @@ mod util;
 pub mod tokenizer;
 /// XML5 tree builder - converts tokens into a tree like structure
 pub mod tree_builder;
-/// A simple reference-counted that serves as a default tree structure
-pub mod rcdom;
 /// Serializer for XML5.
 pub mod serialize;
 /// Driver

@@ -39,7 +39,6 @@ pub mod serialize;
 pub mod tokenizer;
 pub mod tree_builder;
 pub mod driver;
-pub mod rcdom;
 
 /// Re-export the tendril crate.
 pub mod tendril {

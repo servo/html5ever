@@ -11,8 +11,7 @@ extern crate test;
 extern crate tendril;
 extern crate html5ever;
 
-#[macro_use] 
-extern crate markup5ever;
+#[macro_use] extern crate markup5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
@@ -30,7 +29,7 @@ use test::ShouldPanic::No;
 
 use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
-use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
+use html5ever::rcdom::{Comment, Document, Doctype, Element, PI, Handle, RcDom};
 use html5ever::rcdom::{Template, Text};
 
 use tendril::{StrTendril, TendrilSink};
@@ -135,6 +134,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                     attr.name.local, attr.value));
             }
         }
+
+        PI(..) => unreachable!()
     }
 
     for child in node.children.iter() {

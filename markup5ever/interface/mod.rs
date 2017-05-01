@@ -9,12 +9,12 @@
 
 use tendril::StrTendril;
 
-pub mod treebuilder;
+pub mod tree_builder;
 
 use super::{LocalName, Prefix, Namespace};
-pub use self::treebuilder::{NodeOrText, AppendNode, AppendText};
-pub use self::treebuilder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use self::treebuilder::{TreeSink, Tracer, NextParserState};
+pub use self::tree_builder::{NodeOrText, AppendNode, AppendText};
+pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
 
 /// A name with a namespace.

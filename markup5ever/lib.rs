@@ -44,10 +44,11 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 pub mod data;
 pub mod interface;
+pub mod rcdom;
+pub mod serialize;
 pub mod util {
     pub mod smallcharset;
     pub mod buffer_queue;
-    
 }
 
 pub use interface::{QualName, Attribute};

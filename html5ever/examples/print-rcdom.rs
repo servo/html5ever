@@ -20,7 +20,7 @@ use std::string::String;
 
 use tendril::TendrilSink;
 use html5ever::parse_document;
-use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, RcDom, Handle};
+use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, PI, RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
 
@@ -50,6 +50,8 @@ fn walk(indent: usize, handle: Handle) {
             }
             println!(">");
         }
+
+        PI(..) => unreachable!()
     }
 
     for child in node.children.iter() {
