@@ -65,9 +65,9 @@ macro_rules! qualname {
             local: local_name!($local),
         }
     };
-    ($ns:tt, $local:tt) => {
+    ($prefix: tt $ns:tt $local:tt) => {
         QualName {
-            prefix: None,
+            prefix: Some(namespace_prefix!($prefix)),
             ns: ns!($ns),
             local: local_name!($local),
         }
@@ -1110,18 +1110,18 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     fn adjust_foreign_attributes(&mut self, tag: &mut Tag) {
         self.adjust_attributes(tag, |k| match k {
-            local_name!("xlink:actuate") => Some(qualname!(xlink, "actuate")),
-            local_name!("xlink:arcrole") => Some(qualname!(xlink, "arcrole")),
-            local_name!("xlink:href") => Some(qualname!(xlink, "href")),
-            local_name!("xlink:role") => Some(qualname!(xlink, "role")),
-            local_name!("xlink:show") => Some(qualname!(xlink, "show")),
-            local_name!("xlink:title") => Some(qualname!(xlink, "title")),
-            local_name!("xlink:type") => Some(qualname!(xlink, "type")),
-            local_name!("xml:base") => Some(qualname!(xml, "base")),
-            local_name!("xml:lang") => Some(qualname!(xml, "lang")),
-            local_name!("xml:space") => Some(qualname!(xml, "space")),
-            local_name!("xmlns") => Some(qualname!(xmlns, "xmlns")),
-            local_name!("xmlns:xlink") => Some(qualname!(xmlns, "xlink")),
+            local_name!("xlink:actuate") => Some(qualname!("xlink" xlink "actuate")),
+            local_name!("xlink:arcrole") => Some(qualname!("xlink" xlink "arcrole")),
+            local_name!("xlink:href") => Some(qualname!("xlink" xlink "href")),
+            local_name!("xlink:role") => Some(qualname!("xlink" xlink "role")),
+            local_name!("xlink:show") => Some(qualname!("xlink" xlink "show")),
+            local_name!("xlink:title") => Some(qualname!("xlink" xlink "title")),
+            local_name!("xlink:type") => Some(qualname!("xlink" xlink "type")),
+            local_name!("xml:base") => Some(qualname!("xml" xml "base")),
+            local_name!("xml:lang") => Some(qualname!("xml" xml "lang")),
+            local_name!("xml:space") => Some(qualname!("xml" xml "space")),
+            local_name!("xmlns") => Some(qualname!("" xmlns "xmlns")),
+            local_name!("xmlns:xlink") => Some(qualname!("xmlns" xmlns "xlink")),
             _ => None,
         });
     }
