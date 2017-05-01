@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::fmt;
 use tendril::StrTendril;
 
 pub mod tree_builder;
@@ -17,12 +18,35 @@ pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
 /// https://www.w3.org/TR/REC-xml-names/#dt-expname
-pub type ExpandedName<'a> = (&'a Namespace, &'a LocalName);
+#[derive(Copy, Clone, Eq, Hash)]
+pub struct ExpandedName<'a> {
+    pub ns: &'a Namespace,
+    pub local: &'a LocalName,
+}
+
+impl<'a, 'b> PartialEq<ExpandedName<'a>> for ExpandedName<'b> {
+    fn eq(&self, other: &ExpandedName<'a>) -> bool {
+        self.ns == other.ns && self.local == other.local
+    }
+}
+
+impl<'a> fmt::Debug for ExpandedName<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.ns.is_empty() {
+            write!(f, "{}", self.local)
+        } else {
+            write!(f, "{{{}}}:{}", self.ns, self.local)
+        }
+    }
+}
 
 #[macro_export]
 macro_rules! expanded_name {
     ($ns: ident $local: tt) => {
-        (&ns!($ns), &local_name!($local))
+        ExpandedName {
+            ns: &ns!($ns),
+            local: &local_name!($local),
+        }
     }
 }
 
@@ -106,7 +130,10 @@ impl QualName {
 
     #[inline]
     pub fn expanded(&self) -> ExpandedName {
-        (&self.ns, &self.local)
+        ExpandedName {
+            ns: &self.ns,
+            local: &self.local
+        }
     }
 }
 

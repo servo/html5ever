@@ -13,7 +13,7 @@
 /// the sink may not want to allocate a `Handle` for each.
 use std::borrow::Cow;
 use tendril::StrTendril;
-use interface::{QualName, Attribute};
+use interface::{QualName, ExpandedName, Attribute};
 
 pub use self::NodeOrText::{AppendNode, AppendText};
 pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
@@ -77,7 +77,7 @@ pub trait TreeSink {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name(&self, target: &Self::Handle) -> QualName;
+    fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> ExpandedName<'a>;
 
     /// Create an element.
     ///

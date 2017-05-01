@@ -19,6 +19,7 @@ use self::types::*;
 use self::actions::TreeBuilderActions;
 use self::rules::TreeBuilderStep;
 
+use ExpandedName;
 use QualName;
 use tendril::StrTendril;
 
@@ -184,7 +185,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                             opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template =
-            sink.elem_name(&context_elem) == qualname!(html, "template");
+            sink.elem_name(&context_elem) == expanded_name!(html "template");
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
@@ -221,10 +222,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.as_ref().expect("no context element");
         let name = match self.sink.elem_name(elem) {
-            QualName { ns: ns!(html), local, .. } => local,
+            ExpandedName { ns: &ns!(html), local } => local,
             _ => return tok_state::Data
         };
-        match name {
+        match *name {
             local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
             local_name!("style") | local_name!("xmp") | local_name!("iframe")
@@ -279,9 +280,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { ns, local, .. } = self.sink.elem_name(node);
-            match ns {
-                ns!(html) => print!(" {}", &local[..]),
+            let name = self.sink.elem_name(node);
+            match *name.ns {
+                ns!(html) => print!(" {}", name.local),
                 _ => panic!(),
             }
         }
@@ -291,9 +292,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             match entry {
                 &Marker => print!(" Marker"),
                 &Element(ref h, _) => {
-                    let QualName { ns, local, .. } = self.sink.elem_name(h);
-                    match ns {
-                        ns!(html) => print!(" {}", &local[..]),
+                    let name = self.sink.elem_name(h);
+                    match *name.ns {
+                        ns!(html) => print!(" {}", name.local),
                         _ => panic!(),
                     }
                 }
@@ -493,7 +494,7 @@ impl<Handle, Sink> TokenSink
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
-        self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
+        self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
     }
 }
 
@@ -508,6 +509,7 @@ mod test {
     use super::actions::TreeBuilderActions;
     use super::rules::TreeBuilderStep;
 
+    use ExpandedName;
     use QualName;
     use tendril::StrTendril;
     use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
@@ -563,7 +565,7 @@ mod test {
             self.rcdom.same_node(x, y)
         }
 
-        fn elem_name(&self, target: &Handle) -> QualName {
+        fn elem_name<'a>(&'a self, target: &'a Handle) -> ExpandedName<'a> {
             self.rcdom.elem_name(target)
         }
 

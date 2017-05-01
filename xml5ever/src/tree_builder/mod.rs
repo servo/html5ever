@@ -293,8 +293,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         debug!("dump_state on {}", label);
         debug!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { prefix, local, .. } = self.sink.elem_name(node);
-            debug!(" {:?}:{:?}", prefix,local);
+            debug!(" {:?}", self.sink.elem_name(node));
 
         }
         debug!("");

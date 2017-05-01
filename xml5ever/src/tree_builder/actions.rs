@@ -11,7 +11,7 @@ use std::borrow::Cow::Borrowed;
 
 use tendril::{StrTendril, Tendril};
 use markup5ever::interface::{NodeOrText, TreeSink, AppendNode};
-use markup5ever::interface::{AppendText, QualName, NextParserState};
+use markup5ever::interface::{AppendText, ExpandedName, NextParserState};
 
 use tokenizer::{Tag, Pi, Doctype};
 use tokenizer::states::Quiescent;
@@ -61,10 +61,10 @@ pub trait XmlTreeBuilderActions<Handle> {
 
     /// Pops elements from list of open elements, until predicate
     /// `pred` returns true
-    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
+    fn pop_until<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(ExpandedName) -> bool;
 
     /// Checks if current node is in given TagSet
-    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(ExpandedName) -> bool;
 
     /// Close given tag.
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult;
@@ -180,13 +180,13 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     fn tag_in_open_elems(&self, tag: &Tag) -> bool {
         self.open_elems
             .iter()
-            .any(|a| self.sink.elem_name(a) == tag.name)
+            .any(|a| self.sink.elem_name(a) == tag.name.expanded())
     }
 
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P)
-        where P: Fn(QualName) -> bool
+        where P: Fn(ExpandedName) -> bool
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -197,7 +197,7 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
         // FIXME: take namespace into consideration:
         set(self.sink.elem_name(self.current_node()))
@@ -207,14 +207,14 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
         debug!("Close tag: current_node.name {:?} \n Current tag {:?}",
                  self.sink.elem_name(self.current_node()), &tag.name);
 
-        if &self.sink.elem_name(self.current_node()).local != &tag.name.local {
+        if *self.sink.elem_name(self.current_node()).local != tag.name.local {
             self.sink.parse_error(Borrowed("Current node doesn't match tag"));
         }
 
         let is_closed = self.tag_in_open_elems(&tag);
 
         if is_closed {
-            self.pop_until(|p| p == tag.name);
+            self.pop_until(|p| p == tag.name.expanded());
             self.pop();
         }
 

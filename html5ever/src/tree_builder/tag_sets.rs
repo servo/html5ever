@@ -50,8 +50,8 @@ declare_tag_set!(pub html_default_scope =
     "applet" "caption" "html" "table" "td" "th" "marquee" "object" "template");
 
 #[inline(always)] pub fn default_scope(name: ExpandedName) -> bool {
-    html_default_scope(name.clone()) ||
-    mathml_text_integration_point(name.clone()) ||
+    html_default_scope(name) ||
+    mathml_text_integration_point(name) ||
     svg_html_integration_point(name)
 }
 

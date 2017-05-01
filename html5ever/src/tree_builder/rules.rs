@@ -9,6 +9,7 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
+use ExpandedName;
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
@@ -408,15 +409,15 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     for node in self.open_elems.iter().rev() {
                         let name = self.sink.elem_name(node);
                         let can_close = if list {
-                            close_list(name.expanded())
+                            close_list(name)
                         } else {
-                            close_defn(name.expanded())
+                            close_defn(name)
                         };
                         if can_close {
-                            to_close = Some(name.local);
+                            to_close = Some(name.local.clone());
                             break;
                         }
-                        if extra_special(name.expanded()) {
+                        if extra_special(name) {
                             break;
                         }
                     }
@@ -1425,13 +1426,19 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                         return Done;
                     }
 
-                    let node_name = self.sink.elem_name(&self.open_elems[stack_idx]);
-                    if !first && node_name.ns == ns!(html) {
+                    let html;
+                    let eq;
+                    {
+                        let node_name = self.sink.elem_name(&self.open_elems[stack_idx]);
+                        html = *node_name.ns == ns!(html);
+                        eq = node_name.local.eq_ignore_ascii_case(&tag.name);
+                    }
+                    if !first && html {
                         let mode = self.mode;
                         return self.step(mode, TagToken(tag));
                     }
 
-                    if (&*node_name.local).eq_ignore_ascii_case(&*tag.name) {
+                    if eq {
                         self.open_elems.truncate(stack_idx);
                         return Done;
                     }

@@ -7,9 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] 
-extern crate markup5ever;
-
+#[macro_use] extern crate markup5ever;
 extern crate html5ever;
 
 use std::io;
@@ -17,7 +15,7 @@ use std::default::Default;
 use std::collections::HashMap;
 use std::borrow::Cow;
 
-use html5ever::{Attribute, QualName};
+use html5ever::{Attribute, QualName, ExpandedName};
 use html5ever::parse_document;
 use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText};
 use html5ever::tendril::*;
@@ -60,8 +58,8 @@ impl TreeSink for Sink {
         true
     }
 
-    fn elem_name(&self, target: &usize) -> QualName {
-        self.names.get(target).expect("not an element").clone()
+    fn elem_name(&self, target: &usize) -> ExpandedName {
+        self.names.get(target).expect("not an element").expanded()
     }
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {

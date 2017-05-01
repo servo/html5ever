@@ -25,6 +25,7 @@ use std::rc::{Rc, Weak};
 use tendril::StrTendril;
 
 use Attribute;
+use ExpandedName;
 use QualName;
 use interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
 use interface::tree_builder;
@@ -188,9 +189,9 @@ impl TreeSink for RcDom {
         Rc::ptr_eq(x, y)
     }
 
-    fn elem_name(&self, target: &Handle) -> QualName {
+    fn elem_name<'a>(&self, target: &'a Handle) -> ExpandedName<'a> {
         return match target.node {
-            Element(ref name, _, _) => name.clone(),
+            Element(ref name, _, _) => name.expanded(),
             _ => panic!("not an element!"),
         };
     }
