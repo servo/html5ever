@@ -9,11 +9,11 @@
 
 //! Various sets of HTML tag names, and macros for declaring them.
 
-use QualName;
+use ExpandedName;
 
 macro_rules! declare_tag_set_impl ( ($param:ident, $b:ident, $supr:ident, $($tag:tt)+) => (
     match $param {
-        $( qualname!(html, $tag) => $b, )+
+        $( expanded_name!(html $tag) => $b, )+
         p => $supr(p),
     }
 ));
@@ -31,25 +31,25 @@ macro_rules! declare_tag_set_body (
 
 macro_rules! declare_tag_set (
     (pub $name:ident = $($toks:tt)+) => (
-        pub fn $name(p: ::QualName) -> bool {
+        pub fn $name(p: ::ExpandedName) -> bool {
             declare_tag_set_body!(p = $($toks)+)
         }
     );
 
     ($name:ident = $($toks:tt)+) => (
-        fn $name(p: ::QualName) -> bool {
+        fn $name(p: ::ExpandedName) -> bool {
             declare_tag_set_body!(p = $($toks)+)
         }
     );
 );
 
-#[inline(always)] pub fn empty_set(_: QualName) -> bool { false }
-#[inline(always)] pub fn full_set(_: QualName) -> bool { true }
+#[inline(always)] pub fn empty_set(_: ExpandedName) -> bool { false }
+#[inline(always)] pub fn full_set(_: ExpandedName) -> bool { true }
 
 declare_tag_set!(pub html_default_scope =
     "applet" "caption" "html" "table" "td" "th" "marquee" "object" "template");
 
-#[inline(always)] pub fn default_scope(name: QualName) -> bool {
+#[inline(always)] pub fn default_scope(name: ExpandedName) -> bool {
     html_default_scope(name.clone()) ||
     mathml_text_integration_point(name.clone()) ||
     svg_html_integration_point(name)
@@ -83,14 +83,20 @@ declare_tag_set!(pub special_tag =
     "ul" "wbr" "xmp");
 //§ END
 
-pub fn mathml_text_integration_point(p: QualName) -> bool {
-    matches!(p, qualname!(mathml, "mi") | qualname!(mathml, "mo") | qualname!(mathml, "mn")
-        | qualname!(mathml, "ms") | qualname!(mathml, "mtext"))
+pub fn mathml_text_integration_point(p: ExpandedName) -> bool {
+    matches!(p,
+        expanded_name!(mathml "mi") |
+        expanded_name!(mathml "mo") |
+        expanded_name!(mathml "mn") |
+        expanded_name!(mathml "ms") |
+        expanded_name!(mathml "mtext"))
 }
 
 /// https://html.spec.whatwg.org/multipage/#html-integration-point
-pub fn svg_html_integration_point(p: QualName) -> bool {
+pub fn svg_html_integration_point(p: ExpandedName) -> bool {
     // annotation-xml are handle in another place
-    matches!(p, qualname!(svg, "foreignObject") | qualname!(svg, "desc")
-        | qualname!(svg, "title"))
+    matches!(p,
+        expanded_name!(svg "foreignObject") |
+        expanded_name!(svg "desc") |
+        expanded_name!(svg "title"))
 }

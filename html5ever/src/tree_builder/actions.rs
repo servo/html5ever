@@ -28,7 +28,7 @@ use std::mem::replace;
 use std::iter::{Rev, Enumerate};
 use std::borrow::Cow::Borrowed;
 
-use {LocalName, Namespace, QualName};
+use {LocalName, Namespace, QualName, ExpandedName};
 use tendril::StrTendril;
 
 pub use self::PushFlag::*;
@@ -82,16 +82,22 @@ pub trait TreeBuilderActions<Handle> {
     fn close_p_element(&mut self);
     fn expect_to_close(&mut self, name: LocalName);
     fn pop_until_named(&mut self, name: LocalName) -> usize;
-    fn pop_until<TagSet>(&mut self, pred: TagSet) -> usize where TagSet: Fn(QualName) -> bool;
-    fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(QualName) -> bool;
+    fn pop_until<TagSet>(&mut self, pred: TagSet) -> usize where TagSet: Fn(ExpandedName) -> bool;
+    fn pop_until_current<TagSet>(&mut self, pred: TagSet) where TagSet: Fn(ExpandedName) -> bool;
     fn generate_implied_end_except(&mut self, except: LocalName);
-    fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(QualName) -> bool;
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool where TagSet: Fn(QualName) -> bool;
+    fn generate_implied_end<TagSet>(&mut self, set: TagSet) where TagSet: Fn(ExpandedName) -> bool;
+    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
+    where TagSet: Fn(ExpandedName) -> bool;
+
     fn current_node_named(&self, name: LocalName) -> bool;
     fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool;
     fn in_html_elem_named(&self, name: LocalName) -> bool;
-    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
-    fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool;
+    fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool
+    where TagSet: Fn(ExpandedName) -> bool;
+
+    fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool
+    where TagSet: Fn(ExpandedName) -> bool, Pred: Fn(Handle) -> bool;
+
     fn check_body_end(&mut self);
     fn body_elem(&mut self) -> Option<Handle>;
     fn html_elem(&self) -> Handle;
@@ -100,7 +106,7 @@ pub trait TreeBuilderActions<Handle> {
     fn pop(&mut self) -> Handle;
     fn push(&mut self, elem: &Handle);
     fn adoption_agency(&mut self, subject: LocalName);
-    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(QualName) -> bool;
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool where TagSet: Fn(ExpandedName) -> bool;
     fn current_node(&self) -> Handle;
     fn adjusted_current_node(&self) -> Handle;
     fn parse_raw_data(&mut self, tag: Tag, k: RawKind) -> ProcessResult<Handle>;
@@ -203,9 +209,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
-        set(self.sink.elem_name(self.current_node()))
+        set(self.sink.elem_name(self.current_node()).expanded())
     }
 
     // Insert at the "appropriate place for inserting a node".
@@ -501,7 +507,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
         for elem in self.open_elems.iter() {
             let name = self.sink.elem_name(elem.clone());
-            if !body_end_ok(name.clone()) {
+            if !body_end_ok(name.expanded()) {
                 self.sink.parse_error(format_if!(self.opts.exact_errors,
                     "Unexpected open tag at end of body",
                     "Unexpected open tag {:?} at end of body", name));
@@ -513,13 +519,13 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool
-        where TagSet: Fn(QualName) -> bool, Pred: Fn(Handle) -> bool
+        where TagSet: Fn(ExpandedName) -> bool, Pred: Fn(Handle) -> bool
     {
         for node in self.open_elems.iter().rev() {
             if pred(node.clone()) {
                 return true;
             }
-            if scope(self.sink.elem_name(node.clone())) {
+            if scope(self.sink.elem_name(node.clone()).expanded()) {
                 return false;
             }
         }
@@ -530,9 +536,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn elem_in<TagSet>(&self, elem: Handle, set: TagSet) -> bool
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
-        set(self.sink.elem_name(elem))
+        set(self.sink.elem_name(elem).expanded())
     }
 
     fn html_elem_named(&self, elem: Handle, name: LocalName) -> bool {
@@ -548,7 +554,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     }
 
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
         self.in_scope(scope, |elem|
             self.html_elem_named(elem, name.clone()))
@@ -556,27 +562,30 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     //§ closing-elements-that-have-implied-end-tags
     fn generate_implied_end<TagSet>(&mut self, set: TagSet)
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
         loop {
             let elem = unwrap_or_return!(self.open_elems.last(), ()).clone();
             let nsname = self.sink.elem_name(elem);
-            if !set(nsname) { return; }
+            if !set(nsname.expanded()) { return; }
             self.pop();
         }
     }
 
     fn generate_implied_end_except(&mut self, except: LocalName) {
-        self.generate_implied_end(|p| match p {
-            QualName { ns: ns!(html), ref local, .. } if *local == except => false,
-            _ => cursory_implied_end(p),
+        self.generate_implied_end(|p| {
+            if *p.0 == ns!(html) && *p.1 == except {
+                false
+            } else {
+                cursory_implied_end(p)
+            }
         });
     }
     //§ END
 
     // Pop elements until the current element is in the set.
     fn pop_until_current<TagSet>(&mut self, pred: TagSet)
-        where TagSet: Fn(QualName) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -589,21 +598,21 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P) -> usize
-        where P: Fn(QualName) -> bool
+        where P: Fn(ExpandedName) -> bool
     {
         let mut n = 0;
         loop {
             n += 1;
             match self.open_elems.pop() {
                 None => break,
-                Some(elem) => if pred(self.sink.elem_name(elem)) { break; },
+                Some(elem) => if pred(self.sink.elem_name(elem).expanded()) { break; },
             }
         }
         n
     }
 
     fn pop_until_named(&mut self, name: LocalName) -> usize {
-        self.pop_until(|p| p == QualName::new(ns!(html), name.clone()))
+        self.pop_until(|p| *p.0 == ns!(html) && *p.1 == name)
     }
 
     // Pop elements until one with the specified name has been popped.
@@ -763,10 +772,10 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         };
 
         // Step 12.
-        if form_associatable(qname.clone()) &&
+        if form_associatable(qname.expanded()) &&
            self.form_elem.is_some() &&
            !self.in_html_elem_named(local_name!("template")) &&
-           !(listed(qname.clone()) &&
+           !(listed(qname.expanded()) &&
                 attrs.iter().any(|a| a.name == qualname!("","form"))) {
 
                let form = self.form_elem.as_ref().unwrap().clone();
@@ -894,7 +903,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             return false;
         }
 
-        if mathml_text_integration_point(name.clone()) {
+        if mathml_text_integration_point(name.expanded()) {
             match *token {
                 CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, ref name, .. })
@@ -903,7 +912,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             }
         }
 
-        if svg_html_integration_point(name.clone()) {
+        if svg_html_integration_point(name.expanded()) {
             match *token {
                 CharacterTokens(..) | NullCharacterToken => return false,
                 TagToken(Tag { kind: StartTag, .. }) => return false,
@@ -1114,8 +1123,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         } else {
             self.pop();
             while !self.current_node_in(|n| {
-                n.ns == ns!(html) || mathml_text_integration_point(n.clone())
-                    || svg_html_integration_point(n)
+                *n.0 == ns!(html) ||
+                mathml_text_integration_point(n) ||
+                svg_html_integration_point(n)
             }) {
                 self.pop();
             }

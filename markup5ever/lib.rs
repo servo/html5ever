@@ -51,7 +51,7 @@ pub mod util {
     pub mod buffer_queue;
 }
 
-pub use interface::{QualName, Attribute};
+pub use interface::{ExpandedName, QualName, Attribute};
 pub use util::smallcharset::SmallCharSet;
 
 

@@ -82,7 +82,7 @@ pub trait TreeSink {
     /// Possible duplicate of elem_name
     fn elem_name_ref(&self, target: &Self::Handle) -> QualName;
 
-	/// Create an element.
+    /// Create an element.
     ///
     /// When creating a template element (`name == qualname!(html, "template")`),
     /// an associated document fragment called the "template contents" should

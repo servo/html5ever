@@ -15,7 +15,6 @@ use tree_builder::actions::{NoPush, Push, TreeBuilderActions};
 use tokenizer::{EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 
-use QualName;
 use util::str::is_ascii_whitespace;
 
 use std::ascii::AsciiExt;
@@ -397,9 +396,9 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     declare_tag_set!(close_list = "li");
                     declare_tag_set!(close_defn = "dd" "dt");
                     declare_tag_set!(extra_special = [special_tag] - "address" "div" "p");
-                    let can_close: fn(QualName) -> bool = match tag.name {
-                        local_name!("li") => close_list,
-                        local_name!("dd") | local_name!("dt") => close_defn,
+                    let list = match tag.name {
+                        local_name!("li") => true,
+                        local_name!("dd") | local_name!("dt") => false,
                         _ => unreachable!(),
                     };
 
@@ -408,11 +407,16 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                     let mut to_close = None;
                     for node in self.open_elems.iter().rev() {
                         let name = self.sink.elem_name(node.clone());
-                        if can_close(name.clone()) {
+                        let can_close = if list {
+                            close_list(name.expanded())
+                        } else {
+                            close_defn(name.expanded())
+                        };
+                        if can_close {
                             to_close = Some(name.local);
                             break;
                         }
-                        if extra_special(name.clone()) {
+                        if extra_special(name.expanded()) {
                             break;
                         }
                     }
@@ -505,11 +509,12 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 tag @ </li> </dd> </dt> => {
-                    let scope: fn(QualName) -> bool = match tag.name {
-                        local_name!("li") => list_item_scope,
-                        _ => default_scope,
+                    let in_scope = if tag.name == local_name!("li") {
+                        self.in_scope_named(list_item_scope, tag.name.clone())
+                    } else {
+                        self.in_scope_named(default_scope, tag.name.clone())
                     };
-                    if self.in_scope_named(|x| scope(x), tag.name.clone()) {
+                    if in_scope {
                         self.generate_implied_end_except(tag.name.clone());
                         self.expect_to_close(tag.name);
                     } else {

@@ -16,6 +16,15 @@ pub use self::tree_builder::{NodeOrText, AppendNode, AppendText};
 pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
+/// https://www.w3.org/TR/REC-xml-names/#dt-expname
+pub type ExpandedName<'a> = (&'a Namespace, &'a LocalName);
+
+#[macro_export]
+macro_rules! expanded_name {
+    ($ns: ident $local: tt) => {
+        (&ns!($ns), &local_name!($local))
+    }
+}
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
@@ -93,6 +102,11 @@ impl QualName {
             local: local,
             prefix: Some(prefix),
         }
+    }
+
+    #[inline]
+    pub fn expanded(&self) -> ExpandedName {
+        (&self.ns, &self.local)
     }
 }
 
