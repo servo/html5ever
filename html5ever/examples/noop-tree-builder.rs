@@ -43,7 +43,7 @@ impl TreeSink for Sink {
     }
 
     fn get_template_contents(&mut self, target: &usize) -> usize {
-        if let Some(&qualname!(html, "template")) = self.names.get(&target) {
+        if let Some(expanded_name!(html "template")) = self.names.get(&target).map(|n| n.expanded()) {
             target + 1
         } else {
             panic!("not a template element")

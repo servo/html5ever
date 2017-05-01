@@ -26,7 +26,7 @@ use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
-use xml5ever::LocalName;
+use xml5ever::{LocalName, Namespace};
 use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
 use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};
@@ -201,6 +201,12 @@ impl JsonExt for Json {
     }
 }
 
+macro_rules! ns {
+    () => {
+        Namespace::default()
+    }
+}
+
 // Parse a JSON object (other than "ParseError") to a token.
 fn json_to_token(js: &Json) -> Token {
     let parts = js.as_array().unwrap();
@@ -210,10 +216,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new_localname(LocalName::from(&**k)),
+                    name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -221,22 +227,22 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "ShortTag" => TagToken(Tag {
             kind: ShortTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "EmptyTag" => TagToken(Tag {
             kind: EmptyTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new_localname(LocalName::from(&**k)),
+                    name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

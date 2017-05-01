@@ -18,12 +18,13 @@ use std::default::Default;
 use tendril::{StrTendril, SliceExt, TendrilSink};
 
 use html5ever::driver::ParseOpts;
-use html5ever::{parse_fragment, parse_document, serialize};
+use html5ever::{parse_fragment, parse_document, serialize, QualName};
 use html5ever::rcdom::RcDom;
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom = parse_fragment(
-        RcDom::default(), ParseOpts::default(), qualname!(html, "body"), vec![]
+        RcDom::default(), ParseOpts::default(),
+        QualName::new(None, ns!(html), local_name!("body")), vec![],
     ).one(input);
     let inner = &dom.document.children.borrow()[0];
 

@@ -645,11 +645,11 @@ mod test {
         // Actual Output
         let actual = resultTok.finish();
         // Expected Output
-        let expected = vec![(qualname!(html, "html"), 1),
-                            (qualname!(html, "head"), 1),
-                            (qualname!(html, "body"), 1),
-                            (qualname!(html, "a"), 1),
-                            (qualname!(html, "b"), 3)];
+        let expected = vec![(QualName::new(None, ns!(html), local_name!("html")), 1),
+                            (QualName::new(None, ns!(html), local_name!("head")), 1),
+                            (QualName::new(None, ns!(html), local_name!("body")), 1),
+                            (QualName::new(None, ns!(html), local_name!("a")), 1),
+                            (QualName::new(None, ns!(html), local_name!("b")), 3)];
         // Assertion
         assert_eq!(actual.line_vec, expected);
     }

@@ -57,6 +57,23 @@ enum Bookmark<Handle> {
     InsertAfter(Handle),
 }
 
+macro_rules! qualname {
+    ("", $local:tt) => {
+        QualName {
+            prefix: None,
+            ns: ns!(),
+            local: local_name!($local),
+        }
+    };
+    ($ns:tt, $local:tt) => {
+        QualName {
+            prefix: None,
+            ns: ns!($ns),
+            local: local_name!($local),
+        }
+    }
+}
+
 // These go in a trait so that we can control visibility.
 pub trait TreeBuilderActions<Handle> {
     fn unexpected<T: fmt::Debug>(&mut self, thing: &T) -> ProcessResult<Handle>;
@@ -345,7 +362,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
                 // own, once as part of t.clone() above)?
                 let new_element = self.sink.create_element(
-                    QualName::new(ns!(html), tag.name.clone()), tag.attrs.clone());
+                    QualName::new(None, ns!(html), tag.name.clone()),
+                    tag.attrs.clone());
                 self.open_elems[node_index] = new_element.clone();
                 self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
                 node = new_element;
@@ -373,7 +391,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
             let new_element = self.sink.create_element(
-                QualName::new(ns!(html), fmt_elem_tag.name.clone()), fmt_elem_tag.attrs.clone());
+                QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
+                fmt_elem_tag.attrs.clone());
             let new_entry = Element(new_element.clone(), fmt_elem_tag);
 
             // 16.
@@ -650,7 +669,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     // Check <input> tags for type=hidden
     fn is_type_hidden(&self, tag: &Tag) -> bool {
-        match tag.attrs.iter().find(|&at| at.name == qualname!("", "type")) {
+        match tag.attrs.iter().find(|&at| at.name.expanded() == expanded_name!("", "type")) {
             None => false,
             Some(at) => (&*at.value).eq_ignore_ascii_case("hidden"),
         }
@@ -756,7 +775,9 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
-        let elem = self.sink.create_element(qualname!(html, "html"), attrs);
+        let elem = self.sink.create_element(
+            QualName::new(None, ns!(html), local_name!("html")),
+            attrs);
         self.push(&elem);
         self.sink.append(&self.doc_handle, AppendNode(elem));
         // FIXME: application cache selection algorithm
@@ -772,7 +793,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
         declare_tag_set!(listed = [form_associatable] - "img");
 
         // Step 7.
-        let qname = QualName::new(ns, name);
+        let qname = QualName::new(None, ns, name);
         let elem = self.sink.create_element(qname.clone(), attrs.clone());
 
         let insertion_point = self.appropriate_place_for_insertion(None);
@@ -786,7 +807,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
            self.form_elem.is_some() &&
            !self.in_html_elem_named(local_name!("template")) &&
            !(listed(qname.expanded()) &&
-                attrs.iter().any(|a| a.name == qualname!("","form"))) {
+                attrs.iter().any(|a| a.name.expanded() == expanded_name!("", "form"))) {
 
                let form = self.form_elem.as_ref().unwrap().clone();
                if self.sink.same_tree(&tree_node, &form) {

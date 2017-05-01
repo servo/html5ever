@@ -197,16 +197,16 @@ impl TreeSink for RcDom {
     }
 
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
-        let info = match name {
-            qualname!(html, "script") => Script(Cell::new(false)),
-            qualname!(html, "template") => Template(new_node(Document)),
-            qualname!(mathml, "annotation-xml") => {
-                AnnotationXml(attrs.iter().find(|attr| attr.name == qualname!("", "encoding"))
-                                   .map_or(false,
-                                           |attr| attr.value
-                                                      .eq_ignore_ascii_case("text/html") ||
-                                                  attr.value
-                                                      .eq_ignore_ascii_case("application/xhtml+xml")))
+        let info = match name.expanded() {
+            expanded_name!(html "script") => Script(Cell::new(false)),
+            expanded_name!(html "template") => Template(new_node(Document)),
+            expanded_name!(mathml "annotation-xml") => {
+                AnnotationXml(attrs.iter()
+                    .find(|attr| attr.name.expanded() == expanded_name!("", "encoding"))
+                    .map_or(false, |attr| {
+                        attr.value.eq_ignore_ascii_case("text/html") ||
+                        attr.value.eq_ignore_ascii_case("application/xhtml+xml")
+                    }))
             },
             _ => Normal,
         };

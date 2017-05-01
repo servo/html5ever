@@ -520,7 +520,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
-                name: QualName::new(ns!(), name),
+                name: QualName::new(None, ns!(), name),
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             });
         }

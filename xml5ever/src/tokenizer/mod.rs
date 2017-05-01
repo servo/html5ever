@@ -73,12 +73,13 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     };
 
     match split {
-        None => QualName::new_localname(LocalName::from(&*tag_name)),
+        None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QualName::new_prefixed(Prefix::from(&*prefix), LocalName::from(&*local))
+            let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
+            QualName::new(Some(Prefix::from(&*prefix)), ns, LocalName::from(&*local))
         },
     }
 }

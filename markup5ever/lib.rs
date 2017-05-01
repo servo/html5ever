@@ -15,24 +15,6 @@ extern crate phf;
 extern crate tendril;
 
 #[macro_export]
-macro_rules! qualname {
-    ("", $local:tt) => {
-        $ crate::QualName {
-            ns: ns!(),
-            prefix: None,
-            local: local_name!($local),
-        }
-    };
-    ($ns:tt, $local:tt) => {
-        $ crate::QualName {
-            ns: ns!($ns),
-            prefix: None,
-            local: local_name!($local),
-        }
-    }
-}
-
-#[macro_export]
 macro_rules! small_char_set ( ($($e:expr)+) => (
     $ crate ::SmallCharSet {
         bits: $( (1 << ($e as usize)) )|+
@@ -43,7 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 
 pub mod data;
-pub mod interface;
+#[macro_use] pub mod interface;
 pub mod rcdom;
 pub mod serialize;
 pub mod util {

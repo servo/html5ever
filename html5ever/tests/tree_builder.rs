@@ -243,11 +243,11 @@ fn make_test_desc_with_scripting_flag(
 
 fn context_name(context: &str) -> QualName {
     if context.starts_with("svg ") {
-        QualName::new(ns!(svg), LocalName::from(&context[4..]))
+        QualName::new(None, ns!(svg), LocalName::from(&context[4..]))
     } else if context.starts_with("math ") {
-        QualName::new(ns!(mathml), LocalName::from(&context[5..]))
+        QualName::new(None, ns!(mathml), LocalName::from(&context[5..]))
     } else {
-        QualName::new(ns!(html), LocalName::from(context))
+        QualName::new(None, ns!(html), LocalName::from(context))
     }
 }
 

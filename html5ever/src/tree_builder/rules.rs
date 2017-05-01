@@ -9,7 +9,7 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use ExpandedName;
+use {ExpandedName, QualName};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
@@ -140,7 +140,9 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 tag @ <script> => {
-                    let elem = self.sink.create_element(qualname!(html, "script"), tag.attrs);
+                    let elem = self.sink.create_element(
+                        QualName::new(None, ns!(html), local_name!("script")),
+                        tag.attrs);
                     if self.is_fragment() {
                         self.sink.mark_script_already_started(&elem);
                     }
@@ -1404,8 +1406,10 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
 
             tag @ <font> => {
                 let unexpected = tag.attrs.iter().any(|attr| {
-                    matches!(attr.name,
-                             qualname!("", "color") | qualname!("", "face") | qualname!("", "size"))
+                    matches!(attr.name.expanded(),
+                             expanded_name!("", "color") |
+                             expanded_name!("", "face") |
+                             expanded_name!("", "size"))
                 });
                 if unexpected {
                     self.unexpected_start_tag_in_foreign_content(tag)
