@@ -28,11 +28,12 @@ pub mod data;
 #[macro_use] pub mod interface;
 pub mod rcdom;
 pub mod serialize;
-pub mod util {
+mod util {
     pub mod smallcharset;
     pub mod buffer_queue;
 }
 
+pub use util::*;
 pub use interface::{ExpandedName, QualName, Attribute};
 pub use util::smallcharset::SmallCharSet;
 

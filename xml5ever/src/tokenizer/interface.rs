@@ -9,8 +9,8 @@
 
 use std::borrow::Cow;
 
+use {Attribute, QualName};
 use tendril::StrTendril;
-use markup5ever::interface::{Attribute, QualName};
 
 pub use self::TagKind::{StartTag, EndTag, EmptyTag, ShortTag};
 pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};

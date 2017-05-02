@@ -7,13 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use tokenizer::states;
-
+use LocalName;
+use interface::Attribute;
 use std::borrow::Cow;
-
-use {LocalName};
 use tendril::StrTendril;
-use markup5ever::interface::Attribute;
+use tokenizer::states;
 
 pub use self::TagKind::{StartTag, EndTag};
 pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};

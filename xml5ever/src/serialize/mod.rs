@@ -7,11 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use QualName;
 pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef};
 use std::io::{self, Write};
-
-use markup5ever::{QualName};
-
 use tree_builder::NamespaceMap;
 
 #[derive(Copy, Clone)]

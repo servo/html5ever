@@ -19,15 +19,12 @@ pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
 pub use {Prefix, LocalName, Namespace};
 
+use {Attribute, QualName, SmallCharSet, buffer_queue};
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
-
 use tendril::StrTendril;
-use markup5ever::SmallCharSet;
-use markup5ever::interface::{Attribute, QualName};
-use markup5ever::util::buffer_queue;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use self::char_ref::{CharRefTokenizer, CharRef};

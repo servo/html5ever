@@ -10,12 +10,12 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use {ExpandedName, QualName};
+use interface::{Attribute, TreeSink, Quirks, AppendNode};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
 use tokenizer::{EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
-
 use util::str::is_ascii_whitespace;
 
 use std::ascii::AsciiExt;
@@ -24,7 +24,6 @@ use std::borrow::Cow::Borrowed;
 use std::borrow::ToOwned;
 
 use tendril::{StrTendril, SliceExt};
-use markup5ever::interface::{Attribute, TreeSink, Quirks, AppendNode};
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan

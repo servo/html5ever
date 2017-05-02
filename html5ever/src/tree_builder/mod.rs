@@ -11,9 +11,9 @@
 
 //! The HTML5 tree builder.
 
-pub use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-pub use markup5ever::interface::{TreeSink, Tracer};
+pub use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use interface::{NodeOrText, AppendNode, AppendText};
+pub use interface::{TreeSink, Tracer, NextParserState};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;

@@ -29,11 +29,9 @@ use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
-use {LocalName, QualName};
+use {LocalName, QualName, Attribute, SmallCharSet};
 use tendril::StrTendril;
-use markup5ever::{SmallCharSet};
-use markup5ever::interface::{Attribute};
-pub use markup5ever::util::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
+pub use buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 
 pub mod states;
 mod interface;
@@ -1415,7 +1413,7 @@ mod test {
     use super::interface::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
     use super::interface::{TagKind, StartTag, EndTag, Tag};
 
-    use markup5ever::util::buffer_queue::{BufferQueue};
+    use markup5ever::buffer_queue::{BufferQueue};
     use std::mem::replace;
 
     use {LocalName};

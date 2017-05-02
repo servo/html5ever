@@ -12,14 +12,14 @@
 //! Many of these are named within the spec, e.g. "reset the insertion
 //! mode appropriately".
 
-use tree_builder::types::*;
-use tree_builder::tag_sets::*;
-use markup5ever::interface::{Attribute, TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
-use tree_builder::rules::TreeBuilderStep;
-
+use {LocalName, Namespace, QualName, ExpandedName};
+use interface::{Attribute, TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
-
+use tree_builder::types::*;
+use tree_builder::tag_sets::*;
+use tree_builder::rules::TreeBuilderStep;
 use util::str::to_escaped_string;
 
 use std::ascii::AsciiExt;
@@ -27,9 +27,6 @@ use std::{slice, fmt};
 use std::mem::replace;
 use std::iter::{Rev, Enumerate};
 use std::borrow::Cow::Borrowed;
-
-use {LocalName, Namespace, QualName, ExpandedName};
-use tendril::StrTendril;
 
 pub use self::PushFlag::*;
 

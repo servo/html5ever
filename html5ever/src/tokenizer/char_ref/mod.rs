@@ -8,19 +8,16 @@
 // except according to those terms.
 
 use super::{Tokenizer, TokenSink};
-use markup5ever::util::buffer_queue::BufferQueue;
-
-use util::str::{is_ascii_alnum};
-
+use buffer_queue::BufferQueue;
+use data;
 use tendril::StrTendril;
+use util::str::{is_ascii_alnum};
 
 use std::char::from_u32;
 use std::borrow::Cow::Borrowed;
 
 pub use self::Status::*;
 use self::State::*;
-
-use markup5ever::data;
 
 //§ tokenizing-character-references
 pub struct CharRef {

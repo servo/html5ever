@@ -11,7 +11,6 @@ mod actions;
 mod rules;
 mod types;
 
-
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
 use std::collections::{VecDeque, BTreeMap, HashSet};
@@ -20,11 +19,11 @@ use std::fmt::{Formatter, Debug, Error};
 use std::result::Result;
 use std::mem;
 
-use markup5ever::interface::{self, QualName, Attribute};
 
 use {Prefix, Namespace, LocalName};
+use interface::{self, QualName, Attribute};
 use tokenizer::{self, TokenSink, Tag, StartTag};
-pub use self::interface::{TreeSink, Tracer, NodeOrText};
+pub use self::interface::{TreeSink, Tracer, NodeOrText, NextParserState};
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
 
@@ -36,17 +35,6 @@ type InsResult = Result<(), Cow<'static, str>>;
 
 #[derive(Debug)]
 struct NamespaceMapStack(Vec<NamespaceMap>);
-
-/// Whether to interrupt further parsing of the current input until
-/// the next explicit resumption of the tokenizer, or continue without
-/// any interruption.
-#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-pub enum NextParserState {
-    /// Stop further parsing.
-    Suspend,
-    /// Continue without interruptions.
-    Continue,
-}
 
 impl NamespaceMapStack{
     fn new() -> NamespaceMapStack {

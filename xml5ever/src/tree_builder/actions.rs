@@ -10,9 +10,9 @@
 use std::borrow::Cow::Borrowed;
 
 use tendril::{StrTendril, Tendril};
-use markup5ever::interface::{NodeOrText, TreeSink, AppendNode};
-use markup5ever::interface::{AppendText, ExpandedName, NextParserState};
 
+use interface::{NodeOrText, TreeSink, AppendNode};
+use interface::{AppendText, ExpandedName, NextParserState};
 use tokenizer::{Tag, Pi, Doctype};
 use tokenizer::states::Quiescent;
 use tree_builder::types::{XmlProcessResult, Done};

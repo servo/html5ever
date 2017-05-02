@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use interface::TreeSink;
 use std::borrow::Cow::Borrowed;
 use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag, ShortTag, EmptyTag};
 use tree_builder::types::*;
-use markup5ever::interface::TreeSink;
 use tree_builder::actions::XmlTreeBuilderActions;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
