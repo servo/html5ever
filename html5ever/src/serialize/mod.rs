@@ -7,27 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef};
 use std::io::{self, Write};
 use std::default::Default;
 
 use {LocalName, QualName};
 
-//§ serializing-html-fragments
-#[derive(Copy, Clone, PartialEq)]
-pub enum TraversalScope {
-    IncludeNode,
-    ChildrenOnly
-}
-
-pub trait Serializable {
-    fn serialize<'wr, Wr: Write>(&self, serializer: &mut Serializer<'wr, Wr>,
-                                  traversal_scope: TraversalScope) -> io::Result<()>;
-}
-
-pub fn serialize<Wr: Write, T: Serializable>
-    (writer: &mut Wr, node: &T, opts: SerializeOpts) -> io::Result<()> {
-
-    let mut ser = Serializer::new(writer, opts);
+pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
+where Wr: Write, T: Serialize {
+    let mut ser = HtmlSerializer::new(writer, opts);
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
@@ -55,10 +43,8 @@ struct ElemInfo {
     processed_first_child: bool,
 }
 
-pub type AttrRef<'a> = (&'a QualName, &'a str);
-
-pub struct Serializer<'wr, Wr:'wr> {
-    writer: &'wr mut Wr,
+struct HtmlSerializer<Wr: Write> {
+    writer: Wr,
     opts: SerializeOpts,
     stack: Vec<ElemInfo>,
 }
@@ -75,9 +61,9 @@ fn tagname(name: &QualName) -> LocalName {
     name.local.clone()
 }
 
-impl<'wr, Wr: Write> Serializer<'wr, Wr> {
-    fn new(writer: &'wr mut Wr, opts: SerializeOpts) -> Serializer<'wr, Wr> {
-        Serializer {
+impl<Wr: Write> HtmlSerializer<Wr> {
+    fn new(writer: Wr, opts: SerializeOpts) -> Self {
+        HtmlSerializer {
             writer: writer,
             opts: opts,
             stack: vec!(ElemInfo {
@@ -88,7 +74,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         }
     }
 
-    fn parent<'a>(&'a mut self) -> &'a mut ElemInfo {
+    fn parent(&mut self) -> &mut ElemInfo {
         self.stack.last_mut().expect("no parent ElemInfo")
     }
 
@@ -105,12 +91,11 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         }
         Ok(())
     }
+}
 
-    pub fn start_elem<'a, AttrIter: Iterator<Item=AttrRef<'a>>>(
-        &mut self,
-        name: QualName,
-        attrs: AttrIter) -> io::Result<()> {
-
+impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
+    fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
+    where AttrIter: Iterator<Item=AttrRef<'a>> {
         let html_name = match name.ns {
             ns!(html) => Some(name.local.clone()),
             _ => None,
@@ -173,7 +158,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         Ok(())
     }
 
-    pub fn end_elem(&mut self, name: QualName) -> io::Result<()> {
+    fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         let info = self.stack.pop().expect("no ElemInfo");
         if info.ignore_children {
             return Ok(());
@@ -184,7 +169,7 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         self.writer.write_all(b">")
     }
 
-    pub fn write_text(&mut self, text: &str) -> io::Result<()> {
+    fn write_text(&mut self, text: &str) -> io::Result<()> {
         let prepend_lf = text.starts_with("\n") && {
             let parent = self.parent();
             !parent.processed_first_child && match parent.html_name {
@@ -214,19 +199,19 @@ impl<'wr, Wr: Write> Serializer<'wr, Wr> {
         }
     }
 
-    pub fn write_comment(&mut self, text: &str) -> io::Result<()> {
+    fn write_comment(&mut self, text: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<!--"));
         try!(self.writer.write_all(text.as_bytes()));
         self.writer.write_all(b"-->")
     }
 
-    pub fn write_doctype(&mut self, name: &str) -> io::Result<()> {
+    fn write_doctype(&mut self, name: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<!DOCTYPE "));
         try!(self.writer.write_all(name.as_bytes()));
         self.writer.write_all(b">")
     }
 
-    pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
+    fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<?"));
         try!(self.writer.write_all(target.as_bytes()));
         try!(self.writer.write_all(b" "));

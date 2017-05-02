@@ -7,19 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use super::{XmlTokenizer, TokenSink};
 
-use util::{is_ascii_alnum};
-
-use tendril::StrTendril;
-
+use data;
 use std::char::from_u32;
 use std::borrow::Cow::Borrowed;
+use super::{XmlTokenizer, TokenSink};
+use tendril::StrTendril;
+use util::{is_ascii_alnum};
 
 pub use self::Status::*;
 use self::State::*;
 
-use markup5ever::data;
 
 
 //§ tokenizing-character-references

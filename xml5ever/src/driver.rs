@@ -50,19 +50,6 @@ pub struct XmlParser<Sink> where Sink: TreeSink {
     pub tokenizer: XmlTokenizer<XmlTreeBuilder<Sink::Handle, Sink>>,
 }
 
-
-/// Results which can be extracted from a `TreeSink`.
-///
-/// Implement this for your parse tree data type so that it
-/// can be returned by `parse()`.
-pub trait ParseResult {
-    /// Type of consumer of tree modifications.
-    /// It also extends `Default` for convenience.
-    type Sink: TreeSink + Default;
-    /// Returns parsed tree data type
-    fn get_result(sink: Self::Sink) -> Self;
-}
-
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
 
     type Output = Sink::Output;
@@ -270,7 +257,6 @@ fn detect_encoding(bytes: &ByteTendril, opts: &BytesOpts) -> EncodingRef {
 mod tests {
     use rcdom::RcDom;
     use serialize::serialize;
-    use std::iter::repeat;
     use tendril::TendrilSink;
     use super::*;
 

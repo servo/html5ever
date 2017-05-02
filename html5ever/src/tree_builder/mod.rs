@@ -11,14 +11,15 @@
 
 //! The HTML5 tree builder.
 
-pub use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-pub use markup5ever::interface::{TreeSink, Tracer};
+pub use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use interface::{NodeOrText, AppendNode, AppendText};
+pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFlags};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;
 use self::rules::TreeBuilderStep;
 
+use ExpandedName;
 use QualName;
 use tendril::StrTendril;
 
@@ -184,7 +185,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                             opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template =
-            sink.elem_name(context_elem.clone()) == qualname!(html, "template");
+            sink.elem_name(&context_elem) == expanded_name!(html "template");
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
@@ -219,12 +220,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     // https://html.spec.whatwg.org/multipage/syntax.html#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
-        let elem = self.context_elem.clone().expect("no context element");
+        let elem = self.context_elem.as_ref().expect("no context element");
         let name = match self.sink.elem_name(elem) {
-            QualName { ns: ns!(html), local, .. } => local,
+            ExpandedName { ns: &ns!(html), local } => local,
             _ => return tok_state::Data
         };
-        match name {
+        match *name {
             local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
             local_name!("style") | local_name!("xmp") | local_name!("iframe")
@@ -279,9 +280,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         println!("dump_state on {}", label);
         print!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QualName { ns, local, .. } = self.sink.elem_name(node.clone());
-            match ns {
-                ns!(html) => print!(" {}", &local[..]),
+            let name = self.sink.elem_name(node);
+            match *name.ns {
+                ns!(html) => print!(" {}", name.local),
                 _ => panic!(),
             }
         }
@@ -291,9 +292,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             match entry {
                 &Marker => print!(" Marker"),
                 &Element(ref h, _) => {
-                    let QualName { ns, local, .. } = self.sink.elem_name(h.clone());
-                    match ns {
-                        ns!(html) => print!(" {}", &local[..]),
+                    let name = self.sink.elem_name(h);
+                    match *name.ns {
+                        ns!(html) => print!(" {}", name.local),
                         _ => panic!(),
                     }
                 }
@@ -376,11 +377,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         use self::tag_sets::*;
 
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
-        let target = override_target.unwrap_or_else(|| self.current_node());
-        if !(self.foster_parenting && self.elem_in(target.clone(), foster_target)) {
-            if self.html_elem_named(target.clone(), local_name!("template")) {
+        let target = override_target.unwrap_or_else(|| self.current_node().clone());
+        if !(self.foster_parenting && self.elem_in(&target, foster_target)) {
+            if self.html_elem_named(&target, local_name!("template")) {
                 // No foster parenting (inside template).
-                let contents = self.sink.get_template_contents(target);
+                let contents = self.sink.get_template_contents(&target);
                 return LastChild(contents);
             } else {
                 // No foster parenting (the common case).
@@ -391,12 +392,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         // Foster parenting
         let mut iter = self.open_elems.iter().rev().peekable();
         while let Some(elem) = iter.next() {
-            if self.html_elem_named(elem.clone(), local_name!("template")) {
-                let contents = self.sink.get_template_contents(elem.clone());
+            if self.html_elem_named(&elem, local_name!("template")) {
+                let contents = self.sink.get_template_contents(&elem);
                 return LastChild(contents);
-            } else if self.html_elem_named(elem.clone(), local_name!("table")) {
+            } else if self.html_elem_named(&elem, local_name!("table")) {
                 // Try inserting "inside last table's parent node, immediately before last table"
-                if self.sink.has_parent_node(elem.clone()) {
+                if self.sink.has_parent_node(&elem) {
                     return BeforeSibling(elem.clone());
                 } else {
                     // If elem has no parent, we regain ownership of the child.
@@ -407,13 +408,13 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             }
         }
         let html_elem = self.html_elem();
-        LastChild(html_elem)
+        LastChild(html_elem.clone())
     }
 
     fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
         match insertion_point {
-            LastChild(parent) => self.sink.append(parent, child),
-            BeforeSibling(sibling) => self.sink.append_before_sibling(sibling, child)
+            LastChild(parent) => self.sink.append(&parent, child),
+            BeforeSibling(sibling) => self.sink.append_before_sibling(&sibling, child)
         }
     }
 }
@@ -487,13 +488,13 @@ impl<Handle, Sink> TokenSink
 
     fn end(&mut self) {
         for elem in self.open_elems.drain(..).rev() {
-            self.sink.pop(elem);
+            self.sink.pop(&elem);
         }
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
-        self.sink.elem_name(self.adjusted_current_node()).ns != ns!(html)
+        self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
     }
 }
 
@@ -502,12 +503,13 @@ impl<Handle, Sink> TokenSink
 mod test {
     use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
     use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-    use markup5ever::interface::{TreeSink, Tracer};
+    use markup5ever::interface::{TreeSink, Tracer, ElementFlags};
 
     use super::types::*;
     use super::actions::TreeBuilderActions;
     use super::rules::TreeBuilderStep;
 
+    use ExpandedName;
     use QualName;
     use tendril::StrTendril;
     use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
@@ -528,7 +530,7 @@ mod test {
     use driver::*;
     use super::{TreeBuilderOpts, TreeBuilder};
     use markup5ever::Attribute;
-    use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
+    use rcdom::{Node, Handle, RcDom, NodeData};
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,
@@ -551,7 +553,7 @@ mod test {
             self.rcdom.get_document()
         }
 
-        fn get_template_contents(&mut self, target: Handle) -> Handle {
+        fn get_template_contents(&mut self, target: &Handle) -> Handle {
             self.rcdom.get_template_contents(target)
         }
 
@@ -559,25 +561,18 @@ mod test {
             self.rcdom.set_quirks_mode(mode)
         }
 
-        fn same_node(&self, x: Handle, y: Handle) -> bool {
+        fn same_node(&self, x: &Handle, y: &Handle) -> bool {
             self.rcdom.same_node(x, y)
         }
 
-        fn same_node_ref(&self, x: &Handle, y: &Handle) -> bool {
-            self.rcdom.same_node_ref(x, y)
-        }
-
-        fn elem_name(&self, target: Handle) -> QualName {
+        fn elem_name<'a>(&'a self, target: &'a Handle) -> ExpandedName<'a> {
             self.rcdom.elem_name(target)
         }
 
-        fn elem_name_ref(&self, target: &Handle) -> QualName {
-            self.rcdom.elem_name_ref(target)
-        }
-
-        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
+                          -> Handle {
             self.line_vec.push((name.clone(), self.current_line));
-            self.rcdom.create_element(name, attrs)
+            self.rcdom.create_element(name, attrs, flags)
         }
 
         fn create_comment(&mut self, text: StrTendril) -> Handle {
@@ -588,17 +583,16 @@ mod test {
             self.rcdom.create_pi(target, content)
         }
 
-        fn has_parent_node(&self, node: Handle) -> bool {
-            let node = node.borrow();
-            node.parent.is_some()
+        fn has_parent_node(&self, node: &Handle) -> bool {
+            self.rcdom.has_parent_node(node)
         }
 
-        fn append(&mut self, parent: Handle, child: NodeOrText<Handle>) {
+        fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
             self.rcdom.append(parent, child)
         }
 
         fn append_before_sibling(&mut self,
-                sibling: Handle,
+                sibling: &Handle,
                 child: NodeOrText<Handle>) {
             self.rcdom.append_before_sibling(sibling, child)
         }
@@ -610,24 +604,20 @@ mod test {
             self.rcdom.append_doctype_to_document(name, public_id, system_id);
         }
 
-        fn add_attrs_if_missing(&mut self, target: Handle, attrs: Vec<Attribute>) {
+        fn add_attrs_if_missing(&mut self, target: &Handle, attrs: Vec<Attribute>) {
             self.rcdom.add_attrs_if_missing(target, attrs);
         }
 
-        fn remove_from_parent(&mut self, target: Handle) {
+        fn remove_from_parent(&mut self, target: &Handle) {
             self.rcdom.remove_from_parent(target);
         }
 
-        fn reparent_children(&mut self, node: Handle, new_parent: Handle) {
+        fn reparent_children(&mut self, node: &Handle, new_parent: &Handle) {
             self.rcdom.reparent_children(node, new_parent);
         }
 
-        fn mark_script_already_started(&mut self, target: Handle) {
+        fn mark_script_already_started(&mut self, target: &Handle) {
             self.rcdom.mark_script_already_started(target);
-        }
-
-        fn is_mathml_annotation_xml_integration_point(&self, handle: Self::Handle) -> bool {
-            self.rcdom.is_mathml_annotation_xml_integration_point(handle)
         }
 
         fn set_current_line(&mut self, line_number: u64) {
@@ -652,11 +642,11 @@ mod test {
         // Actual Output
         let actual = resultTok.finish();
         // Expected Output
-        let expected = vec![(qualname!(html, "html"), 1),
-                            (qualname!(html, "head"), 1),
-                            (qualname!(html, "body"), 1),
-                            (qualname!(html, "a"), 1),
-                            (qualname!(html, "b"), 3)];
+        let expected = vec![(QualName::new(None, ns!(html), local_name!("html")), 1),
+                            (QualName::new(None, ns!(html), local_name!("head")), 1),
+                            (QualName::new(None, ns!(html), local_name!("body")), 1),
+                            (QualName::new(None, ns!(html), local_name!("a")), 1),
+                            (QualName::new(None, ns!(html), local_name!("b")), 3)];
         // Assertion
         assert_eq!(actual.line_vec, expected);
     }

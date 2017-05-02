@@ -9,9 +9,7 @@
 
 extern crate rustc_serialize;
 extern crate test;
-
-extern crate xml5ever;
-extern crate markup5ever;
+#[macro_use] extern crate xml5ever;
 
 use std::borrow::Cow::Borrowed;
 use std::env;
@@ -20,13 +18,12 @@ use std::mem::replace;
 use std::path::Path;
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
-use markup5ever::{Attribute, QualName};
 
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
-use xml5ever::LocalName;
+use xml5ever::{LocalName, Attribute, QualName};
 use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
 use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};
@@ -210,10 +207,10 @@ fn json_to_token(js: &Json) -> Token {
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new_localname(LocalName::from(&**k)),
+                    name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
@@ -221,22 +218,22 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "ShortTag" => TagToken(Tag {
             kind: ShortTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec!(),
         }),
 
         "EmptyTag" => TagToken(Tag {
             kind: EmptyTag,
-            name: QualName::new_localname(LocalName::from(args[0].get_str())),
+            name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new_localname(LocalName::from(&**k)),
+                    name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

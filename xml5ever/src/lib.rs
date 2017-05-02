@@ -35,9 +35,7 @@
 #[macro_use] extern crate markup5ever;
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
-extern crate phf;
 extern crate time;
-
 
 pub use markup5ever::*;
 
@@ -62,8 +60,6 @@ mod util;
 pub mod tokenizer;
 /// XML5 tree builder - converts tokens into a tree like structure
 pub mod tree_builder;
-/// A simple reference-counted that serves as a default tree structure
-pub mod rcdom;
 /// Serializer for XML5.
 pub mod serialize;
 /// Driver

@@ -8,7 +8,6 @@
 // except according to those terms.
 
 
-use std::ascii::AsciiExt;
 use std::collections::VecDeque;
 
 use tendril::StrTendril;

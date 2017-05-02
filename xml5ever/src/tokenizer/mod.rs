@@ -19,15 +19,12 @@ pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
 pub use {Prefix, LocalName, Namespace};
 
+use {Attribute, QualName, SmallCharSet, buffer_queue};
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
-
 use tendril::StrTendril;
-use markup5ever::SmallCharSet;
-use markup5ever::interface::{Attribute, QualName};
-use markup5ever::util::buffer_queue;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
 use self::char_ref::{CharRefTokenizer, CharRef};
@@ -73,12 +70,13 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     };
 
     match split {
-        None => QualName::new_localname(LocalName::from(&*tag_name)),
+        None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QualName::new_prefixed(Prefix::from(&*prefix), LocalName::from(&*local))
+            let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
+            QualName::new(Some(Prefix::from(&*prefix)), ns, LocalName::from(&*local))
         },
     }
 }

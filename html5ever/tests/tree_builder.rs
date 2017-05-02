@@ -9,10 +9,7 @@
 
 extern crate test;
 extern crate tendril;
-extern crate html5ever;
-
-#[macro_use] 
-extern crate markup5ever;
+#[macro_use] extern crate html5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
@@ -30,8 +27,7 @@ use test::ShouldPanic::No;
 
 use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
-use html5ever::rcdom::{Comment, Document, Doctype, Element, Handle, RcDom};
-use html5ever::rcdom::{Template, Text};
+use html5ever::rcdom::{NodeData, Handle, RcDom};
 
 use tendril::{StrTendril, TendrilSink};
 
@@ -83,32 +79,32 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
-    let node = handle.borrow();
-    match node.node {
-        Document => panic!("should not reach Document"),
+    let node = handle;
+    match node.data {
+        NodeData::Document => panic!("should not reach Document"),
 
-        Doctype(ref name, ref public, ref system) => {
+        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
-            if !public.is_empty() || !system.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
+            if !public_id.is_empty() || !system_id.is_empty() {
+                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         }
 
-        Text(ref text) => {
+        NodeData::Text { ref contents } => {
             buf.push_str("\"");
-            buf.push_str(&text);
+            buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         }
 
-        Comment(ref text) => {
+        NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&text);
+            buf.push_str(&contents);
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, _, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             buf.push_str("<");
             match name.ns {
                 ns!(svg) => buf.push_str("svg "),
@@ -118,7 +114,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.clone();
+            let mut attrs = attrs.borrow().clone();
             attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
@@ -135,17 +131,19 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                     attr.name.local, attr.value));
             }
         }
+
+        NodeData::ProcessingInstruction { .. } => unreachable!()
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 
-    if let Element(_, Template(ref content), _) = node.node {
+    if let NodeData::Element { template_contents: Some(ref content), .. } = node.data {
         buf.push_str("|");
         buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
         buf.push_str("content\n");
-        for child in &content.borrow().children {
+        for child in content.children.borrow().iter() {
             serialize(buf, indent+4, child.clone());
         }
     }
@@ -213,7 +211,7 @@ fn make_test_desc_with_scripting_flag(
             match context {
                 None => {
                     let dom = parse_document(RcDom::default(), opts).one(data.clone());
-                    for child in dom.document.borrow().children.iter() {
+                    for child in dom.document.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
                 },
@@ -222,9 +220,9 @@ fn make_test_desc_with_scripting_flag(
                         .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
-                    let doc = dom.document.borrow();
-                    let root = doc.children[0].borrow();
-                    for child in root.children.iter() {
+                    let doc = dom.document;
+                    let root = &doc.children.borrow()[0];
+                    for child in root.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
                 },
@@ -242,11 +240,11 @@ fn make_test_desc_with_scripting_flag(
 
 fn context_name(context: &str) -> QualName {
     if context.starts_with("svg ") {
-        QualName::new(ns!(svg), LocalName::from(&context[4..]))
+        QualName::new(None, ns!(svg), LocalName::from(&context[4..]))
     } else if context.starts_with("math ") {
-        QualName::new(ns!(mathml), LocalName::from(&context[5..]))
+        QualName::new(None, ns!(mathml), LocalName::from(&context[5..]))
     } else {
-        QualName::new(ns!(html), LocalName::from(context))
+        QualName::new(None, ns!(html), LocalName::from(context))
     }
 }
 

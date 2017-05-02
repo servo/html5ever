@@ -7,11 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use tokenizer::Doctype;
-use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-
-use std::ascii::AsciiExt;
+use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 use tendril::StrTendril;
+use tokenizer::Doctype;
+use std::ascii::AsciiExt;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
 static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[

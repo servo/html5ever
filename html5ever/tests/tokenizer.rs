@@ -9,11 +9,7 @@
 
 extern crate rustc_serialize;
 extern crate test;
-extern crate html5ever;
-
-#[macro_use] 
-extern crate markup5ever;
-
+#[macro_use] extern crate html5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
@@ -227,7 +223,7 @@ fn json_to_token(js: &Json) -> Token {
             name: LocalName::from(&*args[0].get_str()),
             attrs: args[1].get_obj().iter().map(|(k,v)| {
                 Attribute {
-                    name: QualName::new(ns!(), LocalName::from(&**k)),
+                    name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),

@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate phf_codegen;
 #[macro_use] extern crate quote;
 extern crate syn;
 

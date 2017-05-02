@@ -31,15 +31,12 @@ harness = false
 
 [features]
 unstable = ["tendril/unstable"]
-heap_size = ["heapsize", "heapsize_derive", "markup5ever/heap_size"]
+heap_size = ["markup5ever/heap_size"]
 
 [dependencies]
 log = "0"
-phf = "0.7"
 mac = "0"
 tendril = "0.2.2"
-heapsize = { version = "0.3", optional = true }
-heapsize_derive = { version = "0.1", optional = true }
 markup5ever = { version = "0.1", path = "../markup5ever" }
 
 [dev-dependencies]
@@ -47,9 +44,5 @@ rustc-serialize = "0.3.15"
 rustc-test = "0.1.3"
 
 [build-dependencies]
-phf_codegen = "0.7.3"
 quote = "0.3.3"
-rustc-serialize = "0.3.15"
 syn = { version = "0.11", features = ["full", "visit"] }
-
-

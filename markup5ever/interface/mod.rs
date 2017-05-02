@@ -7,15 +7,54 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::fmt;
 use tendril::StrTendril;
 
-pub mod treebuilder;
-
 use super::{LocalName, Prefix, Namespace};
-pub use self::treebuilder::{NodeOrText, AppendNode, AppendText};
-pub use self::treebuilder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use self::treebuilder::{TreeSink, Tracer, NextParserState};
+pub use self::tree_builder::{NodeOrText, AppendNode, AppendText, create_element, ElementFlags};
+pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
+/// https://www.w3.org/TR/REC-xml-names/#dt-expname
+#[derive(Copy, Clone, Eq, Hash)]
+pub struct ExpandedName<'a> {
+    pub ns: &'a Namespace,
+    pub local: &'a LocalName,
+}
+
+impl<'a, 'b> PartialEq<ExpandedName<'a>> for ExpandedName<'b> {
+    fn eq(&self, other: &ExpandedName<'a>) -> bool {
+        self.ns == other.ns && self.local == other.local
+    }
+}
+
+impl<'a> fmt::Debug for ExpandedName<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.ns.is_empty() {
+            write!(f, "{}", self.local)
+        } else {
+            write!(f, "{{{}}}:{}", self.ns, self.local)
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! expanded_name {
+    ("", $local: tt) => {
+        ExpandedName {
+            ns: &ns!(),
+            local: &local_name!($local),
+        }
+    };
+    ($ns: ident $local: tt) => {
+        ExpandedName {
+            ns: &ns!($ns),
+            local: &local_name!($local),
+        }
+    }
+}
+
+pub mod tree_builder;
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
@@ -62,36 +101,26 @@ pub use self::treebuilder::{TreeSink, Tracer, NextParserState};
 ///      prefix (when resolved gives namespace_url)
 /// ```
 pub struct QualName {
+    pub prefix: Option<Prefix>,
     pub ns: Namespace,
     pub local: LocalName,
-    pub prefix: Option<Prefix>,
 }
 
 impl QualName {
     #[inline]
-    pub fn new(ns: Namespace, local: LocalName) -> QualName {
+    pub fn new(prefix: Option<Prefix>, ns: Namespace, local: LocalName) -> QualName {
         QualName {
+            prefix: prefix,
             ns: ns,
             local: local,
-            prefix: None,
         }
     }
 
     #[inline]
-    pub fn new_localname(local: LocalName) -> QualName {
-        QualName {
-            ns: ns!(),
-            local: local,
-            prefix: None,
-        }
-    }
-
-    #[inline]
-    pub fn new_prefixed(prefix: Prefix, local: LocalName) -> QualName {
-        QualName {
-            ns: ns!(),
-            local: local,
-            prefix: Some(prefix),
+    pub fn expanded(&self) -> ExpandedName {
+        ExpandedName {
+            ns: &self.ns,
+            local: &self.local
         }
     }
 }
@@ -111,8 +140,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    use super::{Namespace, QualName};
-    use LocalName;
+    use super::Namespace;
 
     #[test]
     fn ns_macro() {
@@ -124,19 +152,5 @@ mod tests {
         assert_eq!(ns!(xlink),  Namespace::from("http://www.w3.org/1999/xlink"));
         assert_eq!(ns!(svg),    Namespace::from("http://www.w3.org/2000/svg"));
         assert_eq!(ns!(mathml), Namespace::from("http://www.w3.org/1998/Math/MathML"));
-    }
-
-    #[test]
-    fn qualname() {
-        assert_eq!(QualName::new(ns!(), local_name!("")),
-                   QualName { ns: ns!(), local: LocalName::from(""), prefix: None });
-        assert_eq!(QualName::new(ns!(xml), local_name!("base")),
-                   QualName { ns: ns!(xml), local: local_name!("base"), prefix: None });
-    }
-
-    #[test]
-    fn qualname_macro() {
-        assert_eq!(qualname!("", ""), QualName { ns: ns!(), local: local_name!(""), prefix: None });
-        assert_eq!(qualname!(xml, "base"), QualName { ns: ns!(xml), local: local_name!("base"), prefix: None });
     }
 }

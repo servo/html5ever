@@ -9,13 +9,9 @@
 
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
-extern crate test;
-
-#[macro_use] extern crate mac;
-#[macro_use] extern crate markup5ever;
-
 extern crate rustc_serialize;
-extern crate xml5ever;
+extern crate test;
+#[macro_use] extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};
 use std::ffi::OsStr;
@@ -31,7 +27,7 @@ use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::driver::parse_document;
-use xml5ever::tendril::{StrTendril, TendrilSink};
+use xml5ever::tendril::TendrilSink;
 
 mod util {
     pub mod find_tests;
@@ -85,40 +81,40 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
-    let node = handle.borrow();
-    match node.node {
-        Document => panic!("should not reach Document"),
+    let node = handle;
+    match node.data {
+        NodeData::Document => panic!("should not reach Document"),
 
-        Doctype(ref name, ref public, ref system) => {
+        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
-            if !public.is_empty() || !system.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
+            if !public_id.is_empty() || !system_id.is_empty() {
+                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         }
 
-        Text(ref text) => {
+        NodeData::Text { ref contents } => {
             buf.push_str("\"");
-            buf.push_str(&text);
+            buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         }
 
-        PI(ref target, ref data) => {
+        NodeData::ProcessingInstruction { ref target, ref contents } => {
             buf.push_str("<?");
             buf.push_str(&target);
             buf.push_str(" ");
-            buf.push_str(&data);
+            buf.push_str(&contents);
             buf.push_str("?>\n");
         }
 
-        Comment(ref text) => {
+        NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&text);
+            buf.push_str(&contents);
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, _, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             buf.push_str("<");
 
             if name.ns != ns!() {
@@ -135,7 +131,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.clone();
+            let mut attrs = attrs.borrow().clone();
             attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
@@ -160,7 +156,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         }
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 }
@@ -199,7 +195,7 @@ fn make_xml_test(
 
             let dom = parse_document(RcDom::default(), Default::default())
                         .one(data.clone());
-            for child in dom.document.borrow().children.iter() {
+            for child in dom.document.children.borrow().iter() {
                 serialize(&mut result, 1, child.clone());
             }
 

@@ -8,24 +8,21 @@
 // except according to those terms.
 
 extern crate tendril;
-extern crate html5ever;
-
-#[macro_use] 
-extern crate markup5ever;
+#[macro_use] extern crate html5ever;
 
 use std::default::Default;
-
 use tendril::{StrTendril, SliceExt, TendrilSink};
 
 use html5ever::driver::ParseOpts;
-use html5ever::{parse_fragment, parse_document, serialize};
+use html5ever::{parse_fragment, parse_document, serialize, QualName};
 use html5ever::rcdom::RcDom;
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom = parse_fragment(
-        RcDom::default(), ParseOpts::default(), qualname!(html, "body"), vec![]
+        RcDom::default(), ParseOpts::default(),
+        QualName::new(None, ns!(html), local_name!("body")), vec![],
     ).one(input);
-    let inner = &dom.document.borrow().children[0];
+    let inner = &dom.document.children.borrow()[0];
 
     let mut result = vec![];
     serialize(&mut result, inner, Default::default()).unwrap();
@@ -104,7 +101,7 @@ test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
 fn doctype() {
     let dom = parse_document(
         RcDom::default(), ParseOpts::default()).one("<!doctype html>");
-    dom.document.borrow_mut().children.truncate(1);  // Remove <html>
+    dom.document.children.borrow_mut().truncate(1);  // Remove <html>
     let mut result = vec![];
     serialize(&mut result, &dom.document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
