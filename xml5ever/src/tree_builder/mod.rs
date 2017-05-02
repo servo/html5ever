@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -10,22 +10,23 @@
 mod actions;
 mod rules;
 mod types;
-// "pub" is a workaround for rust#18241 (?)
-pub mod interface;
 
 use std::borrow::{Cow};
 use std::borrow::Cow::Borrowed;
 use std::collections::{VecDeque, BTreeMap, HashSet};
 use std::collections::btree_map::{Iter};
+use std::fmt::{Formatter, Debug, Error};
 use std::result::Result;
 use std::mem;
 
-use {Prefix, Namespace, LocalName};
 
-use tokenizer::{self, TokenSink, Tag, QName, Attribute, StartTag};
-pub use self::interface::{TreeSink, Tracer, NextParserState, NodeOrText};
+use {Prefix, Namespace, LocalName};
+use interface::{self, QualName, Attribute};
+use tokenizer::{self, TokenSink, Tag, StartTag};
+pub use self::interface::{TreeSink, Tracer, NodeOrText, NextParserState};
 use self::rules::XmlTreeBuilderStep;
 use self::types::*;
+
 
 static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
 static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";
@@ -34,7 +35,6 @@ type InsResult = Result<(), Cow<'static, str>>;
 
 #[derive(Debug)]
 struct NamespaceMapStack(Vec<NamespaceMap>);
-
 
 impl NamespaceMapStack{
     fn new() -> NamespaceMapStack {
@@ -56,7 +56,7 @@ impl NamespaceMapStack{
 
 }
 
-#[derive(Debug)]
+
 #[doc(hidden)]
 pub struct NamespaceMap {
     // Map that maps prefixes to URI.
@@ -66,7 +66,17 @@ pub struct NamespaceMap {
     //
     // If value of value is None, that means the namespace
     // denoted by key has been undeclared.
-    scope: BTreeMap<Prefix, Option<Namespace>>,
+    scope: BTreeMap<Option<Prefix>, Option<Namespace>>,
+}
+
+impl Debug for NamespaceMap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "\nNamespaceMap[")?;
+        for (key, value) in &self.scope {
+            write!(f, "   {:?} : {:?}\n", key, value)?;
+        }
+        write!(f, "]")
+    }
 }
 
 
@@ -83,9 +93,9 @@ impl NamespaceMap {
         NamespaceMap {
             scope: {
                 let mut map = BTreeMap::new();
-                map.insert(namespace_prefix!(""), None);
-                map.insert(namespace_prefix!("xml"), Some(ns!(xml)));
-                map.insert(namespace_prefix!("xmlns"), Some(ns!(xmlns)));
+                map.insert(None, None);
+                map.insert(Some(namespace_prefix!("xml")), Some(ns!(xml)));
+                map.insert(Some(namespace_prefix!("xmlns")), Some(ns!(xmlns)));
                 map
             },
         }
@@ -93,19 +103,24 @@ impl NamespaceMap {
 
 
     #[doc(hidden)]
-    pub fn get(&self, prefix: &Prefix) -> Option<&Option<Namespace>> {
+    pub fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
     }
 
     #[doc(hidden)]
-    pub fn get_scope_iter(&self) -> Iter<Prefix, Option<Namespace>> {
+    pub fn get_scope_iter(&self) -> Iter<Option<Prefix>, Option<Namespace>> {
         self.scope.iter()
     }
 
+
     #[doc(hidden)]
-    pub fn insert(&mut self, name: &QName)  {
-        let prefix = Prefix::from(&*name.prefix);
-        let namespace = Some(Namespace::from(&*name.namespace_url));
+    pub fn insert(&mut self, name: &QualName)  {
+        let prefix = if let Some(ref p) = name.prefix {
+            Some(p.clone())
+        } else {
+            None
+        };
+        let namespace = Some(Namespace::from(&*name.ns));
         self.scope.insert(prefix, namespace);
     }
 
@@ -120,8 +135,8 @@ impl NamespaceMap {
             Some(Namespace::from(&*attr.value))
         };
 
-        let result = match (&*attr.name.prefix, &*attr.name.local) {
-            ("xmlns", "xml") => {
+        let result = match (&attr.name.prefix, &*attr.name.local) {
+            (&Some(namespace_prefix!("xmlns")), "xml") => {
                 if &*attr.value != XML_URI {
                     Err(Borrowed("XML namespace can't be redeclared"))
                 } else {
@@ -129,22 +144,30 @@ impl NamespaceMap {
                 }
             },
 
-            ("xmlns" , "xmlns") => {
+            (&Some(namespace_prefix!("xmlns")), "xmlns") => {
                 Err(Borrowed("XMLNS namespaces can't be changed"))
             },
 
-            ("xmlns", _)
-            | ("", "xmlns")=> {
-                let ext = if attr.name.prefix.is_empty() {
-                    namespace_prefix!("")
+            (&Some(namespace_prefix!("xmlns")), _)
+            | (&None, "xmlns")=> {
+                // We can have two cases of properly defined xmlns
+                // First with default namespace e.g.
+                //
+                //     <a xmlns = "www.uri.org" />
+                let ns_prefix = if &*attr.name.local == "xmlns" {
+                    None
+
+                // Second is with named namespace e.g.
+                //
+                //     <a xmlns:a = "www.uri.org" />
                 } else {
-                    Prefix::from(&*attr.name.local)
+                    Some(Prefix::from(&*attr.name.local))
                 };
 
-                if self.scope.contains_key(&ext) && opt_uri.is_some() {
+                if opt_uri.is_some() && self.scope.contains_key(&ns_prefix) {
                     Err(Borrowed("Namespace already defined"))
                 } else {
-                    self.scope.insert(ext, opt_uri);
+                    self.scope.insert(ns_prefix, opt_uri);
                     Ok(())
                 }
             },
@@ -156,31 +179,24 @@ impl NamespaceMap {
         result
     }
 }
+
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
 pub struct XmlTreeBuilderOpts {
-    /// Report all parse errors described in the spec, at some
-    /// performance penalty?  Default: false
-    pub exact_errors: bool,
-
-    /// Keep a record of how long we spent in each state?  Printed
-    /// when `end()` is called.  Default: false
-    pub profile: bool,
 }
 
 impl Default for XmlTreeBuilderOpts {
     fn default() -> XmlTreeBuilderOpts {
         XmlTreeBuilderOpts{
-            exact_errors: false,
-            profile: false,
         }
     }
 }
 
+
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
     /// Configuration options for XmlTreeBuilder
-    opts: XmlTreeBuilderOpts,
+    _opts: XmlTreeBuilderOpts,
 
     /// Consumer of tree modifications.
     sink: Sink,
@@ -219,7 +235,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     pub fn new(mut sink: Sink, opts: XmlTreeBuilderOpts) -> XmlTreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
-            opts: opts,
+            _opts: opts,
             sink: sink,
             doc_handle: doc_handle,
             next_tokenizer_state: None,
@@ -250,11 +266,11 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
     pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
-        tracer.trace_handle(self.doc_handle.clone());
+        tracer.trace_handle(&self.doc_handle);
         for e in self.open_elems.iter() {
-            tracer.trace_handle(e.clone());
+            tracer.trace_handle(&e);
         }
-        self.curr_elem.as_ref().map(|h| tracer.trace_handle(h.clone()));
+        self.curr_elem.as_ref().map(|h| tracer.trace_handle(&h));
     }
 
     // Debug helper
@@ -265,8 +281,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         debug!("dump_state on {}", label);
         debug!("    open_elems:");
         for node in self.open_elems.iter() {
-            let QName { prefix, local, .. } = self.sink.elem_name(node);
-            debug!(" {:?}:{:?}", prefix,local);
+            debug!(" {:?}", self.sink.elem_name(node));
 
         }
         debug!("");
@@ -287,13 +302,14 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             self.sink.parse_error(msg);
 
         } else {
-            attr.name.namespace_url = ns!(xmlns);
+            attr.name.ns = ns!(xmlns);
         }
 
     }
 
-    fn find_uri(&self, prefix: &Prefix) ->  Result<Option<Namespace>, Cow<'static, str> >{
+    fn find_uri(&self, prefix: &Option<Prefix>) ->  Result<Option<Namespace>, Cow<'static, str> >{
         let mut uri = Err(Borrowed("No appropriate namespace found"));
+
         for ns in self.namespace_stack.0.iter()
                     .chain(Some(&self.current_namespace)).rev() {
             if let Some(el) = ns.get(prefix) {
@@ -304,14 +320,14 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         uri
     }
 
-    fn bind_qname(&mut self, name: &mut QName) {
+    fn bind_qname(&mut self, name: &mut QualName) {
         match self.find_uri(&name.prefix) {
             Ok(uri) => {
                 let ns_uri = match uri {
                     Some(e) => e,
                     None => ns!(),
                 };
-                name.namespace_url = ns_uri;
+                name.ns = ns_uri;
             },
             Err(msg) => {
                 self.sink.parse_error(msg);
@@ -323,19 +339,19 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     // existing namespace context.
     //
     // Returns false if the attribute is a duplicate, returns true otherwise.
-    fn bind_attr_qname(&mut self, name: &mut QName) -> bool {
+    fn bind_attr_qname(&mut self, name: &mut QualName) -> bool {
         // Attributes don't have default namespace
         let mut not_duplicate = true;
 
-        if !name.prefix.is_empty() {
+        if name.prefix.is_some() {
             self.bind_qname(name);
             not_duplicate = self.check_duplicate_attr(name);
         }
         not_duplicate
     }
 
-    fn check_duplicate_attr(&mut self, name: &QName) -> bool {
-        let pair = (name.namespace_url.clone(), name.local.clone());
+    fn check_duplicate_attr(&mut self, name: &QualName) -> bool {
+        let pair = (name.ns.clone(), name.local.clone());
 
         if self.present_attrs.contains(&pair) {
             return false;
@@ -348,15 +364,14 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         let mut new_attr = vec![];
         // First we extract all namespace declarations
         for mut attr in tag.attrs.iter_mut()
-            .filter(|attr| attr.name.prefix == namespace_prefix!("xmlns")
+            .filter(|attr| attr.name.prefix == Some(namespace_prefix!("xmlns"))
                           || attr.name.local == local_name!("xmlns")) {
-
             self.declare_ns(&mut attr);
         }
 
         // Then we bind those namespace declarations to attributes
         for mut attr in tag.attrs.iter_mut()
-            .filter(|attr| attr.name.prefix != namespace_prefix!("xmlns")
+            .filter(|attr| attr.name.prefix != Some(namespace_prefix!("xmlns"))
                           && attr.name.local != local_name!("xmlns")) {
 
             if self.bind_attr_qname(&mut attr.name) {
@@ -426,7 +441,7 @@ impl<Handle, Sink> TokenSink
 
     fn end(&mut self) {
         for node in self.open_elems.drain(..).rev() {
-            self.sink.pop(node);
+            self.sink.pop(&node);
         }
     }
 

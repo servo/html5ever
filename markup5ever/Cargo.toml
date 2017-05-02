@@ -1,0 +1,28 @@
+[package]
+name = "markup5ever"
+version = "0.1.0"
+authors = [ "The html5ever Project Developers" ]
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "Common code for xml5ever and html5ever"
+documentation = "https://docs.rs/markup5ever"
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[features]
+heap_size = ["heapsize", "heapsize_derive", "string_cache/heapsize"]
+
+[dependencies]
+string_cache = "0.5"
+phf = "0.7"
+tendril = "0.2"
+heapsize = { version = "0.3", optional = true }
+heapsize_derive = { version = "0.1", optional = true }
+
+[build-dependencies]
+string_cache_codegen = "0.4"
+phf_codegen = "0.7.3"
+rustc-serialize = "0.3.15"
+

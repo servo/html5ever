@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use interface::TreeSink;
 use std::borrow::Cow::Borrowed;
 use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag, ShortTag, EmptyTag};
 use tree_builder::types::*;
-use tree_builder::interface::TreeSink;
 use tree_builder::actions::XmlTreeBuilderActions;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
@@ -64,7 +64,7 @@ impl<Handle, Sink> XmlTreeBuilderStep
                     };
                     self.phase = EndPhase;
                     let handle = self.append_tag_to_doc(tag);
-                    self.sink.pop(handle);
+                    self.sink.pop(&handle);
                     Done
                 },
                 CommentToken(comment) => {

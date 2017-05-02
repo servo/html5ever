@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,86 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::borrow::Cow;
+
+use {Attribute, QualName};
+use tendril::StrTendril;
+
 pub use self::TagKind::{StartTag, EndTag, EmptyTag, ShortTag};
 pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
 
-use std::borrow::Cow;
-use {Prefix, Namespace, LocalName};
-use tendril::StrTendril;
 use super::{states};
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-/// Fully qualified name. Used to depict names of tags and attributes.
-///
-/// Used to differentiate between similar XML fragments. For example
-/// ```ignore
-///    // HTML
-///    <table>
-///      <tr>
-///        <td>Apples</td>
-///        <td>Bananas</td>
-///      </tr>
-///    </table>
-///
-///    // Furniture XML
-///    <table>
-///      <name>African Coffee Table</name>
-///      <width>80</width>
-///      <length>120</length>
-///    </table>
-/// ```
-/// Without XML namespaces we can't use those two fragments in occur
-/// XML at same time. however if we declare a namespace we could instead say:
-///
-/// ```ignore
-///    // Furniture XML
-///    <furn:table>
-///      <furn:name>African Coffee Table</furn:name>
-///      <furn:width>80</furn:width>
-///      <furn:length>120</furn:length>
-///    </furn:table>
-/// ```
-/// and bind it to a different name.
-///
-/// For this reason we parse names that contain a colon in the following way
-///
-/// ```ignore
-///    < furn:table>
-///        |    |
-///        |    +- local name
-///        |
-///      prefix (when resolved gives namespace_url)
-/// ```
-pub struct QName {
-    /// Prefix of fully qualified name, used for namespace lookup.
-    pub prefix: Prefix,
-    /// Local name of a value.
-    pub local: LocalName,
-    /// Resolved namespace of `QName`.
-    pub namespace_url: Namespace,
-}
-
-impl QName {
-    /// Constructs a new `QName` from prefix and local part.
-    /// Namespace is set to empty.
-    pub fn new(prefix: Prefix, local: LocalName) -> QName {
-        QName {
-            prefix: prefix,
-            local: local,
-            namespace_url: ns!(),
-        }
-    }
-    /// Constructs a new `QName` with only local part.
-    /// Namespace is set to empty.
-    pub fn new_empty(local: LocalName) -> QName {
-        QName {
-            prefix: namespace_prefix!(""),
-            local: local,
-            namespace_url: ns!(),
-        }
-    }
-}
 
 /// Tag kind denotes which kind of tag did we encounter.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -108,7 +38,7 @@ pub struct Tag {
     /// E.g. if parser parsed `</a>` the token kind would be `EndTag`.
     pub kind: TagKind,
     /// Qualified name of the tag.
-    pub name: QName,
+    pub name: QualName,
     /// List of attributes attached to this tag.
     /// Only valid in start and empty tag.
     pub attrs: Vec<Attribute>,
@@ -128,16 +58,6 @@ impl Tag {
 
         self_attrs == other_attrs
     }
-}
-
-/// A tag attribute.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-pub struct Attribute {
-    /// Qualified name of attribute.
-    pub name: QName,
-
-    /// Attribute's value.
-    pub value: StrTendril,
 }
 
 /// A `DOCTYPE` token.

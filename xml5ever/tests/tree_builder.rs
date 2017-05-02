@@ -1,12 +1,17 @@
+// Copyright 2014-2017 The html5ever Project Developers. See the
+// COPYRIGHT file at the top-level directory of this distribution.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
-#[cfg(feature = "unstable")] extern crate test;
-
-#[macro_use] extern crate mac;
-#[macro_use] extern crate html5ever_atoms;
-
 extern crate rustc_serialize;
-extern crate xml5ever;
+extern crate test;
+#[macro_use] extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};
 use std::ffi::OsStr;
@@ -17,12 +22,12 @@ use std::mem::replace;
 use std::path::Path;
 
 
-#[cfg(feature = "unstable")] use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-#[cfg(feature = "unstable")] use test::ShouldPanic::No;
+use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
+use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::driver::parse_document;
-use xml5ever::tendril::{StrTendril, TendrilSink};
+use xml5ever::tendril::TendrilSink;
 
 mod util {
     pub mod find_tests;
@@ -76,57 +81,57 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str("|");
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
-    let node = handle.borrow();
-    match node.node {
-        Document => panic!("should not reach Document"),
+    let node = handle;
+    match node.data {
+        NodeData::Document => panic!("should not reach Document"),
 
-        Doctype(ref name, ref public, ref system) => {
+        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
-            if !public.is_empty() || !system.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
+            if !public_id.is_empty() || !system_id.is_empty() {
+                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         }
 
-        Text(ref text) => {
+        NodeData::Text { ref contents } => {
             buf.push_str("\"");
-            buf.push_str(&text);
+            buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         }
 
-        PI(ref target, ref data) => {
+        NodeData::ProcessingInstruction { ref target, ref contents } => {
             buf.push_str("<?");
             buf.push_str(&target);
             buf.push_str(" ");
-            buf.push_str(&data);
+            buf.push_str(&contents);
             buf.push_str("?>\n");
         }
 
-        Comment(ref text) => {
+        NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&text);
+            buf.push_str(&contents);
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             buf.push_str("<");
 
-            if name.namespace_url != ns!() {
+            if name.ns != ns!() {
                 buf.push_str("{");
-                buf.push_str(&*name.namespace_url);
+                buf.push_str(&*name.ns);
                 buf.push_str("}");
              };
 
-            if &*name.prefix != "" {
-                buf.push_str(&*name.prefix);
+            if let Some(ref prefix) = name.prefix {
+                buf.push_str(&*prefix);
                 buf.push_str(":");
             }
 
             buf.push_str(&*name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.clone();
+            let mut attrs = attrs.borrow().clone();
             attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
             // FIXME: sort by UTF-16 code unit
 
@@ -134,14 +139,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 buf.push_str("|");
                 buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
 
-                if &*attr.name.namespace_url != "" {
+                if &*attr.name.ns != "" {
                     buf.push_str("{");
-                    buf.push_str(&*attr.name.namespace_url);
+                    buf.push_str(&*attr.name.ns);
                     buf.push_str("}");
                 }
 
-                if &*attr.name.prefix != "" {
-                    buf.push_str(&*attr.name.prefix);
+                if let Some(attr_prefix) = attr.name.prefix {
+                    buf.push_str(&*attr_prefix);
                     buf.push_str(":");
                 }
 
@@ -151,7 +156,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         }
     }
 
-    for child in node.children.iter() {
+    for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 }
@@ -160,7 +165,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &'static [&'static str]
     = &["<template"];
 
-#[cfg(feature = "unstable")]
+
 fn make_xml_test(
         tests: &mut Vec<TestDescAndFn>,
         ignores: &HashSet<String>,
@@ -185,12 +190,12 @@ fn make_xml_test(
             ignore: ignore,
             should_panic: No,
         },
-        testfn: DynTestFn(Box::new(move |()| {
+        testfn: DynTestFn(Box::new(move || {
             let mut result = String::new();
 
             let dom = parse_document(RcDom::default(), Default::default())
                         .one(data.clone());
-            for child in dom.document.borrow().children.iter() {
+            for child in dom.document.children.borrow().iter() {
                 serialize(&mut result, 1, child.clone());
             }
 
@@ -205,7 +210,7 @@ fn make_xml_test(
     });
 }
 
-#[cfg(feature = "unstable")]
+
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     let mut tests = vec!();
 
@@ -226,7 +231,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[cfg(feature = "unstable")]
+
 #[test]
 fn run() {
     let args: Vec<_> = env::args().collect();

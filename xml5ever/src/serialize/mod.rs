@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,27 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use QualName;
+pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef};
 use std::io::{self, Write};
-use std::default::Default;
-
-use tokenizer::{QName, Prefix, Namespace, LocalName};
 use tree_builder::NamespaceMap;
-use tree_builder;
 
 #[derive(Copy, Clone)]
 /// Struct for setting serializer options.
 pub struct SerializeOpts {
     /// Serialize the root node? Default: ChildrenOnly
     pub traversal_scope: TraversalScope,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-/// Enum describing whether or not to serialize the root node.
-pub enum TraversalScope {
-    /// Serialize only children.
-    ChildrenOnly,
-    /// Serialize current node and children.
-    IncludeNode,
 }
 
 impl Default for SerializeOpts {
@@ -38,20 +27,11 @@ impl Default for SerializeOpts {
     }
 }
 
-/// Trait that must be implemented by Sink in order to for
-/// that TreeSink to be serializaled.
-pub trait Serializable {
-    /// Method for serializing node into text.
-    fn serialize<'wr, Wr: Write>(&self, serializer: &mut Serializer<'wr, Wr>,
-                                    traversal_scope: TraversalScope) -> io::Result<()>;
-}
-
 /// Method for serializing generic node to a given writer.
-pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
-                        -> io::Result<()>
-    where Wr: Write, T: Serializable {
+pub fn serialize<Wr, T> (writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
+    where Wr: Write, T: Serialize {
 
-    let mut ser = Serializer::new(writer, opts);
+    let mut ser = XmlSerializer::new(writer);
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
@@ -60,9 +40,8 @@ pub fn serialize<Wr, T> (writer: &mut Wr, node: &T, opts: SerializeOpts)
 ///
 /// Serializer contains a set of functions (start_elem, end_elem...)
 /// that make parsing nodes easier.
-pub struct Serializer<'wr, Wr:'wr> {
-    writer: &'wr mut Wr,
-    opts: SerializeOpts,
+pub struct XmlSerializer<Wr> {
+    writer: Wr,
     namespace_stack: NamespaceMapStack,
 }
 
@@ -84,12 +63,6 @@ impl NamespaceMapStack {
 
 }
 
-/// Type representing a single attribute.
-/// Contains qualified name and value to attribute respectivelly.
-pub type AttrRef<'a> = (&'a QName, &'a str);
-
-
-
 /// Writes given text into the Serializer, escaping it,
 /// depending on where the text is written inside the tag or attribute value.
 ///
@@ -98,7 +71,7 @@ pub type AttrRef<'a> = (&'a QName, &'a str);
 ///    <tag>'&-quotes'</tag>   becomes      <tag>'&amp;-quotes'</tag>
 ///    <tag = "'&-quotes'">    becomes      <tag = "&apos;&amp;-quotes&apos;"
 ///```
-fn write_to_buf_escaped(writer: &mut Write, text: &str, attr_mode: bool) -> io::Result<()> {
+fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -> io::Result<()> {
     for c in text.chars() {
         try!(match c {
             '&' => writer.write_all(b"&amp;"),
@@ -113,9 +86,9 @@ fn write_to_buf_escaped(writer: &mut Write, text: &str, attr_mode: bool) -> io::
 }
 
 #[inline]
-fn write_qual_name(writer: &mut Write, name: &QName) -> io::Result<()> {
-    if name.prefix != namespace_prefix!("") {
-        try!(writer.write_all(&*name.prefix.as_bytes()));
+fn write_qual_name<W: Write>(writer: &mut W, name: &QualName) -> io::Result<()> {
+    if let Some(ref prefix) = name.prefix {
+        try!(writer.write_all(&prefix.as_bytes()));
         try!(writer.write_all(b":"));
         try!(writer.write_all(&*name.local.as_bytes()));
     } else {
@@ -125,42 +98,41 @@ fn write_qual_name(writer: &mut Write, name: &QName) -> io::Result<()> {
     Ok(())
 }
 
-impl<'wr, Wr:Write> Serializer<'wr,Wr> {
+impl<Wr: Write> XmlSerializer<Wr> {
     /// Creates a new Serializier from a writer and given serialization options.
-    pub fn new(writer: &'wr mut Wr, opts: SerializeOpts) -> Serializer<'wr, Wr> {
-        Serializer {
+    pub fn new(writer: Wr) -> Self {
+        XmlSerializer {
             writer: writer,
-            opts: opts,
             namespace_stack: NamespaceMapStack::new(),
         }
     }
 
     #[inline(always)]
-    fn qual_name(&mut self, name: &QName) -> io::Result<()> {
+    fn qual_name(&mut self, name: &QualName) -> io::Result<()> {
         self.find_or_insert_ns(name);
-        write_qual_name(self.writer, name)
+        write_qual_name(&mut self.writer, name)
     }
 
     #[inline(always)]
-    fn qual_attr_name(&mut self, writer: &mut Write, name: &QName) -> io::Result<()> {
+    fn qual_attr_name(&mut self, name: &QualName) -> io::Result<()> {
         self.find_or_insert_ns(name);
-        write_qual_name(writer, name)
+        write_qual_name(&mut self.writer, name)
     }
 
-    fn find_uri(&self, name: &QName) -> bool {
+    fn find_uri(&self, name: &QualName) -> bool {
         let mut found = false;
         for stack in self.namespace_stack.0.iter().rev() {
 
             if let Some(&Some(ref el)) = stack.get(&name.prefix) {
-                found = *el == name.namespace_url;
+                found = *el == name.ns;
                 break;
             }
         }
         found
     }
 
-    fn find_or_insert_ns(&mut self, name: &QName) {
-        if &*name.prefix != "" || &*name.namespace_url != "" {
+    fn find_or_insert_ns(&mut self, name: &QualName) {
+        if name.prefix.is_some() || &*name.ns != "" {
             if !self.find_uri(name) {
 
                 if let Some(last_ns) = self.namespace_stack.0.last_mut() {
@@ -169,33 +141,23 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
             }
         }
     }
+}
 
+impl<Wr: Write> Serializer for XmlSerializer<Wr> {
     /// Serializes given start element into text. Start element contains
     /// qualified name and an attributes iterator.
-    pub fn start_elem<'a, AttrIter: Iterator<Item=AttrRef<'a>>>(
-        &mut self,
-        name: QName,
-        attrs: AttrIter) -> io::Result<()> {
-
-        let mut attr = Vec::new();
+    fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
+    where AttrIter: Iterator<Item=AttrRef<'a>> {
         self.namespace_stack.push(NamespaceMap::empty());
 
         try!(self.writer.write_all(b"<"));
         try!(self.qual_name(&name));
-        for (name, value) in attrs {
-            try!(attr.write_all(b" "));
-            try!(self.qual_attr_name(&mut attr, &name));
-            try!(attr.write_all(b"=\""));
-            try!(write_to_buf_escaped(&mut attr, value, true));
-            try!(attr.write_all(b"\""));
-
-        }
         if let Some(current_namespace) = self.namespace_stack.0.last() {
             for (prefix, url_opt) in current_namespace.get_scope_iter() {
                 try!(self.writer.write_all(b" xmlns"));
-                if prefix != "" {
+                if let &Some(ref p) = prefix {
                     try!(self.writer.write_all(b":"));
-                    try!(self.writer.write_all(&*prefix.as_bytes()));
+                    try!(self.writer.write_all(&*p.as_bytes()));
                 }
 
                 try!(self.writer.write_all(b"=\""));
@@ -208,13 +170,20 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
                 try!(self.writer.write_all(b"\""));
             }
         }
-        try!(self.writer.write_all(&attr));
+        for (name, value) in attrs {
+            try!(self.writer.write_all(b" "));
+            try!(self.qual_attr_name(&name));
+            try!(self.writer.write_all(b"=\""));
+            try!(write_to_buf_escaped(&mut self.writer, value, true));
+            try!(self.writer.write_all(b"\""));
+
+        }
         try!(self.writer.write_all(b">"));
         Ok(())
     }
 
     /// Serializes given end element into text.
-    pub fn end_elem(&mut self, name: QName) -> io::Result<()> {
+    fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         self.namespace_stack.pop();
         try!(self.writer.write_all(b"</"));
         try!(self.qual_name(&name));
@@ -222,26 +191,26 @@ impl<'wr, Wr:Write> Serializer<'wr,Wr> {
     }
 
     /// Serializes comment into text.
-    pub fn write_comment(&mut self, text: &str) -> io::Result<()> {
+    fn write_comment(&mut self, text: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<!--"));
         try!(self.writer.write_all(text.as_bytes()));
         self.writer.write_all(b"-->")
     }
 
     /// Serializes given doctype
-    pub fn write_doctype(&mut self, name: &str) -> io::Result<()> {
+    fn write_doctype(&mut self, name: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<!DOCTYPE "));
         try!(self.writer.write_all(name.as_bytes()));
         self.writer.write_all(b">")
     }
 
     /// Serializes text for a node or an attributes.
-    pub fn write_text(&mut self, text: &str) -> io::Result<()> {
-        write_to_buf_escaped(self.writer, text, false)
+    fn write_text(&mut self, text: &str) -> io::Result<()> {
+        write_to_buf_escaped(&mut self.writer, text, false)
     }
 
     /// Serializes given processing instruction.
-    pub fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
+    fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
         try!(self.writer.write_all(b"<?"));
         try!(self.writer.write_all(target.as_bytes()));
         try!(self.writer.write_all(b" "));

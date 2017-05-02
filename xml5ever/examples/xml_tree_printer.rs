@@ -16,21 +16,21 @@ use std::string::String;
 
 use xml5ever::tendril::{TendrilSink};
 use xml5ever::driver::{parse_document};
-use xml5ever::rcdom::{Document, Text, Element, RcDom, Handle};
+use xml5ever::rcdom::{NodeData, RcDom, Handle};
 
 fn walk(prefix: &str, handle: Handle) {
-    let node = handle.borrow();
+    let node = handle;
 
     print!("{}", prefix);
-    match node.node {
-        Document
+    match node.data {
+        NodeData::Document
             => println!("#document"),
 
-        Text(ref text)  => {
-            println!("#text {}", escape_default(text))
+        NodeData::Text { ref contents }  => {
+            println!("#text {}", escape_default(&contents.borrow()))
         },
 
-        Element(ref name, _) => {
+        NodeData::Element { ref name, .. } => {
             println!("{}", name.local);
         },
 
@@ -45,9 +45,9 @@ fn walk(prefix: &str, handle: Handle) {
         temp
     };
 
-    for child in node.children.iter()
-        .filter(|child| match child.borrow().node {
-            Text(_) | Element (_, _) => true,
+    for child in node.children.borrow().iter()
+        .filter(|child| match child.data {
+            NodeData::Text { .. } | NodeData::Element { .. } => true,
             _ => false,
         }
     ) {

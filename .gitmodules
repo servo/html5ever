@@ -1,5 +1,5 @@
 [submodule "html5lib-tests"]
-	path = html5lib-tests
+	path = html5ever/html5lib-tests
 	url = https://github.com/html5lib/html5lib-tests
 [submodule "xml5lib-tests"]
 	path = xml5ever/xml5lib-tests

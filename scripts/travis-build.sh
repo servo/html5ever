@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2015 The html5ever Project Developers. See the
+# Copyright 2014-2017 The html5ever Project Developers. See the
 # COPYRIGHT file at the top-level directory of this distribution.
 #
 # Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -12,15 +12,13 @@ set -ex
 
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
-    cargo test --features "rustc-test/capture" --bench tokenizer
-    cargo test --features "rustc-test/capture"
-    cargo test --features "rustc-test/capture unstable"
-    cargo test --features "rustc-test/capture" --manifest-path xml5ever/Cargo.toml
+    cargo test -p html5ever --features "rustc-test/capture" --bench tokenizer
+    cargo test -p html5ever --features "rustc-test/capture" 
+    cargo test -p html5ever --features "rustc-test/capture unstable" 
+    cargo test -p xml5ever --features "rustc-test/capture" 
 else
-    cargo test --bench tokenizer
-    cargo test
-    cargo test --manifest-path xml5ever/Cargo.toml
+    cargo test -p html5ever --bench tokenizer
+    cargo test --all
 fi
 
-cargo doc
-cargo doc --manifest-path xml5ever/Cargo.toml
+cargo doc --all

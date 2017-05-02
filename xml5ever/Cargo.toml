@@ -1,16 +1,22 @@
 [package]
+
 name = "xml5ever"
-version = "0.5.0"
-description = "Push based streaming parser for xml"
-homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
-documentation = "https://docs.rs/xml5ever/"
-repository = "https://github.com/servo/html5ever"
-readme = "README.md"
-keywords = ["xml", "xml5", "parser", "parsing"]
+version = "0.6.0"
 authors = ["The xml5ever project developers"]
 license = "MIT / Apache-2.0"
-build = "build.rs"
+repository = "https://github.com/servo/html5ever"
+description = "Push based streaming parser for xml"
+documentation = "https://docs.rs/xml5ever/"
+
+homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
+readme = "README.md"
+keywords = ["xml", "xml5", "parser", "parsing"]
 exclude = ["xml5lib-tests/*"]
+
+[lib]
+name = "xml5ever"
+
+doctest = true
 
 [features]
 unstable = ["tendril/unstable"]
@@ -18,21 +24,10 @@ unstable = ["tendril/unstable"]
 [dependencies]
 time = "0.1"
 log = "0.3"
-phf = "0.7"
 mac = "0.1"
 tendril = "0.2"
-html5ever-atoms = {version = "0.3", path = "../atoms" }
+markup5ever = {version = "0.1", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
 rustc-test = "0.1.3"
-
-[build-dependencies]
-phf_codegen = "0.7"
-rustc-serialize = "0.3.15"
-
-[profile.dev]
-debug = false
-
-[profile.test]
-debug = false

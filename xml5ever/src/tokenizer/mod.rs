@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,24 +7,23 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-mod buffer_queue;
 mod char_ref;
 mod interface;
 mod qname;
 pub mod states;
 
-pub use self::interface::{Attribute, Doctype, Pi};
-pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag, QName};
+pub use self::interface::{Doctype, Pi};
+pub use self::interface::{StartTag, EndTag, EmptyTag, ShortTag};
 pub use self::interface::{DoctypeToken, TagToken, PIToken, CommentToken};
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
 pub use self::interface::{TokenSink, ParseError, TagKind, Token, Tag};
 pub use {Prefix, LocalName, Namespace};
 
+use {Attribute, QualName, SmallCharSet, buffer_queue};
 use std::borrow::Cow::{self, Borrowed};
 use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
-
 use tendril::StrTendril;
 
 use self::buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
@@ -32,8 +31,8 @@ use self::char_ref::{CharRefTokenizer, CharRef};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{XmlState};
 use self::states::{DoctypeKind, Public, System};
-use self::qname::{QNameTokenizer};
-use util::smallcharset::SmallCharSet;
+use self::qname::{QualNameTokenizer};
+
 
 
 
@@ -58,7 +57,7 @@ pub struct XmlTokenizerOpts {
 
 }
 
-fn process_qname(tag_name: StrTendril) -> QName {
+fn process_qname(tag_name: StrTendril) -> QualName {
     // If tag name can't possibly contain full namespace, skip qualified name
     // parsing altogether. For a tag to have namespace it must look like:
     //     a:b
@@ -67,16 +66,17 @@ fn process_qname(tag_name: StrTendril) -> QName {
     let split = if (&*tag_name).as_bytes().len() <3 {
         None
     } else {
-        QNameTokenizer::new((&*tag_name).as_bytes()).run()
+        QualNameTokenizer::new((&*tag_name).as_bytes()).run()
     };
 
     match split {
-        None => QName::new_empty(LocalName::from(&*tag_name)),
+        None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
             let len = (&*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local =  tag_name.subtendril(col+1, len - col -1);
-            QName::new(Prefix::from(&*prefix), LocalName::from(&*local))
+            let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
+            QualName::new(Some(Prefix::from(&*prefix)), ns, LocalName::from(&*local))
         },
     }
 }
@@ -309,7 +309,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
     fn eat(&mut self, pat: &str) -> Option<bool> {
-        match self.input_buffers.eat(pat) {
+        match self.input_buffers.eat(pat, u8::eq_ignore_ascii_case) {
             None if self.at_eof => Some(false),
             r => r,
         }
@@ -1225,7 +1225,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             };
 
             if qname.local == local_name!("xmlns") ||
-                qname.prefix == namespace_prefix!("xmlns") {
+                qname.prefix == Some(namespace_prefix!("xmlns")) {
 
                 self.current_tag_attrs.insert(0, attr);
             } else {
@@ -1253,38 +1253,38 @@ mod test {
     #[test]
     fn simple_namespace() {
         let qname = process_qname("prefix:local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from("prefix"));
+        assert_eq!(qname.prefix, Some(Prefix::from("prefix")));
         assert_eq!(qname.local, LocalName::from("local"));
 
         let qname = process_qname("a:b".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from("a"));
+        assert_eq!(qname.prefix, Some(Prefix::from("a")));
         assert_eq!(qname.local, LocalName::from("b"));
     }
 
     #[test]
     fn wrong_namespaces() {
         let qname = process_qname(":local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":local"));
 
         let qname = process_qname("::local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("::local"));
 
         let qname = process_qname("a::local".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("a::local"));
 
         let qname = process_qname("fake::".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from("fake::"));
 
         let qname = process_qname(":::".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":::"));
 
         let qname = process_qname(":a:b:".to_tendril());
-        assert_eq!(qname.prefix, Prefix::from(""));
+        assert_eq!(qname.prefix, None);
         assert_eq!(qname.local, LocalName::from(":a:b:"));
     }
 }

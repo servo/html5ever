@@ -1,4 +1,4 @@
-// Copyright 2015 The xml5ever Project Developers. See the
+// Copyright 2014-2017 The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -32,14 +32,12 @@
 #![crate_type="dylib"]
 #![deny(missing_docs)]
 
-#[macro_use] extern crate html5ever_atoms;
+#[macro_use] extern crate markup5ever;
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
-extern crate phf;
 extern crate time;
 
-
-pub use html5ever_atoms::{Prefix, Namespace, LocalName, QualName};
+pub use markup5ever::*;
 
 /// Re-export the tendril crate so that users don’t need to depend on it.
 pub mod tendril {
@@ -56,18 +54,16 @@ macro_rules! time {
     }}
 }
 
-#[macro_use] mod util;
+mod util;
 
 /// XML5 tokenizer - converts input into tokens
 pub mod tokenizer;
 /// XML5 tree builder - converts tokens into a tree like structure
 pub mod tree_builder;
-/// A simple reference-counted that serves as a default tree structure
-pub mod rcdom;
-/// Entrance to XML5 ever ParseResult
-pub mod driver;
 /// Serializer for XML5.
 pub mod serialize;
+/// Driver
+pub mod driver;
 
 /// Re-export the encoding crate.
 pub use tendril::encoding;
