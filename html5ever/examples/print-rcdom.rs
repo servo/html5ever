@@ -17,7 +17,7 @@ use std::string::String;
 
 use tendril::TendrilSink;
 use html5ever::parse_document;
-use html5ever::rcdom::{Document, Doctype, Text, Comment, Element, PI, RcDom, Handle};
+use html5ever::rcdom::{NodeData, RcDom, Handle};
 
 // This is not proper HTML serialization, of course.
 
@@ -25,20 +25,20 @@ fn walk(indent: usize, handle: Handle) {
     let node = handle;
     // FIXME: don't allocate
     print!("{}", repeat(" ").take(indent).collect::<String>());
-    match node.node {
-        Document
+    match node.data {
+        NodeData::Document
             => println!("#Document"),
 
-        Doctype(ref name, ref public, ref system)
-            => println!("<!DOCTYPE {} \"{}\" \"{}\">", *name, *public, *system),
+        NodeData::Doctype { ref name, ref public_id, ref system_id }
+            => println!("<!DOCTYPE {} \"{}\" \"{}\">", name, public_id, system_id),
 
-        Text(ref text)
-            => println!("#text: {}", escape_default(&text.borrow())),
+        NodeData::Text { ref contents }
+            => println!("#text: {}", escape_default(&contents.borrow())),
 
-        Comment(ref text)
-            => println!("<!-- {} -->", escape_default(text)),
+        NodeData::Comment { ref contents }
+            => println!("<!-- {} -->", escape_default(contents)),
 
-        Element(ref name, _, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             assert!(name.ns == ns!(html));
             print!("<{}", name.local);
             for attr in attrs.borrow().iter() {
@@ -48,7 +48,7 @@ fn walk(indent: usize, handle: Handle) {
             println!(">");
         }
 
-        PI(..) => unreachable!()
+        NodeData::ProcessingInstruction { .. } => unreachable!()
     }
 
     for child in node.children.borrow().iter() {

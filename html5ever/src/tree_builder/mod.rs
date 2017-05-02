@@ -530,7 +530,7 @@ mod test {
     use driver::*;
     use super::{TreeBuilderOpts, TreeBuilder};
     use markup5ever::Attribute;
-    use rcdom::{Node, Handle, RcDom, NodeEnum, ElementEnum};
+    use rcdom::{Node, Handle, RcDom, NodeData};
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,

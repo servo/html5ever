@@ -82,39 +82,39 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
     let node = handle;
-    match node.node {
-        Document => panic!("should not reach Document"),
+    match node.data {
+        NodeData::Document => panic!("should not reach Document"),
 
-        Doctype(ref name, ref public, ref system) => {
+        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
-            if !public.is_empty() || !system.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
+            if !public_id.is_empty() || !system_id.is_empty() {
+                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         }
 
-        Text(ref text) => {
+        NodeData::Text { ref contents } => {
             buf.push_str("\"");
-            buf.push_str(&text.borrow());
+            buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         }
 
-        PI(ref target, ref data) => {
+        NodeData::ProcessingInstruction { ref target, ref contents } => {
             buf.push_str("<?");
             buf.push_str(&target);
             buf.push_str(" ");
-            buf.push_str(&data);
+            buf.push_str(&contents);
             buf.push_str("?>\n");
         }
 
-        Comment(ref text) => {
+        NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&text);
+            buf.push_str(&contents);
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, _, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             buf.push_str("<");
 
             if name.ns != ns!() {

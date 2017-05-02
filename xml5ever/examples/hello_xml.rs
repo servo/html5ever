@@ -15,7 +15,7 @@ use std::default::Default;
 use xml5ever::tendril::TendrilSink;
 use xml5ever::driver::{parse_document, BytesOpts};
 use xml5ever::tree_builder::{TreeSink};
-use xml5ever::rcdom::{RcDom, Text};
+use xml5ever::rcdom::{RcDom, NodeData};
 
 fn main() {
     // To parse a string into a tree of nodes, we need to invoke
@@ -37,9 +37,9 @@ fn main() {
     let xml = {
         let mut xml = String::new();
 
-        match &text_node.node {
-            &Text(ref text) => {
-                xml.push_str(&**text.borrow());
+        match &text_node.data {
+            &NodeData::Text { ref contents } => {
+                xml.push_str(&contents.borrow());
             },
             _ => {}
         };

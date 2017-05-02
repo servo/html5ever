@@ -27,8 +27,7 @@ use test::ShouldPanic::No;
 
 use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
-use html5ever::rcdom::{Comment, Document, Doctype, Element, PI, Handle, RcDom};
-use html5ever::rcdom::{Template, Text};
+use html5ever::rcdom::{NodeData, Handle, RcDom};
 
 use tendril::{StrTendril, TendrilSink};
 
@@ -81,31 +80,31 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push_str(&repeat(" ").take(indent).collect::<String>());
 
     let node = handle;
-    match node.node {
-        Document => panic!("should not reach Document"),
+    match node.data {
+        NodeData::Document => panic!("should not reach Document"),
 
-        Doctype(ref name, ref public, ref system) => {
+        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
-            if !public.is_empty() || !system.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public, system));
+            if !public_id.is_empty() || !system_id.is_empty() {
+                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         }
 
-        Text(ref text) => {
+        NodeData::Text { ref contents } => {
             buf.push_str("\"");
-            buf.push_str(&text.borrow());
+            buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         }
 
-        Comment(ref text) => {
+        NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&text);
+            buf.push_str(&contents);
             buf.push_str(" -->\n");
         }
 
-        Element(ref name, _, ref attrs) => {
+        NodeData::Element { ref name, ref attrs, .. } => {
             buf.push_str("<");
             match name.ns {
                 ns!(svg) => buf.push_str("svg "),
@@ -133,14 +132,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             }
         }
 
-        PI(..) => unreachable!()
+        NodeData::ProcessingInstruction { .. } => unreachable!()
     }
 
     for child in node.children.borrow().iter() {
         serialize(buf, indent+2, child.clone());
     }
 
-    if let Element(_, Template(ref content), _) = node.node {
+    if let NodeData::Element { template_contents: Some(ref content), .. } = node.data {
         buf.push_str("|");
         buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
         buf.push_str("content\n");
