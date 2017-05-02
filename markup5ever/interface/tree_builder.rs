@@ -11,6 +11,8 @@
 ///
 /// Adjacent sibling text nodes are merged into a single node, so
 /// the sink may not want to allocate a `Handle` for each.
+
+use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use tendril::StrTendril;
 use interface::{QualName, ExpandedName, Attribute};
@@ -47,6 +49,42 @@ pub enum NextParserState {
     Continue,
 }
 
+#[derive(Default)]
+pub struct ElementFlags {
+    /// A document fragment should be created, associated with the element,
+    /// and returned in TreeSink::get_template_contents
+    ///
+    /// https://html.spec.whatwg.org/multipage/#template-contents
+    pub template: bool,
+
+    /// This boolean should be recorded with the element and returned
+    /// in TreeSink::is_mathml_annotation_xml_integration_point
+    ///
+    /// https://html.spec.whatwg.org/multipage/#html-integration-point
+    pub mathml_annotation_xml_integration_point: bool,
+
+    _private: ()
+}
+
+pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
+where Sink: TreeSink {
+    let mut flags = ElementFlags::default();
+    match name.expanded() {
+        expanded_name!(html "template") => {
+            flags.template = true
+        }
+        expanded_name!(mathml "annotation-xml") => {
+            flags.mathml_annotation_xml_integration_point = attrs.iter().any(|attr| {
+                attr.name.expanded() == expanded_name!("", "encoding") && (
+                    attr.value.eq_ignore_ascii_case("text/html") ||
+                    attr.value.eq_ignore_ascii_case("application/xhtml+xml")
+                )
+            })
+        }
+        _ => {}
+    }
+    sink.create_element(name, attrs, flags)
+}
 
 pub trait TreeSink {
     /// `Handle` is a reference to a DOM node.  The tree builder requires
@@ -79,13 +117,6 @@ pub trait TreeSink {
     /// feel free to `panic!`.
     fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> ExpandedName<'a>;
 
-    /// Does this element have an attribute matching the given predicate?
-    ///
-    /// Should never be called on a non-element node;
-    /// feel free to `panic!`.
-    fn elem_any_attr<P>(&self, target: &Self::Handle, predicate: P) -> bool
-    where P: FnMut(ExpandedName, &str) -> bool;
-
     /// Create an element.
     ///
     /// When creating a template element (`name.ns.expanded() == expanded_name!(html "template")`),
@@ -93,7 +124,8 @@ pub trait TreeSink {
     /// also be created. Later calls to self.get_template_contents() with that
     /// given element return it.
     /// https://html.spec.whatwg.org/multipage/#htmltemplateelement
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Self::Handle;
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
+                      -> Self::Handle;
 
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
@@ -163,6 +195,12 @@ pub trait TreeSink {
 
     /// Remove all the children from node and append them to new_parent.
     fn reparent_children(&mut self, node: &Self::Handle, new_parent: &Self::Handle);
+
+    /// Returns true if the adjusted current node is an HTML integration point
+    /// and the token is a start tag.
+    fn is_mathml_annotation_xml_integration_point(&self, _handle: &Self::Handle) -> bool {
+        false
+    }
 
     /// Called whenever the line number changes.
     fn set_current_line(&mut self, _line_number: u64) {}

@@ -10,7 +10,7 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use {ExpandedName, QualName};
-use interface::{Attribute, TreeSink, Quirks, AppendNode};
+use interface::{Attribute, TreeSink, Quirks, AppendNode, create_element};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
@@ -139,8 +139,8 @@ impl<Handle, Sink> TreeBuilderStep<Handle>
                 }
 
                 tag @ <script> => {
-                    let elem = self.sink.create_element(
-                        QualName::new(None, ns!(html), local_name!("script")),
+                    let elem = create_element(
+                        &mut self.sink, QualName::new(None, ns!(html), local_name!("script")),
                         tag.attrs);
                     if self.is_fragment() {
                         self.sink.mark_script_already_started(&elem);

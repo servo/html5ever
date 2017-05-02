@@ -13,7 +13,7 @@
 //! mode appropriately".
 
 use {LocalName, Namespace, QualName, ExpandedName};
-use interface::{Attribute, TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use interface::{Attribute, TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText, create_element};
 use tendril::StrTendril;
 use tokenizer::{Tag, StartTag, EndTag};
 use tokenizer::states::{RawData, RawKind};
@@ -358,8 +358,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 };
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
                 // own, once as part of t.clone() above)?
-                let new_element = self.sink.create_element(
-                    QualName::new(None, ns!(html), tag.name.clone()),
+                let new_element = create_element(
+                    &mut self.sink, QualName::new(None, ns!(html), tag.name.clone()),
                     tag.attrs.clone());
                 self.open_elems[node_index] = new_element.clone();
                 self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
@@ -387,8 +387,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
             // 15.
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
-            let new_element = self.sink.create_element(
-                QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
+            let new_element = create_element(
+                &mut self.sink, QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
                 fmt_elem_tag.attrs.clone());
             let new_entry = Element(new_element.clone(), fmt_elem_tag);
 
@@ -772,8 +772,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
     //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
-        let elem = self.sink.create_element(
-            QualName::new(None, ns!(html), local_name!("html")),
+        let elem = create_element(
+            &mut self.sink, QualName::new(None, ns!(html), local_name!("html")),
             attrs);
         self.push(&elem);
         self.sink.append(&self.doc_handle, AppendNode(elem));
@@ -791,7 +791,7 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
 
         // Step 7.
         let qname = QualName::new(None, ns, name);
-        let elem = self.sink.create_element(qname.clone(), attrs.clone());
+        let elem = create_element(&mut self.sink, qname.clone(), attrs.clone());
 
         let insertion_point = self.appropriate_place_for_insertion(None);
         let tree_node = match insertion_point {
@@ -953,16 +953,8 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 TagToken(Tag { kind: StartTag, name: local_name!("svg"), .. }) => return false,
                 CharacterTokens(..) | NullCharacterToken |
                 TagToken(Tag { kind: StartTag, .. }) => {
-                    let integration_point = self.sink.elem_any_attr(
-                        self.adjusted_current_node(),
-                        |attr_name, attr_value| {
-                            attr_name == expanded_name!("", "encoding") && (
-                                attr_value.eq_ignore_ascii_case("text/html") ||
-                                attr_value.eq_ignore_ascii_case("application/xhtml+xml")
-                            )
-                        }
-                    );
-                    return !integration_point
+                    return !self.sink.is_mathml_annotation_xml_integration_point(
+                        self.adjusted_current_node())
                 }
                 _ => {}
             };

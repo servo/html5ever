@@ -10,10 +10,8 @@
 use std::fmt;
 use tendril::StrTendril;
 
-pub mod tree_builder;
-
 use super::{LocalName, Prefix, Namespace};
-pub use self::tree_builder::{NodeOrText, AppendNode, AppendText};
+pub use self::tree_builder::{NodeOrText, AppendNode, AppendText, create_element, ElementFlags};
 pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
@@ -55,6 +53,8 @@ macro_rules! expanded_name {
         }
     }
 }
+
+pub mod tree_builder;
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]

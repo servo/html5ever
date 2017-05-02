@@ -11,7 +11,7 @@ use std::borrow::Cow::Borrowed;
 
 use tendril::{StrTendril, Tendril};
 
-use interface::{NodeOrText, TreeSink, AppendNode};
+use interface::{NodeOrText, TreeSink, AppendNode, create_element};
 use interface::{AppendText, ExpandedName, NextParserState};
 use tokenizer::{Tag, Pi, Doctype};
 use tokenizer::states::Quiescent;
@@ -104,20 +104,20 @@ impl<Handle, Sink> XmlTreeBuilderActions<Handle>
     }
 
     fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = self.sink.create_element(tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = self.sink.create_element(tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.sink.pop(&child);
         Done
     }
 
     fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
-        let child = self.sink.create_element(tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
 
         self.sink.append(&self.doc_handle, AppendNode(child.clone()));
         child

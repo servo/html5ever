@@ -25,7 +25,7 @@ use tendril::StrTendril;
 use Attribute;
 use ExpandedName;
 use QualName;
-use interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText};
+use interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags};
 use interface::tree_builder;
 use serialize::{Serialize, Serializer};
 use serialize::TraversalScope;
@@ -58,9 +58,12 @@ pub enum NodeData {
         name: QualName,
         attrs: RefCell<Vec<Attribute>>,
 
-        /// For HTML <template> elments, the template contents
+        /// For HTML <template> elements, the template contents
         /// https://html.spec.whatwg.org/multipage/#template-contents
         template_contents: Option<Handle>,
+
+        /// https://html.spec.whatwg.org/multipage/#html-integration-point
+        mathml_annotation_xml_integration_point: bool,
     },
 
     /// A Processing instruction.
@@ -183,24 +186,16 @@ impl TreeSink for RcDom {
         };
     }
 
-    fn elem_any_attr<P>(&self, target: &Self::Handle, mut predicate: P) -> bool
-    where P: FnMut(ExpandedName, &str) -> bool {
-        return match target.data {
-            NodeData::Element { ref attrs, .. } => {
-                attrs.borrow().iter().any(|a| predicate(a.name.expanded(), &*a.value))
-            }
-            _ => panic!("not an element!"),
-        };
-    }
-
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
         Node::new(NodeData::Element {
-            template_contents: match name.expanded() {
-                expanded_name!(html "template") => Some(Node::new(NodeData::Document)),
-                _ => None,
-            },
             name: name,
             attrs: RefCell::new(attrs),
+            template_contents: if flags.template {
+                Some(Node::new(NodeData::Document))
+            } else {
+                None
+            },
+            mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
         })
     }
 
@@ -222,7 +217,7 @@ impl TreeSink for RcDom {
     fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
         match child {
-            AppendText(ref text) => match parent.children.borrow().last() {
+            NodeOrText::AppendText(ref text) => match parent.children.borrow().last() {
                 Some(h) => if append_to_existing_text(h, &text) { return; },
                 _ => (),
             },
@@ -230,8 +225,8 @@ impl TreeSink for RcDom {
         }
 
         append(&parent, match child {
-            AppendText(text) => Node::new(NodeData::Text { contents: RefCell::new(text) }),
-            AppendNode(node) => node
+            NodeOrText::AppendText(text) => Node::new(NodeData::Text { contents: RefCell::new(text) }),
+            NodeOrText::AppendNode(node) => node
         });
     }
 
@@ -243,10 +238,12 @@ impl TreeSink for RcDom {
 
         let child = match (child, i) {
             // No previous node.
-            (AppendText(text), 0) => Node::new(NodeData::Text { contents: RefCell::new(text) }),
+            (NodeOrText::AppendText(text), 0) => {
+                Node::new(NodeData::Text { contents: RefCell::new(text) })
+            }
 
             // Look for a text node before the insertion point.
-            (AppendText(text), i) => {
+            (NodeOrText::AppendText(text), i) => {
                 let children = parent.children.borrow();
                 let prev = &children[i-1];
                 if append_to_existing_text(prev, &text) {
@@ -259,7 +256,7 @@ impl TreeSink for RcDom {
             // the insertion point.
 
             // Any other kind of node.
-            (AppendNode(node), _) => node,
+            (NodeOrText::AppendNode(node), _) => node,
         };
 
         remove_from_parent(&child);
@@ -305,6 +302,14 @@ impl TreeSink for RcDom {
             assert!(Rc::ptr_eq(&node, &previous_parent.unwrap().upgrade().expect("dangling weak")))
         }
         new_children.extend(mem::replace(&mut *children, Vec::new()));
+    }
+
+    fn is_mathml_annotation_xml_integration_point(&self, target: &Handle) -> bool {
+        if let NodeData::Element { mathml_annotation_xml_integration_point, .. } = target.data {
+            mathml_annotation_xml_integration_point
+        } else {
+            panic!("not an element!")
+        }
     }
 }
 

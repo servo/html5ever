@@ -12,7 +12,7 @@
 use {Attribute, QualName};
 use buffer_queue::BufferQueue;
 use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
-use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink};
+use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink, create_element};
 
 use std::borrow::Cow;
 use std::mem;
@@ -56,7 +56,7 @@ pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
                             context_name: QualName, context_attrs: Vec<Attribute>)
                             -> Parser<Sink>
                             where Sink: TreeSink {
-    let context_elem = sink.create_element(context_name, context_attrs);
+    let context_elem = create_element(&mut sink, context_name, context_attrs);
     parse_fragment_for_element(sink, opts, context_elem, None)
 }
 

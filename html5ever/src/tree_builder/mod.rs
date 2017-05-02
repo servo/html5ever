@@ -13,7 +13,7 @@
 
 pub use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use interface::{NodeOrText, AppendNode, AppendText};
-pub use interface::{TreeSink, Tracer, NextParserState};
+pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFlags};
 
 use self::types::*;
 use self::actions::TreeBuilderActions;
@@ -503,7 +503,7 @@ impl<Handle, Sink> TokenSink
 mod test {
     use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
     use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-    use markup5ever::interface::{TreeSink, Tracer};
+    use markup5ever::interface::{TreeSink, Tracer, ElementFlags};
 
     use super::types::*;
     use super::actions::TreeBuilderActions;
@@ -569,14 +569,10 @@ mod test {
             self.rcdom.elem_name(target)
         }
 
-        fn elem_any_attr<P>(&self, target: &Self::Handle, predicate: P) -> bool
-        where P: FnMut(ExpandedName, &str) -> bool {
-            self.rcdom.elem_any_attr(target, predicate)
-        }
-
-        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
+        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
+                          -> Handle {
             self.line_vec.push((name.clone(), self.current_line));
-            self.rcdom.create_element(name, attrs)
+            self.rcdom.create_element(name, attrs, flags)
         }
 
         fn create_comment(&mut self, text: StrTendril) -> Handle {
