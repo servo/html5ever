@@ -12,7 +12,6 @@
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
 
-use std::ascii::AsciiExt;
 use std::cell::{RefCell, Cell};
 use std::collections::HashSet;
 use std::default::Default;
@@ -33,7 +32,7 @@ use serialize::{Serialize, Serializer};
 use serialize::TraversalScope;
 use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 
-pub use self::ElementEnum::{AnnotationXml, Normal, Script, Template};
+pub use self::ElementEnum::{Normal, Script, Template};
 pub use self::NodeEnum::{Document, Doctype, Text, Comment, Element, PI};
 
 /// The different kinds of elements in the DOM.
@@ -45,11 +44,6 @@ pub enum ElementEnum {
     /// A template element and its template contents.
     /// https://html.spec.whatwg.org/multipage/#template-contents
     Template(Handle),
-    /// An annotation-xml element in the MathML namespace whose start tag token had an attribute
-    /// with the name "encoding" whose value was an ASCII case-insensitive match for the string
-    /// "text/html" or "application/xhtml+xml"
-    /// https://html.spec.whatwg.org/multipage/embedded-content.html#math:annotation-xml
-    AnnotationXml(bool),
 }
 
 /// The different kinds of nodes in the DOM.
@@ -196,18 +190,20 @@ impl TreeSink for RcDom {
         };
     }
 
+    fn elem_any_attr<P>(&self, target: &Self::Handle, mut predicate: P) -> bool
+    where P: FnMut(ExpandedName, &str) -> bool {
+        return match target.node {
+            Element(_, _, ref attrs) => {
+                attrs.borrow().iter().any(|a| predicate(a.name.expanded(), &*a.value))
+            }
+            _ => panic!("not an element!"),
+        };
+    }
+
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
         let info = match name.expanded() {
             expanded_name!(html "script") => Script(Cell::new(false)),
             expanded_name!(html "template") => Template(new_node(Document)),
-            expanded_name!(mathml "annotation-xml") => {
-                AnnotationXml(attrs.iter()
-                    .find(|attr| attr.name.expanded() == expanded_name!("", "encoding"))
-                    .map_or(false, |attr| {
-                        attr.value.eq_ignore_ascii_case("text/html") ||
-                        attr.value.eq_ignore_ascii_case("application/xhtml+xml")
-                    }))
-            },
             _ => Normal,
         };
         new_node(Element(name, info, RefCell::new(attrs)))
@@ -317,13 +313,6 @@ impl TreeSink for RcDom {
             script_already_started.set(true);
         } else {
             panic!("not a script element!");
-        }
-    }
-
-    fn is_mathml_annotation_xml_integration_point(&self, handle: &Handle) -> bool {
-        match handle.node {
-            Element(_, AnnotationXml(ret), _) => ret,
-            _ => unreachable!(),
         }
     }
 }

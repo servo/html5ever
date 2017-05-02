@@ -79,6 +79,13 @@ pub trait TreeSink {
     /// feel free to `panic!`.
     fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> ExpandedName<'a>;
 
+    /// Does this element have an attribute matching the given predicate?
+    ///
+    /// Should never be called on a non-element node;
+    /// feel free to `panic!`.
+    fn elem_any_attr<P>(&self, target: &Self::Handle, predicate: P) -> bool
+    where P: FnMut(ExpandedName, &str) -> bool;
+
     /// Create an element.
     ///
     /// When creating a template element (`name.ns.expanded() == expanded_name!(html "template")`),
@@ -108,7 +115,7 @@ pub trait TreeSink {
                                   system_id: StrTendril);
 
     /// Mark a HTML `<script>` as "already started".
-    fn mark_script_already_started(&mut self, node: &Self::Handle);
+    fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
 
     /// Indicate that a node was popped off the stack of open elements.
     fn pop(&mut self, _node: &Self::Handle) {}
@@ -156,12 +163,6 @@ pub trait TreeSink {
 
     /// Remove all the children from node and append them to new_parent.
     fn reparent_children(&mut self, node: &Self::Handle, new_parent: &Self::Handle);
-
-    /// Returns true if the adjusted current node is an HTML integration point
-    /// and the token is a start tag.
-    fn is_mathml_annotation_xml_integration_point(&self, _handle: &Self::Handle) -> bool {
-        false
-    }
 
     /// Called whenever the line number changes.
     fn set_current_line(&mut self, _line_number: u64) {}

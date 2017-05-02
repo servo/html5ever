@@ -569,6 +569,11 @@ mod test {
             self.rcdom.elem_name(target)
         }
 
+        fn elem_any_attr<P>(&self, target: &Self::Handle, predicate: P) -> bool
+        where P: FnMut(ExpandedName, &str) -> bool {
+            self.rcdom.elem_any_attr(target, predicate)
+        }
+
         fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>) -> Handle {
             self.line_vec.push((name.clone(), self.current_line));
             self.rcdom.create_element(name, attrs)
@@ -617,10 +622,6 @@ mod test {
 
         fn mark_script_already_started(&mut self, target: &Handle) {
             self.rcdom.mark_script_already_started(target);
-        }
-
-        fn is_mathml_annotation_xml_integration_point(&self, handle: &Handle) -> bool {
-            self.rcdom.is_mathml_annotation_xml_integration_point(handle)
         }
 
         fn set_current_line(&mut self, line_number: u64) {

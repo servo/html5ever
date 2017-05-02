@@ -65,6 +65,10 @@ impl TreeSink for Sink {
         self.names.get(target).expect("not an element").expanded()
     }
 
+    fn elem_any_attr<P>(&self, _target: &usize, _predicate: P) -> bool
+    where P: FnMut(ExpandedName, &str) -> bool {
+        false
+    }
 
     fn create_element(&mut self, name: QualName, _attrs: Vec<Attribute>) -> usize {
         let id = self.get_id();

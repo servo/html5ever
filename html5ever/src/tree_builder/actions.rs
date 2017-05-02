@@ -953,7 +953,16 @@ impl<Handle, Sink> TreeBuilderActions<Handle>
                 TagToken(Tag { kind: StartTag, name: local_name!("svg"), .. }) => return false,
                 CharacterTokens(..) | NullCharacterToken |
                 TagToken(Tag { kind: StartTag, .. }) => {
-                    return !self.sink.is_mathml_annotation_xml_integration_point(self.adjusted_current_node())
+                    let integration_point = self.sink.elem_any_attr(
+                        self.adjusted_current_node(),
+                        |attr_name, attr_value| {
+                            attr_name == expanded_name!("", "encoding") && (
+                                attr_value.eq_ignore_ascii_case("text/html") ||
+                                attr_value.eq_ignore_ascii_case("application/xhtml+xml")
+                            )
+                        }
+                    );
+                    return !integration_point
                 }
                 _ => {}
             };
