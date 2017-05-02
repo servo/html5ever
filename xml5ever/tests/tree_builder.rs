@@ -9,12 +9,9 @@
 
 #![cfg_attr(feature = "unstable", feature(start, test))]
 
-extern crate test;
-
-#[macro_use] extern crate markup5ever;
-
 extern crate rustc_serialize;
-extern crate xml5ever;
+extern crate test;
+#[macro_use] extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};
 use std::ffi::OsStr;

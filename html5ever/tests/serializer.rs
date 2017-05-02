@@ -8,13 +8,9 @@
 // except according to those terms.
 
 extern crate tendril;
-extern crate html5ever;
-
-#[macro_use] 
-extern crate markup5ever;
+#[macro_use] extern crate html5ever;
 
 use std::default::Default;
-
 use tendril::{StrTendril, SliceExt, TendrilSink};
 
 use html5ever::driver::ParseOpts;

@@ -38,7 +38,6 @@
 extern crate phf;
 extern crate time;
 
-
 pub use markup5ever::*;
 
 /// Re-export the tendril crate so that users don’t need to depend on it.

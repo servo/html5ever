@@ -9,8 +9,7 @@
 
 extern crate rustc_serialize;
 extern crate test;
-extern crate html5ever;
-#[macro_use] extern crate markup5ever;
+#[macro_use] extern crate html5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;

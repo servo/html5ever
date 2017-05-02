@@ -9,9 +9,7 @@
 
 extern crate rustc_serialize;
 extern crate test;
-
-extern crate xml5ever;
-extern crate markup5ever;
+#[macro_use] extern crate xml5ever;
 
 use std::borrow::Cow::Borrowed;
 use std::env;
@@ -20,13 +18,12 @@ use std::mem::replace;
 use std::path::Path;
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
-use markup5ever::{Attribute, QualName};
 
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
-use xml5ever::{LocalName, Namespace};
+use xml5ever::{LocalName, Attribute, QualName};
 use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
 use xml5ever::tokenizer::{Token, CharacterTokens, TokenSink};
@@ -198,12 +195,6 @@ impl JsonExt for Json {
 
     fn find<'t>(&'t self, key: &str) -> &'t Json {
         self.get_obj().get(&key.to_string()).unwrap()
-    }
-}
-
-macro_rules! ns {
-    () => {
-        Namespace::default()
     }
 }
 
