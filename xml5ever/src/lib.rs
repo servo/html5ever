@@ -35,7 +35,6 @@
 #[macro_use] extern crate markup5ever;
 #[macro_use] extern crate log;
 #[macro_use] extern crate mac;
-extern crate phf;
 extern crate time;
 
 pub use markup5ever::*;
