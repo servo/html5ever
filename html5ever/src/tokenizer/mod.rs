@@ -1090,7 +1090,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 '\t' | '\n' | '\x0C' | ' ' => (),
                 '\0' => go!(self: error; create_doctype; push_doctype_name '\u{fffd}'; to DoctypeName),
                 '>'  => go!(self: error; create_doctype; force_quirks; emit_doctype; to Data),
-                c    => go!(self: create_doctype; push_doctype_name (c.to_ascii_lowercase()); 
+                c    => go!(self: create_doctype; push_doctype_name (c.to_ascii_lowercase());
                                   to DoctypeName),
             }},
 
@@ -1418,7 +1418,7 @@ mod test {
 
     use {LocalName};
 
-    // LinesMatch implements the TokenSink trait. It is used for testing to see 
+    // LinesMatch implements the TokenSink trait. It is used for testing to see
     // if current_line is being updated when process_token is called. The lines
     // vector is a collection of the line numbers that each token is on.
     struct LinesMatch {
@@ -1426,7 +1426,7 @@ mod test {
         current_str: StrTendril,
         lines: Vec<(Token, u64)>,
     }
-    
+
     impl LinesMatch {
         fn new() -> LinesMatch {
             LinesMatch {
@@ -1451,11 +1451,11 @@ mod test {
     }
 
     impl TokenSink for LinesMatch {
-        
+
         type Handle = ();
 
         fn process_token(&mut self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle> {
-            
+
             match token {
                 CharacterTokens(b) => {
                     self.current_str.push_slice(&b);
@@ -1491,7 +1491,7 @@ mod test {
         }
     }
 
-    // Take in tokens, process them, and return vector with line 
+    // Take in tokens, process them, and return vector with line
     // numbers that each token is on
     fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<(Token, u64)> {
         let sink = LinesMatch::new();
@@ -1549,8 +1549,8 @@ mod test {
         let vector = vec![StrTendril::from("<a>\n"), StrTendril::from("<b>\n"),
             StrTendril::from("</b>\n"), StrTendril::from("</a>\n")];
         let expected = vec![(create_tag(StrTendril::from("a"), StartTag), 1),
-            (create_tag(StrTendril::from("b"), StartTag), 2), 
-            (create_tag(StrTendril::from("b"), EndTag), 3), 
+            (create_tag(StrTendril::from("b"), StartTag), 2),
+            (create_tag(StrTendril::from("b"), EndTag), 3),
             (create_tag(StrTendril::from("a"), EndTag), 4)];
         let results = tokenize(vector, opts);
         assert_eq!(results, expected);
@@ -1568,8 +1568,8 @@ mod test {
         let vector = vec![StrTendril::from("<a>\r\n"), StrTendril::from("<b>\r\n"),
             StrTendril::from("</b>\r\n"), StrTendril::from("</a>\r\n")];
         let expected = vec![(create_tag(StrTendril::from("a"), StartTag), 1),
-            (create_tag(StrTendril::from("b"), StartTag), 2), 
-            (create_tag(StrTendril::from("b"), EndTag), 3), 
+            (create_tag(StrTendril::from("b"), StartTag), 2),
+            (create_tag(StrTendril::from("b"), EndTag), 3),
             (create_tag(StrTendril::from("a"), EndTag), 4)];
         let results = tokenize(vector, opts);
         assert_eq!(results, expected);
