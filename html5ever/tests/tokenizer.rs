@@ -143,7 +143,7 @@ fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
     }
     let _ = tok.feed(&mut buffer);
     tok.end();
-    tok.unwrap().get_tokens()
+    tok.sink.get_tokens()
 }
 
 trait JsonExt: Sized {

@@ -101,7 +101,7 @@ pub struct Tokenizer<Sink> {
     opts: TokenizerOpts,
 
     /// Destination for tokens we emit.
-    sink: Sink,
+    pub sink: Sink,
 
     /// The abstract machine state as described in the spec.
     state: states::State,
@@ -199,18 +199,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             time_in_sink: 0,
             current_line: 1,
         }
-    }
-
-    pub fn unwrap(self) -> Sink {
-        self.sink
-    }
-
-    pub fn sink<'a>(&'a self) -> &'a Sink {
-        &self.sink
-    }
-
-    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
-        &mut self.sink
     }
 
     /// Feed an input string into the tokenizer.

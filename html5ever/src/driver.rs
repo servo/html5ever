@@ -92,7 +92,7 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
 
     // FIXME: Is it too noisy to report every character decoding error?
     fn error(&mut self, desc: Cow<'static, str>) {
-        self.tokenizer.sink_mut().sink_mut().parse_error(desc)
+        self.tokenizer.sink.sink.parse_error(desc)
     }
 
     type Output = Sink::Output;
@@ -102,7 +102,7 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
         while let TokenizerResult::Script(_) = self.tokenizer.feed(&mut self.input_buffer) {}
         assert!(self.input_buffer.is_empty());
         self.tokenizer.end();
-        self.tokenizer.unwrap().unwrap().finish()
+        self.tokenizer.sink.sink.finish()
     }
 }
 

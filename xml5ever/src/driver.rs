@@ -60,12 +60,12 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
 
     // FIXME: Is it too noisy to report every character decoding error?
     fn error(&mut self, desc: Cow<'static, str>) {
-        self.tokenizer.sink_mut().sink_mut().parse_error(desc)
+        self.tokenizer.sink.sink.parse_error(desc)
     }
 
     fn finish(mut self) -> Self::Output {
         self.tokenizer.end();
-        self.tokenizer.unwrap().unwrap().finish()
+        self.tokenizer.sink.sink.finish()
     }
 }
 
