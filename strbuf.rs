@@ -41,6 +41,11 @@ impl StrBuf {
     }
 
     /// This does not copy any data.
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+
+    /// This does not copy any data.
     pub fn truncate(&mut self, new_len: usize) {
         let _: &str = &self[..new_len];  // Check char boundary with a nice panic message
         self.0.truncate(new_len)

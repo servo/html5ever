@@ -205,6 +205,11 @@ impl BytesBuf {
     }
 
     /// This does not copy any data.
+    pub fn clear(&mut self) {
+        self.truncate(0)
+    }
+
+    /// This does not copy any data.
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
             unsafe {
