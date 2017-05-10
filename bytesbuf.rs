@@ -8,6 +8,7 @@ use std::ops::{Deref, DerefMut};
 /// A reference-counted bytes buffer.
 pub struct BytesBuf {
     ptr: Shared<HeapData>,
+    start: u32,
     len: u32,
 }
 
@@ -19,6 +20,7 @@ impl BytesBuf {
     pub fn with_capacity(capacity: usize) -> Self {
         BytesBuf {
             ptr: HeapData::allocate(usize_to_u32(capacity)),
+            start: 0,
             len: 0,
         }
     }
@@ -33,7 +35,8 @@ impl BytesBuf {
         }
     }
 
-    fn heap_data_make_mut(&mut self) -> &mut HeapData {
+    /// Unsafe: may not be initialized
+    unsafe fn data_after_start_make_mut(&mut self) -> &mut [u8] {
         if !self.heap_data().is_owned() {
             let copy = {
                 let slice: &[u8] = self;
@@ -41,15 +44,22 @@ impl BytesBuf {
             };
             *self = copy
         }
-        unsafe {
-            self.ptr.as_mut()
-        }
+        let data = self.ptr.as_mut().data_mut();
+
+        // Slice here because call sites borrow `self` entirely
+        // and therefore cannot access self.start after this call while the return slice
+        // is in scope.
+        // Accessing `self.start` before this call is incorrect
+        // because this call can change it (reset it from non-zero to zero, when copying).
+        // Accessing `self.len` before this call is fine, this method never changes the length.
+        let start = u32_to_usize(self.start);
+        &mut data[start..]
     }
 
     pub fn capacity(&self) -> usize {
         let heap_data = self.heap_data();
         let capacity = if heap_data.is_owned() {
-            heap_data.data_capacity()
+            heap_data.data_capacity().checked_sub(self.start).expect("data_capacity < start ??")
         } else {
             self.len
         };
@@ -60,13 +70,27 @@ impl BytesBuf {
         self.heap_data().data_ptr()
     }
 
-    pub fn pop_back(&mut self, bytes: usize) {
-        match self.len.checked_sub(usize_to_u32(bytes)) {
-            Some(new_len) => self.len = new_len,
-            None => panic!("Tried to pop {} bytes, only {} are available", bytes, self.len)
+    /// This does not copy any data.
+    pub fn pop_front(&mut self, bytes: usize) {
+        let bytes = usize_to_u32(bytes);
+        match self.len.checked_sub(bytes) {
+            Some(new_len) => {
+                self.start = self.start.checked_add(bytes).expect("overflow");
+                self.len = new_len;
+            }
+            None => panic!("tried to pop {} bytes, only {} are available", bytes, self.len)
         }
     }
 
+    /// This does not copy any data.
+    pub fn pop_back(&mut self, bytes: usize) {
+        match self.len.checked_sub(usize_to_u32(bytes)) {
+            Some(new_len) => self.len = new_len,
+            None => panic!("tried to pop {} bytes, only {} are available", bytes, self.len)
+        }
+    }
+
+    /// This does not copy any data.
     pub fn truncate(&mut self, new_len: usize) {
         let new_len = usize_to_u32(new_len);
         if new_len < self.len {
@@ -84,7 +108,7 @@ impl BytesBuf {
         let new_capacity = self.len().checked_add(additional).expect("overflow");
         {
             let heap_data = self.heap_data();
-            if heap_data.is_owned() && new_capacity <= u32_to_usize(heap_data.data_capacity()) {
+            if heap_data.is_owned() && new_capacity <= self.capacity() {
                 return
             }
         }
@@ -107,13 +131,13 @@ impl BytesBuf {
         self.reserve(bytes_to_reserve);
         let written;
         {
-            let len = u32_to_usize(self.len);
-            let data = self.heap_data_make_mut().data_mut();
+            let len = self.len();
+            let data = self.data_after_start_make_mut();
             let uninitialized = &mut data[len..];
             written = f(uninitialized);
             assert!(written <= uninitialized.len());
         }
-        self.len += usize_to_u32(written);
+        self.len = self.len.checked_add(usize_to_u32(written)).expect("overflow");
     }
 
     /// This copies the existing data if there are other references to this buffer
@@ -142,9 +166,10 @@ impl Deref for BytesBuf {
 
     fn deref(&self) -> &[u8] {
         unsafe {
-            let len = self.len();
             let data = self.heap_data().data();
-            &data[..len]
+            let start = u32_to_usize(self.start);
+            let len = self.len();
+            &data[start..][..len]
         }
     }
 }
@@ -154,7 +179,7 @@ impl DerefMut for BytesBuf {
     fn deref_mut(&mut self) -> &mut [u8] {
         unsafe {
             let len = self.len();
-            let data = self.heap_data_make_mut().data_mut();
+            let data = self.data_after_start_make_mut();
             &mut data[..len]
         }
     }
@@ -177,6 +202,7 @@ impl Clone for BytesBuf {
         self.heap_data().increment_refcount();
         BytesBuf {
             ptr: self.ptr,
+            start: self.start,
             len: self.len,
         }
     }
