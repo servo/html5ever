@@ -3,7 +3,7 @@ use heap_data::HeapData;
 use shared_ptr::Shared;
 use std::fmt;
 use std::hash;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Range};
 
 /// A reference-counted bytes buffer.
 pub struct BytesBuf {
@@ -68,6 +68,26 @@ impl BytesBuf {
 
     pub fn as_ptr(&self) -> *const u8 {
         self.heap_data().data_ptr()
+    }
+
+    /// This does not copy any data.
+    pub fn slice(&mut self, byte_range: Range<usize>) -> Self {
+        let start = usize_to_u32(byte_range.start);
+        let end = usize_to_u32(byte_range.end);
+        match end.checked_sub(start) {
+            None => panic!("slicing with a range {:?} that ends before it starts", byte_range),
+            Some(len) => {
+                if end > self.len {
+                    panic!("slice out of range: {:?} with length = {}", byte_range, self.len)
+                }
+                self.heap_data().increment_refcount();
+                BytesBuf {
+                    ptr: self.ptr,
+                    start: start,
+                    len: len,
+                }
+            }
+        }
     }
 
     /// This does not copy any data.
