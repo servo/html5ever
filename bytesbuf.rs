@@ -120,9 +120,10 @@ impl BytesBuf {
     /// or if the existing capacity is insufficient.
     pub fn push_slice(&mut self, slice: &[u8]) {
         unsafe {
-            self.write_to_uninitialized(slice.len(), |uninitialized| {
-                uninitialized[..slice.len()].copy_from_slice(slice);
-                slice.len()
+            let slice_len = slice.len();
+            self.write_to_uninitialized(slice_len, |uninitialized| {
+                uninitialized[..slice_len].copy_from_slice(slice);
+                slice_len
             })
         }
     }
@@ -209,9 +210,9 @@ impl Default for BytesBuf {
 
 impl Eq for BytesBuf {}
 
-impl PartialEq for BytesBuf {
-    fn eq(&self, other: &Self) -> bool {
-        <[u8]>::eq(self, &**other)
+impl<T: AsRef<[u8]>> PartialEq<T> for BytesBuf {
+    fn eq(&self, other: &T) -> bool {
+        <[u8]>::eq(self, other.as_ref())
     }
 }
 
@@ -221,8 +222,8 @@ impl Ord for BytesBuf {
     }
 }
 
-impl PartialOrd for BytesBuf {
-    fn partial_cmp(&self, other: &Self) -> Option<::std::cmp::Ordering> {
-        <[u8]>::partial_cmp(self, &other)
+impl<T: AsRef<[u8]>> PartialOrd<T> for BytesBuf {
+    fn partial_cmp(&self, other: &T) -> Option<::std::cmp::Ordering> {
+        <[u8]>::partial_cmp(self, other.as_ref())
     }
 }
