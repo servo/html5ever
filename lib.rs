@@ -5,5 +5,7 @@ mod shared_ptr;
 mod conversions;
 mod heap_data;
 mod bytesbuf;
+mod strbuf;
 
 pub use bytesbuf::BytesBuf;
+pub use strbuf::StrBuf;
