@@ -5,9 +5,7 @@ use std::fmt;
 use std::hash;
 use std::ops::{Deref, DerefMut};
 
-/// A bytes buffer.
-///
-/// Always owned, for now.
+/// A reference-counted bytes buffer.
 pub struct BytesBuf {
     ptr: Shared<HeapData>,
     bytes_len: u32,
@@ -35,18 +33,38 @@ impl BytesBuf {
         }
     }
 
-    fn heap_data_mut(&mut self) -> &mut HeapData {
+    fn heap_data_make_mut(&mut self) -> &mut HeapData {
+        if !self.heap_data().is_owned() {
+            let copy = {
+                let slice: &[u8] = self;
+                Self::from(slice)
+            };
+            *self = copy
+        }
         unsafe {
             self.ptr.as_mut()
         }
     }
 
     pub fn capacity(&self) -> usize {
-        u32_to_usize(self.heap_data().data_capacity())
+        let heap_data = self.heap_data();
+        let capacity = if heap_data.is_owned() {
+            heap_data.data_capacity()
+        } else {
+            self.bytes_len
+        };
+        u32_to_usize(capacity)
     }
 
     pub fn as_ptr(&self) -> *const u8 {
         self.heap_data().data_ptr()
+    }
+
+    pub fn pop_back(&mut self, bytes: usize) {
+        match self.bytes_len.checked_sub(usize_to_u32(bytes)) {
+            Some(new_len) => self.bytes_len = new_len,
+            None => panic!("Tried to pop {} bytes, only {} are available", bytes, self.bytes_len)
+        }
     }
 
     pub fn truncate(&mut self, new_len: usize) {
@@ -56,23 +74,41 @@ impl BytesBuf {
         }
     }
 
+    /// This copies the data if there are other references to this buffer
+    /// or if the existing capacity is insufficient.
     pub fn reserve(&mut self, additional: usize) {
-        let len = self.bytes_len;
-        let new_capacity = len.checked_add(usize_to_u32(additional)).expect("overflow");
-        unsafe {
-            HeapData::reallocate(&mut self.ptr, len, new_capacity)
+        if additional == 0 {
+            return  // No need to copy even if not owned
         }
+
+        let new_capacity = self.len().checked_add(additional).expect("overflow");
+        {
+            let heap_data = self.heap_data();
+            if heap_data.is_owned() && new_capacity <= u32_to_usize(heap_data.data_capacity()) {
+                return
+            }
+        }
+
+        let mut copy = Self::with_capacity(new_capacity);
+        copy.push_slice(self);
+        *self = copy
     }
 
-    /// Unsafe: the closure must not *read* from the given slice, which is uninitialized.
+    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized.
     ///
-    /// The closure return the number of consecutive bytes written from the start of the slice.
+    /// The closure is given a mutable slice of at least `bytes_to_reserve` bytes,
+    /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
-    pub unsafe fn write_to_uninitialized<F>(&mut self, f: F) where F: FnOnce(&mut [u8]) -> usize {
+    ///
+    /// This copies the existing data if there are other references to this buffer
+    /// or if the existing capacity is insufficient.
+    pub unsafe fn write_to_uninitialized<F>(&mut self, bytes_to_reserve: usize, f: F)
+    where F: FnOnce(&mut [u8]) -> usize {
+        self.reserve(bytes_to_reserve);
         let written;
         {
             let len = u32_to_usize(self.bytes_len);
-            let data = self.heap_data_mut().data_mut();
+            let data = self.heap_data_make_mut().data_mut();
             let uninitialized = &mut data[len..];
             written = f(uninitialized);
             assert!(written <= uninitialized.len());
@@ -80,10 +116,11 @@ impl BytesBuf {
         self.bytes_len += usize_to_u32(written);
     }
 
+    /// This copies the existing data if there are other references to this buffer
+    /// or if the existing capacity is insufficient.
     pub fn push_slice(&mut self, slice: &[u8]) {
-        self.reserve(slice.len());
         unsafe {
-            self.write_to_uninitialized(|uninitialized| {
+            self.write_to_uninitialized(slice.len(), |uninitialized| {
                 uninitialized[..slice.len()].copy_from_slice(slice);
                 slice.len()
             })
@@ -94,7 +131,7 @@ impl BytesBuf {
 impl Drop for BytesBuf {
     fn drop(&mut self) {
         unsafe {
-            HeapData::deallocate(self.ptr)
+            HeapData::decrement_refcount_or_deallocate(self.ptr)
         }
     }
 }
@@ -111,11 +148,12 @@ impl Deref for BytesBuf {
     }
 }
 
+/// This copies the existing data if there are other references to this buffer.
 impl DerefMut for BytesBuf {
     fn deref_mut(&mut self) -> &mut [u8] {
         unsafe {
             let len = self.len();
-            let data = self.heap_data_mut().data_mut();
+            let data = self.heap_data_make_mut().data_mut();
             &mut data[..len]
         }
     }
@@ -135,7 +173,11 @@ impl AsMut<[u8]> for BytesBuf {
 
 impl Clone for BytesBuf {
     fn clone(&self) -> Self {
-        From::<&[u8]>::from(self)
+        self.heap_data().increment_refcount();
+        BytesBuf {
+            ptr: self.ptr,
+            bytes_len: self.bytes_len,
+        }
     }
 }
 
