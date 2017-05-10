@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 /// A reference-counted bytes buffer.
 pub struct BytesBuf {
     ptr: Shared<HeapData>,
-    bytes_len: u32,
+    len: u32,
 }
 
 impl BytesBuf {
@@ -19,12 +19,12 @@ impl BytesBuf {
     pub fn with_capacity(capacity: usize) -> Self {
         BytesBuf {
             ptr: HeapData::allocate(usize_to_u32(capacity)),
-            bytes_len: 0,
+            len: 0,
         }
     }
 
     pub fn len(&self) -> usize {
-        u32_to_usize(self.bytes_len)
+        u32_to_usize(self.len)
     }
 
     fn heap_data(&self) -> &HeapData {
@@ -51,7 +51,7 @@ impl BytesBuf {
         let capacity = if heap_data.is_owned() {
             heap_data.data_capacity()
         } else {
-            self.bytes_len
+            self.len
         };
         u32_to_usize(capacity)
     }
@@ -61,16 +61,16 @@ impl BytesBuf {
     }
 
     pub fn pop_back(&mut self, bytes: usize) {
-        match self.bytes_len.checked_sub(usize_to_u32(bytes)) {
-            Some(new_len) => self.bytes_len = new_len,
-            None => panic!("Tried to pop {} bytes, only {} are available", bytes, self.bytes_len)
+        match self.len.checked_sub(usize_to_u32(bytes)) {
+            Some(new_len) => self.len = new_len,
+            None => panic!("Tried to pop {} bytes, only {} are available", bytes, self.len)
         }
     }
 
     pub fn truncate(&mut self, new_len: usize) {
         let new_len = usize_to_u32(new_len);
-        if new_len < self.bytes_len {
-            self.bytes_len = new_len
+        if new_len < self.len {
+            self.len = new_len
         }
     }
 
@@ -107,13 +107,13 @@ impl BytesBuf {
         self.reserve(bytes_to_reserve);
         let written;
         {
-            let len = u32_to_usize(self.bytes_len);
+            let len = u32_to_usize(self.len);
             let data = self.heap_data_make_mut().data_mut();
             let uninitialized = &mut data[len..];
             written = f(uninitialized);
             assert!(written <= uninitialized.len());
         }
-        self.bytes_len += usize_to_u32(written);
+        self.len += usize_to_u32(written);
     }
 
     /// This copies the existing data if there are other references to this buffer
@@ -176,7 +176,7 @@ impl Clone for BytesBuf {
         self.heap_data().increment_refcount();
         BytesBuf {
             ptr: self.ptr,
-            bytes_len: self.bytes_len,
+            len: self.len,
         }
     }
 }
