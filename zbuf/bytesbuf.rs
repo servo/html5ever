@@ -1,5 +1,4 @@
-use heap_data::HeapData;
-use shared_ptr::Shared;
+use heap_data::TaggedPtr;
 use std::fmt;
 use std::hash;
 use std::mem;
@@ -9,6 +8,7 @@ use u32_to_usize;
 use usize_to_u32;
 
 /// A reference-counted bytes buffer.
+#[derive(Clone)]
 pub struct BytesBuf(Inner);
 
 /// The memory representation of `Inner` is one of two cases:
@@ -34,19 +34,21 @@ pub struct BytesBuf(Inner);
 ///   on little-endian platforms (metadata byte at the start of `Inner`)
 ///   and on big-endian platforms (metadata byte at the end of `Inner`).
 #[cfg(target_endian = "little")]
+#[derive(Clone)]
 #[repr(C)]  // Don’t re-order fields
 struct Inner {
-    ptr: Shared<HeapData>,
+    ptr: TaggedPtr,
     start: u32,
     len: u32,
 }
 
 #[cfg(target_endian = "big")]
+#[derive(Clone)]
 #[repr(C)]  // Don’t re-order fields
 struct Inner {
     start: u32,
     len: u32,
-    ptr: Shared<HeapData>,
+    ptr: TaggedPtr,
 }
 
 /// Offset from the start of `Inner` to the start of inline buffer data.
@@ -58,27 +60,18 @@ const INLINE_DATA_OFFSET_BYTES: isize = 1;
 #[cfg(target_endian = "big")]
 const INLINE_DATA_OFFSET_BYTES: isize = 0;
 
-const INLINE_TAG: usize = 1;
-const TAG_MASK: usize = 0b_11;
 const INLINE_LENGTH_MASK: usize = 0b_1111_1100;
 const INLINE_LENGTH_OFFSET_BITS: usize = 2;
 
-fn is_heap_allocated(ptr: Shared<HeapData>) -> bool {
-    ((ptr.as_ptr() as usize) & TAG_MASK) == 0
+fn inline_length(metadata: usize) -> usize {
+    (metadata & INLINE_LENGTH_MASK) >> INLINE_LENGTH_OFFSET_BITS
 }
 
-fn inline_length(ptr: Shared<HeapData>) -> usize {
-    ((ptr.as_ptr() as usize) & INLINE_LENGTH_MASK) >> INLINE_LENGTH_OFFSET_BITS
-}
-
-fn set_inline_length(ptr: &mut Shared<HeapData>, new_len: usize) {
+fn set_inline_length(metadata: usize, new_len: usize) -> usize {
     debug_assert!(new_len <= INLINE_CAPACITY);
-    let without_len = (ptr.as_ptr() as usize) & !INLINE_LENGTH_MASK;
+    let without_len = metadata & !INLINE_LENGTH_MASK;
     let with_new_len = without_len & (new_len << INLINE_LENGTH_OFFSET_BITS);
-    debug_assert!((with_new_len & TAG_MASK) != 0);
-    unsafe {
-        *ptr = Shared::new(with_new_len as *mut HeapData)
-    }
+    with_new_len
 }
 
 /// `size_of::<Inner>()`, except `size_of` can not be used in a constant expression.
@@ -98,9 +91,9 @@ const INLINE_CAPACITY: usize = SIZE_OF_INNER - 1;
 
 impl BytesBuf {
     pub fn new() -> Self {
-        let ptr = INLINE_TAG;  // Length bits are zero
+        let metadata = 0;  // Includes bits for `length = 0`
         BytesBuf(Inner {
-            ptr: unsafe { Shared::new(ptr as *mut HeapData) },
+            ptr: TaggedPtr::new_inline_data(metadata),
             start: 0,
             len: 0,
         })
@@ -110,10 +103,8 @@ impl BytesBuf {
         if capacity <= INLINE_CAPACITY {
             Self::new()
         } else {
-            let ptr = HeapData::allocate(capacity);
-            assert!(is_heap_allocated(ptr));
             BytesBuf(Inner {
-                ptr: ptr,
+                ptr: TaggedPtr::allocate(capacity),
                 start: 0,
                 len: 0,
             })
@@ -121,56 +112,48 @@ impl BytesBuf {
     }
 
     pub fn len(&self) -> usize {
-        if is_heap_allocated(self.0.ptr) {
-            u32_to_usize(self.0.len)
-        } else {
-            inline_length(self.0.ptr)
-        }
-    }
-
-    fn heap_data(&self) -> Option<&HeapData> {
-        if is_heap_allocated(self.0.ptr) {
-            unsafe {
-                Some(self.0.ptr.as_ref())
-            }
-        } else {
-            None
+        match self.0.ptr.as_allocated() {
+            Ok(_) => u32_to_usize(self.0.len),
+            Err(metadata) => inline_length(metadata),
         }
     }
 
     /// Unsafe: may not be initialized
     unsafe fn data_after_start_make_mut(&mut self) -> &mut [u8] {
-        // FIXME: use `if let Some(heap_data) = self.heap_data() {` when borrows are non-lexical.
-        if is_heap_allocated(self.0.ptr) {
-            if !self.0.ptr.as_ref().is_owned() {
-                let copy = {
-                    let slice: &[u8] = self;
-                    Self::from(slice)
-                };
-                *self = copy
+        if self.0.ptr.is_shared_allocation() {
+            *self = {
+                let slice: &[u8] = self;
+                Self::from(slice)
             }
-            let data = self.0.ptr.as_mut().data_mut();
+        }
 
-            // Slice here because call sites borrow `self` entirely
-            // and therefore cannot access self.0.start after this call while the return slice
-            // is in scope.
-            // Accessing `self.0.start` before this call is incorrect
-            // because this call can change it (reset it from non-zero to zero, when copying).
-            // Accessing `self.0.len` before this call is fine, this method never changes the length.
-            let start = u32_to_usize(self.0.start);
-            &mut data[start..]
-        } else {
+        if self.0.ptr.is_inline_data() {
             let struct_ptr: *mut Inner = &mut self.0;
             let data_ptr = (struct_ptr as *mut u8).offset(INLINE_DATA_OFFSET_BYTES);
-            slice::from_raw_parts_mut(data_ptr, INLINE_CAPACITY)
+            return slice::from_raw_parts_mut(data_ptr, INLINE_CAPACITY)
         }
+
+        let heap_data = self.0.ptr.as_owned_allocated_mut().expect("expected owned allocation");
+
+        // Slice here because call sites borrow `self` entirely
+        // and therefore cannot access self.0.start after this call while the return slice
+        // is in scope.
+        // Accessing `self.0.start` before this call is incorrect
+        // because this call can change it (reset it from non-zero to zero, when copying).
+        // Accessing `self.0.len` before this call is fine,
+        // this method never changes the length.
+        let start = u32_to_usize(self.0.start);
+        &mut heap_data.data_mut()[start..]
     }
 
     pub fn capacity(&self) -> usize {
-        if let Some(heap_data) = self.heap_data() {
+        if let Ok(heap_data) = self.0.ptr.as_allocated() {
             let capacity = if heap_data.is_owned() {
                 heap_data.data_capacity().checked_sub(self.0.start).expect("data_capacity < start ??")
             } else {
+                // This heap data is shared, we can’t write to it.
+                // So we want `self.reserve(additional)` to reallocate if `additional > 0`,
+                // but at the same time avoid `self.capacity() < self.len()`
                 self.0.len
             };
             u32_to_usize(capacity)
@@ -181,7 +164,7 @@ impl BytesBuf {
 
     /// This does not copy any heap-allocated data.
     pub fn pop_front(&mut self, bytes: usize) {
-        if is_heap_allocated(self.0.ptr) {
+        if let Ok(_) = self.0.ptr.as_allocated() {
             let bytes = usize_to_u32(bytes);
             match self.0.len.checked_sub(bytes) {
                 None => panic!("tried to pop {} bytes, only {} are available", bytes, self.0.len),
@@ -219,12 +202,15 @@ impl BytesBuf {
         }
     }
 
-    /// Unsafe: `new_len <= self.len()` must hold
+    /// Unsafe: 0..new_len data must be initialized
     unsafe fn set_len(&mut self, new_len: usize) {
-        if is_heap_allocated(self.0.ptr) {
-            self.0.len = usize_to_u32(new_len)
-        } else {
-            set_inline_length(&mut self.0.ptr, new_len)
+        match self.0.ptr.as_allocated() {
+            Ok(_) => {
+                self.0.len = usize_to_u32(new_len)
+            }
+            Err(metadata) => {
+                self.0.ptr = TaggedPtr::new_inline_data(set_inline_length(metadata, new_len))
+            }
         }
     }
 
@@ -266,8 +252,8 @@ impl BytesBuf {
     /// This copies the existing data if there are other references to this buffer
     /// or if the existing capacity is insufficient.
     pub fn push_slice(&mut self, slice: &[u8]) {
+        self.reserve(slice.len());
         unsafe {
-            self.reserve(slice.len());
             self.write_to_uninitialized(|uninit| copy_into_prefix(slice, uninit))
         }
     }
@@ -279,29 +265,26 @@ fn copy_into_prefix(source: &[u8], dest: &mut [u8]) -> usize {
     len
 }
 
-impl Drop for BytesBuf {
-    fn drop(&mut self) {
-        if is_heap_allocated(self.0.ptr) {
-            unsafe {
-                HeapData::decrement_refcount_or_deallocate(self.0.ptr)
-            }
-        }
-    }
-}
-
 impl Deref for BytesBuf {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        unsafe {
-            if let Some(heap_data) = self.heap_data() {
+        match self.0.ptr.as_allocated() {
+            Ok(heap_data) => {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
-                &heap_data.data()[start..][..len]
-            } else {
+                unsafe {
+                    &heap_data.data()[start..][..len]
+                }
+            }
+            Err(metadata) => {
+                let len = inline_length(metadata);
                 let struct_ptr: *const Inner = &self.0;
-                let data_ptr = (struct_ptr as *const u8).offset(INLINE_DATA_OFFSET_BYTES);
-                slice::from_raw_parts(data_ptr, inline_length(self.0.ptr))
+                let struct_ptr = struct_ptr as *const u8;
+                unsafe {
+                    let data_ptr = struct_ptr.offset(INLINE_DATA_OFFSET_BYTES);
+                    slice::from_raw_parts(data_ptr, len)
+                }
             }
         }
     }
@@ -327,15 +310,6 @@ impl AsRef<[u8]> for BytesBuf {
 impl AsMut<[u8]> for BytesBuf {
     fn as_mut(&mut self) -> &mut [u8] {
         self
-    }
-}
-
-impl Clone for BytesBuf {
-    fn clone(&self) -> Self {
-        if let Some(heap_data) = self.heap_data() {
-            heap_data.increment_refcount()
-        }
-        BytesBuf(Inner { ..self.0 })
     }
 }
 
