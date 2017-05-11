@@ -42,8 +42,8 @@ impl TaggedPtr {
     }
 
     #[inline]
-    pub fn is_inline_data(&self) -> bool {
-        self.as_valid_ptr().is_err()
+    pub fn get_inline_data(&self) -> Result<usize, ()> {
+        self.as_valid_ptr().err().ok_or(())
     }
 
     #[inline]
@@ -173,13 +173,15 @@ impl HeapData {
         self.data_capacity
     }
 
-    /// Unsafe: may not be initialized
-    pub unsafe fn data(&self) -> &[u8] {
-        slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity()))
+    pub fn data(&self) -> *const [u8] {
+        unsafe {
+            slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity()))
+        }
     }
 
-    /// Unsafe: may not be initialized
-    pub unsafe fn data_mut(&mut self) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.data.as_mut_ptr(), u32_to_usize(self.data_capacity()))
+    pub fn data_mut(&mut self) -> *mut [u8] {
+        unsafe {
+            slice::from_raw_parts_mut(self.data.as_mut_ptr(), u32_to_usize(self.data_capacity()))
+        }
     }
 }

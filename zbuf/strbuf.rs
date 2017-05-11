@@ -59,15 +59,20 @@ impl StrBuf {
 
     /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized.
     ///
-    /// The closure is given a mutable slice of at least `bytes_to_reserve` bytes,
+    /// The closure is given a potentially-uninitialized raw mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
     ///
-    /// This copies the existing data if there are other references to this buffer
-    /// or if the existing capacity is insufficient.
-    pub unsafe fn write_to_uninitialized<F>(&mut self, f: F) where F: FnOnce(&mut str) -> usize {
-        self.0.write_to_uninitialized(|uninitialized| {
-            let uninitialized_str = str_from_utf8_unchecked_mut(uninitialized);
+    /// If `self.reserve(additional)` is called immediately before this method,
+    /// the slice is at least `additional` bytes long.
+    /// Without a `reserve` call the slice can be any length, including zero.
+    ///
+    /// This copies the existing data if there are other references to this buffer.
+    pub fn write_to_uninitialized_tail<F>(&mut self, f: F) where F: FnOnce(*mut str) -> usize {
+        self.0.write_to_uninitialized_tail(|uninitialized| {
+            let uninitialized_str = unsafe {
+                str_from_utf8_unchecked_mut(&mut *uninitialized)
+            };
             f(uninitialized_str)
         })
     }
