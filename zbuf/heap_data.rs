@@ -15,9 +15,9 @@ pub struct TaggedPtr(Shared<HeapAllocation>);
 impl TaggedPtr {
     pub fn allocate(requested_data_capacity: usize) -> Self {
         let ptr = HeapAllocation::allocate(requested_data_capacity);
-        let as_usize = ptr as usize;
-        assert!((as_usize & TAG_MASK) == 0);
-        assert!(as_usize != 0);
+        assert!(((ptr as usize) & TAG_MASK) == 0);
+        assert!(!ptr.is_null());
+        // Safety: we just asserted that `ptr` is not null.
         unsafe {
             TaggedPtr(Shared::new(ptr))
         }
@@ -26,6 +26,7 @@ impl TaggedPtr {
     #[inline]
     pub fn new_inline_data(data: usize) -> Self {
         let fake_ptr = (data | TAG) as *mut HeapAllocation;
+        // Safety: TAG being non-zero makes `fake_ptr` non-null.
         unsafe {
             TaggedPtr(Shared::new(fake_ptr))
         }
@@ -48,6 +49,7 @@ impl TaggedPtr {
 
     #[inline]
     pub fn as_allocated(&self) -> Result<&HeapAllocation, usize> {
+        // Safety relies on `as_valid_ptr`, reference counting, and ownership of `TaggedPtr`.
         self.as_valid_ptr().map(|ptr| unsafe { ptr.as_ref() })
     }
 
@@ -55,6 +57,7 @@ impl TaggedPtr {
     pub fn as_owned_allocated_mut(&mut self) -> Option<&mut HeapAllocation> {
         match self.as_valid_ptr() {
             Err(_) => None,
+            // Safety relies on `as_valid_ptr`, reference counting, and ownership of `TaggedPtr`.
             Ok(_) => unsafe {
                 if self.0.as_ref().is_owned() {
                     Some(self.0.as_mut())
@@ -69,6 +72,7 @@ impl TaggedPtr {
     pub fn is_shared_allocation(&self) -> bool {
         match self.as_valid_ptr() {
             Err(_) => false,
+            // Safety relies on `as_valid_ptr`, reference counting, and ownership of `TaggedPtr`.
             Ok(ptr) => unsafe {
                 !ptr.as_ref().is_owned()
             }
@@ -90,6 +94,7 @@ impl Drop for TaggedPtr {
         if let Ok(heap_allocation) = self.as_allocated() {
             let new_refcount = heap_allocation.decrement_refcount();
             if new_refcount == 0 {
+                // Safety: we’re dropping the last reference
                 unsafe {
                     HeapAllocation::deallocate(self.0.as_ptr(), heap_allocation.data_capacity)
                 }
@@ -174,14 +179,16 @@ impl HeapAllocation {
     }
 
     pub fn data(&self) -> *const [u8] {
+        // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe {
-            slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity()))
+            slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity))
         }
     }
 
     pub fn data_mut(&mut self) -> *mut [u8] {
+        // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe {
-            slice::from_raw_parts_mut(self.data.as_mut_ptr(), u32_to_usize(self.data_capacity()))
+            slice::from_raw_parts_mut(self.data.as_mut_ptr(), u32_to_usize(self.data_capacity))
         }
     }
 }

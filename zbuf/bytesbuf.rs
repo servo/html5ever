@@ -129,6 +129,9 @@ impl BytesBuf {
         if let Ok(metadata) = self.0.ptr.get_inline_data() {
             let len = inline_length(metadata);
             let struct_ptr: *mut Inner = &mut self.0;
+            // Safety relies on INLINE_DATA_OFFSET_BYTES and INLINE_CAPACITY being correct
+            // to give a slice within the memory layout of `Inner`.
+            // Inline data is never uninitialized.
             unsafe {
                 let data_ptr = (struct_ptr as *mut u8).offset(INLINE_DATA_OFFSET_BYTES);
                 let inline = slice::from_raw_parts_mut(data_ptr, INLINE_CAPACITY);
@@ -143,6 +146,7 @@ impl BytesBuf {
         let start = u32_to_usize(self.0.start);
         let len = u32_to_usize(self.0.len);
         let data = heap_allocation.data_mut();
+        // Safety: the start..(start+len) range is known to be initialized.
         unsafe {
             let (initialized, tail) = (*data)[start..].split_at_mut(len);
             return (initialized, tail)
@@ -200,6 +204,7 @@ impl BytesBuf {
     /// This does not copy any data.
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
+            // Safety: 0..len is known to be initialized
             unsafe {
                 self.set_len(new_len)
             }
@@ -225,14 +230,16 @@ impl BytesBuf {
         // self.capacity() already caps at self.len() for shared (not owned) heap-allocated buffers.
         if new_capacity > self.capacity() {
             let mut copy = Self::with_capacity(new_capacity);
-            copy.write_to_uninitialized_tail(|uninit| unsafe {
-                copy_into_prefix(self, uninit)
-            });
+            // Safety: copy_into_prefix’s contract
+            unsafe {
+                copy.write_to_uninitialized_tail(|uninit| copy_into_prefix(self, uninit))
+            }
             *self = copy
         }
     }
 
-    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized.
+    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized,
+    /// and must initialize the `0..written` range where `written` is its return value.
     ///
     /// The closure is given a raw mutable slice of potentially-uninitialized bytes,
     /// and returns the number of consecutive bytes written from the start of the slice.
@@ -243,26 +250,28 @@ impl BytesBuf {
     /// Without a `reserve` call the slice can be any length, including zero.
     ///
     /// This copies the existing data if there are other references to this buffer.
-    pub fn write_to_uninitialized_tail<F>(&mut self, f: F) where F: FnOnce(*mut [u8]) -> usize {
+    pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
+    where F: FnOnce(*mut [u8]) -> usize {
         let (_, tail) = self.data_and_uninitialized_tail();
         let written = f(tail);
         let new_len = self.len().checked_add(written).expect("overflow");
-        unsafe {
-            assert!(written <= (*tail).len());
-            self.set_len(new_len)
-        }
+        assert!(written <= (*tail).len());
+        // Safety relies on the closure returning a correct value:
+        self.set_len(new_len)
     }
 
     /// This copies the existing data if there are other references to this buffer
     /// or if the existing capacity is insufficient.
     pub fn push_slice(&mut self, slice: &[u8]) {
         self.reserve(slice.len());
-        self.write_to_uninitialized_tail(|uninit| unsafe {
-            copy_into_prefix(slice, uninit)
-        })
+        // Safety: copy_into_prefix’s contract
+        unsafe {
+            self.write_to_uninitialized_tail(|uninit| copy_into_prefix(slice, uninit))
+        }
     }
 }
 
+/// Copy `source` entirely at the start of `dest`. Return the number of bytes copied.
 unsafe fn copy_into_prefix(source: &[u8], dest: *mut [u8]) -> usize {
     let len = source.len();
     (*dest)[..len].copy_from_slice(source);
@@ -277,6 +286,7 @@ impl Deref for BytesBuf {
             Ok(heap_allocation) => {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
+                // Safety: start..(start+len) is known to be initialized
                 unsafe {
                     &(*heap_allocation.data())[start..][..len]
                 }
@@ -285,6 +295,10 @@ impl Deref for BytesBuf {
                 let len = inline_length(metadata);
                 let struct_ptr: *const Inner = &self.0;
                 let struct_ptr = struct_ptr as *const u8;
+                // Safety relies on INLINE_DATA_OFFSET_BYTES being correct
+                // and set_inline_length() checking that `len < INLINE_CAPACITY`,
+                // which yields a slice within the memory layout of `Inner`.
+                // Inline data is never uninitialized.
                 unsafe {
                     let data_ptr = struct_ptr.offset(INLINE_DATA_OFFSET_BYTES);
                     slice::from_raw_parts(data_ptr, len)

@@ -57,7 +57,8 @@ impl StrBuf {
         self.0.reserve(additional)
     }
 
-    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized.
+    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized,
+    /// and must initialize the `0..written` range where `written` is its return value.
     ///
     /// The closure is given a potentially-uninitialized raw mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
@@ -68,11 +69,12 @@ impl StrBuf {
     /// Without a `reserve` call the slice can be any length, including zero.
     ///
     /// This copies the existing data if there are other references to this buffer.
-    pub fn write_to_uninitialized_tail<F>(&mut self, f: F) where F: FnOnce(*mut str) -> usize {
+    pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
+    where F: FnOnce(*mut str) -> usize {
         self.0.write_to_uninitialized_tail(|uninitialized| {
-            let uninitialized_str = unsafe {
-                str_from_utf8_unchecked_mut(&mut *uninitialized)
-            };
+            // Safety: the BytesBuf inside StrBuf is private,
+            // and this module mantains UTF-8 well-formedness.
+            let uninitialized_str = str_from_utf8_unchecked_mut(&mut *uninitialized);
             f(uninitialized_str)
         })
     }
@@ -99,6 +101,8 @@ impl Deref for StrBuf {
     type Target = str;
 
     fn deref(&self) -> &str {
+        // Safety: the BytesBuf inside StrBuf is private,
+        // and this module mantains UTF-8 well-formedness.
         unsafe {
             str::from_utf8_unchecked(&self.0)
         }
@@ -108,6 +112,8 @@ impl Deref for StrBuf {
 /// This copies the existing data if there are other references to this buffer.
 impl DerefMut for StrBuf {
     fn deref_mut(&mut self) -> &mut str {
+        // Safety: the BytesBuf inside StrBuf is private,
+        // and this module mantains UTF-8 well-formedness.
         unsafe {
             str_from_utf8_unchecked_mut(&mut self.0)
         }
