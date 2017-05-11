@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::mem;
 use std::slice;
 use u32_to_usize;
+use usize_to_u32;
 
 #[repr(C)]  // Preserve field order: data is last
 pub struct HeapData {
@@ -14,28 +15,33 @@ pub struct HeapData {
 }
 
 impl HeapData {
-    /// We’re using Vec<HeapData> as a memory allocator.
-    /// Return the capacity of that vector required to allocate a buffer
-    /// that holds one header followed by at least the given number of bytes.
-    ///
-    /// Note: we’re not using Vec<HeapData> instead of Vec<u8>
-    /// in order to request a memory alignment sufficient for the header.
-    fn data_capacity_to_vec_capacity(data_bytes: u32) -> usize {
+    pub fn allocate(requested_data_capacity: usize) -> Shared<Self> {
         let header_size = mem::size_of::<HeapData>();
-        let bytes = u32_to_usize(data_bytes).checked_add(header_size).expect("overflow");
-        // Integer ceil http://stackoverflow.com/a/2745086/1162888
-        1 + (bytes - 1).checked_div(header_size).expect("zero-size header?")
-    }
 
-    pub fn allocate(data_capacity: u32) -> Shared<Self> {
-        let vec_capacity = HeapData::data_capacity_to_vec_capacity(data_capacity);
+        // We allocate space for one header, followed immediately by the data.
+        let bytes = header_size.checked_add(requested_data_capacity).expect("overflow");
+
+        // Grow exponentially to amortize allocation/copying cost
+        let bytes = bytes.checked_next_power_of_two().unwrap_or(bytes);
+
+        let actual_data_capacity = usize_to_u32(bytes - header_size);
+
+        // alloc::heap::allocate is unstable (https://github.com/rust-lang/rust/issues/27700),
+        // so we use `Vec` as a memory allocator.
+        // To get correct memory alignment for the header,
+        // we use `Vec<HeapData>` rather than `Vec<u8>`.
+        // So the vector’s capacity is counted in “number of `HeapData` items”, not bytes.
+        //
+        // Integer division rounding up: http://stackoverflow.com/a/2745086/1162888
+        let vec_capacity = 1 + ((bytes - 1) / header_size);
+
         let mut vec = Vec::<HeapData>::with_capacity(vec_capacity);
+        debug_assert_eq!(vec.capacity(), vec_capacity);
         vec.push(HeapData {
             refcount: Cell::new(1),
-            data_capacity: data_capacity,
+            data_capacity: actual_data_capacity,
             data: [],
         });
-        debug_assert_eq!(vec.capacity(), vec_capacity);
         let ptr = vec.as_mut_ptr();
         mem::forget(vec);
         unsafe {
@@ -49,11 +55,16 @@ impl HeapData {
 
     /// Unsafe: `ptr` must be valid, and not used afterwards
     pub unsafe fn decrement_refcount_or_deallocate(ptr: Shared<HeapData>) {
-        let count = ptr.as_ref().refcount.get();
+        let as_ref = ptr.as_ref();
+        let count = as_ref.refcount.get();
         if count > 1 {
-            ptr.as_ref().refcount.set(count - 1);
+            as_ref.refcount.set(count - 1);
         } else {
             // Deallocate
+
+            let header_size = mem::size_of::<HeapData>();
+            let allocated_bytes = header_size + u32_to_usize(as_ref.data_capacity);
+            let vec_capacity = allocated_bytes / header_size;
 
             // `ptr` points to a memory area `size_of::<HeapData> * vec_capacity` bytes wide
             // that starts with one `HeapData` header and is followed by data bytes.
@@ -61,7 +72,6 @@ impl HeapData {
             // even though in practice `length` doesn’t make a difference
             // since `HeapData` does not have a destructor.
             let vec_length = 1;
-            let vec_capacity = HeapData::data_capacity_to_vec_capacity(ptr.as_ref().data_capacity);
 
             let vec = Vec::<HeapData>::from_raw_parts(ptr.as_ptr(), vec_length, vec_capacity);
             mem::drop(vec);

@@ -110,7 +110,7 @@ impl BytesBuf {
         if capacity <= INLINE_CAPACITY {
             Self::new()
         } else {
-            let ptr = HeapData::allocate(usize_to_u32(capacity));
+            let ptr = HeapData::allocate(capacity);
             assert!(is_heap_allocated(ptr));
             BytesBuf(Inner {
                 ptr: ptr,
