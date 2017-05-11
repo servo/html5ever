@@ -137,11 +137,12 @@ impl BytesBuf {
             }
         }
 
-        let heap_data = self.0.ptr.as_owned_allocated_mut().expect("expected owned allocation");
+        let heap_allocation = self.0.ptr.as_owned_allocated_mut()
+            .expect("expected owned allocation");
 
         let start = u32_to_usize(self.0.start);
         let len = u32_to_usize(self.0.len);
-        let data = heap_data.data_mut();
+        let data = heap_allocation.data_mut();
         unsafe {
             let (initialized, tail) = (*data)[start..].split_at_mut(len);
             return (initialized, tail)
@@ -149,9 +150,10 @@ impl BytesBuf {
     }
 
     pub fn capacity(&self) -> usize {
-        if let Ok(heap_data) = self.0.ptr.as_allocated() {
-            let capacity = if heap_data.is_owned() {
-                heap_data.data_capacity().checked_sub(self.0.start).expect("data_capacity < start ??")
+        if let Ok(heap_allocation) = self.0.ptr.as_allocated() {
+            let capacity = if heap_allocation.is_owned() {
+                heap_allocation.data_capacity().checked_sub(self.0.start)
+                    .expect("data_capacity < start ??")
             } else {
                 // This heap data is shared, we can’t write to it.
                 // So we want `self.reserve(additional)` to reallocate if `additional > 0`,
@@ -272,11 +274,11 @@ impl Deref for BytesBuf {
 
     fn deref(&self) -> &[u8] {
         match self.0.ptr.as_allocated() {
-            Ok(heap_data) => {
+            Ok(heap_allocation) => {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
                 unsafe {
-                    &(*heap_data.data())[start..][..len]
+                    &(*heap_allocation.data())[start..][..len]
                 }
             }
             Err(metadata) => {
