@@ -1,4 +1,3 @@
-use conversions::{u32_to_usize, usize_to_u32};
 use heap_data::HeapData;
 use shared_ptr::Shared;
 use std::fmt;
@@ -6,6 +5,8 @@ use std::hash;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::slice;
+use u32_to_usize;
+use usize_to_u32;
 
 /// A reference-counted bytes buffer.
 pub struct BytesBuf(Inner);

@@ -1,10 +1,10 @@
 //! Heap-allocated data: a header followed by bytes
 
-use conversions::u32_to_usize;
 use shared_ptr::Shared;
 use std::cell::Cell;
 use std::mem;
 use std::slice;
+use u32_to_usize;
 
 #[repr(C)]  // Preserve field order: data is last
 pub struct HeapData {
