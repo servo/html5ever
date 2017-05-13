@@ -4,34 +4,97 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
 
-/// A reference-counted string buffer.
+/// A “zero copy” string buffer.
+///
+/// See [crate documentation](index.html) for an overview.
 #[derive(Clone, Default, Hash, Eq, Ord)]
 pub struct StrBuf(BytesBuf);
 
 impl StrBuf {
+    /// Return a new, empty, inline buffer.
     pub fn new() -> Self {
         StrBuf(BytesBuf::new())
     }
 
+    /// Return a new buffer with capacity for at least (typically more than)
+    /// the given number of bytes.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the requested capacity is greater than `std::u32::MAX` (4 gigabytes).
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// assert!(StrBuf::with_capacity(17).capacity() >= 17);
+    /// ```
     pub fn with_capacity(capacity: usize) -> Self {
         StrBuf(BytesBuf::with_capacity(capacity))
     }
 
+    /// Return the length of this buffer, in bytes.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// assert_eq!(StrBuf::from("🎉").len(), 4);
+    /// ```
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Return the capacity of this buffer: the length to which it can grow
+    /// without re-allocating.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// assert!(StrBuf::with_capacity(17).capacity() >= 17);
+    /// ```
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }
 
-    /// This does not copy any heap-allocated data.
+    /// Remove the given number of bytes from the front (the start) of the buffer.
+    ///
+    /// This takes `O(1)` time and does not copy any heap-allocated data.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if `bytes` is out of bounds or not at a `char` boundary.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.pop_front(2);
+    /// assert_eq!(buf, "llo");
+    /// ```
     pub fn pop_front(&mut self, bytes: usize) {
         let _: &str = &self[bytes..];  // Check char boundary with a nice panic message
         self.0.pop_front(bytes)
     }
 
-    /// This does not copy any data.
+    /// Remove the given number of bytes from the back (the end) of the buffer.
+    ///
+    /// This takes `O(1)` time and does not copy any heap-allocated data.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if `bytes` is out of bounds or not at a `char` boundary.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.pop_back(2);
+    /// assert_eq!(buf, "hel");
+    /// ```
     pub fn pop_back(&mut self, bytes: usize) {
         let len = self.len();
         match len.checked_sub(bytes) {
@@ -40,26 +103,61 @@ impl StrBuf {
         }
     }
 
-    /// This does not copy any data.
+    /// This makes the buffer empty but, unless it is shared, does not change its capacity
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// assert_eq!(buf, "hello");
+    /// buf.clear();
+    /// assert_eq!(buf, "");
+    /// assert!(buf.capacity() > 0);
+    /// ```
     pub fn clear(&mut self) {
         self.0.clear()
     }
 
-    /// This does not copy any data.
+    /// Shortens the buffer to the specified length.
+    ///
+    /// If `new_len` is greater than the buffer’s current length, this has no effect.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if `new_len` is not at a `char` boundary.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.truncate(2);
+    /// assert_eq!(buf, "he");
+    /// ```
     pub fn truncate(&mut self, new_len: usize) {
         let _: &str = &self[..new_len];  // Check char boundary with a nice panic message
         self.0.truncate(new_len)
     }
 
-    /// This copies the data if there are other references to this buffer
-    /// or if the existing capacity is insufficient.
+    /// Ensures that the buffer has capacity for at least (typically more than)
+    /// `additional` bytes beyond its current length.
+    ///
+    /// This copies the data if this buffer is shared or if the existing capacity is insufficient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from(&*"abc".repeat(10));
+    /// assert!(buf.capacity() < 100);
+    /// buf.reserve(100);
+    /// assert!(buf.capacity() >= 130);
+    /// ```
     pub fn reserve(&mut self, additional: usize) {
         self.0.reserve(additional)
     }
 
-    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized,
-    /// and must initialize the `0..written` range where `written` is its return value.
-    ///
     /// The closure is given a potentially-uninitialized raw mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
@@ -69,6 +167,34 @@ impl StrBuf {
     /// Without a `reserve` call the slice can be any length, including zero.
     ///
     /// This copies the existing data if there are other references to this buffer.
+    ///
+    /// ## Safety
+    ///
+    /// The closure must not *read* from the given slice, which may be uninitialized.
+    /// It must initialize the `0..written` range, where `written` is the return value.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.reserve(10);
+    /// unsafe {
+    ///     buf.write_to_uninitialized_tail(|uninitialized| {
+    ///         let uninitialized_bytes = as_bytes_mut(&mut *uninitialized);
+    ///         for byte in &mut uninitialized_bytes[..3] {
+    ///             *byte = b'!'
+    ///         }
+    ///         3
+    ///     })
+    /// }
+    /// assert_eq!(buf, "hello!!!");
+    ///
+    /// /// https://github.com/rust-lang/rust/issues/41119
+    /// unsafe fn as_bytes_mut(s: &mut str) -> &mut [u8] {
+    ///     ::std::mem::transmute(s)
+    /// }
+    /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
     where F: FnOnce(*mut str) -> usize {
         self.0.write_to_uninitialized_tail(|uninitialized| {
@@ -79,14 +205,36 @@ impl StrBuf {
         })
     }
 
-    /// This copies the existing data if there are other references to this buffer
+    /// Appends the given string slice onto the end of this buffer.
+    ///
+    /// This copies the existing data if this buffer is shared
     /// or if the existing capacity is insufficient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.push_str(" world!");
+    /// assert_eq!(buf, "hello world!");
+    /// ```
     pub fn push_str(&mut self, slice: &str) {
         self.0.push_slice(slice.as_bytes())
     }
 
-    /// This copies the existing data if there are other references to this buffer
+    /// Appends the given character onto the end of this buffer.
+    ///
+    /// This copies the existing data if this buffer is shared
     /// or if the existing capacity is insufficient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.push_char('!');
+    /// assert_eq!(buf, "hello!");
+    /// ```
     pub fn push_char(&mut self, c: char) {
         self.push_str(c.encode_utf8(&mut [0; 4]))
     }

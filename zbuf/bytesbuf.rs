@@ -7,7 +7,9 @@ use std::slice;
 use u32_to_usize;
 use usize_to_u32;
 
-/// A reference-counted bytes buffer.
+/// A “zero copy” bytes buffer.
+///
+/// See [crate documentation](index.html) for an overview.
 #[derive(Clone)]
 pub struct BytesBuf(Inner);
 
@@ -90,6 +92,7 @@ unsafe fn static_assert(x: Inner) {
 const INLINE_CAPACITY: usize = SIZE_OF_INNER - 1;
 
 impl BytesBuf {
+    /// Return a new, empty, inline buffer.
     pub fn new() -> Self {
         let metadata = 0;  // Includes bits for `length = 0`
         BytesBuf(Inner {
@@ -99,6 +102,19 @@ impl BytesBuf {
         })
     }
 
+    /// Return a new buffer with capacity for at least (typically more than)
+    /// the given number of bytes.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the requested capacity is greater than `std::u32::MAX` (4 gigabytes).
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// assert!(BytesBuf::with_capacity(17).capacity() >= 17);
+    /// ```
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity <= INLINE_CAPACITY {
             Self::new()
@@ -111,6 +127,14 @@ impl BytesBuf {
         }
     }
 
+    /// Return the length of this buffer, in bytes.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// assert_eq!(BytesBuf::from("🎉".as_bytes()).len(), 4);
+    /// ```
     pub fn len(&self) -> usize {
         match self.0.ptr.as_allocated() {
             Ok(_) => u32_to_usize(self.0.len),
@@ -153,6 +177,15 @@ impl BytesBuf {
         }
     }
 
+    /// Return the capacity of this buffer: the length to which it can grow
+    /// without re-allocating.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// assert!(BytesBuf::with_capacity(17).capacity() >= 17);
+    /// ```
     pub fn capacity(&self) -> usize {
         if let Ok(heap_allocation) = self.0.ptr.as_allocated() {
             let capacity = if heap_allocation.is_owned() {
@@ -170,7 +203,22 @@ impl BytesBuf {
         }
     }
 
-    /// This does not copy any heap-allocated data.
+    /// Remove the given number of bytes from the front (the start) of the buffer.
+    ///
+    /// This takes `O(1)` time and does not copy any heap-allocated data.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if `bytes` is out of bounds.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// buf.pop_front(2);
+    /// assert_eq!(buf, b"llo");
+    /// ```
     pub fn pop_front(&mut self, bytes: usize) {
         if let Ok(_) = self.0.ptr.as_allocated() {
             let bytes = usize_to_u32(bytes);
@@ -187,7 +235,22 @@ impl BytesBuf {
         }
     }
 
-    /// This does not copy any data.
+    /// Remove the given number of bytes from the back (the end) of the buffer.
+    ///
+    /// This takes `O(1)` time and does not copy any heap-allocated data.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if `bytes` is out of bounds.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// buf.pop_back(2);
+    /// assert_eq!(buf, b"hel");
+    /// ```
     pub fn pop_back(&mut self, bytes: usize) {
         let len = self.len();
         match len.checked_sub(bytes) {
@@ -196,12 +259,34 @@ impl BytesBuf {
         }
     }
 
-    /// This does not copy any data.
+    /// This makes the buffer empty but, unless it is shared, does not change its capacity
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// assert_eq!(buf, b"hello");
+    /// buf.clear();
+    /// assert_eq!(buf, b"");
+    /// assert!(buf.capacity() > 0);
+    /// ```
     pub fn clear(&mut self) {
         self.truncate(0)
     }
 
-    /// This does not copy any data.
+    /// Shortens the buffer to the specified length.
+    ///
+    /// If `new_len` is greater than the buffer’s current length, this has no effect.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// buf.truncate(2);
+    /// assert_eq!(buf, b"he");
+    /// ```
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
             // Safety: 0..len is known to be initialized
@@ -223,8 +308,20 @@ impl BytesBuf {
         }
     }
 
-    /// This copies the data if there are other references to this buffer
-    /// or if the existing capacity is insufficient.
+    /// Ensures that the buffer has capacity for at least (typically more than)
+    /// `additional` bytes beyond its current length.
+    ///
+    /// This copies the data if this buffer is shared or if the existing capacity is insufficient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("abc".repeat(10).as_bytes());
+    /// assert!(buf.capacity() < 100);
+    /// buf.reserve(100);
+    /// assert!(buf.capacity() >= 130);
+    /// ```
     pub fn reserve(&mut self, additional: usize) {
         let new_capacity = self.len().checked_add(additional).expect("overflow");
         // self.capacity() already caps at self.len() for shared (not owned) heap-allocated buffers.
@@ -238,10 +335,7 @@ impl BytesBuf {
         }
     }
 
-    /// Unsafe: the closure must not *read* from the given slice, which may be uninitialized,
-    /// and must initialize the `0..written` range where `written` is its return value.
-    ///
-    /// The closure is given a raw mutable slice of potentially-uninitialized bytes,
+    /// The closure is given a potentially-uninitialized raw mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
     ///
@@ -250,6 +344,28 @@ impl BytesBuf {
     /// Without a `reserve` call the slice can be any length, including zero.
     ///
     /// This copies the existing data if there are other references to this buffer.
+    ///
+    /// ## Safety
+    ///
+    /// The closure must not *read* from the given slice, which may be uninitialized.
+    /// It must initialize the `0..written` range, where `written` is the return value.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// buf.reserve(10);
+    /// unsafe {
+    ///     buf.write_to_uninitialized_tail(|uninitialized| {
+    ///         for byte in &mut (*uninitialized)[..3] {
+    ///             *byte = b'!'
+    ///         }
+    ///         3
+    ///     })
+    /// }
+    /// assert_eq!(buf, b"hello!!!");
+    /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
     where F: FnOnce(*mut [u8]) -> usize {
         let (_, tail) = self.data_and_uninitialized_tail();
@@ -260,8 +376,19 @@ impl BytesBuf {
         self.set_len(new_len)
     }
 
-    /// This copies the existing data if there are other references to this buffer
+    /// Appends the given bytes slice onto the end of this buffer.
+    ///
+    /// This copies the existing data if this buffer is shared
     /// or if the existing capacity is insufficient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// buf.push_slice(b" world!");
+    /// assert_eq!(buf, b"hello world!");
+    /// ```
     pub fn push_slice(&mut self, slice: &[u8]) {
         self.reserve(slice.len());
         // Safety: copy_into_prefix’s contract
