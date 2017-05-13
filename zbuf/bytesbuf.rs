@@ -70,7 +70,7 @@ fn inline_length(metadata: usize) -> usize {
 fn set_inline_length(metadata: usize, new_len: usize) -> usize {
     debug_assert!(new_len <= INLINE_CAPACITY);
     let without_len = metadata & !INLINE_LENGTH_MASK;
-    let with_new_len = without_len & (new_len << INLINE_LENGTH_OFFSET_BITS);
+    let with_new_len = without_len | (new_len << INLINE_LENGTH_OFFSET_BITS);
     with_new_len
 }
 

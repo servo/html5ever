@@ -36,9 +36,9 @@ impl TaggedPtr {
     fn as_valid_ptr(&self) -> Result<&Shared<HeapAllocation>, usize> {
         let as_usize = self.0.as_ptr() as usize;
         if (as_usize & TAG_MASK) == 0 {
-            Err(as_usize)
-        } else {
             Ok(&self.0)
+        } else {
+            Err(as_usize)
         }
     }
 
