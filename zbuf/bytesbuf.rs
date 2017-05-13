@@ -335,7 +335,7 @@ impl BytesBuf {
         }
     }
 
-    /// The closure is given a potentially-uninitialized raw mutable string slice,
+    /// The closure is given a potentially-uninitialized mutable bytes slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
     ///
@@ -358,7 +358,7 @@ impl BytesBuf {
     /// buf.reserve(10);
     /// unsafe {
     ///     buf.write_to_uninitialized_tail(|uninitialized| {
-    ///         for byte in &mut (*uninitialized)[..3] {
+    ///         for byte in &mut uninitialized[..3] {
     ///             *byte = b'!'
     ///         }
     ///         3
@@ -367,9 +367,9 @@ impl BytesBuf {
     /// assert_eq!(buf, b"hello!!!");
     /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
-    where F: FnOnce(*mut [u8]) -> usize {
+    where F: FnOnce(&mut [u8]) -> usize {
         let (_, tail) = self.data_and_uninitialized_tail();
-        let written = f(tail);
+        let written = f(&mut *tail);
         let new_len = self.len().checked_add(written).expect("overflow");
         assert!(written <= (*tail).len());
         // Safety relies on the closure returning a correct value:

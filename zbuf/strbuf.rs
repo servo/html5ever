@@ -158,7 +158,7 @@ impl StrBuf {
         self.0.reserve(additional)
     }
 
-    /// The closure is given a potentially-uninitialized raw mutable string slice,
+    /// The closure is given a potentially-uninitialized mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
     /// The buffer’s length is incremented by that much.
     ///
@@ -180,8 +180,8 @@ impl StrBuf {
     /// let mut buf = StrBuf::from("hello");
     /// buf.reserve(10);
     /// unsafe {
-    ///     buf.write_to_uninitialized_tail(|uninitialized| {
-    ///         let uninitialized_bytes = as_bytes_mut(&mut *uninitialized);
+    ///     buf.write_to_uninitialized_tail(|uninitialized_str| {
+    ///         let uninitialized_bytes = as_bytes_mut(uninitialized_str);
     ///         for byte in &mut uninitialized_bytes[..3] {
     ///             *byte = b'!'
     ///         }
@@ -196,11 +196,11 @@ impl StrBuf {
     /// }
     /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
-    where F: FnOnce(*mut str) -> usize {
+    where F: FnOnce(&mut str) -> usize {
         self.0.write_to_uninitialized_tail(|uninitialized| {
             // Safety: the BytesBuf inside StrBuf is private,
             // and this module mantains UTF-8 well-formedness.
-            let uninitialized_str = str_from_utf8_unchecked_mut(&mut *uninitialized);
+            let uninitialized_str = str_from_utf8_unchecked_mut(uninitialized);
             f(uninitialized_str)
         })
     }
