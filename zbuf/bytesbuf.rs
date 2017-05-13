@@ -215,7 +215,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.pop_front(2);
     /// assert_eq!(buf, b"llo");
     /// ```
@@ -247,7 +247,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.pop_back(2);
     /// assert_eq!(buf, b"hel");
     /// ```
@@ -265,7 +265,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// assert_eq!(buf, b"hello");
     /// buf.clear();
     /// assert_eq!(buf, b"");
@@ -283,7 +283,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.truncate(2);
     /// assert_eq!(buf, b"he");
     /// ```
@@ -354,7 +354,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.reserve(10);
     /// unsafe {
     ///     buf.write_to_uninitialized_tail(|uninitialized| {
@@ -385,7 +385,7 @@ impl BytesBuf {
     ///
     /// ```
     /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from("hello".as_bytes());
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.push_slice(b" world!");
     /// assert_eq!(buf, b"hello world!");
     /// ```

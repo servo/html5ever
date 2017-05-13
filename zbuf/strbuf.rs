@@ -33,6 +33,72 @@ impl StrBuf {
         StrBuf(BytesBuf::with_capacity(capacity))
     }
 
+    /// Converts a bytes buffer into a string buffer.
+    ///
+    /// This takes `O(length)` time to check that the input is well-formed in UTF-8,
+    /// and returns `Err(_)` if it is not.
+    /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
+    ///
+    /// If you already know for sure that a bytes buffer is well-formed in UTF-8,
+    /// you can use the `unsafe` [`from_utf8_unchecked`](#method.from_utf8_unchecked") method,
+    /// which takes `O(1)` time, instead.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::{StrBuf, BytesBuf};
+    /// assert!(StrBuf::from_utf8(BytesBuf::from(&b"abc"[..])).is_ok());
+    /// assert!(StrBuf::from_utf8(BytesBuf::from(&b"ab\x80"[..])).is_err());
+    /// ```
+    pub fn from_utf8(bytes: BytesBuf) -> Result<Self, BytesBuf> {
+        if let Ok(_) = str::from_utf8(&bytes) {
+            Ok(StrBuf(bytes))
+        } else {
+            Err(bytes)
+        }
+    }
+
+    /// Converts a bytes buffer into a string buffer without checking UTF-8 well-formedness.
+    ///
+    /// This takes `O(1)` time.
+    /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
+    ///
+    /// ## Safety
+    ///
+    /// The given bytes buffer must be well-formed in UTF-8.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::{StrBuf, BytesBuf};
+    /// let bytes_buf = BytesBuf::from(b"abc".as_ref());
+    /// let str_buf = unsafe {
+    ///     StrBuf::from_utf8_unchecked(bytes_buf)
+    /// };
+    /// assert_eq!(str_buf, "abc");
+    /// ```
+    pub unsafe fn from_utf8_unchecked(bytes: BytesBuf) -> Self {
+        StrBuf(bytes)
+    }
+
+    /// Return a shared (immutable) reference to the bytes buffer representation
+    /// of this string buffer.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let buf = StrBuf::from("🎉").as_bytes_buf().clone();
+    /// assert_eq!(buf, [0xF0, 0x9F, 0x8E, 0x89]);
+    /// ```
+    pub fn as_bytes_buf(&self) -> &BytesBuf {
+        // This return value can be cloned to obtain a bytes buffer that shares
+        // the same heap allocation as this string buffer.
+        // Since that clone is shared, any mutation will cause it to re-allocate.
+        // Therefore this can not be use to make a `StrBuf` not UTF-8.
+        &self.0
+    }
+
     /// Return the length of this buffer, in bytes.
     ///
     /// ## Examples
@@ -283,6 +349,12 @@ impl AsMut<str> for StrBuf {
 impl<'a> From<&'a str> for StrBuf {
     fn from(slice: &'a str) -> Self {
         StrBuf(BytesBuf::from(slice.as_bytes()))
+    }
+}
+
+impl From<StrBuf> for BytesBuf {
+    fn from(buf: StrBuf) -> Self {
+        buf.0
     }
 }
 
