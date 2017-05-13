@@ -224,9 +224,11 @@ impl StrBuf {
         self.0.reserve(additional)
     }
 
+    /// Extend this buffer by writing to its existing capacity.
+    ///
     /// The closure is given a potentially-uninitialized mutable string slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
-    /// The buffer’s length is incremented by that much.
+    /// The buffer’s length is increased by that much.
     ///
     /// If `self.reserve(additional)` is called immediately before this method,
     /// the slice is at least `additional` bytes long.
@@ -237,7 +239,12 @@ impl StrBuf {
     /// ## Safety
     ///
     /// The closure must not *read* from the given slice, which may be uninitialized.
-    /// It must initialize the `0..written` range, where `written` is the return value.
+    /// It must initialize the `0..written` range and make it well-formed in UTF-8,
+    /// where `written` is the return value.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the value returned by the closure is larger than the given closure’s length.
     ///
     /// ## Examples
     ///
@@ -268,6 +275,58 @@ impl StrBuf {
             // and this module mantains UTF-8 well-formedness.
             let uninitialized_str = str_from_utf8_unchecked_mut(uninitialized);
             f(uninitialized_str)
+        })
+    }
+
+    /// Extend this buffer by writing to its existing capacity.
+    ///
+    /// The closure is given a mutable string slice
+    /// that has been overwritten with zeros (which takes `O(n)` extra time).
+    /// The buffer’s length is increased by the closure’s return value.
+    ///
+    /// If `self.reserve(additional)` is called immediately before this method,
+    /// the slice is at least `additional` bytes long.
+    /// Without a `reserve` call the slice can be any length, including zero.
+    ///
+    /// This copies the existing data if there are other references to this buffer.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the value returned by the closure is larger than the given closure’s length,
+    /// or if it is not at a `char` boundary.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// buf.reserve(10);
+    /// buf.write_to_zeroed_tail(|tail| {
+    ///     let tail = unsafe {
+    ///         as_bytes_mut(tail)
+    ///     };
+    ///     for byte in &mut tail[..3] {
+    ///         *byte = b'!'
+    ///     }
+    ///     10
+    /// });
+    /// assert_eq!(buf, "hello!!!\0\0\0\0\0\0\0");
+    ///
+    /// /// https://github.com/rust-lang/rust/issues/41119
+    /// unsafe fn as_bytes_mut(s: &mut str) -> &mut [u8] {
+    ///     ::std::mem::transmute(s)
+    /// }
+    /// ```
+    pub fn write_to_zeroed_tail<F>(&mut self, f: F)
+    where F: FnOnce(&mut str) -> usize {
+        self.0.write_to_zeroed_tail(|tail_bytes| {
+            // Safety: a sequence of zero bytes is well-formed UTF-8.
+            let tail_str = unsafe {
+                str_from_utf8_unchecked_mut(tail_bytes)
+            };
+            let additional_len = f(tail_str);
+            &tail_str[..additional_len];  // Check char boundary
+            additional_len
         })
     }
 

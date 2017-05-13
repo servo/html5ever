@@ -3,6 +3,7 @@ use std::fmt;
 use std::hash;
 use std::mem;
 use std::ops::{Deref, DerefMut};
+use std::ptr;
 use std::slice;
 use u32_to_usize;
 use usize_to_u32;
@@ -335,9 +336,11 @@ impl BytesBuf {
         }
     }
 
+    /// Extend this buffer by writing to its existing capacity.
+    ///
     /// The closure is given a potentially-uninitialized mutable bytes slice,
     /// and returns the number of consecutive bytes written from the start of the slice.
-    /// The buffer’s length is incremented by that much.
+    /// The buffer’s length is increased by that much.
     ///
     /// If `self.reserve(additional)` is called immediately before this method,
     /// the slice is at least `additional` bytes long.
@@ -349,6 +352,10 @@ impl BytesBuf {
     ///
     /// The closure must not *read* from the given slice, which may be uninitialized.
     /// It must initialize the `0..written` range, where `written` is the return value.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the value returned by the closure is larger than the given closure’s length.
     ///
     /// ## Examples
     ///
@@ -374,6 +381,46 @@ impl BytesBuf {
         assert!(written <= (*tail).len());
         // Safety relies on the closure returning a correct value:
         self.set_len(new_len)
+    }
+
+    /// Extend this buffer by writing to its existing capacity.
+    ///
+    /// The closure is given a mutable bytes slice
+    /// that has been overwritten with zeros (which takes `O(n)` extra time).
+    /// The buffer’s length is increased by the closure’s return value.
+    ///
+    /// If `self.reserve(additional)` is called immediately before this method,
+    /// the slice is at least `additional` bytes long.
+    /// Without a `reserve` call the slice can be any length, including zero.
+    ///
+    /// This copies the existing data if there are other references to this buffer.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the value returned by the closure is larger than the given closure’s length.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
+    /// buf.reserve(10);
+    /// buf.write_to_zeroed_tail(|zeroed| {
+    ///     for byte in &mut zeroed[..3] {
+    ///         *byte = b'!'
+    ///     }
+    ///     10
+    /// });
+    /// assert_eq!(buf, b"hello!!!\0\0\0\0\0\0\0");
+    /// ```
+    pub fn write_to_zeroed_tail<F>(&mut self, f: F)
+    where F: FnOnce(&mut [u8]) -> usize {
+        unsafe {
+            self.write_to_uninitialized_tail(|tail| {
+                ptr::write_bytes(tail.as_mut_ptr(), 0, tail.len());
+                f(tail)
+            })
+        }
     }
 
     /// Appends the given bytes slice onto the end of this buffer.
