@@ -11,3 +11,8 @@ path = "lib.rs"
 
 [dependencies]
 utf-8 = "0.7.1"
+
+[[test]]
+name = "print_cfg"
+path = "print_cfg.rs"
+harness = false
