@@ -484,6 +484,56 @@ impl BytesBuf {
         }
     }
 
+    /// Extend this buffer by writing to its existing capacity, reading from an I/O stream.
+    ///
+    /// `Read::read` is called once with a potentially-uninitialized mutable bytes slice.
+    ///
+    /// If `self.reserve(additional)` is called immediately before this method,
+    /// the slice is at least `additional` bytes long.
+    /// Without a `reserve` call the slice can be any length, including zero.
+    ///
+    /// This copies the existing data if there are other references to this buffer.
+    ///
+    /// ## Safety
+    ///
+    /// The `Read` implementation must be “well-behaved”:
+    /// never read from the slice it is given,
+    /// and actually write the number of byte that the return value says were written.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// #     use zbuf::{BytesBuf, StrBuf};
+    /// #     fn do_io() -> std::io::Result<()> {
+    /// let mut file = std::fs::File::open("bytesbuf.rs")?;
+    /// let mut source = BytesBuf::with_capacity(file.metadata()?.len() as usize);
+    /// unsafe {
+    ///     while source.read_into_unititialized_tail_from(&mut file)? > 0 {}
+    /// }
+    /// // Self-referential test:
+    /// assert!(StrBuf::from_utf8(source)?.contains("This string is unique"));
+    /// #     Ok(())
+    /// #     }
+    /// #     do_io().unwrap()
+    /// ```
+    pub unsafe fn read_into_unititialized_tail_from<R>(&mut self, mut reader: R)
+                                                       -> io::Result<usize>
+    where R: io::Read {
+        let mut result = Ok(0);
+        self.write_to_uninitialized_tail(|tail| {
+            let r = reader.read(tail);
+            let written = match r {
+                Ok(bytes) => bytes,
+                // We don’t know how many bytes were actually written,
+                // conservatively assume none:
+                Err(_) => 0,
+            };
+            result = r;
+            written
+        });
+        result
+    }
+
     /// Appends the given bytes slice onto the end of this buffer.
     ///
     /// This copies the existing data if this buffer is shared
