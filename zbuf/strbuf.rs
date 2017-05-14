@@ -42,7 +42,7 @@ impl StrBuf {
     /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
     ///
     /// If you already know for sure that a bytes buffer is well-formed in UTF-8,
-    /// you can use the `unsafe` [`from_utf8_unchecked`](#method.from_utf8_unchecked") method,
+    /// you can use the `unsafe` [`from_utf8_unchecked`](#method.from_utf8_unchecked) method,
     /// which takes `O(1)` time, instead.
     ///
     /// ## Examples
@@ -190,7 +190,32 @@ impl StrBuf {
         }
     }
 
+    /// Split the buffer into two at the given index.
+    ///
+    /// Return a new buffer that contains bytes `[at, len)`,
+    /// while `self` contains bytes `[0, at)`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds or not at a `char` boundary.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let mut buf = StrBuf::from("hello");
+    /// let tail = buf.split_off(2);
+    /// assert_eq!(buf, "he");
+    /// assert_eq!(tail, "llo");
+    /// ```
+    pub fn split_off(&mut self, at: usize) -> StrBuf {
+        let _: &str = &self[..at];  // Check char boundary with a nice panic message
+        StrBuf(self.0.split_off(at))
+    }
+
     /// This makes the buffer empty but, unless it is shared, does not change its capacity
+    ///
+    /// If potentially freeing memory is preferable, consider `buf = StrBuf::empty()` instead.
     ///
     /// ## Examples
     ///
@@ -391,6 +416,29 @@ impl StrBuf {
     #[inline]
     pub fn push_char(&mut self, c: char) {
         self.push_str(c.encode_utf8(&mut [0; 4]))
+    }
+
+    /// Appends the given string buffer onto the end of this buffer.
+    ///
+    /// This is similar to [`push_str`](#method.push_str), but sometimes more efficient.
+    ///
+    /// ## Examples
+    ///
+    /// This allocates only once:
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let string = "abc".repeat(20);
+    /// let mut buf = StrBuf::from(&*string);
+    /// let tail = buf.split_off(50);
+    /// assert_eq!(buf.len(), 50);
+    /// assert_eq!(tail.len(), 10);
+    /// buf.push_buf(&tail);
+    /// assert_eq!(buf, string);
+    /// ```
+    #[inline]
+    pub fn push_buf(&mut self, other: &StrBuf) {
+        self.0.push_buf(&other.0)
     }
 }
 

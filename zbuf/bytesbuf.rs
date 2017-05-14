@@ -1,4 +1,4 @@
-use heap_data::TaggedPtr;
+use heap_data::{TaggedPtr, HeapAllocation};
 use std::fmt;
 use std::hash;
 use std::mem;
@@ -130,6 +130,11 @@ impl BytesBuf {
         }
     }
 
+    #[inline]
+    fn as_allocated(&self) -> Result<&HeapAllocation, usize> {
+        self.0.ptr.as_allocated()
+    }
+
     /// Return the length of this buffer, in bytes.
     ///
     /// ## Examples
@@ -140,7 +145,7 @@ impl BytesBuf {
     /// ```
     #[inline]
     pub fn len(&self) -> usize {
-        match self.0.ptr.as_allocated() {
+        match self.as_allocated() {
             Ok(_) => u32_to_usize(self.0.len),
             Err(metadata) => inline_length(metadata),
         }
@@ -206,7 +211,7 @@ impl BytesBuf {
     /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
-        if let Ok(heap_allocation) = self.0.ptr.as_allocated() {
+        if let Ok(heap_allocation) = self.as_allocated() {
             let capacity = if heap_allocation.is_owned() {
                 heap_allocation.data_capacity().checked_sub(self.0.start)
                     .expect("data_capacity < start ??")
@@ -239,7 +244,7 @@ impl BytesBuf {
     /// assert_eq!(buf, b"llo");
     /// ```
     pub fn pop_front(&mut self, bytes: usize) {
-        if let Ok(_) = self.0.ptr.as_allocated() {
+        if let Ok(_) = self.as_allocated() {
             let bytes = usize_to_u32(bytes);
             match self.0.len.checked_sub(bytes) {
                 None => panic!("tried to pop {} bytes, only {} are available", bytes, self.0.len),
@@ -278,7 +283,42 @@ impl BytesBuf {
         }
     }
 
-    /// This makes the buffer empty but, unless it is shared, does not change its capacity
+    /// Split the buffer into two at the given index.
+    ///
+    /// Return a new buffer that contains bytes `[at, len)`,
+    /// while `self` contains bytes `[0, at)`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let mut buf = BytesBuf::from(b"hello".as_ref());
+    /// let tail = buf.split_off(2);
+    /// assert_eq!(buf, b"he");
+    /// assert_eq!(tail, b"llo");
+    /// ```
+    pub fn split_off(&mut self, at: usize) -> BytesBuf {
+        let mut tail;
+        if let Ok(_) = self.as_allocated() {
+            let _: &[u8] = &self[at..];  // Check bounds
+            let at = usize_to_u32(at);
+            tail = self.clone();
+            tail.0.start += at;
+            tail.0.len -= at;
+        } else {
+            tail = Self::from(&self[at..])
+        }
+        self.truncate(at);
+        tail
+    }
+
+    /// This makes the buffer empty but, unless it is shared, does not change its capacity.
+    ///
+    /// If potentially freeing memory is preferable, consider `buf = BytesBuf::empty()` instead.
     ///
     /// ## Examples
     ///
@@ -318,7 +358,7 @@ impl BytesBuf {
 
     /// Unsafe: 0..new_len data must be initialized
     unsafe fn set_len(&mut self, new_len: usize) {
-        match self.0.ptr.as_allocated() {
+        match self.as_allocated() {
             Ok(_) => {
                 self.0.len = usize_to_u32(new_len)
             }
@@ -462,6 +502,47 @@ impl BytesBuf {
             self.write_to_uninitialized_tail(|uninit| copy_into_prefix(slice, uninit))
         }
     }
+
+    /// Appends the given bytes buffer onto the end of this buffer.
+    ///
+    /// This is similar to [`push_slice`](#method.push_slice), but sometimes more efficient.
+    ///
+    /// ## Examples
+    ///
+    /// This allocates only once:
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// let string = "abc".repeat(20);
+    /// let mut buf = BytesBuf::from(string.as_bytes());
+    /// let tail = buf.split_off(50);
+    /// assert_eq!(buf.len(), 50);
+    /// assert_eq!(tail.len(), 10);
+    /// buf.push_buf(&tail);
+    /// assert_eq!(buf, string.as_bytes());
+    /// ```
+    pub fn push_buf(&mut self, other: &BytesBuf) {
+        if self.is_empty() {
+            *self = other.clone();
+            return
+        }
+
+        // FIXME: remove when borrows are non-lexical
+        fn raw<T>(x: &T) -> *const T { x }
+
+        if let (Ok(a), Ok(b)) = (self.as_allocated().map(raw), other.as_allocated().map(raw)) {
+            // Two heap-allocated buffers…
+            if ptr::eq(a, b) {
+                // … that share the same heap allocation…
+                if (self.0.start + self.0.len) == other.0.start {
+                    // … and are contiguous
+                    self.0.len += other.0.len;
+                    return
+                }
+            }
+        }
+        self.push_slice(other)
+    }
 }
 
 /// Copy `source` entirely at the start of `dest`. Return the number of bytes copied.
@@ -476,7 +557,7 @@ impl Deref for BytesBuf {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        match self.0.ptr.as_allocated() {
+        match self.as_allocated() {
             Ok(heap_allocation) => {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
