@@ -94,6 +94,7 @@ const INLINE_CAPACITY: usize = SIZE_OF_INNER - 1;
 
 impl BytesBuf {
     /// Return a new, empty, inline buffer.
+    #[inline]
     pub fn new() -> Self {
         let metadata = 0;  // Includes bits for `length = 0`
         BytesBuf(Inner {
@@ -116,6 +117,7 @@ impl BytesBuf {
     /// # use zbuf::BytesBuf;
     /// assert!(BytesBuf::with_capacity(17).capacity() >= 17);
     /// ```
+    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity <= INLINE_CAPACITY {
             Self::new()
@@ -136,6 +138,7 @@ impl BytesBuf {
     /// # use zbuf::BytesBuf;
     /// assert_eq!(BytesBuf::from("🎉".as_bytes()).len(), 4);
     /// ```
+    #[inline]
     pub fn len(&self) -> usize {
         match self.0.ptr.as_allocated() {
             Ok(_) => u32_to_usize(self.0.len),
@@ -187,6 +190,7 @@ impl BytesBuf {
     /// # use zbuf::BytesBuf;
     /// assert!(BytesBuf::with_capacity(17).capacity() >= 17);
     /// ```
+    #[inline]
     pub fn capacity(&self) -> usize {
         if let Ok(heap_allocation) = self.0.ptr.as_allocated() {
             let capacity = if heap_allocation.is_owned() {
@@ -272,6 +276,7 @@ impl BytesBuf {
     /// assert_eq!(buf, b"");
     /// assert!(buf.capacity() > 0);
     /// ```
+    #[inline]
     pub fn clear(&mut self) {
         self.truncate(0)
     }
@@ -446,6 +451,7 @@ impl BytesBuf {
 }
 
 /// Copy `source` entirely at the start of `dest`. Return the number of bytes copied.
+#[inline]
 unsafe fn copy_into_prefix(source: &[u8], dest: *mut [u8]) -> usize {
     let len = source.len();
     (*dest)[..len].copy_from_slice(source);
@@ -491,18 +497,21 @@ impl DerefMut for BytesBuf {
 }
 
 impl AsRef<[u8]> for BytesBuf {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self
     }
 }
 
 impl AsMut<[u8]> for BytesBuf {
+    #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         self
     }
 }
 
 impl<'a> From<&'a [u8]> for BytesBuf {
+    #[inline]
     fn from(slice: &'a [u8]) -> Self {
         let mut buf = Self::new();
         buf.push_slice(slice);
@@ -511,18 +520,21 @@ impl<'a> From<&'a [u8]> for BytesBuf {
 }
 
 impl fmt::Debug for BytesBuf {
+    #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         <[u8]>::fmt(self, formatter)
     }
 }
 
 impl hash::Hash for BytesBuf {
+    #[inline]
     fn hash<H>(&self, hasher: &mut H) where H: hash::Hasher {
         <[u8]>::hash(self, hasher)
     }
 }
 
 impl Default for BytesBuf {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -531,18 +543,21 @@ impl Default for BytesBuf {
 impl Eq for BytesBuf {}
 
 impl<T: AsRef<[u8]>> PartialEq<T> for BytesBuf {
+    #[inline]
     fn eq(&self, other: &T) -> bool {
         <[u8]>::eq(self, other.as_ref())
     }
 }
 
 impl Ord for BytesBuf {
+    #[inline]
     fn cmp(&self, other: &Self) -> ::std::cmp::Ordering {
         <[u8]>::cmp(self, &other)
     }
 }
 
 impl<T: AsRef<[u8]>> PartialOrd<T> for BytesBuf {
+    #[inline]
     fn partial_cmp(&self, other: &T) -> Option<::std::cmp::Ordering> {
         <[u8]>::partial_cmp(self, other.as_ref())
     }

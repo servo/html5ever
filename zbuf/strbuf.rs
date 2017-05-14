@@ -12,6 +12,7 @@ pub struct StrBuf(BytesBuf);
 
 impl StrBuf {
     /// Return a new, empty, inline buffer.
+    #[inline]
     pub fn new() -> Self {
         StrBuf(BytesBuf::new())
     }
@@ -29,6 +30,7 @@ impl StrBuf {
     /// # use zbuf::StrBuf;
     /// assert!(StrBuf::with_capacity(17).capacity() >= 17);
     /// ```
+    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         StrBuf(BytesBuf::with_capacity(capacity))
     }
@@ -50,6 +52,7 @@ impl StrBuf {
     /// assert!(StrBuf::from_utf8(BytesBuf::from(&b"abc"[..])).is_ok());
     /// assert!(StrBuf::from_utf8(BytesBuf::from(&b"ab\x80"[..])).is_err());
     /// ```
+    #[inline]
     pub fn from_utf8(bytes: BytesBuf) -> Result<Self, BytesBuf> {
         if let Ok(_) = str::from_utf8(&bytes) {
             Ok(StrBuf(bytes))
@@ -77,6 +80,7 @@ impl StrBuf {
     /// };
     /// assert_eq!(str_buf, "abc");
     /// ```
+    #[inline]
     pub unsafe fn from_utf8_unchecked(bytes: BytesBuf) -> Self {
         StrBuf(bytes)
     }
@@ -91,6 +95,7 @@ impl StrBuf {
     /// let buf = StrBuf::from("🎉").as_bytes_buf().clone();
     /// assert_eq!(buf, [0xF0, 0x9F, 0x8E, 0x89]);
     /// ```
+    #[inline]
     pub fn as_bytes_buf(&self) -> &BytesBuf {
         // This return value can be cloned to obtain a bytes buffer that shares
         // the same heap allocation as this string buffer.
@@ -107,6 +112,7 @@ impl StrBuf {
     /// # use zbuf::StrBuf;
     /// assert_eq!(StrBuf::from("🎉").len(), 4);
     /// ```
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -120,6 +126,7 @@ impl StrBuf {
     /// # use zbuf::StrBuf;
     /// assert!(StrBuf::with_capacity(17).capacity() >= 17);
     /// ```
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }
@@ -181,6 +188,7 @@ impl StrBuf {
     /// assert_eq!(buf, "");
     /// assert!(buf.capacity() > 0);
     /// ```
+    #[inline]
     pub fn clear(&mut self) {
         self.0.clear()
     }
@@ -224,6 +232,7 @@ impl StrBuf {
     /// buf.reserve(100);
     /// assert!(buf.capacity() >= 130);
     /// ```
+    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         self.0.reserve(additional)
     }
@@ -347,6 +356,7 @@ impl StrBuf {
     /// buf.push_str(" world!");
     /// assert_eq!(buf, "hello world!");
     /// ```
+    #[inline]
     pub fn push_str(&mut self, slice: &str) {
         self.0.push_slice(slice.as_bytes())
     }
@@ -364,12 +374,14 @@ impl StrBuf {
     /// buf.push_char('!');
     /// assert_eq!(buf, "hello!");
     /// ```
+    #[inline]
     pub fn push_char(&mut self, c: char) {
         self.push_str(c.encode_utf8(&mut [0; 4]))
     }
 }
 
 // FIXME https://github.com/rust-lang/rust/issues/41119
+#[inline]
 unsafe fn str_from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
     mem::transmute(v)
 }
@@ -377,6 +389,7 @@ unsafe fn str_from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
 impl Deref for StrBuf {
     type Target = str;
 
+    #[inline]
     fn deref(&self) -> &str {
         // Safety: the BytesBuf inside StrBuf is private,
         // and this module mantains UTF-8 well-formedness.
@@ -388,6 +401,7 @@ impl Deref for StrBuf {
 
 /// This copies the existing data if there are other references to this buffer.
 impl DerefMut for StrBuf {
+    #[inline]
     fn deref_mut(&mut self) -> &mut str {
         // Safety: the BytesBuf inside StrBuf is private,
         // and this module mantains UTF-8 well-formedness.
@@ -398,48 +412,56 @@ impl DerefMut for StrBuf {
 }
 
 impl AsRef<str> for StrBuf {
+    #[inline]
     fn as_ref(&self) -> &str {
         self
     }
 }
 
 impl AsMut<str> for StrBuf {
+    #[inline]
     fn as_mut(&mut self) -> &mut str {
         self
     }
 }
 
 impl<'a> From<&'a str> for StrBuf {
+    #[inline]
     fn from(slice: &'a str) -> Self {
         StrBuf(BytesBuf::from(slice.as_bytes()))
     }
 }
 
 impl From<StrBuf> for BytesBuf {
+    #[inline]
     fn from(buf: StrBuf) -> Self {
         buf.0
     }
 }
 
 impl fmt::Debug for StrBuf {
+    #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         str::fmt(self, formatter)
     }
 }
 
 impl fmt::Display for StrBuf {
+    #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         str::fmt(self, formatter)
     }
 }
 
 impl<T: AsRef<str>> PartialEq<T> for StrBuf {
+    #[inline]
     fn eq(&self, other: &T) -> bool {
         str::eq(self, other.as_ref())
     }
 }
 
 impl<T: AsRef<str>> PartialOrd<T> for StrBuf {
+    #[inline]
     fn partial_cmp(&self, other: &T) -> Option<::std::cmp::Ordering> {
         str::partial_cmp(self, other.as_ref())
     }

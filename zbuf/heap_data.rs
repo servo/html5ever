@@ -81,6 +81,7 @@ impl TaggedPtr {
 }
 
 impl Clone for TaggedPtr {
+    #[inline]
     fn clone(&self) -> Self {
         if let Ok(heap_allocation) = self.as_allocated() {
             heap_allocation.increment_refcount()
@@ -90,6 +91,7 @@ impl Clone for TaggedPtr {
 }
 
 impl Drop for TaggedPtr {
+    #[inline]
     fn drop(&mut self) {
         if let Ok(heap_allocation) = self.as_allocated() {
             let new_refcount = heap_allocation.decrement_refcount();
@@ -143,10 +145,12 @@ impl HeapAllocation {
         ptr
     }
 
+    #[inline]
     fn increment_refcount(&self) {
         self.refcount.set(self.refcount.get().checked_add(1).expect("refcount overflow"))
     }
 
+    #[inline]
     fn decrement_refcount(&self) -> u32 {
         let new_count = self.refcount.get().checked_sub(1).expect("refcount underflow");
         self.refcount.set(new_count);
@@ -154,6 +158,8 @@ impl HeapAllocation {
     }
 
     /// Unsafe: `ptr` must be valid, and not used afterwards
+    #[inline(never)]
+    #[cold]
     unsafe fn deallocate(ptr: *mut HeapAllocation, data_capacity: u32) {
         let header_size = mem::size_of::<HeapAllocation>();
         let allocated_bytes = header_size + u32_to_usize(data_capacity);
@@ -170,14 +176,17 @@ impl HeapAllocation {
         mem::drop(vec);
     }
 
+    #[inline]
     pub fn is_owned(&self) -> bool {
         self.refcount.get() == 1
     }
 
+    #[inline]
     pub fn data_capacity(&self) -> u32 {
         self.data_capacity
     }
 
+    #[inline]
     pub fn data(&self) -> *const [u8] {
         // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe {
@@ -185,6 +194,7 @@ impl HeapAllocation {
         }
     }
 
+    #[inline]
     pub fn data_mut(&mut self) -> *mut [u8] {
         // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe {
