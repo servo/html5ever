@@ -1,6 +1,7 @@
 extern crate zbuf;
 
 use std::mem::size_of;
+use zbuf::*;
 
 fn inline_capacity() -> usize {
     size_of::<usize>() + 4 + 4 - 1
@@ -9,7 +10,6 @@ fn inline_capacity() -> usize {
 macro_rules! common_tests { ($Buf: ident) => {
     use std::ascii::AsciiExt;
     use super::*;
-    use zbuf::*;
 
     fn mutated<F: FnOnce(&mut $Buf)>(initial: &str, f: F) -> $Buf {
         let mut buf = from(initial);
@@ -292,7 +292,68 @@ mod str_buf {
     common_tests!(StrBuf);
 
     #[test]
+    fn from_utf8() {
+        let bytes_ok = BytesBuf::from(b"Yay \xF0\x9F\x8E\x89!!".as_ref());
+        let bytes_err = BytesBuf::from(b"Yay \xF0\x9F\x8E\xFF!!".as_ref());
+        assert_eq!(StrBuf::from_utf8(bytes_ok).unwrap(), "Yay 🎉!!");
+        assert_eq!(StrBuf::from_utf8(bytes_err).unwrap_err().into_bytes_buf(), b"Yay \xF0\x9F\x8E\xFF!!");
+    }
+
+    #[test]
+    fn from_utf8_lossy() {
+        let bytes_ok = BytesBuf::from(b"Yay \xF0\x9F\x8E\x89!!".as_ref());
+        let bytes_err = BytesBuf::from(b"Yay \xF0\x9F\x8E\xFF!!".as_ref());
+        assert_eq!(StrBuf::from_utf8_lossy(bytes_ok), "Yay 🎉!!");
+        assert_eq!(StrBuf::from_utf8_lossy(bytes_err), "Yay ��!!");
+    }
+
+    #[test]
+    fn push_str() {
+        // Inline
+        assert_eq!(mutated("abc", |b| b.push_str("de")), "abcde");
+        // Inline pushed into heap-allocated
+        assert_eq!(mutated("1234567890", |b| b.push_str("abcdefgh")), "1234567890abcdefgh");
+        // Heap-allocated
+        assert_eq!(mutated("1234567890123456", |b| b.push_str("ab")), "1234567890123456ab");
+
+        let mut buf = from("1234567890123456");
+        let mut buf2 = buf.clone();
+        buf.push_str("ab");
+        assert_eq!(buf, "1234567890123456ab");
+        assert_eq!(buf2, "1234567890123456");
+        buf2.push_str("yz");
+        assert_eq!(buf, "1234567890123456ab");
+        assert_eq!(buf2, "1234567890123456yz");
+    }
+
+    #[test]
+    fn push_char() {
+        // Inline
+        assert_eq!(mutated("abc", |b| b.push_char('🎉')), "abc🎉");
+        // Heap-allocated
+        assert_eq!(mutated("1234567890123456", |b| b.push_char('🎉')), "1234567890123456🎉");
+
+    }
+
+    #[test]
     fn debug() {
         assert_eq!(format!("{:?}", from("Yay 🎉!!")), r#""Yay 🎉!!""#);
     }
+}
+
+#[test]
+fn utf8_decoder() {
+    let chunks = [
+        &[0xF0, 0x9F][..],
+        &[0x8E],
+        &[0x89, 0xF0, 0x9F],
+    ];
+    let mut decoder = Utf8Decoder::new();
+    let mut bufs = Vec::new();
+    for chunk in &chunks {
+        bufs.extend(decoder.feed(BytesBuf::from(chunk)))
+    }
+    bufs.extend(decoder.end());
+    let slices = bufs.iter().map(|b| &**b).collect::<Vec<&str>>();
+    assert_eq!(slices, ["🎉", "�"]);
 }
