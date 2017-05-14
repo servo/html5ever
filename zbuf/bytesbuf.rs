@@ -2,6 +2,7 @@ use heap_data::{TaggedPtr, HeapAllocation};
 use std::fmt;
 use std::hash;
 use std::iter::FromIterator;
+use std::io;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
@@ -669,6 +670,7 @@ impl<T: AsRef<[u8]>> PartialOrd<T> for BytesBuf {
 }
 
 impl<'a> Extend<&'a [u8]> for BytesBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a [u8]> {
         for item in iter {
             self.push_slice(item)
@@ -677,6 +679,7 @@ impl<'a> Extend<&'a [u8]> for BytesBuf {
 }
 
 impl<'a> FromIterator<&'a [u8]> for BytesBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a [u8]> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -685,6 +688,7 @@ impl<'a> FromIterator<&'a [u8]> for BytesBuf {
 }
 
 impl<'a> Extend<&'a BytesBuf> for BytesBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a BytesBuf> {
         for item in iter {
             self.push_buf(item)
@@ -693,6 +697,7 @@ impl<'a> Extend<&'a BytesBuf> for BytesBuf {
 }
 
 impl<'a> FromIterator<&'a BytesBuf> for BytesBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a BytesBuf> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -701,6 +706,7 @@ impl<'a> FromIterator<&'a BytesBuf> for BytesBuf {
 }
 
 impl Extend<BytesBuf> for BytesBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=BytesBuf> {
         for item in iter {
             self.push_buf(&item)
@@ -709,9 +715,23 @@ impl Extend<BytesBuf> for BytesBuf {
 }
 
 impl FromIterator<BytesBuf> for BytesBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=BytesBuf> {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
+    }
+}
+
+impl io::Write for BytesBuf {
+    #[inline]
+    fn write(&mut self, slice: &[u8]) -> io::Result<usize> {
+        self.push_slice(slice);
+        Ok(slice.len())
+    }
+
+    #[inline]
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }

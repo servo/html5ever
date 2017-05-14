@@ -583,6 +583,7 @@ impl<T: AsRef<str>> PartialOrd<T> for StrBuf {
 }
 
 impl Extend<char> for StrBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=char> {
         for item in iter {
             self.push_char(item)
@@ -591,6 +592,7 @@ impl Extend<char> for StrBuf {
 }
 
 impl FromIterator<char> for StrBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=char> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -599,6 +601,7 @@ impl FromIterator<char> for StrBuf {
 }
 
 impl<'a> Extend<&'a char> for StrBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a char> {
         for &item in iter {
             self.push_char(item)
@@ -607,6 +610,7 @@ impl<'a> Extend<&'a char> for StrBuf {
 }
 
 impl<'a> FromIterator<&'a char> for StrBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a char> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -615,6 +619,7 @@ impl<'a> FromIterator<&'a char> for StrBuf {
 }
 
 impl<'a> Extend<&'a str> for StrBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a str> {
         for item in iter {
             self.push_str(item)
@@ -623,6 +628,7 @@ impl<'a> Extend<&'a str> for StrBuf {
 }
 
 impl<'a> FromIterator<&'a str> for StrBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a str> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -631,6 +637,7 @@ impl<'a> FromIterator<&'a str> for StrBuf {
 }
 
 impl<'a> Extend<&'a StrBuf> for StrBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a StrBuf> {
         for item in iter {
             self.push_buf(item)
@@ -639,6 +646,7 @@ impl<'a> Extend<&'a StrBuf> for StrBuf {
 }
 
 impl<'a> FromIterator<&'a StrBuf> for StrBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a StrBuf> {
         let mut buf = Self::new();
         buf.extend(iter);
@@ -647,6 +655,7 @@ impl<'a> FromIterator<&'a StrBuf> for StrBuf {
 }
 
 impl Extend<StrBuf> for StrBuf {
+    #[inline]
     fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=StrBuf> {
         for item in iter {
             self.push_buf(&item)
@@ -655,9 +664,23 @@ impl Extend<StrBuf> for StrBuf {
 }
 
 impl FromIterator<StrBuf> for StrBuf {
+    #[inline]
     fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=StrBuf> {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
+    }
+}
+
+impl fmt::Write for StrBuf {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.push_str(s);
+        Ok(())
+    }
+
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        self.push_char(c);
+        Ok(())
     }
 }
