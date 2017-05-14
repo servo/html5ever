@@ -1,5 +1,5 @@
 use heap_data::{TaggedPtr, HeapAllocation};
-use std::fmt;
+use std::fmt::{self, Write};
 use std::hash;
 use std::iter::FromIterator;
 use std::io;
@@ -470,9 +470,9 @@ impl BytesBuf {
     ///     for byte in &mut zeroed[..3] {
     ///         *byte = b'!'
     ///     }
-    ///     10
+    ///     5
     /// });
-    /// assert_eq!(buf, b"hello!!!\0\0\0\0\0\0\0");
+    /// assert_eq!(buf, b"hello!!!\0\0");
     /// ```
     pub fn write_to_zeroed_tail<F>(&mut self, f: F)
     where F: FnOnce(&mut [u8]) -> usize {

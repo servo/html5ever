@@ -16,3 +16,7 @@ utf-8 = "0.7.1"
 name = "print_cfg"
 path = "print_cfg.rs"
 harness = false
+
+[[test]]
+name = "tests"
+path = "tests.rs"
