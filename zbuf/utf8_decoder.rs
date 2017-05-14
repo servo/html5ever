@@ -26,13 +26,13 @@ use utf8::{self, Incomplete, DecodeError};
 /// # Examples
 ///
 /// ```
-/// # use zbuf::{BytesBuf, Utf8Decoder};
+/// # use zbuf::{BytesBuf, LossyUtf8Decoder};
 /// let chunks = [
 ///     &[0xF0, 0x9F][..],
 ///     &[0x8E],
 ///     &[0x89, 0xF0, 0x9F],
 /// ];
-/// let mut decoder = Utf8Decoder::new();
+/// let mut decoder = LossyUtf8Decoder::new();
 /// let mut bufs = Vec::new();
 /// for chunk in &chunks {
 ///     bufs.extend(decoder.feed(BytesBuf::from(chunk)))
@@ -41,24 +41,12 @@ use utf8::{self, Incomplete, DecodeError};
 /// let slices = bufs.iter().map(|b| &**b).collect::<Vec<&str>>();
 /// assert_eq!(slices, ["🎉", "�"]);
 /// ```
-pub struct Utf8Decoder {
-    input_chunk: BytesBuf,
-    incomplete_char: Incomplete,
-    yield_replacement_character_next: bool,
-}
+pub struct LossyUtf8Decoder(StrictUtf8Decoder);
 
-impl Utf8Decoder {
+impl LossyUtf8Decoder {
     /// Return a new decoder
     pub fn new() -> Self {
-        Utf8Decoder {
-            incomplete_char: Incomplete::empty(),
-            input_chunk: BytesBuf::new(),
-            yield_replacement_character_next: false,
-        }
-    }
-
-    fn exhausted(&self) -> bool {
-        self.input_chunk.is_empty() && !self.yield_replacement_character_next
+        LossyUtf8Decoder(StrictUtf8Decoder::new())
     }
 
     /// Provide more bytes input to decode. Returns an iterator of `StrBuf`.
@@ -70,8 +58,7 @@ impl Utf8Decoder {
     ///
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
     pub fn feed(&mut self, next_input_chunk: BytesBuf) -> &mut Self {
-        assert!(self.exhausted(), "feeding Utf8Decoder before exhausting the previous input chunk");
-        self.input_chunk = next_input_chunk;
+        self.0.feed(next_input_chunk);
         self
     }
 
@@ -86,12 +73,109 @@ impl Utf8Decoder {
     ///
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
     pub fn end(&mut self) -> Option<StrBuf> {
+        self.0.end().err().map(replacement_character)
+    }
+}
+
+// FIXME: Make this a `const` item when const_fn is stable
+#[inline]
+fn replacement_character(_: ()) -> StrBuf {
+    StrBuf::from(utf8::REPLACEMENT_CHARACTER)
+}
+
+impl Iterator for LossyUtf8Decoder {
+    type Item = StrBuf;
+
+    fn next(&mut self) -> Option<StrBuf> {
+        self.0.next().map(|result| result.unwrap_or_else(replacement_character))
+    }
+}
+
+/// A “zero-copy” incremental strict UTF-8 decoder.
+///
+/// * **“Zero-copy”**:
+///   String buffers produced by the decoder are either inline
+///   or share a heap allocation with an input bytes buffer.
+///   The decoder never allocates memory.
+///
+/// * **Incremental**:
+///   The input doesn’t need to be provided all at once in a contiguous buffer.
+///   Whatever input is available can be decoded while waiting for more to arrive,
+///   for example from the network.
+///   The decoder takes care of reconstructing `char` code points correctly
+///   if their UTF-8 bytes span multiple input chunks.
+///
+///   If the entire input *is* available all at once, consider using
+///   [`StrBuf::from_utf8_lossy`](struct.StrBuf.html#method.from_utf8_lossy) instead.
+///
+/// * **Strict**:
+///   Invalid byte sequences are represented as `Result::Err`
+///
+/// # Examples
+///
+/// ```
+/// # use zbuf::{BytesBuf, StrBuf, StrictUtf8Decoder};
+/// pub fn from_utf8_iter<I>(iter: I) -> Result<StrBuf, ()>
+/// where I: IntoIterator<Item=BytesBuf> {
+///     let mut decoder = StrictUtf8Decoder::new();
+///     let mut buf = StrBuf::new();
+///     for item in iter {
+///         for result in decoder.feed(item) {
+///             buf.push_buf(&result?)
+///         }
+///     }
+///     decoder.end()?;
+///     Ok(buf)
+/// }
+/// ```
+pub struct StrictUtf8Decoder {
+    input_chunk: BytesBuf,
+    incomplete_char: Incomplete,
+    yield_error_next: bool,
+}
+
+impl StrictUtf8Decoder {
+    /// Return a new decoder
+    pub fn new() -> Self {
+        StrictUtf8Decoder {
+            incomplete_char: Incomplete::empty(),
+            input_chunk: BytesBuf::new(),
+            yield_error_next: false,
+        }
+    }
+
+    fn exhausted(&self) -> bool {
+        self.input_chunk.is_empty() && !self.yield_error_next
+    }
+
+    /// Provide more bytes input to decode. Returns an iterator of `Result<StrBuf, ()>`.
+    ///
+    /// The returned iterator must be exhausted (consumed until `.next()` returns `None`)
+    /// before the next call to `.feed(…)` or `.end()`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
+    pub fn feed(&mut self, next_input_chunk: BytesBuf) -> &mut Self {
+        assert!(self.exhausted(), "feeding Utf8Decoder before exhausting the previous input chunk");
+        self.input_chunk = next_input_chunk;
+        self
+    }
+
+    /// Signal the end of the input. This may return an error.
+    ///
+    /// Failing to call this method may result in incorrect decoding.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
+    pub fn end(&mut self) -> Result<(), ()> {
         assert!(self.exhausted(), "ending Utf8Decoder before exhausting the previous input chunk");
         if self.incomplete_char.is_empty() {
-            None
+            Ok(())
         } else {
             self.incomplete_char = Incomplete::empty();
-            Some(replacement_character())
+            Err(())
         }
     }
 
@@ -100,7 +184,7 @@ impl Utf8Decoder {
     }
 
     #[cold]
-    fn try_complete(&mut self) -> Option<StrBuf> {
+    fn try_complete(&mut self) -> Option<Result<StrBuf, ()>> {
         // FIXME: simplify when borrows are non-lexical
         let unborrowed = {
             let input_chunk = &self.input_chunk;
@@ -109,8 +193,7 @@ impl Utf8Decoder {
                     let consumed = input_chunk.len() - remaining_input.len();
                     // `result` here is up to 4 bytes and therefore fits in an inline buffer,
                     // so it is better to not try to share a heap allocation with `input_chunk`.
-                    let result = result.ok().map(StrBuf::from)
-                        .unwrap_or_else(replacement_character);
+                    let result = result.map(StrBuf::from).map_err(|_| ());
                     (consumed, result)
                 })
         };
@@ -128,19 +211,13 @@ impl Utf8Decoder {
     }
 }
 
-// FIXME: Make this a `const` item when const_fn is stable
-#[inline]
-fn replacement_character() -> StrBuf {
-    StrBuf::from(utf8::REPLACEMENT_CHARACTER)
-}
+impl Iterator for StrictUtf8Decoder {
+    type Item = Result<StrBuf, ()>;
 
-impl Iterator for Utf8Decoder {
-    type Item = StrBuf;
-
-    fn next(&mut self) -> Option<StrBuf> {
-        if self.yield_replacement_character_next {
-            self.yield_replacement_character_next = false;
-            return Some(replacement_character())
+    fn next(&mut self) -> Option<Result<StrBuf, ()>> {
+        if self.yield_error_next {
+            self.yield_error_next = false;
+            return Some(Err(()))
         }
 
         if self.input_chunk.is_empty() {
@@ -187,26 +264,26 @@ impl Iterator for Utf8Decoder {
 
             Err((0, Err(None))) => {
                 self.input_chunk = BytesBuf::new();
-                return Some(replacement_character())
+                return Some(Err(()))
             }
             Err((0, Err(Some(resume_at)))) => {
                 self.input_chunk.pop_front(resume_at);
-                return Some(replacement_character())
+                return Some(Err(()))
             }
             Err((valid_prefix_len, Err(None))) => {
-                self.yield_replacement_character_next = true;
+                self.yield_error_next = true;
                 bytes = self.take_input();
                 bytes.truncate(valid_prefix_len);
             }
             Err((valid_prefix_len, Err(Some(resume_at)))) => {
-                self.yield_replacement_character_next = true;
+                self.yield_error_next = true;
                 bytes = self.input_chunk.clone();
                 bytes.truncate(valid_prefix_len);
                 self.input_chunk.pop_front(resume_at);
             }
         }
         unsafe {
-            Some(StrBuf::from_utf8_unchecked(bytes))
+            Some(Ok(StrBuf::from_utf8_unchecked(bytes)))
         }
     }
 }

@@ -341,19 +341,44 @@ mod str_buf {
     }
 }
 
-#[test]
-fn utf8_decoder() {
-    let chunks = [
-        &[0xF0, 0x9F][..],
-        &[0x8E],
-        &[0x89, 0xF0, 0x9F],
-    ];
-    let mut decoder = Utf8Decoder::new();
-    let mut bufs = Vec::new();
-    for chunk in &chunks {
-        bufs.extend(decoder.feed(BytesBuf::from(chunk)))
+mod utf8_decoder {
+    use super::*;
+
+    #[test]
+    fn lossy() {
+        let chunks = [
+            &[0xF0, 0x9F][..],
+            &[0x8E],
+            &[0x89, 0xF0, 0x9F],
+        ];
+        let mut decoder = LossyUtf8Decoder::new();
+        let mut bufs = Vec::new();
+        for chunk in &chunks {
+            bufs.extend(decoder.feed(BytesBuf::from(chunk)))
+        }
+        bufs.extend(decoder.end());
+        let slices = bufs.iter().map(|b| &**b).collect::<Vec<&str>>();
+        assert_eq!(slices, ["🎉", "�"]);
     }
-    bufs.extend(decoder.end());
-    let slices = bufs.iter().map(|b| &**b).collect::<Vec<&str>>();
-    assert_eq!(slices, ["🎉", "�"]);
+
+    #[test]
+    fn strict() {
+        let chunks = [
+            &[0xF0, 0x9F][..],
+            &[0x8E],
+            &[0x89, 0xF0, 0x9F],
+            &[0x21]
+        ];
+        let mut decoder = StrictUtf8Decoder::new();
+        let mut results = Vec::new();
+        for chunk in &chunks {
+            results.extend(decoder.feed(BytesBuf::from(chunk)))
+        }
+        if let Err(()) = decoder.end() { results.push(Err(())) }
+        let slices = results.iter().map(|r| match *r {
+            Ok(ref b) => Ok(&**b),
+            Err(()) => Err(()),
+        }).collect::<Vec<_>>();
+        assert_eq!(slices, [Ok("🎉"), Err(()), Ok("!")]);
+    }
 }
