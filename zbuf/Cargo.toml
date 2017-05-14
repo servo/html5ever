@@ -1,6 +1,6 @@
 [package]
 name = "zbuf"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Simon Sapin <simon.sapin@exyr.org>"]
 license = "MIT/Apache-2.0"
 description = "“Zero-copy” string and bytes buffers"
