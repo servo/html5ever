@@ -146,6 +146,20 @@ impl BytesBuf {
         }
     }
 
+    /// Return whether this buffer is empty.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// assert_eq!(BytesBuf::new().is_empty(), true);
+    /// assert_eq!(BytesBuf::from(b"abc".as_ref()).is_empty(), false);
+    /// ```
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     fn data_and_uninitialized_tail(&mut self) -> (&mut [u8], *mut [u8]) {
         if self.0.ptr.is_shared_allocation() {
             *self = {

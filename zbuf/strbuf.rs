@@ -117,6 +117,20 @@ impl StrBuf {
         self.0.len()
     }
 
+    /// Return whether this buffer is empty.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::BytesBuf;
+    /// assert_eq!(BytesBuf::new().is_empty(), true);
+    /// assert_eq!(BytesBuf::from(b"abc".as_ref()).is_empty(), false);
+    /// ```
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Return the capacity of this buffer: the length to which it can grow
     /// without re-allocating.
     ///
