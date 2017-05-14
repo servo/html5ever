@@ -1,5 +1,6 @@
 use bytesbuf::BytesBuf;
 use std::fmt;
+use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
@@ -526,5 +527,85 @@ impl<T: AsRef<str>> PartialOrd<T> for StrBuf {
     #[inline]
     fn partial_cmp(&self, other: &T) -> Option<::std::cmp::Ordering> {
         str::partial_cmp(self, other.as_ref())
+    }
+}
+
+impl Extend<char> for StrBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=char> {
+        for item in iter {
+            self.push_char(item)
+        }
+    }
+}
+
+impl FromIterator<char> for StrBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=char> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> Extend<&'a char> for StrBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a char> {
+        for &item in iter {
+            self.push_char(item)
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a char> for StrBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a char> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> Extend<&'a str> for StrBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a str> {
+        for item in iter {
+            self.push_str(item)
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a str> for StrBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a str> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> Extend<&'a StrBuf> for StrBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a StrBuf> {
+        for item in iter {
+            self.push_buf(item)
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a StrBuf> for StrBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a StrBuf> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl Extend<StrBuf> for StrBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=StrBuf> {
+        for item in iter {
+            self.push_buf(&item)
+        }
+    }
+}
+
+impl FromIterator<StrBuf> for StrBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=StrBuf> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
     }
 }

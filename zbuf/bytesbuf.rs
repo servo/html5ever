@@ -1,6 +1,7 @@
 use heap_data::{TaggedPtr, HeapAllocation};
 use std::fmt;
 use std::hash;
+use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
@@ -655,5 +656,53 @@ impl<T: AsRef<[u8]>> PartialOrd<T> for BytesBuf {
     #[inline]
     fn partial_cmp(&self, other: &T) -> Option<::std::cmp::Ordering> {
         <[u8]>::partial_cmp(self, other.as_ref())
+    }
+}
+
+impl<'a> Extend<&'a [u8]> for BytesBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a [u8]> {
+        for item in iter {
+            self.push_slice(item)
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a [u8]> for BytesBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a [u8]> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> Extend<&'a BytesBuf> for BytesBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a BytesBuf> {
+        for item in iter {
+            self.push_buf(item)
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a BytesBuf> for BytesBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a BytesBuf> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl Extend<BytesBuf> for BytesBuf {
+    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=BytesBuf> {
+        for item in iter {
+            self.push_buf(&item)
+        }
+    }
+}
+
+impl FromIterator<BytesBuf> for BytesBuf {
+    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=BytesBuf> {
+        let mut buf = Self::new();
+        buf.extend(iter);
+        buf
     }
 }
