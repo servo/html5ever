@@ -678,7 +678,15 @@ impl<'a, 'b> From<&'a &'b [u8]> for BytesBuf {
 impl fmt::Debug for BytesBuf {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        <[u8]>::fmt(self, formatter)
+        formatter.write_str("b\"")?;
+        for &byte in &**self {
+            if let b' '...b'~' = byte {
+                formatter.write_char(byte as char)?
+            } else {
+                write!(formatter, "\\x{:02X}", byte)?
+            }
+        }
+        formatter.write_char('"')
     }
 }
 
