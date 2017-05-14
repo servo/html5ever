@@ -4,6 +4,7 @@ use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
+use utf8_decoder::Utf8Decoder;
 
 /// A “zero copy” string buffer.
 ///
@@ -43,7 +44,7 @@ impl StrBuf {
     /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
     ///
     /// If you already know for sure that a bytes buffer is well-formed in UTF-8,
-    /// you can use the `unsafe` [`from_utf8_unchecked`](#method.from_utf8_unchecked) method,
+    /// consider the `unsafe` [`from_utf8_unchecked`](#method.from_utf8_unchecked) method,
     /// which takes `O(1)` time, instead.
     ///
     /// ## Examples
@@ -84,6 +85,57 @@ impl StrBuf {
     #[inline]
     pub unsafe fn from_utf8_unchecked(bytes: BytesBuf) -> Self {
         StrBuf(bytes)
+    }
+
+    /// Converts a bytes buffer into a string buffer.
+    ///
+    /// This takes `O(length)` time to check that the input is well-formed in UTF-8,
+    /// and replaces invalid byte sequences (decoding errors) with the replacement character U+FFFD.
+    /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
+    ///
+    /// If you want to handle decoding errors differently,
+    /// consider the [`from_utf8`](#method.from_utf8) method which returns a `Result`.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::{StrBuf, BytesBuf};
+    /// assert_eq!(StrBuf::from_utf8_lossy(BytesBuf::from(&b"abc"[..])), "abc");
+    /// assert_eq!(StrBuf::from_utf8_lossy(BytesBuf::from(&b"ab\x80"[..])), "ab�");
+    /// ```
+    pub fn from_utf8_lossy(bytes: BytesBuf) -> Self {
+        let mut decoder = Utf8Decoder::new();
+        let mut buf: StrBuf = decoder.feed(bytes).collect();
+        buf.extend(decoder.end());
+        buf
+    }
+
+    /// Converts an iterator of bytes buffers into a string buffer.
+    ///
+    /// This takes `O(total length)` time to check that the input is well-formed in UTF-8,
+    /// and replaces invalid byte sequences (decoding errors) with the replacement character U+FFFD.
+    /// No heap memory is allocated or data copied, since this takes ownership of the bytes buffer.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use zbuf::StrBuf;
+    /// let chunks = [
+    ///     &[0xF0, 0x9F][..],
+    ///     &[0x8E],
+    ///     &[0x89, 0xF0, 0x9F],
+    /// ];
+    /// assert_eq!(StrBuf::from_utf8_iter_lossy(&chunks), "🎉�");
+    /// ```
+    pub fn from_utf8_iter_lossy<I>(iter: I) -> Self
+    where I: IntoIterator, I::Item: Into<BytesBuf> {
+        let mut decoder = Utf8Decoder::new();
+        let mut buf = StrBuf::new();
+        for item in iter {
+            buf.extend(decoder.feed(item.into()))
+        }
+        buf.extend(decoder.end());
+        buf
     }
 
     /// Return a shared (immutable) reference to the bytes buffer representation

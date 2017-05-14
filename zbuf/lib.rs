@@ -25,6 +25,7 @@
 //!   Conversion to or from `Vec<u8>` / `Box<[u8]>` / `String` / `Box<str>`
 //!   therefore necessarily goes through slices and incurs and data copy and memory allocation.
 
+extern crate utf8;
 
 /// FIXME: remove this module and use std::ptr::Shared instead once it is stable.
 /// https://github.com/rust-lang/rust/issues/27730
@@ -33,9 +34,11 @@ mod shared_ptr;
 mod heap_data;
 mod bytesbuf;
 mod strbuf;
+mod utf8_decoder;
 
 pub use bytesbuf::BytesBuf;
 pub use strbuf::StrBuf;
+pub use utf8_decoder::Utf8Decoder;
 
 #[cfg(any(target_pointer_width = "32",
           target_pointer_width = "64"))]

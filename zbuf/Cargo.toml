@@ -9,3 +9,4 @@ description = "“Zero-copy” string and bytes buffers"
 path = "lib.rs"
 
 [dependencies]
+utf-8 = "0.7.1"

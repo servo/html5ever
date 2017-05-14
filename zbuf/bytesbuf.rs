@@ -615,6 +615,15 @@ impl<'a> From<&'a [u8]> for BytesBuf {
     }
 }
 
+impl<'a, 'b> From<&'a &'b [u8]> for BytesBuf {
+    #[inline]
+    fn from(slice: &'a &'b [u8]) -> Self {
+        let mut buf = Self::new();
+        buf.push_slice(slice);
+        buf
+    }
+}
+
 impl fmt::Debug for BytesBuf {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
