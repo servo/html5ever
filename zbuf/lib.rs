@@ -47,7 +47,7 @@ mod utf8_decoder;
 
 pub use bytesbuf::BytesBuf;
 pub use strbuf::{StrBuf, FromUtf8Error};
-pub use utf8_decoder::{LossyUtf8Decoder, StrictUtf8Decoder};
+pub use utf8_decoder::{LossyUtf8Decoder, StrictUtf8Decoder, Utf8DecoderError};
 
 #[cfg(any(target_pointer_width = "32",
           target_pointer_width = "64"))]

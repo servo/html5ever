@@ -8,6 +8,7 @@ repository = "https://github.com/servo/html5ever/tree/zbuf"
 
 [lib]
 path = "lib.rs"
+test = false
 
 [dependencies]
 utf-8 = "0.7.1"

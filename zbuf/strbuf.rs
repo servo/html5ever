@@ -6,7 +6,7 @@ use std::io;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
-use utf8_decoder::{LossyUtf8Decoder, StrictUtf8Decoder};
+use utf8_decoder::{LossyUtf8Decoder, StrictUtf8Decoder, Utf8DecoderError};
 
 /// A “zero copy” string buffer.
 ///
@@ -131,7 +131,7 @@ impl StrBuf {
     /// ];
     /// assert_eq!(StrBuf::from_utf8_iter(&chunks).unwrap(), "🎉");
     /// ```
-    pub fn from_utf8_iter<I>(iter: I) -> Result<Self, ()>
+    pub fn from_utf8_iter<I>(iter: I) -> Result<Self, Utf8DecoderError>
     where I: IntoIterator, I::Item: Into<BytesBuf> {
         let mut decoder = StrictUtf8Decoder::new();
         let mut buf = StrBuf::new();

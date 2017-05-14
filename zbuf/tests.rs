@@ -374,10 +374,12 @@ mod utf8_decoder {
         for chunk in &chunks {
             results.extend(decoder.feed(BytesBuf::from(chunk)))
         }
-        if let Err(()) = decoder.end() { results.push(Err(())) }
+        if let Err(error) = decoder.end() {
+            results.push(Err(error))
+        }
         let slices = results.iter().map(|r| match *r {
             Ok(ref b) => Ok(&**b),
-            Err(()) => Err(()),
+            Err(_) => Err(()),
         }).collect::<Vec<_>>();
         assert_eq!(slices, [Ok("🎉"), Err(()), Ok("!")]);
     }

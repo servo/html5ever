@@ -1,5 +1,8 @@
 use BytesBuf;
 use StrBuf;
+use std::error;
+use std::fmt;
+use std::io;
 use std::mem;
 use utf8::{self, Incomplete, DecodeError};
 
@@ -25,21 +28,21 @@ use utf8::{self, Incomplete, DecodeError};
 ///
 /// # Examples
 ///
+/// This is the [`StrBuf::from_utf8_iter_lossy`](struct.StrBuf.html#method.from_utf8_iter_lossy)
+/// method:
+///
 /// ```
-/// # use zbuf::{BytesBuf, LossyUtf8Decoder};
-/// let chunks = [
-///     &[0xF0, 0x9F][..],
-///     &[0x8E],
-///     &[0x89, 0xF0, 0x9F],
-/// ];
-/// let mut decoder = LossyUtf8Decoder::new();
-/// let mut bufs = Vec::new();
-/// for chunk in &chunks {
-///     bufs.extend(decoder.feed(BytesBuf::from(chunk)))
+/// # use zbuf::{BytesBuf, StrBuf, LossyUtf8Decoder};
+/// pub fn from_utf8_iter_lossy<I>(iter: I) -> StrBuf
+/// where I: IntoIterator, I::Item: Into<BytesBuf> {
+///     let mut decoder = LossyUtf8Decoder::new();
+///     let mut buf = StrBuf::new();
+///     for item in iter {
+///         buf.extend(decoder.feed(item.into()))
+///     }
+///     buf.extend(decoder.end());
+///     buf
 /// }
-/// bufs.extend(decoder.end());
-/// let slices = bufs.iter().map(|b| &**b).collect::<Vec<&str>>();
-/// assert_eq!(slices, ["🎉", "�"]);
 /// ```
 pub struct LossyUtf8Decoder(StrictUtf8Decoder);
 
@@ -79,7 +82,7 @@ impl LossyUtf8Decoder {
 
 // FIXME: Make this a `const` item when const_fn is stable
 #[inline]
-fn replacement_character(_: ()) -> StrBuf {
+fn replacement_character(_: Utf8DecoderError) -> StrBuf {
     StrBuf::from(utf8::REPLACEMENT_CHARACTER)
 }
 
@@ -113,14 +116,16 @@ impl Iterator for LossyUtf8Decoder {
 ///
 /// # Examples
 ///
+/// This is the [`StrBuf::from_utf8_iter`](struct.StrBuf.html#method.from_utf8_iter) method:
+///
 /// ```
-/// # use zbuf::{BytesBuf, StrBuf, StrictUtf8Decoder};
-/// pub fn from_utf8_iter<I>(iter: I) -> Result<StrBuf, ()>
-/// where I: IntoIterator<Item=BytesBuf> {
+/// # use zbuf::{BytesBuf, StrBuf, StrictUtf8Decoder, Utf8DecoderError};
+/// pub fn from_utf8_iter<I>(iter: I) -> Result<StrBuf, Utf8DecoderError>
+/// where I: IntoIterator, I::Item: Into<BytesBuf> {
 ///     let mut decoder = StrictUtf8Decoder::new();
 ///     let mut buf = StrBuf::new();
 ///     for item in iter {
-///         for result in decoder.feed(item) {
+///         for result in decoder.feed(item.into()) {
 ///             buf.push_buf(&result?)
 ///         }
 ///     }
@@ -132,6 +137,7 @@ pub struct StrictUtf8Decoder {
     input_chunk: BytesBuf,
     incomplete_char: Incomplete,
     yield_error_next: bool,
+    sum_chunks_len_so_far: usize,
 }
 
 impl StrictUtf8Decoder {
@@ -141,6 +147,7 @@ impl StrictUtf8Decoder {
             incomplete_char: Incomplete::empty(),
             input_chunk: BytesBuf::new(),
             yield_error_next: false,
+            sum_chunks_len_so_far: 0,
         }
     }
 
@@ -158,6 +165,7 @@ impl StrictUtf8Decoder {
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
     pub fn feed(&mut self, next_input_chunk: BytesBuf) -> &mut Self {
         assert!(self.exhausted(), "feeding Utf8Decoder before exhausting the previous input chunk");
+        self.sum_chunks_len_so_far += next_input_chunk.len();
         self.input_chunk = next_input_chunk;
         self
     }
@@ -169,13 +177,15 @@ impl StrictUtf8Decoder {
     /// # Panics
     ///
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
-    pub fn end(&mut self) -> Result<(), ()> {
+    pub fn end(&mut self) -> Result<(), Utf8DecoderError> {
         assert!(self.exhausted(), "ending Utf8Decoder before exhausting the previous input chunk");
         if self.incomplete_char.is_empty() {
             Ok(())
         } else {
             self.incomplete_char = Incomplete::empty();
-            Err(())
+            Err(Utf8DecoderError {
+                position: self.sum_chunks_len_so_far,
+            })
         }
     }
 
@@ -183,8 +193,14 @@ impl StrictUtf8Decoder {
         mem::replace(&mut self.input_chunk, BytesBuf::new())
     }
 
+    fn error(&self) -> Utf8DecoderError {
+        Utf8DecoderError {
+            position: self.sum_chunks_len_so_far - self.input_chunk.len(),
+        }
+    }
+
     #[cold]
-    fn try_complete(&mut self) -> Option<Result<StrBuf, ()>> {
+    fn try_complete(&mut self) -> Option<Result<StrBuf, Utf8DecoderError>> {
         // FIXME: simplify when borrows are non-lexical
         let unborrowed = {
             let input_chunk = &self.input_chunk;
@@ -203,21 +219,21 @@ impl StrictUtf8Decoder {
                 self.input_chunk = BytesBuf::new();
                 None
             }
-            Some((consumed_prefix_len, decoded)) => {
+            Some((consumed_prefix_len, result)) => {
                 self.input_chunk.pop_front(consumed_prefix_len);
-                Some(decoded)
+                Some(result.map_err(|()| self.error()))
             }
         }
     }
 }
 
 impl Iterator for StrictUtf8Decoder {
-    type Item = Result<StrBuf, ()>;
+    type Item = Result<StrBuf, Utf8DecoderError>;
 
-    fn next(&mut self) -> Option<Result<StrBuf, ()>> {
+    fn next(&mut self) -> Option<Result<StrBuf, Utf8DecoderError>> {
         if self.yield_error_next {
             self.yield_error_next = false;
-            return Some(Err(()))
+            return Some(Err(self.error()))
         }
 
         if self.input_chunk.is_empty() {
@@ -264,11 +280,11 @@ impl Iterator for StrictUtf8Decoder {
 
             Err((0, Err(None))) => {
                 self.input_chunk = BytesBuf::new();
-                return Some(Err(()))
+                return Some(Err(self.error()))
             }
             Err((0, Err(Some(resume_at)))) => {
                 self.input_chunk.pop_front(resume_at);
-                return Some(Err(()))
+                return Some(Err(self.error()))
             }
             Err((valid_prefix_len, Err(None))) => {
                 self.yield_error_next = true;
@@ -285,5 +301,36 @@ impl Iterator for StrictUtf8Decoder {
         unsafe {
             Some(Ok(StrBuf::from_utf8_unchecked(bytes)))
         }
+    }
+}
+
+/// The error type for [`StrictUtf8Decoder`](struct.StrictUtf8Decoder.html).
+#[derive(Debug, Copy, Clone)]
+pub struct Utf8DecoderError {
+    position: usize,
+}
+
+impl Utf8DecoderError {
+    /// Total number of bytes from the start of the stream to this invalid byte sequence.
+    pub fn position(&self) -> usize {
+        self.position
+    }
+}
+
+impl fmt::Display for Utf8DecoderError {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "invalid UTF-8 byte sequence at byte {}", self.position)
+    }
+}
+
+impl error::Error for Utf8DecoderError {
+    fn description(&self) -> &str {
+        "invalid utf-8"
+    }
+}
+
+impl From<Utf8DecoderError> for io::Error {
+    fn from(error: Utf8DecoderError) -> Self {
+        Self::new(io::ErrorKind::InvalidData, error)
     }
 }
