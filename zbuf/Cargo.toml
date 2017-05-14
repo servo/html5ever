@@ -1,9 +1,10 @@
 [package]
 name = "zbuf"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Simon Sapin <simon.sapin@exyr.org>"]
 license = "MIT/Apache-2.0"
 description = "“Zero-copy” string and bytes buffers"
+repository = "https://github.com/servo/html5ever/tree/zbuf"
 
 [lib]
 path = "lib.rs"
