@@ -6,16 +6,12 @@ fn inline_capacity() -> usize {
     size_of::<usize>() + 4 + 4 - 1
 }
 
-mod bytes_buf {
+macro_rules! common_tests { ($Buf: ident) => {
     use std::ascii::AsciiExt;
     use super::*;
     use zbuf::*;
 
-    fn from(s: &str) -> BytesBuf {
-        BytesBuf::from(s.as_bytes())
-    }
-
-    fn mutated<F: FnOnce(&mut BytesBuf)>(initial: &str, f: F) -> BytesBuf {
+    fn mutated<F: FnOnce(&mut $Buf)>(initial: &str, f: F) -> $Buf {
         let mut buf = from(initial);
         f(&mut buf);
         buf
@@ -23,36 +19,36 @@ mod bytes_buf {
 
     #[test]
     fn new() {
-        assert_eq!(BytesBuf::new(), "");
-        assert_eq!(BytesBuf::new().len(), 0);
-        assert_eq!(BytesBuf::new().capacity(), inline_capacity());
+        assert_eq!($Buf::new(), "");
+        assert_eq!($Buf::new().len(), 0);
+        assert_eq!($Buf::new().capacity(), inline_capacity());
     }
 
     #[test]
     fn with_capacity() {
         // Inline
-        assert_eq!(BytesBuf::with_capacity(8).capacity(), inline_capacity());
-        assert_eq!(BytesBuf::with_capacity(inline_capacity()).capacity(), inline_capacity());
+        assert_eq!($Buf::with_capacity(8).capacity(), inline_capacity());
+        assert_eq!($Buf::with_capacity(inline_capacity()).capacity(), inline_capacity());
 
         // Heap-allocated
-        assert_eq!(BytesBuf::with_capacity(inline_capacity() + 1).capacity(), 24);  // (1 << 5) - 8
-        assert_eq!(BytesBuf::with_capacity(24).capacity(), 24);  // (1 << 5) - 8
-        assert_eq!(BytesBuf::with_capacity(25).capacity(), 56);  // (1 << 6) - 8
-        assert_eq!(BytesBuf::with_capacity(8000).capacity(), 8184);  // (1 << 13) - 8
+        assert_eq!($Buf::with_capacity(inline_capacity() + 1).capacity(), 24);  // (1 << 5) - 8
+        assert_eq!($Buf::with_capacity(24).capacity(), 24);  // (1 << 5) - 8
+        assert_eq!($Buf::with_capacity(25).capacity(), 56);  // (1 << 6) - 8
+        assert_eq!($Buf::with_capacity(8000).capacity(), 8184);  // (1 << 13) - 8
 
         assert_eq!(from("12345678901").capacity(), inline_capacity());
         assert_eq!(from("1234567890123456").capacity(), 24);
 
-        assert_eq!(BytesBuf::with_capacity(8), "");
-        assert_eq!(BytesBuf::with_capacity(8).len(), 0);
-        assert_eq!(BytesBuf::with_capacity(100), "");
-        assert_eq!(BytesBuf::with_capacity(100).len(), 0);
+        assert_eq!($Buf::with_capacity(8), "");
+        assert_eq!($Buf::with_capacity(8).len(), 0);
+        assert_eq!($Buf::with_capacity(100), "");
+        assert_eq!($Buf::with_capacity(100).len(), 0);
     }
 
     #[test]
     #[should_panic(expected = "overflow")]
     fn with_capacity_overflow() {
-        BytesBuf::with_capacity(std::u32::MAX as usize);
+        $Buf::with_capacity(std::u32::MAX as usize);
     }
 
     #[test]
@@ -151,7 +147,7 @@ mod bytes_buf {
     #[test]
     #[should_panic(expected = "overflow")]
     fn reserve_overflow() {
-        BytesBuf::new().reserve(std::u32::MAX as usize)
+        $Buf::new().reserve(std::u32::MAX as usize)
     }
 
     #[test]
@@ -160,7 +156,7 @@ mod bytes_buf {
         buf.reserve(10);
         unsafe {
             buf.write_to_uninitialized_tail(|uninitialized| {
-                for byte in &mut uninitialized[..3] {
+                for byte in &mut as_bytes_mut(uninitialized)[..3] {
                     *byte = b'!'
                 }
                 3
@@ -173,7 +169,7 @@ mod bytes_buf {
     #[should_panic]
     fn write_to_uninitialized_tail_out_of_bounds() {
         unsafe {
-            BytesBuf::with_capacity(20).write_to_uninitialized_tail(|_| 25)
+            $Buf::with_capacity(20).write_to_uninitialized_tail(|_| 25)
         }
     }
 
@@ -182,8 +178,11 @@ mod bytes_buf {
         let mut buf = from("hello");
         buf.reserve(10);
         buf.write_to_zeroed_tail(|zeroed| {
-            assert!(zeroed.iter().all(|&byte| byte == 0));
-            for byte in &mut zeroed[..3] {
+            let bytes = unsafe {
+                as_bytes_mut(zeroed)
+            };
+            assert!(bytes.iter().all(|&byte| byte == 0));
+            for byte in &mut bytes[..3] {
                 *byte = b'!'
             }
             5
@@ -194,19 +193,41 @@ mod bytes_buf {
     #[test]
     #[should_panic]
     fn write_to_zeroed_tail_out_of_bounds() {
-        BytesBuf::with_capacity(20).write_to_zeroed_tail(|_| 25)
+        $Buf::with_capacity(20).write_to_zeroed_tail(|_| 25)
     }
 
     #[test]
-    fn read_into_unititialized_tail_from() {
-        let mut file = std::fs::File::open(file!()).unwrap();
-        let mut source = BytesBuf::with_capacity(file.metadata().unwrap().len() as usize);
-        unsafe {
-            while source.read_into_unititialized_tail_from(&mut file).unwrap() > 0 {}
-        }
-        // Self-referential test:
-        assert!(StrBuf::from_utf8(source).unwrap().contains("This string is also unique"));
+    fn push_buf() {
+        let mut buf = from("1234567890123456");
+        buf.pop_front(2);
+        assert_eq!(buf, "34567890123456");
+        let buf2 = buf.split_off(10);
+        assert_eq!(buf, "3456789012");
+        assert_eq!(buf2, "3456");
+        let address = buf.as_ptr() as usize;
+        buf.push_buf(&buf2);
+        assert_eq!(buf, "34567890123456");
+        assert_eq!(buf2, "3456");
+        assert_eq!(buf.as_ptr() as usize, address);
     }
+
+    #[test]
+    fn deref_mut_make_ascii_lowercase() {
+        // K is a Kelvin sign. It maps to ASCII k in Unicode to_lowercase.
+        assert_eq!(mutated("BK.z", |b| b.make_ascii_lowercase()), "bK.z");
+    }
+}}
+
+mod bytes_buf {
+    fn from(s: &str) -> BytesBuf {
+        BytesBuf::from(s.as_bytes())
+    }
+
+    unsafe fn as_bytes_mut(s: &mut [u8]) -> &mut [u8] {
+        s
+    }
+
+    common_tests!(BytesBuf);
 
     #[test]
     fn push_slice() {
@@ -228,24 +249,18 @@ mod bytes_buf {
     }
 
     #[test]
-    fn push_buf() {
-        let mut buf = from("1234567890123456");
-        buf.pop_front(2);
-        assert_eq!(buf, "34567890123456");
-        let buf2 = buf.split_off(10);
-        assert_eq!(buf, "3456789012");
-        assert_eq!(buf2, "3456");
-        let address = buf.as_ptr() as usize;
-        buf.push_buf(&buf2);
-        assert_eq!(buf, "34567890123456");
-        assert_eq!(buf2, "3456");
-        assert_eq!(buf.as_ptr() as usize, address);
+    fn read_into_unititialized_tail_from() {
+        let mut file = std::fs::File::open(file!()).unwrap();
+        let mut source = BytesBuf::with_capacity(file.metadata().unwrap().len() as usize);
+        unsafe {
+            while source.read_into_unititialized_tail_from(&mut file).unwrap() > 0 {}
+        }
+        // Self-referential test:
+        assert!(StrBuf::from_utf8(source).unwrap().contains("This string is also unique"));
     }
 
     #[test]
     fn deref_mut() {
-        // K is a Kelvin sign. It maps to ASCII k in Unicode to_lowercase.
-        assert_eq!(mutated("BK.z", |b| b.make_ascii_lowercase()), "bK.z");
         assert_eq!(mutated("abc", |b| b[1] = b'-'), "a-c");
 
         let mut buf = from("1234567890123456");
@@ -256,10 +271,28 @@ mod bytes_buf {
         buf2[2] = b'/';
         assert_eq!(buf, "123456789012.456");
         assert_eq!(buf2, "12/4567890123456");
+
     }
 
     #[test]
     fn debug() {
         assert_eq!(format!("{:?}", from("Yay 🎉!!")), r#"b"Yay \xF0\x9F\x8E\x89!!""#);
+    }
+}
+
+mod str_buf {
+    fn from(s: &str) -> StrBuf {
+        StrBuf::from(s)
+    }
+
+    unsafe fn as_bytes_mut(s: &mut str) -> &mut [u8] {
+        ::std::mem::transmute(s)
+    }
+
+    common_tests!(StrBuf);
+
+    #[test]
+    fn debug() {
+        assert_eq!(format!("{:?}", from("Yay 🎉!!")), r#""Yay 🎉!!""#);
     }
 }
