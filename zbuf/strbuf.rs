@@ -1,6 +1,8 @@
 use bytesbuf::BytesBuf;
+use std::error;
 use std::fmt;
 use std::iter::FromIterator;
+use std::io;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
@@ -55,11 +57,13 @@ impl StrBuf {
     /// assert!(StrBuf::from_utf8(BytesBuf::from(&b"ab\x80"[..])).is_err());
     /// ```
     #[inline]
-    pub fn from_utf8(bytes: BytesBuf) -> Result<Self, BytesBuf> {
-        if let Ok(_) = str::from_utf8(&bytes) {
-            Ok(StrBuf(bytes))
-        } else {
-            Err(bytes)
+    pub fn from_utf8(bytes: BytesBuf) -> Result<Self, FromUtf8Error> {
+        match str::from_utf8(&bytes) {
+            Ok(_) => Ok(StrBuf(bytes)),
+            Err(error) => Err(FromUtf8Error {
+                bytes_buf: bytes,
+                utf8_error: error,
+            })
         }
     }
 
@@ -682,5 +686,44 @@ impl fmt::Write for StrBuf {
     fn write_char(&mut self, c: char) -> fmt::Result {
         self.push_char(c);
         Ok(())
+    }
+}
+
+/// The error type for [`StrBuf::from_utf8`](struct.StrBuf.html#method.from_utf8).
+#[derive(Debug)]
+pub struct FromUtf8Error {
+    bytes_buf: BytesBuf,
+    utf8_error: str::Utf8Error,
+}
+
+impl FromUtf8Error {
+    pub fn as_bytes_buf(&self) -> &BytesBuf {
+        &self.bytes_buf
+    }
+
+    pub fn into_bytes_buf(self) -> BytesBuf {
+        self.bytes_buf
+    }
+
+    pub fn utf8_error(&self) -> str::Utf8Error {
+        self.utf8_error
+    }
+}
+
+impl fmt::Display for FromUtf8Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        self.utf8_error.fmt(formatter)
+    }
+}
+
+impl error::Error for FromUtf8Error {
+    fn description(&self) -> &str {
+        "invalid utf-8"
+    }
+}
+
+impl From<FromUtf8Error> for io::Error {
+    fn from(error: FromUtf8Error) -> Self {
+        Self::new(io::ErrorKind::InvalidData, error.utf8_error())
     }
 }

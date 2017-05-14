@@ -37,7 +37,7 @@ mod strbuf;
 mod utf8_decoder;
 
 pub use bytesbuf::BytesBuf;
-pub use strbuf::StrBuf;
+pub use strbuf::{StrBuf, FromUtf8Error};
 pub use utf8_decoder::Utf8Decoder;
 
 #[cfg(any(target_pointer_width = "32",
