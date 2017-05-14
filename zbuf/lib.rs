@@ -1,4 +1,5 @@
-//! [`BytesBuf`](struct.BytesBuf.html) and [`StrBuf`](struct.StrBuf.html) are “zero-copy” buffers.
+//! [`BytesBuf`](struct.BytesBuf.html) and [`StrBuf`](struct.StrBuf.html)
+//! are “zero-copy”<sup>[[1]](#zero-copy)</sup> buffers.
 //! They are semantically equivalent to `Vec<u8>` and `String` respectively
 //! (they derefence to `&[u8]` / `&str`, they are mutable and growable),
 //! but have optimizations that minimize the number of data copies and memory allocations required.
@@ -24,6 +25,14 @@
 //!   In heap-allocated buffers the data is stored next to a header of metadata.
 //!   Conversion to or from `Vec<u8>` / `Box<[u8]>` / `String` / `Box<str>`
 //!   therefore necessarily goes through slices and incurs and data copy and memory allocation.
+//!
+//! ----
+//!
+//! <p id=zero-copy>[1] Disclaimer:
+//! we use “zero-copy” with quotes because it is an exaggeration.
+//! In typical usage there is at least one copy,
+//! for example from the kernel’s network stack to a newly allocated buffer.
+//! However, the library’s design is intended to minimize the number of copies needed after that.
 
 extern crate utf8;
 
