@@ -198,12 +198,16 @@ impl StrBuf {
     /// ```
     /// # use zbuf::StrBuf;
     /// let mut buf = StrBuf::from("hello");
+    /// buf.truncate(10);
+    /// assert_eq!(buf, "hello");
     /// buf.truncate(2);
     /// assert_eq!(buf, "he");
     /// ```
     pub fn truncate(&mut self, new_len: usize) {
-        let _: &str = &self[..new_len];  // Check char boundary with a nice panic message
-        self.0.truncate(new_len)
+        if new_len < self.len() {
+            let _: &str = &self[..new_len];  // Check char boundary with a nice panic message
+            self.0.truncate(new_len)
+        }
     }
 
     /// Ensures that the buffer has capacity for at least (typically more than)
