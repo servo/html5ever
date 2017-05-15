@@ -1,8 +1,11 @@
 dist: trusty
-language: rust
-rust: nightly
 services: docker
 sudo: required
+language: rust
+rust:
+  - nightly
+  - beta
+  - stable
 
 env:
   - TARGET=x86_64-unknown-linux-gnu
