@@ -500,7 +500,7 @@ mod test {
     use ExpandedName;
     use QualName;
     use tendril::StrTendril;
-    use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
+    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
 
     use tokenizer;
     use tokenizer::{Tokenizer, TokenizerOpts};

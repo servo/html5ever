@@ -58,6 +58,3 @@ pub mod tree_builder;
 pub mod serialize;
 /// Driver
 pub mod driver;
-
-/// Re-export the encoding crate.
-pub use tendril::encoding;

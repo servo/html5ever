@@ -13,19 +13,15 @@ extern crate xml5ever;
 use std::default::Default;
 
 use xml5ever::tendril::TendrilSink;
-use xml5ever::driver::{parse_document, BytesOpts};
+use xml5ever::driver::parse_document;
 use xml5ever::tree_builder::{TreeSink};
 use xml5ever::rcdom::{RcDom, NodeData};
 
 fn main() {
     // To parse a string into a tree of nodes, we need to invoke
     // `parse_document` and supply it with a TreeSink implementation (RcDom).
-    //
-    // Since this is a string, it's best to use `from_bytes` to create a
-    // BytesParser for given string.
     let dom: RcDom = parse_document(RcDom::default(), Default::default())
-        .from_bytes(BytesOpts::default())
-        .one("<hello>XML</hello>".as_bytes());
+        .one("<hello>XML</hello>");
 
     // Do some processing
     let doc = &dom.document;
