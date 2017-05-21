@@ -30,13 +30,12 @@ name = "tokenizer"
 harness = false
 
 [features]
-unstable = ["tendril/unstable"]
+unstable = ["markup5ever/unstable"]
 heap_size = ["markup5ever/heap_size"]
 
 [dependencies]
-log = "0"
-mac = "0"
-tendril = "0.2.2"
+log = "0.3"
+mac = "0.1"
 markup5ever = { version = "0.1", path = "../markup5ever" }
 
 [dev-dependencies]

@@ -15,18 +15,17 @@
 //!
 //! where htmlparser-1.4.jar comes from http://about.validator.nu/htmlparser/
 
-extern crate tendril;
 extern crate html5ever;
 
 use std::io::{self, Write};
 use std::default::Default;
 
-use tendril::TendrilSink;
 
-use html5ever::driver::ParseOpts;
-use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse_document, serialize};
+use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
+use html5ever::tendril::TendrilSink;
+use html5ever::tree_builder::TreeBuilderOpts;
 
 fn main() {
     let opts = ParseOpts {

@@ -8,7 +8,6 @@
 // except according to those terms.
 
 extern crate test;
-extern crate tendril;
 #[macro_use] extern crate html5ever;
 
 mod foreach_html5lib_test;
@@ -28,8 +27,8 @@ use test::ShouldPanic::No;
 use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
 use html5ever::rcdom::{NodeData, Handle, RcDom};
+use html5ever::tendril::{StrTendril, TendrilSink};
 
-use tendril::{StrTendril, TendrilSink};
 
 fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec!();

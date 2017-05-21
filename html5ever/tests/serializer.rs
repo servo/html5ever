@@ -7,15 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate tendril;
 #[macro_use] extern crate html5ever;
 
 use std::default::Default;
-use tendril::{StrTendril, SliceExt, TendrilSink};
 
-use html5ever::driver::ParseOpts;
 use html5ever::{parse_fragment, parse_document, serialize, QualName};
+use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
+use html5ever::tendril::{StrTendril, SliceExt, TendrilSink};
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom = parse_fragment(

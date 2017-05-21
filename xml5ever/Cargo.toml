@@ -19,13 +19,12 @@ name = "xml5ever"
 doctest = true
 
 [features]
-unstable = ["tendril/unstable"]
+unstable = ["markup5ever/unstable"]
 
 [dependencies]
 time = "0.1"
 log = "0.3"
 mac = "0.1"
-tendril = "0.2"
 markup5ever = {version = "0.1", path = "../markup5ever" }
 
 [dev-dependencies]
