@@ -88,7 +88,7 @@ pub struct TreeBuilder<Handle, Sink> {
     opts: TreeBuilderOpts,
 
     /// Consumer of tree modifications.
-    sink: Sink,
+    pub sink: Sink,
 
     /// Insertion mode.
     mode: InsertionMode,
@@ -243,18 +243,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
             _ => tok_state::Data
         }
-    }
-
-    pub fn unwrap(self) -> Sink {
-        self.sink
-    }
-
-    pub fn sink<'a>(&'a self) -> &'a Sink {
-        &self.sink
-    }
-
-    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
-        &mut self.sink
     }
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
@@ -512,7 +500,7 @@ mod test {
     use ExpandedName;
     use QualName;
     use tendril::StrTendril;
-    use tendril::stream::{TendrilSink, Utf8LossyDecoder, LossyDecoder};
+    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
 
     use tokenizer;
     use tokenizer::{Tokenizer, TokenizerOpts};

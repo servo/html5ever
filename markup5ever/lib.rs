@@ -12,7 +12,7 @@
 #[cfg(feature = "heap_size")] extern crate heapsize;
 extern crate string_cache;
 extern crate phf;
-extern crate tendril;
+pub extern crate tendril;
 
 #[macro_export]
 macro_rules! small_char_set ( ($($e:expr)+) => (

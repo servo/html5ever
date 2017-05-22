@@ -13,11 +13,12 @@ path = "lib.rs"
 
 [features]
 heap_size = ["heapsize", "heapsize_derive", "string_cache/heapsize"]
+unstable = ["tendril/unstable"]
 
 [dependencies]
 string_cache = "0.5"
 phf = "0.7"
-tendril = "0.2"
+tendril = "0.3"
 heapsize = { version = "0.3", optional = true }
 heapsize_derive = { version = "0.1", optional = true }
 

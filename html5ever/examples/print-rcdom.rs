@@ -8,16 +8,15 @@
 // except according to those terms.
 
 #[macro_use] extern crate html5ever;
-extern crate tendril;
 
 use std::io;
 use std::iter::repeat;
 use std::default::Default;
 use std::string::String;
 
-use tendril::TendrilSink;
 use html5ever::parse_document;
 use html5ever::rcdom::{NodeData, RcDom, Handle};
+use html5ever::tendril::TendrilSink;
 
 // This is not proper HTML serialization, of course.
 

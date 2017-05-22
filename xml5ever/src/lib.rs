@@ -39,12 +39,6 @@ extern crate time;
 
 pub use markup5ever::*;
 
-/// Re-export the tendril crate so that users don’t need to depend on it.
-pub mod tendril {
-    extern crate tendril;
-    pub use self::tendril::*;
-}
-
 macro_rules! time {
     ($e:expr) => {{
         let t0 = ::time::precise_time_ns();
@@ -64,6 +58,3 @@ pub mod tree_builder;
 pub mod serialize;
 /// Driver
 pub mod driver;
-
-/// Re-export the encoding crate.
-pub use tendril::encoding;

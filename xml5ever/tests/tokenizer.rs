@@ -136,7 +136,7 @@ fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
         tok.feed(chunk);
     }
     tok.end();
-    tok.unwrap().get_tokens()
+    tok.sink.get_tokens()
 }
 
 trait JsonExt: Sized {

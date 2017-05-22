@@ -33,12 +33,3 @@ pub mod serialize;
 pub mod tokenizer;
 pub mod tree_builder;
 pub mod driver;
-
-/// Re-export the tendril crate.
-pub mod tendril {
-    extern crate tendril;
-    pub use self::tendril::*;
-}
-
-/// Re-export the encoding crate.
-pub use tendril::encoding;

@@ -199,7 +199,7 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     _opts: XmlTreeBuilderOpts,
 
     /// Consumer of tree modifications.
-    sink: Sink,
+    pub sink: Sink,
 
     /// The document node, which is created by the sink.
     doc_handle: Handle,
@@ -246,21 +246,6 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             present_attrs: HashSet::new(),
             phase: StartPhase,
         }
-    }
-
-    /// Returns consumer of tree modifications.
-    pub fn unwrap(self) -> Sink {
-        self.sink
-    }
-
-    /// Immutably borrows consumer of tree modifications.
-    pub fn sink<'a>(&'a self) -> &'a Sink {
-        &self.sink
-    }
-
-    /// Mutably borrows consumer of tree modifications.
-    pub fn sink_mut<'a>(&'a mut self) -> &'a mut Sink {
-        &mut self.sink
     }
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
