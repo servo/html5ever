@@ -25,7 +25,7 @@ unstable = ["markup5ever/unstable"]
 time = "0.1"
 log = "0.3"
 mac = "0.1"
-markup5ever = {version = "0.1", path = "../markup5ever" }
+markup5ever = {version = "0.2", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"

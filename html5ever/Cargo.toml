@@ -36,7 +36,7 @@ heap_size = ["markup5ever/heap_size"]
 [dependencies]
 log = "0.3"
 mac = "0.1"
-markup5ever = { version = "0.1", path = "../markup5ever" }
+markup5ever = { version = "0.2", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
