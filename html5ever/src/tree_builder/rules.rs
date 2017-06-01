@@ -13,7 +13,7 @@ use {ExpandedName, QualName};
 use interface::{Attribute, TreeSink, Quirks, AppendNode, create_element};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
+use tree_builder::{NoPush, Push, html_elem};
 use tokenizer::{EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
 use util::str::is_ascii_whitespace;
