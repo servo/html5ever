@@ -16,7 +16,6 @@ pub use interface::{NodeOrText, AppendNode, AppendText, Attribute};
 pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFlags};
 
 use self::types::*;
-use self::rules::TreeBuilderStep;
 
 use {ExpandedName, QualName, LocalName, Namespace};
 use tendril::StrTendril;
@@ -47,11 +46,7 @@ pub use self::PushFlag::*;
 mod data;
 mod types;
 
-mod rules {
-    //! The tree builder rules, as a single, enormous nested match expression.
-
-    include!(concat!(env!("OUT_DIR"), "/rules.rs"));
-}
+include!(concat!(env!("OUT_DIR"), "/rules.rs"));
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
