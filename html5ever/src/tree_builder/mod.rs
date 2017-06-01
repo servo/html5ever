@@ -1555,8 +1555,6 @@ mod test {
     use markup5ever::interface::{TreeSink, Tracer, ElementFlags};
 
     use super::types::*;
-    use super::actions::TreeBuilderActions;
-    use super::rules::TreeBuilderStep;
 
     use ExpandedName;
     use QualName;
