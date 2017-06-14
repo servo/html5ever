@@ -146,6 +146,10 @@ impl<Wr: Write> XmlSerializer<Wr> {
 impl<Wr: Write> Serializer for XmlSerializer<Wr> {
     /// Serializes given start element into text. Start element contains
     /// qualified name and an attributes iterator.
+    fn start_without_write(&mut self, name: QualName) {
+        self.namespace_stack.push(NamespaceMap::empty());
+    }
+
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
     where AttrIter: Iterator<Item=AttrRef<'a>> {
         self.namespace_stack.push(NamespaceMap::empty());
@@ -180,6 +184,10 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
         }
         try!(self.writer.write_all(b">"));
         Ok(())
+    }
+
+    fn end_elem_without_write(&mut self) {
+        self.namespace_stack.pop();
     }
 
     /// Serializes given end element into text.

@@ -61,6 +61,19 @@ fn tagname(name: &QualName) -> LocalName {
     name.local.clone()
 }
 
+fn ignore_children(name: &QualName) -> bool {
+    let ignore = name.ns == ns!(html) && match name.local {
+            local_name!("area") | local_name!("base") | local_name!("basefont") | local_name!("bgsound") | local_name!("br")
+            | local_name!("col") | local_name!("embed") | local_name!("frame") | local_name!("hr") | local_name!("img")
+            | local_name!("input") | local_name!("keygen") | local_name!("link")
+            | local_name!("meta") | local_name!("param") | local_name!("source") | local_name!("track") | local_name!("wbr")
+                => true,
+            _ => false,
+    };
+
+    return ignore
+}
+
 impl<Wr: Write> HtmlSerializer<Wr> {
     fn new(writer: Wr, opts: SerializeOpts) -> Self {
         HtmlSerializer {
@@ -94,6 +107,30 @@ impl<Wr: Write> HtmlSerializer<Wr> {
 }
 
 impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
+    fn start_without_write(&mut self, name: QualName) {
+        let html_name = match name.ns {
+            ns!(html) => Some(name.local.clone()),
+            _ => None,
+        };
+
+        if self.parent().ignore_children {
+            self.stack.push(ElemInfo {
+                html_name: html_name,
+                ignore_children: true,
+                processed_first_child: false,
+            })
+        }
+        else {
+            self.parent().processed_first_child = true;
+
+            self.stack.push(ElemInfo {
+                html_name: html_name,
+                ignore_children: ignore_children(&name),
+                processed_first_child: false,
+            })
+        }
+    }
+
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
     where AttrIter: Iterator<Item=AttrRef<'a>> {
         let html_name = match name.ns {
@@ -138,24 +175,19 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
         }
         try!(self.writer.write_all(b">"));
 
-        let ignore_children = name.ns == ns!(html) && match name.local {
-            local_name!("area") | local_name!("base") | local_name!("basefont") | local_name!("bgsound") | local_name!("br")
-            | local_name!("col") | local_name!("embed") | local_name!("frame") | local_name!("hr") | local_name!("img")
-            | local_name!("input") | local_name!("keygen") | local_name!("link")
-            | local_name!("meta") | local_name!("param") | local_name!("source") | local_name!("track") | local_name!("wbr")
-                => true,
-            _ => false,
-        };
-
         self.parent().processed_first_child = true;
 
         self.stack.push(ElemInfo {
             html_name: html_name,
-            ignore_children: ignore_children,
+            ignore_children: ignore_children(&name),
             processed_first_child: false,
         });
 
         Ok(())
+    }
+
+    fn end_elem_without_write(&mut self) {
+        self.stack.pop().expect("no ElemInfo");
     }
 
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {

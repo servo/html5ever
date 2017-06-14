@@ -23,8 +23,12 @@ pub trait Serialize {
 }
 
 pub trait Serializer {
+    fn start_without_write(&mut self, name: QualName);
+
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
     where AttrIter: Iterator<Item=AttrRef<'a>>;
+
+    fn end_elem_without_write(&mut self);
 
     fn end_elem(&mut self, name: QualName) -> io::Result<()>;
 
