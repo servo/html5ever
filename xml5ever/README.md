@@ -14,7 +14,7 @@ xml5ever is based largely on [html5ever](https://github.com/servo/html5ever) par
 
 The library is dual licensed under MIT and Apache license.
 
-#Why you should use xml5ever
+# Why you should use xml5ever
 
 Main use case for this library is when XML is badly formatted, usually from bad XML
 templates. XML5 tries to handle most common errors, in a manner similar to HTML5.
@@ -32,7 +32,7 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
   - You require an easy to use parser, with lots of extensions (e.g. XPath, XQuery).
   - You require a battle tested, industry proven solution.
 
-#Installation
+# Installation
 
 Add xml5ever as a dependency in your project manifest.
 
@@ -47,7 +47,7 @@ And add crate declaration in your lib.rs
     extern crate xml5ever
 ```
 
-#Getting started
+# Getting started
 
 Here is a very simple RcDom backed parser:
 
@@ -64,7 +64,7 @@ Here is a very simple RcDom backed parser:
 ```
 The thing that does actual parsing is the `parse` function. It expects an iterator that can be converted into `StrTendril`, so you can use `std::iter::once(input)` or  `Some(input).into_iter()` (where `input` is `StrTendril` like structure).
 
-#Working on xml5ever
+# Working on xml5ever
 
 To build examples and tests you need to do something along the lines of:
 
@@ -78,7 +78,7 @@ This will fetch tests from outside repository and it will invoke cargo to
 build and test the crate. If you need docs checkout either [API docs](https://ygg01.github.io/docs/xml5ever/xml5ever/index.html) or run `cargo docs`
 to generate documentation.
 
-##Easy first tasks
+## Easy first tasks
 
 What I generally recommend is to look at Clippy Linting badge results and create
 a PR for fixing the said lints. Other than that try to look for any tasks labeled
