@@ -61,44 +61,47 @@ pub mod tree_builder;
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 /// Fully qualified name. Used to depict names of tags and attributes.
 ///
-/// Used to differentiate between similar XML fragments. For example
-/// ```ignore
-///    // HTML
-///    <table>
-///      <tr>
-///        <td>Apples</td>
-///        <td>Bananas</td>
-///      </tr>
-///    </table>
-///
-///    // Furniture XML
-///    <table>
-///      <name>African Coffee Table</name>
-///      <width>80</width>
-///      <length>120</length>
-///    </table>
-/// ```
-/// Without XML namespaces we can't use those two fragments in occur
-/// XML at same time. however if we declare a namespace we could instead say:
+/// Used to differentiate between similar XML fragments. For example:
 ///
 /// ```ignore
-///    // Furniture XML
-///    <furn:table>
-///      <furn:name>African Coffee Table</furn:name>
-///      <furn:width>80</furn:width>
-///      <furn:length>120</furn:length>
-///    </furn:table>
+/// // HTML
+/// <table>
+///   <tr>
+///     <td>Apples</td>
+///     <td>Bananas</td>
+///   </tr>
+/// </table>
+///
+/// // Furniture XML
+/// <table>
+///   <name>African Coffee Table</name>
+///   <width>80</width>
+///   <length>120</length>
+/// </table>
 /// ```
+///
+/// Without XML namespaces, we can't use those two fragments in the same document
+/// at the same time. However if we declare a namespace we could instead say:
+///
+/// ```ignore
+/// // Furniture XML
+/// <furn:table>
+///   <furn:name>African Coffee Table</furn:name>
+///   <furn:width>80</furn:width>
+///   <furn:length>120</furn:length>
+/// </furn:table>
+/// ```
+///
 /// and bind it to a different name.
 ///
-/// For this reason we parse names that contain a colon in the following way
+/// For this reason we parse names that contain a colon in the following way:
 ///
 /// ```ignore
-///    < furn:table>
-///        |    |
-///        |    +- local name
-///        |
-///      prefix (when resolved gives namespace_url)
+/// <furn:table>
+///    |    |
+///    |    +- local name
+///    |
+///  prefix (when resolved gives namespace_url)
 /// ```
 pub struct QualName {
     pub prefix: Option<Prefix>,
