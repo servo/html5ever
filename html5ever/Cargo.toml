@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.18.0"
+version = "0.18.0"  # At next breaking change: also remove the "unstable" feature, now a no-op.
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -30,7 +30,7 @@ name = "tokenizer"
 harness = false
 
 [features]
-unstable = ["markup5ever/unstable"]
+unstable = []
 heap_size = ["markup5ever/heap_size"]
 
 [dependencies]
