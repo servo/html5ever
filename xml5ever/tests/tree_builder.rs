@@ -23,7 +23,6 @@ use std::path::Path;
 
 
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::rcdom::*;
 use xml5ever::driver::parse_document;
@@ -186,9 +185,8 @@ fn make_xml_test(
 
     tests.push(TestDescAndFn {
         desc: TestDesc {
-            name: DynTestName(name),
             ignore: ignore,
-            should_panic: No,
+            .. TestDesc::new(DynTestName(name))
         },
         testfn: DynTestFn(Box::new(move || {
             let mut result = String::new();

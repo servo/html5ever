@@ -22,7 +22,6 @@ use std::default::Default;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
 use test::{TestDesc, TestDescAndFn, DynTestName, TestFn};
-use test::ShouldPanic::No;
 
 use html5ever::{LocalName, QualName};
 use html5ever::{ParseOpts, parse_document, parse_fragment};
@@ -199,9 +198,8 @@ fn make_test_desc_with_scripting_flag(
 
     TestDescAndFn {
         desc: TestDesc {
-            name: DynTestName(name),
             ignore: ignore,
-            should_panic: No,
+            .. TestDesc::new(DynTestName(name))
         },
         testfn: TestFn::dyn_test_fn(move || {
             // Do this here because Tendril isn't Send.

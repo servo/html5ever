@@ -20,7 +20,6 @@ use std::mem::replace;
 use std::default::Default;
 use std::path::Path;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
 use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
 use std::borrow::Cow::Borrowed;
@@ -314,11 +313,7 @@ fn unescape_json(js: &Json) -> Json {
 fn mk_test(desc: String, input: String, expect: Json, opts: TokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
-        desc: TestDesc {
-            name: DynTestName(desc),
-            ignore: false,
-            should_panic: No,
-        },
+        desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
