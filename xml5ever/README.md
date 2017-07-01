@@ -70,8 +70,8 @@ To build examples and tests you need to do something along the lines of:
 
 ```rust
     git submodule update --init # to fetch xml5lib-tests
-    cargo build --features unstable
-    cargo test --features unstable
+    cargo build
+    cargo test
 ```
 
 This will fetch tests from outside repository and it will invoke cargo to
