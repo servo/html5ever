@@ -16,7 +16,6 @@ use std::default::Default;
 
 use test::{black_box, Bencher, TestDesc, TestDescAndFn};
 use test::{DynTestName, DynBenchFn, TDynBenchFn};
-use test::ShouldPanic::No;
 
 use html5ever::tokenizer::{BufferQueue, TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tendril::*;
@@ -108,17 +107,13 @@ impl TDynBenchFn for Bench {
 fn make_bench(name: &str, size: Option<usize>, clone_only: bool,
               opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
-        desc: TestDesc {
-            name: DynTestName([
-                "tokenize ".to_string(),
-                name.to_string(),
-                size.map_or("".to_string(), |s| format!(" size {:7}", s)),
-                (if clone_only { " (clone only)" } else { "" }).to_string(),
-                (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
-            ].concat().to_string()),
-            ignore: false,
-            should_panic: No,
-        },
+        desc: TestDesc::new(DynTestName([
+            "tokenize ".to_string(),
+            name.to_string(),
+            size.map_or("".to_string(), |s| format!(" size {:7}", s)),
+            (if clone_only { " (clone only)" } else { "" }).to_string(),
+            (if opts.exact_errors { " (exact errors)" } else { "" }).to_string(),
+        ].concat().to_string())),
         testfn: DynBenchFn(Box::new(Bench::new(name, size, clone_only, opts))),
     }
 }

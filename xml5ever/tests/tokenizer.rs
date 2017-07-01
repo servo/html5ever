@@ -20,7 +20,6 @@ use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
 
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
-use test::ShouldPanic::No;
 use util::find_tests::foreach_xml5lib_test;
 
 use xml5ever::{LocalName, Attribute, QualName};
@@ -281,11 +280,7 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
 fn mk_xml_test(desc: String, input: String, expect: Json, opts: XmlTokenizerOpts)
         -> TestDescAndFn {
     TestDescAndFn {
-        desc: TestDesc {
-            name: DynTestName(desc),
-            ignore: false,
-            should_panic: No,
-        },
+        desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
