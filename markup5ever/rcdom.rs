@@ -326,7 +326,7 @@ impl Default for RcDom {
 impl Serialize for Handle {
     fn serialize<S>(&self, serializer: &mut S, traversal_scope: TraversalScope) -> io::Result<()>
     where S: Serializer {
-        match (traversal_scope, &self.data) {
+        match (traversal_scope.clone(), &self.data) {
             (_, &NodeData::Element { ref name, ref attrs, .. }) => {
                 if traversal_scope == IncludeNode {
                     try!(serializer.start_elem(name.clone(),
@@ -343,14 +343,14 @@ impl Serialize for Handle {
                 Ok(())
             }
 
-            (ChildrenOnly, &NodeData::Document) => {
+            (ChildrenOnly(_), &NodeData::Document) => {
                 for handle in self.children.borrow().iter() {
                     try!(handle.clone().serialize(serializer, IncludeNode));
                 }
                 Ok(())
             }
 
-            (ChildrenOnly, _) => Ok(()),
+            (ChildrenOnly(_), _) => Ok(()),
 
             (IncludeNode, &NodeData::Doctype { ref name, .. }) => {
                 serializer.write_doctype(&name)

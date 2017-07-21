@@ -11,10 +11,10 @@ use QualName;
 use std::io;
 
 //§ serializing-html-fragments
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum TraversalScope {
     IncludeNode,
-    ChildrenOnly
+    ChildrenOnly(Option<QualName>)
 }
 
 pub trait Serialize {

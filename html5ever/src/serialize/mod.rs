@@ -15,11 +15,11 @@ use {LocalName, QualName};
 
 pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
 where Wr: Write, T: Serialize {
-    let mut ser = HtmlSerializer::new(writer, opts);
+    let mut ser = HtmlSerializer::new(writer, opts.clone());
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,
@@ -32,7 +32,7 @@ impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
-            traversal_scope: TraversalScope::ChildrenOnly,
+            traversal_scope: TraversalScope::ChildrenOnly(None),
         }
     }
 }
@@ -63,11 +63,15 @@ fn tagname(name: &QualName) -> LocalName {
 
 impl<Wr: Write> HtmlSerializer<Wr> {
     fn new(writer: Wr, opts: SerializeOpts) -> Self {
+        let qname = match &opts.traversal_scope {
+            &TraversalScope::IncludeNode | &TraversalScope::ChildrenOnly(None) => None,
+            &TraversalScope::ChildrenOnly(Some(ref n)) => Some(n.clone())
+        };
         HtmlSerializer {
             writer: writer,
             opts: opts,
             stack: vec!(ElemInfo {
-                html_name: None,
+                html_name: qname.as_ref().map(|n| tagname(n)),
                 ignore_children: false,
                 processed_first_child: false,
             }),
