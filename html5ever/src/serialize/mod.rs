@@ -15,11 +15,11 @@ use {LocalName, QualName};
 
 pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
 where Wr: Write, T: Serialize {
-    let mut ser = HtmlSerializer::new(writer, opts);
+    let mut ser = HtmlSerializer::new(writer, opts.clone());
     node.serialize(&mut ser, opts.traversal_scope)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct SerializeOpts {
     /// Is scripting enabled?
     pub scripting_enabled: bool,
@@ -39,7 +39,7 @@ impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
-            traversal_scope: TraversalScope::ChildrenOnly,
+            traversal_scope: TraversalScope::ChildrenOnly(None),
             create_missing_parent: false,
         }
     }
@@ -72,10 +72,18 @@ fn tagname(name: &QualName) -> LocalName {
 
 impl<Wr: Write> HtmlSerializer<Wr> {
     fn new(writer: Wr, opts: SerializeOpts) -> Self {
+        let html_name = match opts.traversal_scope {
+            TraversalScope::IncludeNode | TraversalScope::ChildrenOnly(None) => None,
+            TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n))
+        };
         HtmlSerializer {
             writer: writer,
             opts: opts,
-            stack: vec![Default::default()],
+            stack: vec!(ElemInfo {
+                html_name: html_name,
+                ignore_children: false,
+                processed_first_child: false,
+            }),
         }
     }
 
@@ -190,18 +198,6 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     }
 
     fn write_text(&mut self, text: &str) -> io::Result<()> {
-        let prepend_lf = text.starts_with("\n") && {
-            let parent = self.parent();
-            !parent.processed_first_child && match parent.html_name {
-                Some(local_name!("pre")) | Some(local_name!("textarea")) | Some(local_name!("listing")) => true,
-                _ => false,
-            }
-        };
-
-        if prepend_lf {
-            try!(self.writer.write_all(b"\n"));
-        }
-
         let escape = match self.parent().html_name {
             Some(local_name!("style")) | Some(local_name!("script")) | Some(local_name!("xmp"))
             | Some(local_name!("iframe")) | Some(local_name!("noembed")) | Some(local_name!("noframes"))
