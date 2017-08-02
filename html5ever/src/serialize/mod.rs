@@ -37,6 +37,7 @@ impl Default for SerializeOpts {
     }
 }
 
+#[derive(Default)]
 struct ElemInfo {
     html_name: Option<LocalName>,
     ignore_children: bool,
@@ -66,16 +67,16 @@ impl<Wr: Write> HtmlSerializer<Wr> {
         HtmlSerializer {
             writer: writer,
             opts: opts,
-            stack: vec!(ElemInfo {
-                html_name: None,
-                ignore_children: false,
-                processed_first_child: false,
-            }),
+            stack: vec![Default::default()],
         }
     }
 
     fn parent(&mut self) -> &mut ElemInfo {
-        self.stack.last_mut().expect("no parent ElemInfo")
+        if self.stack.len() == 0 {
+            warn!("ElemInfo stack empty, creating new parent");
+            self.stack.push(Default::default());
+        }
+        self.stack.last_mut().unwrap()
     }
 
     fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
@@ -159,7 +160,10 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     }
 
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {
-        let info = self.stack.pop().expect("no ElemInfo");
+        let info = self.stack.pop().unwrap_or_else(|| {
+            warn!("missing ElemInfo, creating default.");
+            Default::default()
+        });
         if info.ignore_children {
             return Ok(());
         }
