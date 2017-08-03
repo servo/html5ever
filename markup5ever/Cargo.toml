@@ -1,6 +1,6 @@
 [package]
 name = "markup5ever"
-version = "0.3.1"  # At next breaking change: also remove the "unstable" feature, now a no-op; update tendril to 0.4
+version = "0.3.2"  # At next breaking change: also remove the "unstable" feature, now a no-op; update tendril to 0.4
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
