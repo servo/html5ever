@@ -829,6 +829,7 @@ speed
 spreadMethod
 src
 srcdoc
+srcset
 standby
 start
 startOffset
