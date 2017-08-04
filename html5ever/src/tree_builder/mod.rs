@@ -40,6 +40,9 @@ use tree_builder::tag_sets::*;
 use util::str::to_escaped_string;
 
 pub use self::PushFlag::*;
+use std::ops::{Deref, DerefMut};
+use std::cmp::max;
+use std::slice::Iter;
 
 #[macro_use] mod tag_sets;
 
@@ -47,6 +50,69 @@ mod data;
 mod types;
 
 include!(concat!(env!("OUT_DIR"), "/rules.rs"));
+
+#[derive(Clone)]
+pub struct LimitedVec<T> {
+    vec: Vec<T>,
+    limit: usize,
+}
+
+impl<T> LimitedVec<T> {
+    pub fn new(limit: usize) -> Self {
+        LimitedVec {
+            vec: vec![],
+            limit: if limit == 0 { 10 } else { limit },
+        }
+    }
+
+    fn lower_bound(&self) -> usize {
+        let len = self.vec.len();
+        // Watch out for overflow!
+        max(len, self.limit) - self.limit
+    }
+
+    pub fn push(&mut self, other: T) {
+        self.vec.push(other)
+    }
+
+    pub fn remove(&mut self, pos: usize) {
+        let lower_bound = self.lower_bound();
+        self.vec.remove(pos + lower_bound);
+    }
+
+    pub fn truncate(&mut self, pos: usize) {
+        let lower_bound = self.lower_bound();
+        self.vec.truncate(pos + lower_bound);
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        self.vec.pop()
+    }
+
+    pub fn insert(&mut self, index: usize, element: T) {
+        let lower_bound = self.lower_bound();
+        self.vec.insert(index + lower_bound, element)
+    }
+
+    fn real_iter(&self) -> Iter<T> {
+        self.vec.iter()
+    }
+}
+
+impl<T> Deref for LimitedVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        let bottom = self.lower_bound();
+        &self.vec[bottom..]
+    }
+}
+
+impl<T> DerefMut for LimitedVec<T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        let bottom = self.lower_bound();
+        &mut self.vec[bottom..]
+    }
+}
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
@@ -67,6 +133,13 @@ pub struct TreeBuilderOpts {
     /// Obsolete, ignored.
     pub ignore_missing_rules: bool,
 
+    /// The maximum amount that the parser will process through the list
+    /// of active formatting elements and the the stack of open elements.
+    /// This is set to a finite number to prevent denial-of-service security
+    /// vulnerabilities.  0 is treated as the default (currently 20); any other
+    /// value is used as-is.
+    pub max_stack_depth: u8,
+
     /// Initial TreeBuilder quirks mode. Default: NoQuirks
     pub quirks_mode: QuirksMode,
 }
@@ -79,6 +152,7 @@ impl Default for TreeBuilderOpts {
             iframe_srcdoc: false,
             drop_doctype: false,
             ignore_missing_rules: false,
+            max_stack_depth: 10,
             quirks_mode: NoQuirks,
         }
     }
@@ -112,10 +186,10 @@ pub struct TreeBuilder<Handle, Sink> {
     doc_handle: Handle,
 
     /// Stack of open elements, most recently added at end.
-    open_elems: Vec<Handle>,
+    open_elems: LimitedVec<Handle>,
 
     /// List of active formatting elements.
-    active_formatting: Vec<FormatEntry<Handle>>,
+    active_formatting: LimitedVec<FormatEntry<Handle>>,
 
     //§ the-element-pointers
     /// Head element pointer.
@@ -165,8 +239,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             pending_table_text: vec!(),
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec!(),
-            active_formatting: vec!(),
+            open_elems: LimitedVec::new(opts.max_stack_depth as usize),
+            active_formatting: LimitedVec::new(opts.max_stack_depth as usize),
             head_elem: None,
             form_elem: None,
             frameset_ok: true,
@@ -197,8 +271,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             pending_table_text: vec!(),
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec!(),
-            active_formatting: vec!(),
+            open_elems: LimitedVec::new(opts.max_stack_depth as usize),
+            active_formatting: LimitedVec::new(opts.max_stack_depth as usize),
             head_elem: None,
             form_elem: form_elem,
             frameset_ok: true,
@@ -251,10 +325,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     /// internal state.  This is intended to support garbage-collected DOMs.
     pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
         tracer.trace_handle(&self.doc_handle);
-        for e in &self.open_elems {
+        for e in self.open_elems.real_iter() {
             tracer.trace_handle(e);
         }
-        for e in &self.active_formatting {
+        for e in self.active_formatting.real_iter() {
             match e {
                 &Element(ref h, _) => tracer.trace_handle(h),
                 _ => (),
@@ -269,7 +343,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn dump_state(&self, label: String) {
         println!("dump_state on {}", label);
         print!("    open_elems:");
-        for node in self.open_elems.iter() {
+        for node in self.open_elems.real_iter() {
             let name = self.sink.elem_name(node);
             match *name.ns {
                 ns!(html) => print!(" {}", name.local),
@@ -278,7 +352,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
         println!("");
         print!("    active_formatting:");
-        for entry in self.active_formatting.iter() {
+        for entry in self.active_formatting.real_iter() {
             match entry {
                 &Marker => print!(" Marker"),
                 &Element(ref h, _) => {
@@ -477,7 +551,7 @@ impl<Handle, Sink> TokenSink
     }
 
     fn end(&mut self) {
-        for elem in self.open_elems.drain(..).rev() {
+        for elem in self.open_elems.into_iter().rev() {
             self.sink.pop(&elem);
         }
     }
@@ -687,6 +761,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     self.active_formatting.remove(fmt_elem_index);
                 }
             );
+
+            if fmt_elem_stack_index == 0 {
+                self.sink.parse_error(Borrowed("Tree too complex to parse correctly – returned tree will be inaccurate"));
+                return
+            }
 
             // 11.
             let common_ancestor = self.open_elems[fmt_elem_stack_index - 1].clone();
