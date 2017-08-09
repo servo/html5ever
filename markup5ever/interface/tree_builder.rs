@@ -188,7 +188,7 @@ pub trait TreeSink {
     fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
-    fn associate_with_form(&mut self, _target: &Self::Handle, _form: &Self::Handle) {}
+    fn associate_with_form(&mut self, _target: &Self::Handle, _form: &Self::Handle, _tree_node: &Self::Handle) {}
 
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: &Self::Handle);
