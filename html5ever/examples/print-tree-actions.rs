@@ -124,7 +124,7 @@ impl TreeSink for Sink {
         }
     }
 
-    fn associate_with_form(&mut self, _target: &usize, _form: &usize) {
+    fn associate_with_form(&mut self, _target: &usize, _form: &usize, _tree_node: &usize) {
         // No form owner support. Since same_tree always returns
         // true we cannot be sure that this associate_with_form call is
         // valid

@@ -1191,9 +1191,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 attrs.iter().any(|a| a.name.expanded() == expanded_name!("", "form"))) {
 
                let form = self.form_elem.as_ref().unwrap().clone();
-               if self.sink.same_tree(&tree_node, &form) {
-                   self.sink.associate_with_form(&elem, &form)
-               }
+               self.sink.associate_with_form(&elem, &form, &tree_node);
         }
 
         self.insert_at(insertion_point, AppendNode(elem.clone()));
