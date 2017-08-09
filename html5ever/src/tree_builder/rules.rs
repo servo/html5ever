@@ -9,31 +9,17 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use {ExpandedName, QualName};
-use interface::{Attribute, TreeSink, Quirks, AppendNode, create_element};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
-use tree_builder::actions::{NoPush, Push, TreeBuilderActions, html_elem};
-use tokenizer::{EndTag, StartTag, Tag};
 use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
-use util::str::is_ascii_whitespace;
 
-use std::ascii::AsciiExt;
-use std::mem::replace;
-use std::borrow::Cow::Borrowed;
 use std::borrow::ToOwned;
 
-use tendril::{StrTendril, SliceExt};
+use tendril::SliceExt;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
     x.chars().any(|c| !is_ascii_whitespace(c))
-}
-
-// This goes in a trait so that we can control visibility.
-pub trait TreeBuilderStep<Handle> {
-    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle>;
-    fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle>;
 }
 
 fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
@@ -41,8 +27,7 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
 }
 
 #[doc(hidden)]
-impl<Handle, Sink> TreeBuilderStep<Handle>
-    for super::TreeBuilder<Handle, Sink>
+impl<Handle, Sink> TreeBuilder<Handle, Sink>
     where Handle: Clone,
           Sink: TreeSink<Handle=Handle>,
 {

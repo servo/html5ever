@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-mod actions;
-mod rules;
 mod types;
 
 use std::borrow::{Cow};
@@ -19,13 +17,16 @@ use std::fmt::{Formatter, Debug, Error};
 use std::result::Result;
 use std::mem;
 
-
 use {Prefix, Namespace, LocalName};
-use interface::{self, QualName, Attribute};
-use tokenizer::{self, TokenSink, Tag, StartTag};
+use interface::{self, QualName, Attribute, AppendNode, create_element};
+use interface::{AppendText, ExpandedName};
+use tokenizer::{self, TokenSink, Tag, StartTag, EndTag};
+use tokenizer::{ShortTag, EmptyTag, Pi, Doctype};
+use tokenizer::states::Quiescent;
 pub use self::interface::{TreeSink, Tracer, NodeOrText, NextParserState};
-use self::rules::XmlTreeBuilderStep;
 use self::types::*;
+
+use tendril::{StrTendril, Tendril};
 
 
 static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
@@ -432,5 +433,331 @@ impl<Handle, Sink> TokenSink
 
     fn query_state_change(&mut self) -> Option<tokenizer::states::XmlState> {
         self.next_tokenizer_state.take()
+    }
+}
+
+fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
+    open_elems.last().expect("no current element")
+}
+
+#[doc(hidden)]
+impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
+    where Handle: Clone,
+          Sink: TreeSink<Handle=Handle>,
+{
+
+    fn current_node(&self) -> &Handle {
+        self.open_elems.last().expect("no current element")
+    }
+
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>){
+        let target = current_node(&self.open_elems);
+        self.sink.append(target, child);
+    }
+
+    fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult {
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+        self.insert_appropriately(AppendNode(child.clone()));
+        self.add_to_open_elems(child)
+    }
+
+    fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+        self.insert_appropriately(AppendNode(child.clone()));
+        self.sink.pop(&child);
+        Done
+    }
+
+    fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
+        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+
+        self.sink.append(&self.doc_handle, AppendNode(child.clone()));
+        child
+    }
+
+    fn add_to_open_elems(&mut self, el: Handle) -> XmlProcessResult {
+        self.open_elems.push(el);
+
+        Done
+    }
+
+    fn append_comment_to_doc(&mut self, text: StrTendril) -> XmlProcessResult {
+        let comment = self.sink.create_comment(text);
+        self.sink.append(&self.doc_handle, AppendNode(comment));
+        Done
+    }
+
+    fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult {
+        let target = current_node(&self.open_elems);
+        let comment = self.sink.create_comment(text);
+        self.sink.append(target, AppendNode(comment));
+        Done
+    }
+
+    fn append_doctype_to_doc(&mut self, doctype: Doctype) -> XmlProcessResult {
+        fn get_tendril(opt: Option<StrTendril>) -> StrTendril {
+            match opt {
+                Some(expr) => expr,
+                None => Tendril::new(),
+            }
+        };
+        self.sink.append_doctype_to_document(
+            get_tendril(doctype.name),
+            get_tendril(doctype.public_id),
+            get_tendril(doctype.system_id),
+        );
+        Done
+    }
+
+    fn append_pi_to_doc(&mut self, pi: Pi) -> XmlProcessResult {
+        let pi = self.sink.create_pi(pi.target, pi.data);
+        self.sink.append(&self.doc_handle, AppendNode(pi));
+        Done
+    }
+
+    fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult {
+        let target = current_node(&self.open_elems);
+        let pi = self.sink.create_pi(pi.target, pi.data);
+        self.sink.append(target, AppendNode(pi));
+        Done
+    }
+
+
+    fn append_text(&mut self, chars: StrTendril)
+        -> XmlProcessResult {
+        self.insert_appropriately(AppendText(chars));
+        Done
+    }
+
+    fn tag_in_open_elems(&self, tag: &Tag) -> bool {
+        self.open_elems
+            .iter()
+            .any(|a| self.sink.elem_name(a) == tag.name.expanded())
+    }
+
+    // Pop elements until an element from the set has been popped.  Returns the
+    // number of elements popped.
+    fn pop_until<P>(&mut self, pred: P)
+        where P: Fn(ExpandedName) -> bool
+    {
+        loop {
+            if self.current_node_in(|x| pred(x)) {
+                break;
+            }
+            self.pop();
+        }
+    }
+
+    fn current_node_in<TagSet>(&self, set: TagSet) -> bool
+        where TagSet: Fn(ExpandedName) -> bool
+    {
+        // FIXME: take namespace into consideration:
+        set(self.sink.elem_name(self.current_node()))
+    }
+
+    fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
+        debug!("Close tag: current_node.name {:?} \n Current tag {:?}",
+                 self.sink.elem_name(self.current_node()), &tag.name);
+
+        if *self.sink.elem_name(self.current_node()).local != tag.name.local {
+            self.sink.parse_error(Borrowed("Current node doesn't match tag"));
+        }
+
+        let is_closed = self.tag_in_open_elems(&tag);
+
+        if is_closed {
+            self.pop_until(|p| p == tag.name.expanded());
+            self.pop();
+        }
+
+        Done
+    }
+
+    fn no_open_elems(&self) -> bool {
+        self.open_elems.is_empty()
+    }
+
+    fn pop(&mut self) -> Handle {
+        self.namespace_stack.pop();
+        let node = self.open_elems.pop().expect("no current element");
+        self.sink.pop(&node);
+        node
+    }
+
+    fn stop_parsing(&mut self) -> XmlProcessResult {
+        warn!("stop_parsing for XML5 not implemented, full speed ahead!");
+        Done
+    }
+
+    fn complete_script(&mut self) {
+        let current = current_node(&self.open_elems);
+        if self.sink.complete_script(current) == NextParserState::Suspend {
+            self.next_tokenizer_state = Some(Quiescent);
+        }
+    }
+}
+
+fn any_not_whitespace(x: &StrTendril) -> bool {
+    !x.bytes().all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
+}
+
+#[doc(hidden)]
+impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
+    where Handle: Clone,
+          Sink: TreeSink<Handle=Handle>,
+{
+
+    fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult {
+        self.debug_step(mode, &token);
+
+        match mode {
+            StartPhase => match token {
+                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: StartTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
+                    self.phase = MainPhase;
+                    let handle = self.append_tag_to_doc(tag);
+                    self.add_to_open_elems(handle)
+                },
+                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EmptyTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
+                    self.phase = EndPhase;
+                    let handle = self.append_tag_to_doc(tag);
+                    self.sink.pop(&handle);
+                    Done
+                },
+                CommentToken(comment) => {
+                    self.append_comment_to_doc(comment)
+                },
+                PIToken(pi) => {
+                    self.append_pi_to_doc(pi)
+                },
+                CharacterTokens(ref chars)
+                    if !any_not_whitespace(chars) => {
+                        Done
+                },
+                EOFToken => {
+                    self.sink.parse_error(Borrowed("Unexpected EOF in start phase"));
+                    Reprocess(EndPhase, EOFToken)
+                },
+                DoctypeToken(d) => {
+                    self.append_doctype_to_doc(d);
+                    Done
+                },
+                _ => {
+                    self.sink.parse_error(Borrowed("Unexpected element in start phase"));
+                    Done
+                },
+            },
+            MainPhase => match token {
+                CharacterTokens(chs) => {
+                    self.append_text(chs)
+                },
+                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: StartTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
+                    self.insert_tag(tag)
+                },
+                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EmptyTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
+                    if tag.name.local == local_name!("script") {
+                        self.insert_tag(tag.clone());
+                        self.complete_script();
+                        self.close_tag(tag)
+                    } else {
+                        self.append_tag(tag)
+                    }
+                },
+                TagToken(Tag{kind: EndTag, name, attrs}) => {
+                    let tag = {
+                        let mut tag = Tag {
+                            kind: EndTag,
+                            name: name,
+                            attrs: attrs,
+                        };
+                        self.process_namespaces(&mut tag);
+                        tag
+                    };
+                    if tag.name.local == local_name!("script") {
+                        self.complete_script();
+                    }
+                    let retval = self.close_tag(tag);
+                    if self.no_open_elems() {
+                        self.phase = EndPhase;
+                    }
+                    retval
+                },
+                TagToken(Tag{kind: ShortTag, ..}) => {
+                    self.pop();
+                    if self.no_open_elems() {
+                        self.phase = EndPhase;
+                    }
+                    Done
+                },
+                CommentToken(comment) => {
+                    self.append_comment_to_tag(comment)
+                },
+                PIToken(pi) => {
+                    self.append_pi_to_tag(pi)
+                },
+                EOFToken | NullCharacterToken=> {
+                    Reprocess(EndPhase, EOFToken)
+                }
+                DoctypeToken(_) => {
+                    self.sink.parse_error(Borrowed("Unexpected element in main phase"));
+                    Done
+                }
+            },
+            EndPhase => match token {
+                CommentToken(comment) => {
+                    self.append_comment_to_doc(comment)
+                },
+                PIToken(pi) => {
+                    self.append_pi_to_doc(pi)
+                },
+                CharacterTokens(ref chars)
+                    if !any_not_whitespace(chars) => {
+                        Done
+                },
+                EOFToken => {
+                    self.stop_parsing()
+                }
+                _ => {
+                    self.sink.parse_error(Borrowed("Unexpected element in end phase"));
+                    Done
+                }
+            },
+
+        }
     }
 }
