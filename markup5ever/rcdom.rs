@@ -265,6 +265,18 @@ impl TreeSink for RcDom {
         parent.children.borrow_mut().insert(i, child);
     }
 
+    fn append_based_on_parent_node(&mut self,
+        element: &Self::Handle,
+        prev_element: &Self::Handle,
+        child: NodeOrText<Self::Handle>) {
+
+        if self.has_parent_node(element) {
+            self.append_before_sibling(element, child);
+        } else {
+            self.append(prev_element, child);
+        }
+    }
+
     fn append_doctype_to_document(&mut self,
                                   name: StrTendril,
                                   public_id: StrTendril,

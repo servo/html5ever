@@ -86,6 +86,11 @@ impl TreeSink for Sink {
             _sibling: &usize,
             _new_node: NodeOrText<usize>) { }
 
+    fn append_based_on_parent_node(&mut self,
+        _element: &usize,
+        _prev_element: &usize,
+        _new_node: NodeOrText<usize>) { }
+
     fn parse_error(&mut self, _msg: Cow<'static, str>) { }
     fn set_quirks_mode(&mut self, _mode: QuirksMode) { }
     fn append(&mut self, _parent: &usize, _child: NodeOrText<usize>) { }

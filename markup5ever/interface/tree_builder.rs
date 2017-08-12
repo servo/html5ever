@@ -140,6 +140,14 @@ pub trait TreeSink {
     /// The child node will not already have a parent.
     fn append(&mut self, parent: &Self::Handle, child: NodeOrText<Self::Handle>);
 
+    /// When the insertion point is decided by the existence of a parent node of the
+    /// element, we consider both possibilities and send the element which will be used
+    /// if a parent node exists, along with the element to be used if there isn't one.
+    fn append_based_on_parent_node(&mut self,
+        element: &Self::Handle,
+        prev_element: &Self::Handle,
+        child: NodeOrText<Self::Handle>);
+
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(&mut self,
                                   name: StrTendril,
@@ -188,7 +196,10 @@ pub trait TreeSink {
     fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
-    fn associate_with_form(&mut self, _target: &Self::Handle, _form: &Self::Handle) {}
+    fn associate_with_form(&mut self,
+        _target: &Self::Handle,
+        _form: &Self::Handle,
+        _nodes: (&Self::Handle, Option<&Self::Handle>)) {}
 
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: &Self::Handle);
