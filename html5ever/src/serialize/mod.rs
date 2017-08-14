@@ -26,6 +26,13 @@ pub struct SerializeOpts {
 
     /// Serialize the root node? Default: ChildrenOnly
     pub traversal_scope: TraversalScope,
+
+    /// If the serializer is asked to serialize an invalid tree, the default
+    /// behavior is to panic in the event that an `end_elem` is created without a
+    /// matching `start_elem`. Setting this to true will prevent those panics by
+    /// creating a default parent on the element stack. No extra start elem will
+    /// actually be written. Default: false
+    pub create_missing_parent: bool,
 }
 
 impl Default for SerializeOpts {
@@ -33,10 +40,12 @@ impl Default for SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
             traversal_scope: TraversalScope::ChildrenOnly,
+            create_missing_parent: false,
         }
     }
 }
 
+#[derive(Default)]
 struct ElemInfo {
     html_name: Option<LocalName>,
     ignore_children: bool,
@@ -66,16 +75,20 @@ impl<Wr: Write> HtmlSerializer<Wr> {
         HtmlSerializer {
             writer: writer,
             opts: opts,
-            stack: vec!(ElemInfo {
-                html_name: None,
-                ignore_children: false,
-                processed_first_child: false,
-            }),
+            stack: vec![Default::default()],
         }
     }
 
     fn parent(&mut self) -> &mut ElemInfo {
-        self.stack.last_mut().expect("no parent ElemInfo")
+        if self.stack.len() == 0 {
+            if self.opts.create_missing_parent {
+                warn!("ElemInfo stack empty, creating new parent");
+                self.stack.push(Default::default());
+            } else {
+                panic!("no parent ElemInfo")
+            }
+        }
+        self.stack.last_mut().unwrap()
     }
 
     fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
@@ -159,7 +172,14 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     }
 
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {
-        let info = self.stack.pop().expect("no ElemInfo");
+        let info = match self.stack.pop() {
+            Some(info) => info,
+            None if self.opts.create_missing_parent => {
+                warn!("missing ElemInfo, creating default.");
+                Default::default()
+            }
+            _ => panic!("no ElemInfo"),
+        };
         if info.ignore_children {
             return Ok(());
         }

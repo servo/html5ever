@@ -15,6 +15,84 @@ use html5ever::{parse_fragment, parse_document, serialize, QualName};
 use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
 use html5ever::tendril::{StrTendril, SliceExt, TendrilSink};
+use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, TagKind, Tokenizer};
+use html5ever::serialize::{Serialize, Serializer, TraversalScope, SerializeOpts};
+
+use std::io;
+
+struct Tokens(Vec<Token>);
+
+impl TokenSink for Tokens {
+    type Handle = ();
+
+    fn process_token(&mut self, token: Token, _: u64) -> TokenSinkResult<()> {
+        self.0.push(token);
+        TokenSinkResult::Continue
+    }
+}
+
+impl Serialize for Tokens {
+    fn serialize<S>(&self, serializer: &mut S, _: TraversalScope) -> io::Result<()>
+    where
+        S: Serializer,
+    {
+        for t in self.0.iter() {
+            match t {                // TODO: check whether this is an IE conditional comment or a spec comment
+                &Token::TagToken(ref tag) => {
+                    let name = QualName::new(
+                        None,
+                        "http://www.w3.org/1999/xhtml".into(),
+                        tag.name.as_ref().into(),
+                    );
+                    match tag.kind {
+                        TagKind::StartTag => {
+                            serializer.start_elem(
+                                name,
+                                tag.attrs.iter().map(
+                                    |at| (&at.name, &at.value[..]),
+                                ),
+                            )?
+                        }
+                        TagKind::EndTag => serializer.end_elem(name)?,
+                    }
+                }
+                &Token::DoctypeToken(ref dt) => {
+                    match dt.name {
+                        Some(ref name) => serializer.write_doctype(&name)?,
+                        None => {}
+                    }
+                }
+                &Token::CommentToken(ref chars) => serializer.write_comment(&chars)?,
+                &Token::CharacterTokens(ref chars) => serializer.write_text(&chars)?,
+                &Token::NullCharacterToken |
+                &Token::EOFToken => {}
+                &Token::ParseError(ref e) => println!("parse error: {:#?}", e),
+            }
+        }
+        Ok(())
+    }
+}
+
+fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
+    let mut input = {
+        let mut q = ::html5ever::tokenizer::BufferQueue::new();
+        q.push_front(input.into());
+        q
+    };
+    let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
+    tokenizer.feed(&mut input);
+    tokenizer.end();
+    let mut output = ::std::io::Cursor::new(vec![]);
+    serialize(
+        &mut output,
+        &tokenizer.sink,
+        SerializeOpts {
+            create_missing_parent: true,
+            ..Default::default()
+        },
+    ).unwrap();
+    StrTendril::try_from_byte_slice(&output.into_inner()).unwrap()
+}
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom = parse_fragment(
@@ -28,19 +106,33 @@ fn parse_and_serialize(input: StrTendril) -> StrTendril {
     StrTendril::try_from_byte_slice(&result).unwrap()
 }
 
-macro_rules! test {
-    ($name:ident, $input:expr, $output:expr) => {
+macro_rules! test_fn {
+    ($f:ident, $name:ident, $input:expr, $output:expr) => {
         #[test]
         fn $name() {
-            assert_eq!($output, &*parse_and_serialize($input.to_tendril()));
+            assert_eq!($output, &*$f($input.to_tendril()));
         }
     };
 
     // Shorthand for $output = $input
-    ($name:ident, $input:expr) => {
-        test!($name, $input, $input);
+    ($f:ident, $name:ident, $input:expr) => {
+        test_fn!($f, $name, $input, $input);
     };
 }
+
+macro_rules! test {
+    ($($t:tt)*) => {
+        test_fn!(parse_and_serialize, $($t)*);
+    };
+}
+
+macro_rules! test_no_parse {
+    ($($t:tt)*) => {
+        test_fn!(tokenize_and_serialize, $($t)*);
+    };
+}
+
+
 
 test!(empty, r#""#);
 test!(smoke_test, r#"<p><i>Hello</i>, World!</p>"#);
@@ -95,6 +187,8 @@ test!(attr_ns_1, r#"<svg xmlns="bleh"></svg>"#);
 test!(attr_ns_2, r#"<svg xmlns:foo="bleh"></svg>"#);
 test!(attr_ns_3, r#"<svg xmlns:xlink="bleh"></svg>"#);
 test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
+
+test_no_parse!(malformed_tokens, r#"foo</div><div>"#);
 
 #[test]
 fn doctype() {
