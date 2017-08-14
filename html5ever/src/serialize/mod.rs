@@ -26,6 +26,13 @@ pub struct SerializeOpts {
 
     /// Serialize the root node? Default: ChildrenOnly
     pub traversal_scope: TraversalScope,
+
+    /// If the serializer is asked to serialize an invalid tree, the default
+    /// behavior is to panic in the event that an `end_elem` is created without a
+    /// matching `start_elem`. Setting this to true will prevent those panics by
+    /// creating a default parent on the element stack. No extra start elem will
+    /// actually be written. Default: false
+    pub create_missing_parent: bool,
 }
 
 impl Default for SerializeOpts {
@@ -33,6 +40,7 @@ impl Default for SerializeOpts {
         SerializeOpts {
             scripting_enabled: true,
             traversal_scope: TraversalScope::ChildrenOnly,
+            create_missing_parent: false,
         }
     }
 }
@@ -73,8 +81,12 @@ impl<Wr: Write> HtmlSerializer<Wr> {
 
     fn parent(&mut self) -> &mut ElemInfo {
         if self.stack.len() == 0 {
-            warn!("ElemInfo stack empty, creating new parent");
-            self.stack.push(Default::default());
+            if self.opts.create_missing_parent {
+                warn!("ElemInfo stack empty, creating new parent");
+                self.stack.push(Default::default());
+            } else {
+                panic!("no parent ElemInfo")
+            }
         }
         self.stack.last_mut().unwrap()
     }
@@ -160,10 +172,14 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     }
 
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {
-        let info = self.stack.pop().unwrap_or_else(|| {
-            warn!("missing ElemInfo, creating default.");
-            Default::default()
-        });
+        let info = match self.stack.pop() {
+            Some(info) => info,
+            None if self.opts.create_missing_parent => {
+                warn!("missing ElemInfo, creating default.");
+                Default::default()
+            }
+            _ => panic!("no ElemInfo"),
+        };
         if info.ignore_children {
             return Ok(());
         }

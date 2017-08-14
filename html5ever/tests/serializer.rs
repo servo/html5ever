@@ -16,7 +16,7 @@ use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
 use html5ever::tendril::{StrTendril, SliceExt, TendrilSink};
 use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, TagKind, Tokenizer};
-use html5ever::serialize::{Serialize, Serializer, TraversalScope};
+use html5ever::serialize::{Serialize, Serializer, TraversalScope, SerializeOpts};
 
 use std::io;
 
@@ -83,7 +83,14 @@ fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
     tokenizer.feed(&mut input);
     tokenizer.end();
     let mut output = ::std::io::Cursor::new(vec![]);
-    serialize(&mut output, &tokenizer.sink, Default::default()).unwrap();
+    serialize(
+        &mut output,
+        &tokenizer.sink,
+        SerializeOpts {
+            create_missing_parent: true,
+            ..Default::default()
+        },
+    ).unwrap();
     StrTendril::try_from_byte_slice(&output.into_inner()).unwrap()
 }
 
