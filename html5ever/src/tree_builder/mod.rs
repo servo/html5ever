@@ -386,15 +386,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 let contents = self.sink.get_template_contents(&elem);
                 return LastChild(contents);
             } else if self.html_elem_named(&elem, local_name!("table")) {
-                // Try inserting "inside last table's parent node, immediately before last table"
-                if self.sink.has_parent_node(&elem) {
-                    return BeforeSibling(elem.clone());
-                } else {
-                    // If elem has no parent, we regain ownership of the child.
-                    // Insert "inside previous element, after its last child (if any)"
-                    let previous_element = (*iter.peek().unwrap()).clone();
-                    return LastChild(previous_element);
-                }
+                return TableFosterParenting {
+                    element: elem.clone(),
+                    prev_element: (*iter.peek().unwrap()).clone(),
+                };
             }
         }
         let html_elem = self.html_elem();
@@ -404,7 +399,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn insert_at(&mut self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
         match insertion_point {
             LastChild(parent) => self.sink.append(&parent, child),
-            BeforeSibling(sibling) => self.sink.append_before_sibling(&sibling, child)
+            BeforeSibling(sibling) => self.sink.append_before_sibling(&sibling, child),
+            TableFosterParenting { element, prev_element } => self.sink.append_based_on_parent_node(
+                                                                  &element,
+                                                                  &prev_element,
+                                                                  child),
         }
     }
 }
@@ -1178,9 +1177,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         let elem = create_element(&mut self.sink, qname.clone(), attrs.clone());
 
         let insertion_point = self.appropriate_place_for_insertion(None);
-        let tree_node = match insertion_point {
+        let (node1, node2) = match insertion_point {
             LastChild(ref p) |
-            BeforeSibling(ref p) => p.clone()
+            BeforeSibling(ref p) => (p.clone(), None),
+            TableFosterParenting { ref element, ref prev_element } => (element.clone(), Some(prev_element.clone())),
         };
 
         // Step 12.
@@ -1190,10 +1190,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
            !(listed(qname.expanded()) &&
                 attrs.iter().any(|a| a.name.expanded() == expanded_name!("", "form"))) {
 
-               let form = self.form_elem.as_ref().unwrap().clone();
-               if self.sink.same_tree(&tree_node, &form) {
-                   self.sink.associate_with_form(&elem, &form)
-               }
+            let form = self.form_elem.as_ref().unwrap().clone();
+            let node2 = match node2 {
+                Some(ref n) => Some(n),
+                None => None,
+            };
+            self.sink.associate_with_form(&elem, &form, (&node1, node2));
         }
 
         self.insert_at(insertion_point, AppendNode(elem.clone()));
@@ -1642,6 +1644,14 @@ mod test {
                 sibling: &Handle,
                 child: NodeOrText<Handle>) {
             self.rcdom.append_before_sibling(sibling, child)
+        }
+
+        fn append_based_on_parent_node(
+            &mut self,
+            element: &Handle,
+            prev_element: &Handle,
+            child: NodeOrText<Handle>) {
+            self.rcdom.append_based_on_parent_node(element, prev_element, child)
         }
 
         fn append_doctype_to_document(&mut self,

@@ -109,6 +109,18 @@ impl TreeSink for Sink {
         }
     }
 
+    fn append_based_on_parent_node(&mut self,
+        element: &Self::Handle,
+        prev_element: &Self::Handle,
+        child: NodeOrText<Self::Handle>) {
+
+        if self.has_parent_node(element) {
+            self.append_before_sibling(element, child);
+        } else {
+            self.append(prev_element, child);
+        }
+    }
+
     fn append_doctype_to_document(&mut self,
                                   name: StrTendril,
                                   public_id: StrTendril,
@@ -124,7 +136,7 @@ impl TreeSink for Sink {
         }
     }
 
-    fn associate_with_form(&mut self, _target: &usize, _form: &usize) {
+    fn associate_with_form(&mut self, _target: &usize, _form: &usize, _nodes: (&usize, Option<&usize>)) {
         // No form owner support. Since same_tree always returns
         // true we cannot be sure that this associate_with_form call is
         // valid

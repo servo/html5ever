@@ -86,5 +86,7 @@ pub enum InsertionPoint<Handle> {
     /// Insert as last child in this parent.
     LastChild(Handle),
     /// Insert before this following sibling.
-    BeforeSibling(Handle)
+    BeforeSibling(Handle),
+    /// Insertion point is decided based on existence of element's parent node.
+    TableFosterParenting { element: Handle, prev_element: Handle },
 }
