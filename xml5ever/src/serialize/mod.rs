@@ -12,7 +12,7 @@ pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef}
 use std::io::{self, Write};
 use tree_builder::NamespaceMap;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 /// Struct for setting serializer options.
 pub struct SerializeOpts {
     /// Serialize the root node? Default: ChildrenOnly
@@ -22,7 +22,7 @@ pub struct SerializeOpts {
 impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
-            traversal_scope: TraversalScope::ChildrenOnly
+            traversal_scope: TraversalScope::ChildrenOnly(None)
         }
     }
 }

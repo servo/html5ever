@@ -165,15 +165,15 @@ test!(noframes_literal, r#"<noframes>(x & 1) < 2; y > "foo" + 'bar'</noframes>"#
 
 test!(pre_lf_0, "<pre>foo bar</pre>");
 test!(pre_lf_1, "<pre>\nfoo bar</pre>", "<pre>foo bar</pre>");
-test!(pre_lf_2, "<pre>\n\nfoo bar</pre>");
+test!(pre_lf_2, "<pre>\n\nfoo bar</pre>", "<pre>\nfoo bar</pre>");
 
 test!(textarea_lf_0, "<textarea>foo bar</textarea>");
 test!(textarea_lf_1, "<textarea>\nfoo bar</textarea>", "<textarea>foo bar</textarea>");
-test!(textarea_lf_2, "<textarea>\n\nfoo bar</textarea>");
+test!(textarea_lf_2, "<textarea>\n\nfoo bar</textarea>", "<textarea>\nfoo bar</textarea>");
 
 test!(listing_lf_0, "<listing>foo bar</listing>");
 test!(listing_lf_1, "<listing>\nfoo bar</listing>", "<listing>foo bar</listing>");
-test!(listing_lf_2, "<listing>\n\nfoo bar</listing>");
+test!(listing_lf_2, "<listing>\n\nfoo bar</listing>", "<listing>\nfoo bar</listing>");
 
 test!(comment_1, r#"<p>hi <!--world--></p>"#);
 test!(comment_2, r#"<p>hi <!-- world--></p>"#);
