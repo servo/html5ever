@@ -8,6 +8,7 @@ repository = "https://github.com/servo/html5ever"
 description = "High-performance browser-grade HTML5 parser"
 documentation = "https://docs.rs/html5ever"
 build = "build.rs"
+categories = [ "parser-implementations", "web-programming" ]
 
 [lib]
 name = "html5ever"
