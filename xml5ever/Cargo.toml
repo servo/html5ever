@@ -12,6 +12,7 @@ homepage = "https://github.com/servo/html5ever/blob/master/xml5ever/README.md"
 readme = "README.md"
 keywords = ["xml", "xml5", "parser", "parsing"]
 exclude = ["xml5lib-tests/*"]
+categories = [ "parser-implementations", "web-programming" ]
 
 [lib]
 name = "xml5ever"
