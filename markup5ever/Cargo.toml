@@ -7,6 +7,7 @@ repository = "https://github.com/servo/html5ever"
 description = "Common code for xml5ever and html5ever"
 documentation = "https://docs.rs/markup5ever"
 build = "build.rs"
+categories = [ "parser-implementations", "web-programming" ]
 
 [lib]
 path = "lib.rs"
