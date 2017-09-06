@@ -36,7 +36,7 @@ pub struct ParseOpts {
 /// so that Unicode input may be provided incrementally,
 /// or all at once with the `one` method.
 ///
-/// If your input is bytes, use `Parser::from_utf8` or `Parser::from_bytes`.
+/// If your input is bytes, use `Parser::from_utf8`.
 pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where Sink: TreeSink {
     let tb = TreeBuilder::new(sink, opts.tree_builder);
     let tok = Tokenizer::new(tb, opts.tokenizer);
@@ -49,7 +49,7 @@ pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where S
 /// so that Unicode input may be provided incrementally,
 /// or all at once with the `one` method.
 ///
-/// If your input is bytes, use `Parser::from_utf8` or `Parser::from_bytes`.
+/// If your input is bytes, use `Parser::from_utf8`.
 pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
                             context_name: QualName, context_attrs: Vec<Attribute>)
                             -> Parser<Sink>
