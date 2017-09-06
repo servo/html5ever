@@ -12,7 +12,7 @@
 //! The HTML5 tree builder.
 
 pub use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use interface::{NodeOrText, AppendNode, AppendText, Attribute};
+pub use interface::{NodeOrText, AppendNode, AppendText, Attribute, IntendedParent};
 pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFlags};
 
 use self::types::*;
@@ -741,7 +741,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 // own, once as part of t.clone() above)?
                 let new_element = create_element(
                     &mut self.sink, QualName::new(None, ns!(html), tag.name.clone()),
-                    tag.attrs.clone());
+                    tag.attrs.clone(), IntendedParent::None);
                 self.open_elems[node_index] = new_element.clone();
                 self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
                 node = new_element;
@@ -770,7 +770,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             // once as part of t.clone() above)?
             let new_element = create_element(
                 &mut self.sink, QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
-                fmt_elem_tag.attrs.clone());
+                fmt_elem_tag.attrs.clone(), IntendedParent::Parent(&furthest_block));
             let new_entry = Element(new_element.clone(), fmt_elem_tag);
 
             // 16.
@@ -1155,7 +1155,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = create_element(
             &mut self.sink, QualName::new(None, ns!(html), local_name!("html")),
-            attrs);
+            attrs, IntendedParent::Parent(&self.doc_handle));
         self.push(&elem);
         self.sink.append(&self.doc_handle, AppendNode(elem));
         // FIXME: application cache selection algorithm
@@ -1170,16 +1170,20 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
         declare_tag_set!(listed = [form_associatable] - "img");
 
-        // Step 7.
-        let qname = QualName::new(None, ns, name);
-        let elem = create_element(&mut self.sink, qname.clone(), attrs.clone());
-
         let insertion_point = self.appropriate_place_for_insertion(None);
         let (node1, node2) = match insertion_point {
             LastChild(ref p) |
             BeforeSibling(ref p) => (p.clone(), None),
             TableFosterParenting { ref element, ref prev_element } => (element.clone(), Some(prev_element.clone())),
         };
+
+        // Step 7.
+        let qname = QualName::new(None, ns, name);
+        let intended_parent = match node2 {
+            Some(ref node2) => IntendedParent::Either(&node1, node2),
+            None => IntendedParent::Parent(&node1),
+        };
+        let elem = create_element(&mut self.sink, qname.clone(), attrs.clone(), intended_parent);
 
         // Step 12.
         if form_associatable(qname.expanded()) &&
@@ -1552,7 +1556,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 mod test {
     use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
     use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-    use markup5ever::interface::{TreeSink, Tracer, ElementFlags};
+    use markup5ever::interface::{TreeSink, Tracer, ElementFlags, IntendedParent};
 
     use super::types::*;
 
@@ -1616,10 +1620,13 @@ mod test {
             self.rcdom.elem_name(target)
         }
 
-        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
-                          -> Handle {
+        fn create_element(&mut self,
+                          name: QualName,
+                          attrs: Vec<Attribute>,
+                          flags: ElementFlags,
+                          parent: IntendedParent<&Handle>) -> Handle {
             self.line_vec.push((name.clone(), self.current_line));
-            self.rcdom.create_element(name, attrs, flags)
+            self.rcdom.create_element(name, attrs, flags, parent)
         }
 
         fn create_comment(&mut self, text: StrTendril) -> Handle {

@@ -12,7 +12,7 @@ extern crate typed_arena;
 
 use html5ever::{parse_document, QualName, Attribute, ExpandedName};
 use html5ever::tendril::{TendrilSink, StrTendril};
-use html5ever::interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags};
+use html5ever::interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags, IntendedParent};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
@@ -211,7 +211,13 @@ impl<'arena> TreeSink for Sink<'arena> {
         }
     }
 
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Ref<'arena> {
+    fn create_element(
+        &mut self,
+        name: QualName,
+        attrs: Vec<Attribute>,
+        flags: ElementFlags,
+        _parent: IntendedParent<&Ref<'arena>>,
+    ) -> Ref<'arena> {
         self.new_node(NodeData::Element {
             name: name,
             attrs: RefCell::new(attrs),

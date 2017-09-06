@@ -49,7 +49,7 @@ use tendril::StrTendril;
 use Attribute;
 use ExpandedName;
 use QualName;
-use interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags};
+use interface::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags, IntendedParent};
 use interface::tree_builder;
 use serialize::{Serialize, Serializer};
 use serialize::TraversalScope;
@@ -220,7 +220,11 @@ impl TreeSink for RcDom {
         };
     }
 
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
+    fn create_element(&mut self,
+                      name: QualName,
+                      attrs: Vec<Attribute>,
+                      flags: ElementFlags,
+                      _: IntendedParent<&Handle>) -> Handle {
         Node::new(NodeData::Element {
             name: name,
             attrs: RefCell::new(attrs),

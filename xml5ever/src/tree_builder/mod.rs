@@ -19,7 +19,7 @@ use std::mem;
 
 use {Prefix, Namespace, LocalName};
 use interface::{self, QualName, Attribute, AppendNode, create_element};
-use interface::{AppendText, ExpandedName};
+use interface::{AppendText, ExpandedName, IntendedParent};
 use tokenizer::{self, TokenSink, Tag, StartTag, EndTag};
 use tokenizer::{ShortTag, EmptyTag, Pi, Doctype};
 use tokenizer::states::Quiescent;
@@ -458,20 +458,20 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     }
 
     fn insert_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs, IntendedParent::None);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs, IntendedParent::None);
         self.insert_appropriately(AppendNode(child.clone()));
         self.sink.pop(&child);
         Done
     }
 
     fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
-        let child = create_element(&mut self.sink, tag.name, tag.attrs);
+        let child = create_element(&mut self.sink, tag.name, tag.attrs, IntendedParent::None);
 
         self.sink.append(&self.doc_handle, AppendNode(child.clone()));
         child

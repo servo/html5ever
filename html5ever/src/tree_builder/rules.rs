@@ -126,7 +126,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 tag @ <script> => {
                     let elem = create_element(
                         &mut self.sink, QualName::new(None, ns!(html), local_name!("script")),
-                        tag.attrs);
+                        tag.attrs, IntendedParent::None);
                     if self.is_fragment() {
                         self.sink.mark_script_already_started(&elem);
                     }

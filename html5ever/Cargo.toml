@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.22.4"
+version = "0.23.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -33,7 +33,7 @@ harness = false
 [dependencies]
 log = "0.4"
 mac = "0.1"
-markup5ever = { version = "0.7", path = "../markup5ever" }
+markup5ever = { version = "0.8", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"

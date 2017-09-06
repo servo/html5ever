@@ -13,7 +13,7 @@ use tendril::StrTendril;
 
 use super::{LocalName, Prefix, Namespace};
 pub use self::tree_builder::{NodeOrText, AppendNode, AppendText, create_element, ElementFlags};
-pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks, IntendedParent};
 pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
 /// An [expanded name], containing the tag and the namespace.

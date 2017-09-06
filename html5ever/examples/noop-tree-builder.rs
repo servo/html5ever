@@ -16,7 +16,7 @@ use std::borrow::Cow;
 
 use html5ever::{Attribute, QualName, ExpandedName};
 use html5ever::parse_document;
-use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags};
+use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, ElementFlags, IntendedParent};
 use html5ever::tendril::*;
 
 struct Sink {
@@ -57,7 +57,11 @@ impl TreeSink for Sink {
         self.names.get(target).expect("not an element").expanded()
     }
 
-    fn create_element(&mut self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
+    fn create_element(&mut self,
+                      name: QualName,
+                      _: Vec<Attribute>,
+                      _: ElementFlags,
+                      _: IntendedParent<&usize>) -> usize {
         let id = self.get_id();
         self.names.insert(id, name);
         id

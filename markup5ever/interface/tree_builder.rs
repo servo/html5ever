@@ -52,6 +52,17 @@ pub enum NextParserState {
     Continue,
 }
 
+/// The intended parent for an element that is to be created.
+pub enum IntendedParent<T> {
+    /// The intended parent is unknown.
+    None,
+    /// There is a single intended parent.
+    Parent(T),
+    /// In the case of `TableFosterParenting` either node can be a parent.
+    /// The correct parent cannot be determined here, so both options are provided.
+    Either(T, T),
+}
+
 /// Special properties of an element, useful for tagging elements with this information.
 #[derive(Default)]
 pub struct ElementFlags {
@@ -105,7 +116,12 @@ pub struct ElementFlags {
 /// # }
 ///
 /// ```
-pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
+pub fn create_element<Sink>(
+    sink: &mut Sink,
+    name: QualName,
+    attrs: Vec<Attribute>,
+    parent: IntendedParent<&Sink::Handle>,
+) -> Sink::Handle
 where Sink: TreeSink {
     let mut flags = ElementFlags::default();
     match name.expanded() {
@@ -122,7 +138,7 @@ where Sink: TreeSink {
         }
         _ => {}
     }
-    sink.create_element(name, attrs, flags)
+    sink.create_element(name, attrs, flags, parent)
 }
 
 /// Methods a parser can use to create the DOM. The DOM provider implements this trait.
@@ -169,8 +185,13 @@ pub trait TreeSink {
     /// See [the template element in the whatwg spec][whatwg template].
     ///
     /// [whatwg template]: https://html.spec.whatwg.org/multipage/#the-template-element
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
-                      -> Self::Handle;
+    fn create_element(
+        &mut self,
+        name: QualName,
+        attrs: Vec<Attribute>,
+        flags: ElementFlags,
+        parent: IntendedParent<&Self::Handle>,
+    ) -> Self::Handle;
 
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
