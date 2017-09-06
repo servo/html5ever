@@ -53,10 +53,6 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn same_tree(&self, _x: &usize, _y: &usize) -> bool {
-        true
-    }
-
     fn elem_name(&self, target: &usize) -> ExpandedName {
         self.names.get(target).expect("not an element").expanded()
     }

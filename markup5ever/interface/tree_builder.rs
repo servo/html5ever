@@ -168,9 +168,6 @@ pub trait TreeSink {
     /// Do two handles refer to the same node?
     fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
 
-    /// Are two handles present in the same tree
-    fn same_tree(&self, _x: &Self::Handle, _y: &Self::Handle) -> bool { true }
-
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
