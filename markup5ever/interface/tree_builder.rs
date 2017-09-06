@@ -168,17 +168,10 @@ pub trait TreeSink {
     /// Do two handles refer to the same node?
     fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
 
-    /// Are two handles present in the same tree
-    fn same_tree(&self, _x: &Self::Handle, _y: &Self::Handle) -> bool { true }
-
     /// Set the document's quirks mode.
     fn set_quirks_mode(&mut self, mode: QuirksMode);
 
-    /// Does the node have a parent?
-    fn has_parent_node(&self, node: &Self::Handle) -> bool;
-
     /// Append a node as the sibling immediately before the given node.
-    /// This method will only be called if has_parent_node(sibling) is true
     ///
     /// The tree builder promises that `sibling` is not a text node.  However its
     /// old previous sibling, which would become the new node's previous sibling,
