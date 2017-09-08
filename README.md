@@ -1,6 +1,7 @@
 # html5ever
 
 [![Build Status](https://travis-ci.org/servo/html5ever.svg?branch=master)](https://travis-ci.org/servo/html5ever)
+[![crates.io](https://img.shields.io/crates/v/html5ever.svg)](https://crates.io/crates/html5ever)
 
 [API Documentation][API documentation]
 
