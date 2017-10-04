@@ -1632,10 +1632,6 @@ mod test {
             self.rcdom.create_pi(target, content)
         }
 
-        fn has_parent_node(&self, node: &Handle) -> bool {
-            self.rcdom.has_parent_node(node)
-        }
-
         fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
             self.rcdom.append(parent, child)
         }

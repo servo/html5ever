@@ -207,13 +207,6 @@ impl TreeSink for RcDom {
         Node::new(NodeData::ProcessingInstruction { target: target, contents: data })
     }
 
-    fn has_parent_node(&self, node: &Handle) -> bool {
-        let parent = node.parent.take();
-        let has_parent = parent.is_some();
-        node.parent.set(parent);
-        has_parent
-    }
-
     fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
         match child {
@@ -269,8 +262,11 @@ impl TreeSink for RcDom {
         element: &Self::Handle,
         prev_element: &Self::Handle,
         child: NodeOrText<Self::Handle>) {
+        let parent = element.parent.take();
+        let has_parent = parent.is_some();
+        element.parent.set(parent);
 
-        if self.has_parent_node(element) {
+        if has_parent {
             self.append_before_sibling(element, child);
         } else {
             self.append(prev_element, child);
