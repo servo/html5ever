@@ -211,10 +211,6 @@ impl<'arena> TreeSink for Sink<'arena> {
         }
     }
 
-    fn has_parent_node(&self, node: &Ref<'arena>) -> bool {
-        node.parent.get().is_some()
-    }
-
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Ref<'arena> {
         self.new_node(NodeData::Element {
             name: name,
@@ -255,7 +251,7 @@ impl<'arena> TreeSink for Sink<'arena> {
 
     fn append_based_on_parent_node(&mut self, element: &Ref<'arena>,
                                    prev_element: &Ref<'arena>, child: NodeOrText<Ref<'arena>>) {
-        if self.has_parent_node(element) {
+        if element.parent.get().is_some() {
             self.append_before_sibling(element, child)
         } else {
             self.append(prev_element, child)

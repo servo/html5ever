@@ -53,10 +53,6 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn same_tree(&self, _x: &usize, _y: &usize) -> bool {
-        true
-    }
-
     fn elem_name(&self, target: &usize) -> ExpandedName {
         self.names.get(target).expect("not an element").expanded()
     }
@@ -74,12 +70,6 @@ impl TreeSink for Sink {
     #[allow(unused_variables)]
     fn create_pi(&mut self, target: StrTendril, value: StrTendril) -> usize {
         unimplemented!()
-    }
-
-    fn has_parent_node(&self, _node: &usize) -> bool {
-        // `node` will have a parent unless a script moved it, and we're
-        // not running scripts.  Therefore we can aways return true.
-        true
     }
 
     fn append_before_sibling(&mut self,
