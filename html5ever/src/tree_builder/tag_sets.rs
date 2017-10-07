@@ -92,7 +92,7 @@ pub fn mathml_text_integration_point(p: ExpandedName) -> bool {
         expanded_name!(mathml "mtext"))
 }
 
-/// https://html.spec.whatwg.org/multipage/#html-integration-point
+/// https://html.spec.whatwg.org/multipage/parsing.html#html-integration-point
 pub fn svg_html_integration_point(p: ExpandedName) -> bool {
     // annotation-xml are handle in another place
     matches!(p,

@@ -54,13 +54,13 @@ pub struct ElementFlags {
     /// A document fragment should be created, associated with the element,
     /// and returned in TreeSink::get_template_contents
     ///
-    /// https://html.spec.whatwg.org/multipage/#template-contents
+    /// https://html.spec.whatwg.org/multipage/scripting.html#template-contents
     pub template: bool,
 
     /// This boolean should be recorded with the element and returned
     /// in TreeSink::is_mathml_annotation_xml_integration_point
     ///
-    /// https://html.spec.whatwg.org/multipage/#html-integration-point
+    /// https://html.spec.whatwg.org/multipage/parsing.html#html-integration-point
     pub mathml_annotation_xml_integration_point: bool,
 
     _private: ()
@@ -123,7 +123,7 @@ pub trait TreeSink {
     /// an associated document fragment called the "template contents" should
     /// also be created. Later calls to self.get_template_contents() with that
     /// given element return it.
-    /// https://html.spec.whatwg.org/multipage/#htmltemplateelement
+    /// https://html.spec.whatwg.org/multipage/scripting.html#the-template-element
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
                       -> Self::Handle;
 

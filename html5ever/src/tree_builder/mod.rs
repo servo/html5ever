@@ -208,7 +208,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             current_line: 1,
         };
 
-        // https://html.spec.whatwg.org/multipage/syntax.html#parsing-html-fragments
+        // https://html.spec.whatwg.org/multipage/parsing.html#parsing-html-fragments
         // 5. Let root be a new html element with no attributes.
         // 6. Append the element root to the Document node created above.
         // 7. Set up the parser's stack of open elements so that it contains just the single element root.
@@ -219,7 +219,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         tb
     }
 
-    // https://html.spec.whatwg.org/multipage/syntax.html#concept-frag-parse-context
+    // https://html.spec.whatwg.org/multipage/parsing.html#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.as_ref().expect("no context element");
@@ -360,7 +360,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         self.context_elem.is_some()
     }
 
-    /// https://html.spec.whatwg.org/multipage/#appropriate-place-for-inserting-a-node
+    /// https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node
     fn appropriate_place_for_insertion(&mut self,
                                        override_target: Option<Handle>)
                                        -> InsertionPoint<Handle> {
@@ -1078,7 +1078,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
     }
 
-    // https://html.spec.whatwg.org/multipage/syntax.html#reset-the-insertion-mode-appropriately
+    // https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         for (i, mut node) in self.open_elems.iter().enumerate().rev() {
             let last = i == 0usize;
@@ -1163,7 +1163,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         // FIXME: application cache selection algorithm
     }
 
-    // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
+    // https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token
     fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
             -> Handle {
         declare_tag_set!(form_associatable =

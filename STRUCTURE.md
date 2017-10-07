@@ -6,11 +6,11 @@ The module structure is also documented in the output produced by `cargo doc`, a
 
 `src/driver.rs`: Provides the highest-level interfaces to the parser, i.e. "here's a string, give me a DOM"
 
-`src/tokenizer/`: The first stage of HTML parsing, corresponding to WHATWG's [section 12.2.4 "Tokenization"](https://html.spec.whatwg.org/multipage/syntax.html#tokenization)
+`src/tokenizer/`: The first stage of HTML parsing, corresponding to WHATWG's [section 12.2.5 "Tokenization"](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
 
-`src/tree_builder/`: The second (and final) stage, corresponding to [section 12.2.5 "Tree Construction"](https://html.spec.whatwg.org/multipage/syntax.html#tree-construction)
+`src/tree_builder/`: The second (and final) stage, corresponding to [section 12.2.6 "Tree Construction"](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
 
-`src/serialize/`: Turning trees back into strings. Corresponds to [section 12.3 "Serialising HTML fragments"](https://html.spec.whatwg.org/multipage/syntax.html#serialising-html-fragments)
+`src/serialize/`: Turning trees back into strings. Corresponds to [section 12.3 "Serialising HTML fragments"](https://html.spec.whatwg.org/multipage/parsing.html#serialising-html-fragments)
 
 `dom_sink/`: Types that html5ever can use to represent the DOM, if you do not provide your own DOM implementation.
 
