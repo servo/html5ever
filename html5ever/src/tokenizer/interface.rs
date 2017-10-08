@@ -103,7 +103,7 @@ pub trait TokenSink {
     /// Used in the markup declaration open state. By default, this always
     /// returns false and thus all CDATA sections are tokenized as bogus
     /// comments.
-    /// https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
+    /// https://html.spec.whatwg.org/multipage/#markup-declaration-open-state
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         false
     }

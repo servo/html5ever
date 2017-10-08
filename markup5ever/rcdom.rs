@@ -59,10 +59,10 @@ pub enum NodeData {
         attrs: RefCell<Vec<Attribute>>,
 
         /// For HTML <template> elements, the template contents
-        /// https://html.spec.whatwg.org/multipage/scripting.html#template-contents
+        /// https://html.spec.whatwg.org/multipage/#template-contents
         template_contents: Option<Handle>,
 
-        /// https://html.spec.whatwg.org/multipage/parsing.html#html-integration-point
+        /// https://html.spec.whatwg.org/multipage/#html-integration-point
         mathml_annotation_xml_integration_point: bool,
     },
 
