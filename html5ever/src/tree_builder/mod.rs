@@ -208,7 +208,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             current_line: 1,
         };
 
-        // https://html.spec.whatwg.org/multipage/syntax.html#parsing-html-fragments
+        // https://html.spec.whatwg.org/multipage/#parsing-html-fragments
         // 5. Let root be a new html element with no attributes.
         // 6. Append the element root to the Document node created above.
         // 7. Set up the parser's stack of open elements so that it contains just the single element root.
@@ -219,7 +219,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         tb
     }
 
-    // https://html.spec.whatwg.org/multipage/syntax.html#concept-frag-parse-context
+    // https://html.spec.whatwg.org/multipage/#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.as_ref().expect("no context element");
@@ -1078,7 +1078,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
     }
 
-    // https://html.spec.whatwg.org/multipage/syntax.html#reset-the-insertion-mode-appropriately
+    // https://html.spec.whatwg.org/multipage/#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&mut self) -> InsertionMode {
         for (i, mut node) in self.open_elems.iter().enumerate().rev() {
             let last = i == 0usize;

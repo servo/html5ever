@@ -123,7 +123,7 @@ pub trait TreeSink {
     /// an associated document fragment called the "template contents" should
     /// also be created. Later calls to self.get_template_contents() with that
     /// given element return it.
-    /// https://html.spec.whatwg.org/multipage/#htmltemplateelement
+    /// https://html.spec.whatwg.org/multipage/#the-template-element
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
                       -> Self::Handle;
 
