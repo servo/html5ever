@@ -588,13 +588,6 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
         Done
     }
-
-    fn complete_script(&mut self) {
-        let current = current_node(&self.open_elems);
-        if self.sink.complete_script(current) == NextParserState::Suspend {
-            self.next_tokenizer_state = Some(Quiescent);
-        }
-    }
 }
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
@@ -692,7 +685,6 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     };
                     if tag.name.local == local_name!("script") {
                         self.insert_tag(tag.clone());
-                        self.complete_script();
                         self.close_tag(tag)
                     } else {
                         self.append_tag(tag)
@@ -708,9 +700,6 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    if tag.name.local == local_name!("script") {
-                        self.complete_script();
-                    }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
                         self.phase = EndPhase;

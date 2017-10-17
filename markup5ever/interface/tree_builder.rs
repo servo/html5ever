@@ -208,11 +208,6 @@ pub trait TreeSink {
 
     /// Called whenever the line number changes.
     fn set_current_line(&mut self, _line_number: u64) {}
-
-    /// Indicate that a `script` element is complete.
-    fn complete_script(&mut self, _node: &Self::Handle) -> NextParserState {
-        NextParserState::Continue
-    }
 }
 
 /// Trace hooks for a garbage-collected DOM.
