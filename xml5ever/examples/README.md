@@ -1,4 +1,4 @@
-#Examples
+# Examples
 
 The examples have been designed with [`cargo-script`](https://github.com/DanielKeep/cargo-script) in mind.
 
@@ -7,7 +7,7 @@ Here I'll just give broad overview how to install [`cargo script`] for Rust 1.5.
     cargo install cargo-script
 
 
-#Token printer
+# Token printer
 
 The basis of xml5ever is its tokenizer and tree builder. Roughly speaking tokenizer
 takes input and returns a set of tokens like comment, processing instruction, start
@@ -111,7 +111,7 @@ or by sending an [`examples/example.xml`](https://github.com/Ygg01/xml5ever/blob
     cargo script simple_xml_tokenizer.rs < example.xml
 ```
 
-#Tree printer
+# Tree printer
 
 To actually get an XML document tree from the xml5ever, you need to use a `TreeSink`.
 `TreeSink` is in many way similar to the TokenSink. Basically, TokenSink takes data
