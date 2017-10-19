@@ -419,6 +419,8 @@ inverse
 irrelevant
 isindex
 ismap
+itemscope
+itemprop
 k
 k1
 k2
