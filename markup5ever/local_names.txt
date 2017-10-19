@@ -419,6 +419,7 @@ inverse
 irrelevant
 isindex
 ismap
+itemscope
 k
 k1
 k2
