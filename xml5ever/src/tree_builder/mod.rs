@@ -356,7 +356,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         }
 
         // Then we bind those namespace declarations to attributes
-        for mut attr in tag.attrs.iter_mut()
+        for attr in tag.attrs.iter_mut()
             .filter(|attr| attr.name.prefix != Some(namespace_prefix!("xmlns"))
                           && attr.name.local != local_name!("xmlns")) {
 
