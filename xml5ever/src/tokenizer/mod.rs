@@ -606,21 +606,10 @@ macro_rules! go (
     ( $me:ident : ) => (());
 );
 
-macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) => (
-    match $x {
-        $($pats)|+ => go!($me: $($cmds)*),
-        _ => (),
-    }
-));
-
 // This is a macro because it can cause early return
 // from the function where it is used.
 macro_rules! get_char ( ($me:expr) => (
     unwrap_or_return!($me.get_char(), false)
-));
-
-macro_rules! peek ( ($me:expr) => (
-    unwrap_or_return!($me.peek(), false)
 ));
 
 macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
