@@ -419,8 +419,11 @@ inverse
 irrelevant
 isindex
 ismap
-itemscope
+itemid
 itemprop
+itemref
+itemscope
+itemtype
 k
 k1
 k2
