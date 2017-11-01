@@ -372,8 +372,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         // Finally, we dump current namespace if its unneeded.
         let x = mem::replace(&mut self.current_namespace, NamespaceMap::empty());
 
-        // Only start tag doesn't dump current namespace.
-        if tag.kind == StartTag {
+        // Only start tag doesn't dump current namespace. However, <script /> is treated
+        // differently than every other empty tag, so it needs to retain the current
+        // namespace as well.
+        if tag.kind == StartTag || (tag.kind == EmptyTag && tag.name.local == local_name!("script")) {
             self.namespace_stack.push(x);
         }
 
