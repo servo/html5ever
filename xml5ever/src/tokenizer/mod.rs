@@ -21,7 +21,7 @@ pub use {Prefix, LocalName, Namespace};
 
 use {Attribute, QualName, SmallCharSet, buffer_queue};
 use std::borrow::Cow::{self, Borrowed};
-use std::ascii::AsciiExt;
+#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::collections::{BTreeMap};
 use std::mem::replace;
 use tendril::StrTendril;

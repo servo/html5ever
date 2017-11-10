@@ -12,7 +12,7 @@
 /// Adjacent sibling text nodes are merged into a single node, so
 /// the sink may not want to allocate a `Handle` for each.
 
-use std::ascii::AsciiExt;
+#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use tendril::StrTendril;
 use interface::{QualName, ExpandedName, Attribute};

@@ -14,7 +14,7 @@ extern crate rustc_serialize;
 use rustc_serialize::json::{Json, Decoder};
 use rustc_serialize::Decodable;
 use std::collections::HashMap;
-use std::ascii::AsciiExt;
+#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::env;
 use std::fs::File;
 use std::io::{Write, BufWriter, BufReader, BufRead};
