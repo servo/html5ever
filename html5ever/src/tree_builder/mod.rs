@@ -27,7 +27,7 @@ use tokenizer::states as tok_state;
 use util::str::is_ascii_whitespace;
 
 use std::{slice, fmt};
-use std::ascii::AsciiExt;
+#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 use std::default::Default;

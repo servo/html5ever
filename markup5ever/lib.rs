@@ -41,7 +41,7 @@ pub use util::smallcharset::SmallCharSet;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use std::ascii::AsciiExt;
+    #[allow(unused_imports)] use std::ascii::AsciiExt;
     use tendril::SliceExt;
 
     use super::util::buffer_queue::{BufferQueue, FromSet, NotFromSet};
