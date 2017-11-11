@@ -9,10 +9,11 @@
 
 extern crate string_cache_codegen;
 extern crate phf_codegen;
-extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 
-use rustc_serialize::json::{Json, Decoder};
-use rustc_serialize::Decodable;
 use std::collections::HashMap;
 #[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::env;
@@ -69,14 +70,14 @@ fn main() {
 
 fn named_entities_to_phf(from: &Path, to: &Path) {
     // A struct matching the entries in entities.json.
-    #[derive(RustcDecodable)]
+    #[derive(Deserialize, Debug)]
     struct CharRef {
         codepoints: Vec<u32>,
         //characters: String,  // Present in the file but we don't need it
     }
 
-    let json = Json::from_reader(&mut File::open(from).unwrap()).unwrap();
-    let entities: HashMap<String, CharRef> = Decodable::decode(&mut Decoder::new(json)).unwrap();
+    let entities: HashMap<String, CharRef>
+        = serde_json::from_reader(&mut File::open(from).unwrap()).unwrap();
     let mut entities: HashMap<&str, (u32, u32)> = entities.iter().map(|(name, char_ref)| {
         assert!(name.starts_with("&"));
         assert!(char_ref.codepoints.len() <= 2);
