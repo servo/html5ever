@@ -108,6 +108,7 @@ fn named_entities_to_phf(from: &Path, to: &Path) {
 /// use markup5ever::data::NAMED_ENTITIES;
 ///
 /// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
+/// ```
 "#).unwrap();
     write!(&mut file, "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = ").unwrap();
     phf_map.build(&mut file).unwrap();
