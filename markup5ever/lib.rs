@@ -13,6 +13,20 @@ extern crate string_cache;
 extern crate phf;
 pub extern crate tendril;
 
+/// Create a [`SmallCharSet`], with each space-separated number stored in the set.
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate markup5ever;
+/// # fn main() {
+/// let set = small_char_set!(12 54 42);
+/// assert_eq!(set.bits,
+///            0b00000000_01000000_00000100_00000000_00000000_00000000_00010000_00000000);
+/// # }
+/// ```
+///
+/// [`SmallCharSet`]: struct.SmallCharSet.html
 #[macro_export]
 macro_rules! small_char_set ( ($($e:expr)+) => (
     $ crate ::SmallCharSet {

@@ -7,6 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The [`BufferQueue`] struct and helper types.
+//!
+//! This type is designed for the efficient parsing of string data, especially where many
+//! significant characters are from the ascii range 0-63. This includes, for example, important
+//! characters in xml/html parsing.
+//!
+//! Good and predictable performance is achieved by avoiding allocation where possible (a.k.a. zero
+//! copy).
+//!
+//! [`BufferQueue`]: struct.BufferQueue.html
+
 
 use std::collections::VecDeque;
 
@@ -15,15 +26,24 @@ use tendril::StrTendril;
 pub use self::SetResult::{FromSet, NotFromSet};
 use util::smallcharset::SmallCharSet;
 
-/// Result from `pop_except_from`.
+/// Result from [`pop_except_from`] containing either a character from a [`SmallCharSet`], or a
+/// string buffer of characters not from the set.
+///
+/// [`pop_except_from`]: struct.BufferQueue.html#method.pop_except_from
+/// [`SmallCharSet`]: ../struct.SmallCharSet.html
 #[derive(PartialEq, Eq, Debug)]
 pub enum SetResult {
+    /// A character from the `SmallCharSet`.
     FromSet(char),
+    /// A block of text containing no characters from the `SmallCharSet`.
     NotFromSet(StrTendril),
 }
 
-/// A queue of owned string buffers, which supports incrementally
-/// consuming characters.
+/// A queue of owned string buffers, which supports incrementally consuming characters.
+///
+/// Internally it uses [`VecDeque`] and has the same complexity properties.
+///
+/// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: VecDeque<StrTendril>,
