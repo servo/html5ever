@@ -98,6 +98,17 @@ fn named_entities_to_phf(from: &Path, to: &Path) {
     }
 
     let mut file = File::create(to).unwrap();
+    writeln!(&mut file, r#"
+/// A map of entity names to their codepoints. The second codepoint will
+/// be 0 if the entity contains a single codepoint. Entities have their preceeding '&' removed.
+///
+/// # Examples
+///
+/// ```
+/// use markup5ever::data::NAMED_ENTITIES;
+///
+/// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
+"#).unwrap();
     write!(&mut file, "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = ").unwrap();
     phf_map.build(&mut file).unwrap();
     write!(&mut file, ";\n").unwrap();
