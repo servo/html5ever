@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! The [`BufferQueue`] struct and helper types.
+//! The `BufferQueue` struct and helper types.
 //!
 //! This type is designed for the efficient parsing of string data, especially where many
 //! significant characters are from the ascii range 0-63. This includes, for example, important
@@ -35,7 +35,7 @@ use util::smallcharset::SmallCharSet;
 pub enum SetResult {
     /// A character from the `SmallCharSet`.
     FromSet(char),
-    /// A block of text containing no characters from the `SmallCharSet`.
+    /// A string buffer containing no characters from the `SmallCharSet`.
     NotFromSet(StrTendril),
 }
 
@@ -62,12 +62,14 @@ impl BufferQueue {
         self.buffers.is_empty()
     }
 
-    /// Get the tendril at the beginning of the queue.
+    /// Get the buffer at the beginning of the queue.
     pub fn pop_front(&mut self) -> Option<StrTendril> {
         self.buffers.pop_front()
     }
 
     /// Add a buffer to the beginning of the queue.
+    ///
+    /// If the buffer is empty, it will be skipped.
     pub fn push_front(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
@@ -76,6 +78,8 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the end of the queue.
+    ///
+    /// If the buffer is empty, it will be skipped.
     pub fn push_back(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
@@ -83,13 +87,16 @@ impl BufferQueue {
         self.buffers.push_back(buf);
     }
 
-    /// Look at the next available character, if any.
+    /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         // Invariant: all buffers in the queue are non-empty.
+        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none());
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
-    /// Get the next character, if one is available.
+    /// Get the next character if one is available, removing it from the queue.
+    ///
+    /// This function manages the buffers, removing them as they become empty.
     pub fn next(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
