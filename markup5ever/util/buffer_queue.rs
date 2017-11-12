@@ -51,6 +51,7 @@ pub struct BufferQueue {
 
 impl BufferQueue {
     /// Create an empty BufferQueue.
+    #[inline]
     pub fn new() -> BufferQueue {
         BufferQueue {
             buffers: VecDeque::with_capacity(16),
@@ -58,11 +59,13 @@ impl BufferQueue {
     }
 
     /// Returns whether the queue is empty.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.buffers.is_empty()
     }
 
     /// Get the buffer at the beginning of the queue.
+    #[inline]
     pub fn pop_front(&mut self) -> Option<StrTendril> {
         self.buffers.pop_front()
     }
@@ -89,8 +92,8 @@ impl BufferQueue {
 
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
-        // Invariant: all buffers in the queue are non-empty.
-        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none());
+        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none(),
+                      "invariant \"all buffers in the queue are non-empty\" failed");
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
@@ -114,9 +117,32 @@ impl BufferQueue {
     }
 
     /// Pops and returns either a single character from the given set, or
-    /// a `StrTendril` of characters none of which are in the set.  The set
-    /// is represented as a bitmask and so can only contain the first 64
-    /// ASCII characters.
+    /// a buffer of characters none of which are in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate markup5ever;
+    /// # #[macro_use] extern crate tendril;
+    /// # fn main() {
+    /// use markup5ever::buffer_queue::{BufferQueue, SetResult};
+    ///
+    /// let mut queue = BufferQueue::new();
+    /// queue.push_back(format_tendril!(r#"<some_tag attr="text">SomeText</some_tag>"#));
+    /// let set = small_char_set!(b'<' b'>' b' ' b'=' b'"' b'/');
+    /// let tag = format_tendril!("some_tag");
+    /// let attr = format_tendril!("attr");
+    /// let attr_val = format_tendril!("text");
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('<')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(tag)));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet(' ')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(attr)));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('=')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('"')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(attr_val)));
+    /// // ...
+    /// # }
+    /// ```
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
@@ -150,6 +176,29 @@ impl BufferQueue {
     // If so, consume them and return Some(true).
     // If they do not match, return Some(false).
     // If not enough characters are available to know, return None.
+    /// Consume bytes matching the pattern, using a custom comparison function `eq`.
+    ///
+    /// Returns `Some(true)` if there is a match, `Some(false)` if there is no match, or `None` if
+    /// it wasn't possible to know (more data is needed).
+    ///
+    /// The custom comparison function is used elsewhere to compare ascii-case-insensitively.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate markup5ever;
+    /// # #[macro_use] extern crate tendril;
+    /// # fn main() {
+    /// use markup5ever::buffer_queue::{BufferQueue};
+    ///
+    /// let mut queue = BufferQueue::new();
+    /// queue.push_back(format_tendril!("testtext"));
+    /// let test_str = "test";
+    /// assert_eq!(queue.eat("test", |&a, &b| a == b), Some(true));
+    /// assert_eq!(queue.eat("text", |&a, &b| a == b), Some(true));
+    /// assert!(queue.is_empty());
+    /// # }
+    /// ```
     pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;

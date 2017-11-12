@@ -16,6 +16,7 @@
 /// values less than 64.
 ///
 /// This is stored as a bitmap, with 1 bit for each value.
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct SmallCharSet {
     pub bits: u64,
 }
