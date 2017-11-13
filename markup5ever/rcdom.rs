@@ -84,6 +84,7 @@ pub struct Node {
 }
 
 impl Node {
+    /// Create a new node from its contents
     fn new(data: NodeData) -> Rc<Self> {
         Rc::new(Node {
             data: data,
@@ -99,12 +100,15 @@ pub type Handle = Rc<Node>;
 /// Weak reference to a DOM node, used for parent pointers.
 pub type WeakHandle = Weak<Node>;
 
+/// Append a parentless node to another nodes' children
 fn append(new_parent: &Handle, child: Handle) {
     let previous_parent = child.parent.replace(Some(Rc::downgrade(new_parent)));
+    // Invariant: child cannot have existing parent
     assert!(previous_parent.is_none());
     new_parent.children.borrow_mut().push(child);
 }
 
+/// If the node has a parent, get it and this node's position in its children
 fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
     if let Some(weak) = target.parent.take() {
         let parent = weak.upgrade().expect("dangling weak pointer");
