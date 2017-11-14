@@ -60,8 +60,10 @@ pub trait Serializer {
 }
 
 /// A type alias for an attribute name and value (e.g. the `class="test"` in `<div class="test">`
-/// is represented as `(<QualName of type class>, test).
+/// is represented as `(<QualName of type class>, "test")`.
 ///
 /// This is used in [`Serializer::start_elem`] where the value being serialized must supply an
 /// iterator over the attributes for the current element
+///
+/// [`Serializer::start_elem`]: trait.Serializer.html#tymethod.start_elem
 pub type AttrRef<'a> = (&'a QualName, &'a str);

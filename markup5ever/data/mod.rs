@@ -6,6 +6,7 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+//! Data that is known at compile-time and hard-coded into the binary.
 use phf::Map;
 
 /// The spec replaces most characters in the ISO-2022 C1 control code range
