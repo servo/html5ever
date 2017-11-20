@@ -170,12 +170,6 @@ impl BufferQueue {
         result
     }
 
-    // Check if the next characters are an ASCII case-insensitive match for
-    // `pat`, which must be non-empty.
-    //
-    // If so, consume them and return Some(true).
-    // If they do not match, return Some(false).
-    // If not enough characters are available to know, return None.
     /// Consume bytes matching the pattern, using a custom comparison function `eq`.
     ///
     /// Returns `Some(true)` if there is a match, `Some(false)` if there is no match, or `None` if

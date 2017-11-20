@@ -18,12 +18,16 @@ use std::io;
 
 //§ serializing-html-fragments
 /// Used as a parameter to `serialize`, telling it if we want to skip the parent.
-/// TODO check: Currently the parameter to `ChildrenOnly` is unused.
 #[derive(Clone, PartialEq)]
 pub enum TraversalScope {
     /// Include the parent node when serializing.
     IncludeNode,
-    /// Only serialize the children of the node.
+    /// Only serialize the children of the node, treating any provided qualified name as the
+    /// parent while serializing.
+    ///
+    /// This is used in the implementation of [`html5ever::serialize::serialize`]
+    ///
+    /// [`html5ever::serialize::serialize`]: ../../html5ever/serialize/fn.serialize.html
     ChildrenOnly(Option<QualName>)
 }
 
