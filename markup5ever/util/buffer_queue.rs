@@ -7,6 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The `BufferQueue` struct and helper types.
+//!
+//! This type is designed for the efficient parsing of string data, especially where many
+//! significant characters are from the ascii range 0-63. This includes, for example, important
+//! characters in xml/html parsing.
+//!
+//! Good and predictable performance is achieved by avoiding allocation where possible (a.k.a. zero
+//! copy).
+//!
+//! [`BufferQueue`]: struct.BufferQueue.html
+
 
 use std::collections::VecDeque;
 
@@ -15,15 +26,24 @@ use tendril::StrTendril;
 pub use self::SetResult::{FromSet, NotFromSet};
 use util::smallcharset::SmallCharSet;
 
-/// Result from `pop_except_from`.
+/// Result from [`pop_except_from`] containing either a character from a [`SmallCharSet`], or a
+/// string buffer of characters not from the set.
+///
+/// [`pop_except_from`]: struct.BufferQueue.html#method.pop_except_from
+/// [`SmallCharSet`]: ../struct.SmallCharSet.html
 #[derive(PartialEq, Eq, Debug)]
 pub enum SetResult {
+    /// A character from the `SmallCharSet`.
     FromSet(char),
+    /// A string buffer containing no characters from the `SmallCharSet`.
     NotFromSet(StrTendril),
 }
 
-/// A queue of owned string buffers, which supports incrementally
-/// consuming characters.
+/// A queue of owned string buffers, which supports incrementally consuming characters.
+///
+/// Internally it uses [`VecDeque`] and has the same complexity properties.
+///
+/// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: VecDeque<StrTendril>,
@@ -31,6 +51,7 @@ pub struct BufferQueue {
 
 impl BufferQueue {
     /// Create an empty BufferQueue.
+    #[inline]
     pub fn new() -> BufferQueue {
         BufferQueue {
             buffers: VecDeque::with_capacity(16),
@@ -38,16 +59,20 @@ impl BufferQueue {
     }
 
     /// Returns whether the queue is empty.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.buffers.is_empty()
     }
 
-    /// Get the tendril at the beginning of the queue.
+    /// Get the buffer at the beginning of the queue.
+    #[inline]
     pub fn pop_front(&mut self) -> Option<StrTendril> {
         self.buffers.pop_front()
     }
 
     /// Add a buffer to the beginning of the queue.
+    ///
+    /// If the buffer is empty, it will be skipped.
     pub fn push_front(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
@@ -56,6 +81,8 @@ impl BufferQueue {
     }
 
     /// Add a buffer to the end of the queue.
+    ///
+    /// If the buffer is empty, it will be skipped.
     pub fn push_back(&mut self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
@@ -63,13 +90,16 @@ impl BufferQueue {
         self.buffers.push_back(buf);
     }
 
-    /// Look at the next available character, if any.
+    /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
-        // Invariant: all buffers in the queue are non-empty.
+        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none(),
+                      "invariant \"all buffers in the queue are non-empty\" failed");
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
-    /// Get the next character, if one is available.
+    /// Get the next character if one is available, removing it from the queue.
+    ///
+    /// This function manages the buffers, removing them as they become empty.
     pub fn next(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
@@ -87,9 +117,32 @@ impl BufferQueue {
     }
 
     /// Pops and returns either a single character from the given set, or
-    /// a `StrTendril` of characters none of which are in the set.  The set
-    /// is represented as a bitmask and so can only contain the first 64
-    /// ASCII characters.
+    /// a buffer of characters none of which are in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate markup5ever;
+    /// # #[macro_use] extern crate tendril;
+    /// # fn main() {
+    /// use markup5ever::buffer_queue::{BufferQueue, SetResult};
+    ///
+    /// let mut queue = BufferQueue::new();
+    /// queue.push_back(format_tendril!(r#"<some_tag attr="text">SomeText</some_tag>"#));
+    /// let set = small_char_set!(b'<' b'>' b' ' b'=' b'"' b'/');
+    /// let tag = format_tendril!("some_tag");
+    /// let attr = format_tendril!("attr");
+    /// let attr_val = format_tendril!("text");
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('<')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(tag)));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet(' ')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(attr)));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('=')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::FromSet('"')));
+    /// assert_eq!(queue.pop_except_from(set), Some(SetResult::NotFromSet(attr_val)));
+    /// // ...
+    /// # }
+    /// ```
     pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
@@ -117,12 +170,29 @@ impl BufferQueue {
         result
     }
 
-    // Check if the next characters are an ASCII case-insensitive match for
-    // `pat`, which must be non-empty.
-    //
-    // If so, consume them and return Some(true).
-    // If they do not match, return Some(false).
-    // If not enough characters are available to know, return None.
+    /// Consume bytes matching the pattern, using a custom comparison function `eq`.
+    ///
+    /// Returns `Some(true)` if there is a match, `Some(false)` if there is no match, or `None` if
+    /// it wasn't possible to know (more data is needed).
+    ///
+    /// The custom comparison function is used elsewhere to compare ascii-case-insensitively.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate markup5ever;
+    /// # #[macro_use] extern crate tendril;
+    /// # fn main() {
+    /// use markup5ever::buffer_queue::{BufferQueue};
+    ///
+    /// let mut queue = BufferQueue::new();
+    /// queue.push_back(format_tendril!("testtext"));
+    /// let test_str = "test";
+    /// assert_eq!(queue.eat("test", |&a, &b| a == b), Some(true));
+    /// assert_eq!(queue.eat("text", |&a, &b| a == b), Some(true));
+    /// assert!(queue.is_empty());
+    /// # }
+    /// ```
     pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;
