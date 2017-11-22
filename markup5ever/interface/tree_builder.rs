@@ -7,10 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-/// Something which can be inserted into the DOM.
-///
-/// Adjacent sibling text nodes are merged into a single node, so
-/// the sink may not want to allocate a `Handle` for each.
+//! This module contains functionality for managing the DOM, including adding/removing nodes.
+//!
+//! It can be used by a parser to create the DOM graph structure in memory.
 
 use std::borrow::Cow;
 use tendril::StrTendril;
@@ -28,11 +27,17 @@ pub enum NodeOrText<Handle> {
     AppendText(StrTendril),
 }
 
-/// A document's quirks mode.
+/// A document's quirks mode, for compatibility with old browsers. See [quirks mode on wikipedia]
+/// for more information.
+///
+/// [quirks mode on wikipedia]: https://en.wikipedia.org/wiki/Quirks_mode
 #[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
 pub enum QuirksMode {
+    /// Full quirks mode
     Quirks,
+    /// Almost standards mode
     LimitedQuirks,
+    /// Standards mode
     NoQuirks,
 }
 
@@ -47,23 +52,59 @@ pub enum NextParserState {
     Continue,
 }
 
+/// Special properties of an element, useful for tagging elements with this information.
 #[derive(Default)]
 pub struct ElementFlags {
     /// A document fragment should be created, associated with the element,
-    /// and returned in TreeSink::get_template_contents
+    /// and returned in TreeSink::get_template_contents.
     ///
-    /// https://html.spec.whatwg.org/multipage/#template-contents
+    /// See [template-contents in the whatwg spec][whatwg template-contents].
+    ///
+    /// [whatwg template-contents]: https://html.spec.whatwg.org/multipage/#template-contents
     pub template: bool,
 
     /// This boolean should be recorded with the element and returned
     /// in TreeSink::is_mathml_annotation_xml_integration_point
     ///
-    /// https://html.spec.whatwg.org/multipage/#html-integration-point
+    /// See [html-integration-point in the whatwg spec][whatwg integration-point].
+    ///
+    /// [whatwg integration-point]: https://html.spec.whatwg.org/multipage/#html-integration-point
     pub mathml_annotation_xml_integration_point: bool,
 
+    // Prevent construction from outside module
     _private: ()
 }
 
+/// A constructor for an element.
+///
+/// # Examples
+///
+/// Create an element like `<div class="test-class-name"></div>`:
+///
+/// ```
+/// # #[macro_use] extern crate markup5ever;
+///
+/// # fn main() {
+/// use markup5ever::{rcdom, QualName, Attribute};
+/// use markup5ever::interface::create_element;
+///
+/// let mut dom = rcdom::RcDom::default();
+/// let el = create_element(&mut dom,
+///     // Namespaces and localnames use precomputed interned strings for
+///     // speed. Use the macros ns! and local_name! to fetch them.
+///     QualName::new(None, ns!(), local_name!("div")),
+///     vec![
+///         Attribute {
+///             name: QualName::new(None, ns!(), local_name!("class")),
+///             // In real scenarios, you would use a view onto an existing
+///             // string if possible to avoid allocation. Tendrils have utilities
+///             // for avoiding allocation & copying wherever possible.
+///             value: String::from("test-class-name").into()
+///         }
+///     ]);
+/// # }
+///
+/// ```
 pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
 where Sink: TreeSink {
     let mut flags = ElementFlags::default();
@@ -84,6 +125,10 @@ where Sink: TreeSink {
     sink.create_element(name, attrs, flags)
 }
 
+/// Methods a parser can use to create the DOM. The DOM provider implements this trait.
+///
+/// Having this as a trait potentially allows multiple implementations of the DOM to be used with
+/// the same parser.
 pub trait TreeSink {
     /// `Handle` is a reference to a DOM node.  The tree builder requires
     /// that a `Handle` implements `Clone` to get another reference to
@@ -93,14 +138,14 @@ pub trait TreeSink {
     /// The overall result of parsing.
     ///
     /// This should default to Self, but default associated types are not stable yet.
-    /// (https://github.com/rust-lang/rust/issues/29661)
+    /// [rust-lang/rust#29661](https://github.com/rust-lang/rust/issues/29661)
     type Output;
 
     /// Consume this sink and return the overall result of parsing.
     ///
     /// TODO:This should default to `fn finish(self) -> Self::Output { self }`,
     /// but default associated types are not stable yet.
-    /// (https://github.com/rust-lang/rust/issues/29661)
+    /// [rust-lang/rust#29661](https://github.com/rust-lang/rust/issues/29661)
     fn finish(self) -> Self::Output;
 
     /// Signal a parse error.
@@ -121,7 +166,9 @@ pub trait TreeSink {
     /// an associated document fragment called the "template contents" should
     /// also be created. Later calls to self.get_template_contents() with that
     /// given element return it.
-    /// https://html.spec.whatwg.org/multipage/#the-template-element
+    /// See [the template element in the whatwg spec][whatwg template].
+    ///
+    /// [whatwg template]: https://html.spec.whatwg.org/multipage/#the-template-element
     fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
                       -> Self::Handle;
 

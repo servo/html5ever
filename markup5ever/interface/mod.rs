@@ -6,6 +6,7 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+//! Types for tag and attribute names, and tree-builder functionality.
 
 use std::fmt;
 use tendril::StrTendril;
@@ -15,7 +16,9 @@ pub use self::tree_builder::{NodeOrText, AppendNode, AppendText, create_element,
 pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
 
-/// https://www.w3.org/TR/REC-xml-names/#dt-expname
+/// An [expanded name], containing the tag and the namespace.
+///
+/// [expanded name]: https://www.w3.org/TR/REC-xml-names/#dt-expname
 #[derive(Copy, Clone, Eq, Hash)]
 pub struct ExpandedName<'a> {
     pub ns: &'a Namespace,
@@ -38,6 +41,24 @@ impl<'a> fmt::Debug for ExpandedName<'a> {
     }
 }
 
+/// Helper to quickly create an expanded name.
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate markup5ever;
+///
+/// # fn main() {
+/// use markup5ever::ExpandedName;
+///
+/// assert_eq!(
+///     expanded_name!("", "div"),
+///     ExpandedName {
+///         ns: &ns!(),
+///         local: &local_name!("div")
+///     }
+/// )
+/// # }
 #[macro_export]
 macro_rules! expanded_name {
     ("", $local: tt) => {
@@ -56,13 +77,11 @@ macro_rules! expanded_name {
 
 pub mod tree_builder;
 
-/// A name with a namespace.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
-/// Fully qualified name. Used to depict names of tags and attributes.
+/// A fully qualified name (with a namespace), used to depict names of tags and attributes.
 ///
-/// Used to differentiate between similar XML fragments. For example:
+/// Namespaces can be used to differentiate between similar XML fragments. For example:
 ///
-/// ```ignore
+/// ```text
 /// // HTML
 /// <table>
 ///   <tr>
@@ -82,7 +101,7 @@ pub mod tree_builder;
 /// Without XML namespaces, we can't use those two fragments in the same document
 /// at the same time. However if we declare a namespace we could instead say:
 ///
-/// ```ignore
+/// ```text
 /// // Furniture XML
 /// <furn:table>
 ///   <furn:name>African Coffee Table</furn:name>
@@ -91,24 +110,30 @@ pub mod tree_builder;
 /// </furn:table>
 /// ```
 ///
-/// and bind it to a different name.
+/// and bind the prefix `furn` to a different namespace.
 ///
 /// For this reason we parse names that contain a colon in the following way:
 ///
-/// ```ignore
+/// ```text
 /// <furn:table>
 ///    |    |
 ///    |    +- local name
 ///    |
 ///  prefix (when resolved gives namespace_url)
 /// ```
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
+    /// The namespace before resolution (e.g. `furn` in `<furn:table>` above).
     pub prefix: Option<Prefix>,
+    /// The namespace after resolution.
     pub ns: Namespace,
+    /// The local name (e.g. `table` in `<furn:table>` above).
     pub local: LocalName,
 }
 
 impl QualName {
+    /// Simple constructor function.
     #[inline]
     pub fn new(prefix: Option<Prefix>, ns: Namespace, local: LocalName) -> QualName {
         QualName {
@@ -118,6 +143,7 @@ impl QualName {
         }
     }
 
+    /// Take a reference as an `ExpandedName`, dropping the unresolved prefix.
     #[inline]
     pub fn expanded(&self) -> ExpandedName {
         ExpandedName {
@@ -127,7 +153,7 @@ impl QualName {
     }
 }
 
-/// A tag attribute.
+/// A tag attribute, e.g. `class="test"` in `<div class="test" ...>`.
 ///
 /// The namespace on the attribute name is almost always ns!("").
 /// The tokenizer creates all attributes this way, but the tree
@@ -135,7 +161,9 @@ impl QualName {
 /// content (MathML, SVG).
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Attribute {
+    /// The name of the attribute (e.g. the `class` in `<div class="test">`)
     pub name: QualName,
+    /// The value of the attribute (e.g. the `"test"` in `<div class="test">`)
     pub value: StrTendril,
 }
 

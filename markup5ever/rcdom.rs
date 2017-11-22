@@ -11,6 +11,30 @@
 //!
 //! This is sufficient as a static parse tree, but don't build a
 //! web browser using it. :)
+//!
+//! A DOM is a [tree structure] with ordered children that can be represented in an XML-like 
+//! format. For example, the following graph
+//!
+//! ```text
+//! div
+//!  +- "text node"
+//!  +- span
+//! ```
+//! in HTML would be serialized as
+//!
+//! ```html
+//! <div>text node<span></span></div>
+//! ```
+//!
+//! See the [document object model article on wikipedia][dom wiki] for more information.
+//!
+//! This implementation stores the information associated with each node once, and then hands out
+//! refs to children. The nodes themselves are reference-counted to avoid copy - you can create a
+//! new ref and then a node will outlive the document. Nodes own their children, but only have weak
+//! references to their parents.
+//!
+//! [tree structure]: https://en.wikipedia.org/wiki/Tree_(data_structure)
+//! [dom wiki]: https://en.wikipedia.org/wiki/Document_Object_Model
 
 use std::cell::{RefCell, Cell};
 use std::collections::HashSet;
@@ -33,10 +57,13 @@ use serialize::TraversalScope::{IncludeNode, ChildrenOnly};
 
 /// The different kinds of nodes in the DOM.
 pub enum NodeData {
-    /// The `Document` itself.
+    /// The `Document` itself - the root node of a HTML document.
     Document,
 
-    /// A `DOCTYPE` with name, public id, and system id.
+    /// A `DOCTYPE` with name, public id, and system id. See 
+    /// [document type declaration on wikipedia][dtd wiki].
+    ///
+    /// [dtd wiki]: https://en.wikipedia.org/wiki/Document_type_declaration
     Doctype {
         name: StrTendril,
         public_id: StrTendril,
@@ -58,11 +85,14 @@ pub enum NodeData {
         name: QualName,
         attrs: RefCell<Vec<Attribute>>,
 
-        /// For HTML <template> elements, the template contents
-        /// https://html.spec.whatwg.org/multipage/#template-contents
+        /// For HTML \<template\> elements, the [template contents].
+        ///
+        /// [template contents]: https://html.spec.whatwg.org/multipage/#template-contents
         template_contents: Option<Handle>,
 
-        /// https://html.spec.whatwg.org/multipage/#html-integration-point
+        /// Whether the node is a [HTML integration point].
+        ///
+        /// [HTML integration point]: https://html.spec.whatwg.org/multipage/#html-integration-point
         mathml_annotation_xml_integration_point: bool,
     },
 
