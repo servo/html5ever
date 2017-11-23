@@ -143,7 +143,7 @@ impl QualName {
         }
     }
 
-    /// Take a reference as an `ExpandedName`, dropping the unresolved prefix.
+    /// Take a reference of `self` as an `ExpandedName`, dropping the unresolved prefix.
     #[inline]
     pub fn expanded(&self) -> ExpandedName {
         ExpandedName {

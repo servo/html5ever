@@ -49,7 +49,7 @@ fn main() {
         local_names_atom.atom(&local_name.to_ascii_lowercase());
     }
     local_names_atom
-        .with_macro_doc("Takes a local name as a string and returns its key in the a string cache.")
+        .with_macro_doc("Takes a local name as a string and returns its key in the string cache.")
         .write_to(&mut generated).unwrap();
 
     // Create a string cache for namespace prefixes
@@ -66,7 +66,6 @@ fn main() {
         .write_to(&mut generated)
         .unwrap();
 
-    // T
     writeln!(generated, r#"
         /// Maps the input of `namespace_prefix!` to the output of `namespace_url!`.
         #[macro_export] macro_rules! ns {{
