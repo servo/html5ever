@@ -697,6 +697,7 @@ overline-thickness
 p
 panose-1
 param
+picture
 partialdiff
 path
 pathLength
