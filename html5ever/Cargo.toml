@@ -30,9 +30,6 @@ name = "serializer"
 name = "tokenizer"
 harness = false
 
-[features]
-heap_size = ["markup5ever/heap_size"]
-
 [dependencies]
 log = "0.3"
 mac = "0.1"

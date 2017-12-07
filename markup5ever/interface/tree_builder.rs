@@ -31,7 +31,6 @@ pub enum NodeOrText<Handle> {
 
 /// A document's quirks mode.
 #[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,

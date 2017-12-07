@@ -58,7 +58,6 @@ pub mod tree_builder;
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 /// Fully qualified name. Used to depict names of tags and attributes.
 ///
 /// Used to differentiate between similar XML fragments. For example:

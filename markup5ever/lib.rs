@@ -7,8 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[cfg(feature = "heap_size")] #[macro_use] extern crate heapsize_derive;
-#[cfg(feature = "heap_size")] extern crate heapsize;
 extern crate string_cache;
 extern crate phf;
 pub extern crate tendril;
