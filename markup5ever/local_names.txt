@@ -697,7 +697,6 @@ overline-thickness
 p
 panose-1
 param
-picture
 partialdiff
 path
 pathLength
@@ -706,6 +705,7 @@ patternContentUnits
 patternTransform
 patternUnits
 pi
+picture
 piece
 piecewise
 ping
