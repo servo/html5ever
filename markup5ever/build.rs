@@ -11,7 +11,6 @@ extern crate string_cache_codegen;
 extern crate phf_codegen;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde;
 extern crate serde_json;
 
 use std::collections::HashMap;
