@@ -574,7 +574,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn stop_parsing(&mut self) -> ProcessResult<Handle> {
-        warn!("stop_parsing not implemented, full speed ahead!");
         Done
     }
 
