@@ -821,6 +821,7 @@ sinh
 size
 sizes
 slope
+slot
 small
 solidcolor
 source
