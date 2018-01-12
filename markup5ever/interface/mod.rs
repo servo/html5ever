@@ -41,13 +41,13 @@ impl<'a> fmt::Debug for ExpandedName<'a> {
 #[macro_export]
 macro_rules! expanded_name {
     ("", $local: tt) => {
-        ExpandedName {
+        $crate::interface::ExpandedName {
             ns: &ns!(),
             local: &local_name!($local),
         }
     };
     ($ns: ident $local: tt) => {
-        ExpandedName {
+        $crate::interface::ExpandedName {
             ns: &ns!($ns),
             local: &local_name!($local),
         }
