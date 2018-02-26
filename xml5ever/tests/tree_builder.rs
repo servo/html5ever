@@ -8,7 +8,7 @@
 // except according to those terms.
 
 extern crate rustc_serialize;
-extern crate test;
+extern crate rustc_test as test;
 #[macro_use] extern crate xml5ever;
 
 use std::collections::{HashSet, HashMap};

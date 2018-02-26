@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate test;
+extern crate rustc_test as test;
 #[macro_use] extern crate html5ever;
 
 mod foreach_html5lib_test;

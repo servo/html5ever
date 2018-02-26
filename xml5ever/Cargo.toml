@@ -27,4 +27,4 @@ markup5ever = {version = "0.7", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-serialize = "0.3.15"
-rustc-test = "0.2"
+rustc-test = "0.3"
