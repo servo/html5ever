@@ -19,7 +19,7 @@ use self::states::{Escaped, DoubleEscaped};
 use self::states::{Unquoted, SingleQuoted, DoubleQuoted};
 use self::states::{DoctypeIdKind, Public, System};
 
-use self::char_ref::{CharRef, CharRefTokenizer};
+use self::char_ref::{CharRef, CharRefTokenizer, SendableCharRefTokenizer};
 
 use util::str::lower_ascii_letter;
 
@@ -30,8 +30,11 @@ use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 
 use {LocalName, QualName, Attribute, SmallCharSet};
-use tendril::StrTendril;
+use tendril::{SendTendril, StrTendril};
+use tendril::fmt::UTF8;
 pub use buffer_queue::{BufferQueue, SetResult, FromSet, NotFromSet};
+
+use super::Sendable;
 
 pub mod states;
 mod interface;
@@ -93,6 +96,38 @@ impl Default for TokenizerOpts {
             last_start_tag_name: None,
         }
     }
+}
+
+/// Similar to Tokenizer, except this type uses SendTendril instead of StrTendril.
+pub struct SendableTokenizer<Sink> {
+    opts: TokenizerOpts,
+    sink: Sink,
+    state: states::State,
+    at_eof: bool,
+    char_ref_tokenizer: Option<SendableCharRefTokenizer>,
+    current_char: char,
+    reconsume: bool,
+    ignore_lf: bool,
+    discard_bom: bool,
+    current_tag_kind: TagKind,
+    current_tag_name: SendTendril<UTF8>,
+    current_tag_self_closing: bool,
+    current_tag_attrs: Vec<(QualName, SendTendril<UTF8>)>,
+    current_attr_name: SendTendril<UTF8>,
+    current_attr_value: SendTendril<UTF8>,
+    current_comment: SendTendril<UTF8>,
+
+    /// current doctype's fields
+    curr_doctype_name: Option<SendTendril<UTF8>>,
+    curr_doctype_public_id: Option<SendTendril<UTF8>>,
+    curr_doctype_system_id: Option<SendTendril<UTF8>>,
+    curr_doctype_force_quirks: bool,
+
+    last_start_tag_name: Option<LocalName>,
+    temp_buf: SendTendril<UTF8>,
+    state_profile: BTreeMap<states::State, u64>,
+    time_in_sink: u64,
+    current_line: u64,
 }
 
 /// The HTML tokenizer.
@@ -557,6 +592,97 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
         self.process_token_and_continue(ParseError(error));
+    }
+}
+
+impl<Sink: TokenSink + Sendable> Sendable for Tokenizer<Sink>
+{
+    type SendableSelf = SendableTokenizer<<Sink as Sendable>::SendableSelf>;
+
+    /// Returns an instance containing the necessary information required to
+    /// create a Tokenizer with the exact same state. Instances of this
+    /// type can be sent between threads.
+    fn get_sendable(&self) -> Self::SendableSelf {
+        let mut sendable_current_tag_attrs = vec!();
+        let mut current_tag_attrs = self.current_tag_attrs.iter();
+        while let Some(attr) = current_tag_attrs.next() {
+            sendable_current_tag_attrs.push((attr.name.clone(), SendTendril::from(attr.value.clone())));
+        }
+
+        SendableTokenizer {
+            opts: self.opts.clone(),
+            sink: self.sink.get_sendable(),
+            state: self.state,
+            char_ref_tokenizer: self.char_ref_tokenizer.clone().map(|tok| tok.get_sendable()),
+            at_eof: self.at_eof,
+            current_char: self.current_char,
+            reconsume: self.reconsume,
+            ignore_lf: self.ignore_lf,
+            discard_bom: self.discard_bom,
+            current_tag_kind: self.current_tag_kind,
+            current_tag_name: SendTendril::from(self.current_tag_name.clone()),
+            current_tag_self_closing: self.current_tag_self_closing,
+            current_tag_attrs: sendable_current_tag_attrs,
+            current_attr_name: SendTendril::from(self.current_attr_name.clone()),
+            current_attr_value: SendTendril::from(self.current_attr_value.clone()),
+            current_comment: SendTendril::from(self.current_comment.clone()),
+
+            curr_doctype_name: self.current_doctype.name.clone().map(|s| SendTendril::from(s)),
+            curr_doctype_public_id: self.current_doctype.public_id.clone().map(|s| SendTendril::from(s)),
+            curr_doctype_system_id: self.current_doctype.system_id.clone().map(|s| SendTendril::from(s)),
+            curr_doctype_force_quirks: self.current_doctype.force_quirks,
+
+            last_start_tag_name: self.last_start_tag_name.clone(),
+            temp_buf: SendTendril::from(self.temp_buf.clone()),
+            state_profile: self.state_profile.clone(),
+            time_in_sink: self.time_in_sink,
+            current_line: self.current_line
+        }
+    }
+
+    fn get_self_from_sendable(sendable_self: Self::SendableSelf) -> Self {
+        let mut current_tag_attrs = vec!();
+        let mut sendable_current_tag_attrs = sendable_self.current_tag_attrs.iter();
+        while let Some(attr) = sendable_current_tag_attrs.next() {
+            let (name, value) = attr.clone();
+            current_tag_attrs.push(Attribute {
+                name: name,
+                value: StrTendril::from(value),
+            });
+        }
+
+        Tokenizer {
+            opts: sendable_self.opts,
+            sink: Sink::get_self_from_sendable(sendable_self.sink),
+            state: sendable_self.state,
+            char_ref_tokenizer: sendable_self.char_ref_tokenizer
+                                .map(|tok| Box::new(CharRefTokenizer::get_self_from_sendable(tok))),
+            at_eof: sendable_self.at_eof,
+            current_char: sendable_self.current_char,
+            reconsume: sendable_self.reconsume,
+            ignore_lf: sendable_self.ignore_lf,
+            discard_bom: sendable_self.discard_bom,
+            current_tag_kind: sendable_self.current_tag_kind,
+            current_tag_name: StrTendril::from(sendable_self.current_tag_name),
+            current_tag_self_closing: sendable_self.current_tag_self_closing,
+            current_tag_attrs: current_tag_attrs,
+            current_attr_name: StrTendril::from(sendable_self.current_attr_name),
+            current_attr_value: StrTendril::from(sendable_self.current_attr_value),
+            current_comment: StrTendril::from(sendable_self.current_comment),
+
+            current_doctype: Doctype {
+                name: sendable_self.curr_doctype_name.map(|s| StrTendril::from(s)),
+                public_id: sendable_self.curr_doctype_public_id.map(|s| StrTendril::from(s)),
+                system_id: sendable_self.curr_doctype_system_id.map(|s| StrTendril::from(s)),
+                force_quirks: sendable_self.curr_doctype_force_quirks,
+            },
+
+            last_start_tag_name: sendable_self.last_start_tag_name,
+            temp_buf: StrTendril::from(sendable_self.temp_buf),
+            state_profile: sendable_self.state_profile,
+            time_in_sink: sendable_self.time_in_sink,
+            current_line: sendable_self.current_line
+        }
     }
 }
 //§ END

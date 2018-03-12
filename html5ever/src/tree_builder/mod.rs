@@ -18,7 +18,8 @@ pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFl
 use self::types::*;
 
 use {ExpandedName, QualName, LocalName, Namespace};
-use tendril::StrTendril;
+use tendril::{SendTendril, StrTendril};
+use tendril::fmt::UTF8;
 
 use tokenizer;
 use tokenizer::{Doctype, StartTag, Tag, EndTag, TokenSink, TokenSinkResult};
@@ -38,6 +39,8 @@ use tokenizer::states::{RawData, RawKind};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use util::str::to_escaped_string;
+
+use super::Sendable;
 
 pub use self::PushFlag::*;
 
@@ -82,6 +85,27 @@ impl Default for TreeBuilderOpts {
             quirks_mode: NoQuirks,
         }
     }
+}
+
+/// Similar to TreeBuilder, except this type uses SendTendril instead of StrTendril.
+pub struct SendableTreeBuilder<Handle, Sink> {
+    opts: TreeBuilderOpts,
+    sink: Sink,
+    mode: InsertionMode,
+    orig_mode: Option<InsertionMode>,
+    template_modes: Vec<InsertionMode>,
+    pending_table_text: Vec<(SplitStatus, SendTendril<UTF8>)>,
+    quirks_mode: QuirksMode,
+    doc_handle: Handle,
+    open_elems: Vec<Handle>,
+    active_formatting: Vec<SendableFormatEntry<Handle>>,
+    head_elem: Option<Handle>,
+    form_elem: Option<Handle>,
+    frameset_ok: bool,
+    ignore_lf: bool,
+    foster_parenting: bool,
+    context_elem: Option<Handle>,
+    current_line: u64,
 }
 
 /// The HTML tree builder.
@@ -404,6 +428,132 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                                                                   &element,
                                                                   &prev_element,
                                                                   child),
+        }
+    }
+}
+
+impl<Handle, Sink> Sendable for TreeBuilder<Handle, Sink>
+    where Handle: Clone + Send,
+          Sink: TreeSink<Handle=Handle> + Sendable,
+{
+    type SendableSelf = SendableTreeBuilder<Handle, <Sink as Sendable>::SendableSelf>;
+
+    /// Returns an instance containing the necessary information required to
+    /// create a TreeBuilder with the exact same state. Instances of this
+    /// type can be sent between threads.
+    fn get_sendable(&self) -> Self::SendableSelf {
+        let mut sendable_pending_table_text = vec!();
+        let mut pending_table_text = self.pending_table_text.iter();
+        while let Some(elem) = pending_table_text.next() {
+            let (split_status, ref str) = *elem;
+            sendable_pending_table_text.push((split_status, SendTendril::from(str.clone())));
+        }
+
+        let mut sendable_active_formatting = vec!();
+        let mut active_formatting = self.active_formatting.iter();
+        while let Some(elem) = active_formatting.next() {
+            let sendable_elem = match *elem {
+                FormatEntry::Element(ref handle, ref tag) => {
+                    let mut sendable_attrs = vec!();
+                    let mut attrs = tag.attrs.iter();
+                    while let Some(ref attr) = attrs.next() {
+                        sendable_attrs.push((attr.name.clone(), SendTendril::from(attr.value.clone())));
+                    }
+                    SendableFormatEntry::Element {
+                        handle: handle.clone(),
+                        tag_kind: tag.kind,
+                        tag_name: tag.name.clone(),
+                        tag_self_closing: tag.self_closing,
+                        tag_attrs: sendable_attrs
+                    }
+                },
+                FormatEntry::Marker => SendableFormatEntry::Marker,
+            };
+            sendable_active_formatting.push(sendable_elem);
+        }
+
+        SendableTreeBuilder {
+            opts: self.opts,
+            sink: self.sink.get_sendable(),
+            mode: self.mode,
+            orig_mode: self.orig_mode,
+            template_modes: self.template_modes.clone(),
+            pending_table_text: sendable_pending_table_text,
+            quirks_mode: self.quirks_mode,
+            doc_handle: self.doc_handle.clone(),
+            open_elems: self.open_elems.clone(),
+            active_formatting: sendable_active_formatting,
+            head_elem: self.head_elem.clone(),
+            form_elem: self.form_elem.clone(),
+            frameset_ok: self.frameset_ok,
+            ignore_lf: self.ignore_lf,
+            foster_parenting: self.foster_parenting,
+            context_elem: self.context_elem.clone(),
+            current_line: self.current_line
+        }
+    }
+
+    fn get_self_from_sendable(sendable_self: Self::SendableSelf) -> Self {
+        let mut pending_table_text = vec!();
+        let mut sendable_pending_table_text = sendable_self.pending_table_text.iter();
+        while let Some(elem) = sendable_pending_table_text.next() {
+            let (split_status, str_tendril) = elem.clone();
+            pending_table_text.push((split_status, StrTendril::from(str_tendril)));
+        }
+
+        let mut active_formatting = vec!();
+        let mut sendable_active_formatting = sendable_self.active_formatting.iter();
+        while let Some(sendable_elem) = sendable_active_formatting.next() {
+            let elem = match sendable_elem.clone() {
+                SendableFormatEntry::Element {
+                    handle,
+                    tag_kind,
+                    tag_name,
+                    tag_self_closing,
+                    tag_attrs,
+                } => {
+                    let mut attrs = vec!();
+                    let mut tag_attrs = tag_attrs.iter();
+                    while let Some(attr) = tag_attrs.next() {
+                        let (name, value) = attr.clone();
+                        attrs.push(Attribute {
+                            name: name,
+                            value: StrTendril::from(value),
+                        });
+                    }
+                    FormatEntry::Element(
+                        handle,
+                        Tag {
+                            kind: tag_kind,
+                            name: tag_name,
+                            self_closing: tag_self_closing,
+                            attrs: attrs,
+                        }
+                    )
+                },
+                SendableFormatEntry::Marker => FormatEntry::Marker,
+            };
+            active_formatting.push(elem);
+        }
+
+        TreeBuilder {
+            opts: sendable_self.opts,
+            sink: Sink::get_self_from_sendable(sendable_self.sink),
+            mode: sendable_self.mode,
+            orig_mode: sendable_self.orig_mode,
+            template_modes: sendable_self.template_modes,
+            pending_table_text: pending_table_text,
+            quirks_mode: sendable_self.quirks_mode,
+            doc_handle: sendable_self.doc_handle,
+            open_elems: sendable_self.open_elems,
+            active_formatting: active_formatting,
+            head_elem: sendable_self.head_elem,
+            form_elem: sendable_self.form_elem,
+            frameset_ok: sendable_self.frameset_ok,
+            ignore_lf: sendable_self.ignore_lf,
+            foster_parenting: sendable_self.foster_parenting,
+            context_elem: sendable_self.context_elem,
+            current_line: sendable_self.current_line
         }
     }
 }
