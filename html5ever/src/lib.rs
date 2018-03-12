@@ -29,6 +29,12 @@ mod util {
     pub mod str;
 }
 
+pub trait Sendable {
+    type SendableSelf: Send;
+    fn get_sendable(&self) -> Self::SendableSelf;
+    fn get_self_from_sendable(sendable: Self::SendableSelf) -> Self;
+}
+
 pub mod serialize;
 pub mod tokenizer;
 pub mod tree_builder;
