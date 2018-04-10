@@ -10,7 +10,6 @@
 use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
 use tendril::StrTendril;
 use tokenizer::Doctype;
-#[allow(unused_imports)] use std::ascii::AsciiExt;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
 static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
