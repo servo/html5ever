@@ -23,7 +23,6 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use util::str::lower_ascii_letter;
 
-#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::mem::replace;
 use std::default::Default;
 use std::borrow::Cow::{self, Borrowed};

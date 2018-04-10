@@ -14,7 +14,6 @@ extern crate serde_derive;
 extern crate serde_json;
 
 use std::collections::HashMap;
-#[allow(unused_imports)] use std::ascii::AsciiExt;
 use std::env;
 use std::fs::File;
 use std::io::{Write, BufWriter, BufReader, BufRead};
