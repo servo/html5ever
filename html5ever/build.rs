@@ -13,6 +13,7 @@ extern crate proc_macro2;
 
 use std::env;
 use std::path::Path;
+use std::thread::Builder;
 
 #[path = "macros/match_token.rs"]
 mod match_token;
@@ -20,10 +21,14 @@ mod match_token;
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let rules_rs = Path::new(&manifest_dir).join("src/tree_builder/rules.rs");
-    match_token::expand(
-        &rules_rs,
-        &Path::new(&env::var("OUT_DIR").unwrap()).join("rules.rs"));
+    let input = Path::new(&manifest_dir).join("src/tree_builder/rules.rs");
+    let output = Path::new(&env::var("OUT_DIR").unwrap()).join("rules.rs");
+    println!("cargo:rerun-if-changed={}", input.display());
 
-    println!("cargo:rerun-if-changed={}", rules_rs.display());
+    // We have stack overflows on Servo's CI.
+    let handle = Builder::new().stack_size(128 * 1024 * 1024).spawn(move || {
+        match_token::expand(&input, &output);
+    }).unwrap();
+
+    handle.join().unwrap();
 }
