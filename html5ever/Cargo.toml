@@ -1,7 +1,7 @@
 [package]
 
 name = "html5ever"
-version = "0.22.3"
+version = "0.22.4"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -41,6 +41,6 @@ rustc-test = "0.3"
 typed-arena = "1.3.0"
 
 [build-dependencies]
-quote = "0.5"
-syn = { version = "0.13", features = ["extra-traits", "full", "fold"] }
-proc-macro2 = "0.3"
+quote = "0.6"
+syn = { version = "0.14", features = ["extra-traits", "full", "fold"] }
+proc-macro2 = "0.4"

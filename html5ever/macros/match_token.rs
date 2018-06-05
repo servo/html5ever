@@ -99,7 +99,7 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
-use quote::{ToTokens, Tokens};
+use quote::ToTokens;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -114,7 +114,7 @@ pub fn expand(from: &Path, to: &Path) {
     let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
     let mut m = MatchTokenParser {};
     let ast = m.fold_file(ast);
-    let code = ast.into_tokens().to_string().replace("{ ", "{\n").replace(" }", "\n}");
+    let code = ast.into_token_stream().to_string().replace("{ ", "{\n").replace(" }", "\n}");
     File::create(to).unwrap().write_all(code.as_bytes()).unwrap();
 }
 
@@ -238,7 +238,7 @@ pub fn expand_match_token(body: &TokenStream) -> syn::Expr {
     syn::parse2(ast.into()).unwrap()
 }
 
-fn expand_match_token_macro(match_token: MatchToken) -> Tokens {
+fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
     let mut arms = match_token.arms;
     let to_be_matched = match_token.expr;
     // Handle the last arm specially at the end.
@@ -249,11 +249,11 @@ fn expand_match_token_macro(match_token: MatchToken) -> Tokens {
 
     // Case arms for wildcard matching.  We collect these and
     // emit them later.
-    let mut wildcards_patterns: Vec<Tokens> = Vec::new();
+    let mut wildcards_patterns: Vec<TokenStream> = Vec::new();
     let mut wildcards_expressions: Vec<syn::Expr> = Vec::new();
 
     // Tags excluded (by an 'else' RHS) from wildcard matching.
-    let mut wild_excluded_patterns: Vec<Tokens> = Vec::new();
+    let mut wild_excluded_patterns: Vec<TokenStream> = Vec::new();
 
     let mut arms_code = Vec::new();
 
@@ -284,7 +284,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> Tokens {
                     if tag.name.is_none() {
                         panic!("'else' may not appear with a wildcard tag");
                     }
-                    wild_excluded_patterns.push(make_tag_pattern(&Tokens::new(), tag));
+                    wild_excluded_patterns.push(make_tag_pattern(&TokenStream::new(), tag));
                 }
             }
 
@@ -422,7 +422,7 @@ impl Fold for MatchTokenParser {
     }
 }
 
-fn make_tag_pattern(binding: &Tokens, tag: Tag) -> Tokens {
+fn make_tag_pattern(binding: &TokenStream, tag: Tag) -> TokenStream {
     let kind = match tag.kind {
         TagKind::StartTag => quote!(::tokenizer::StartTag),
         TagKind::EndTag => quote!(::tokenizer::EndTag),
