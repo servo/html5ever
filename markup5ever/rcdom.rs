@@ -40,6 +40,7 @@ use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::default::Default;
+use std::fmt;
 use std::io;
 use std::mem;
 use std::rc::{Rc, Weak};
@@ -56,6 +57,7 @@ use ExpandedName;
 use QualName;
 
 /// The different kinds of nodes in the DOM.
+#[derive(Debug)]
 pub enum NodeData {
     /// The `Document` itself - the root node of a HTML document.
     Document,
@@ -117,6 +119,15 @@ impl Node {
             parent: Cell::new(None),
             children: RefCell::new(Vec::new()),
         })
+    }
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Node")
+            .field("data", &self.data)
+            .field("children", &self.children)
+            .finish()
     }
 }
 
