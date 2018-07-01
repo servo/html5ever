@@ -4,9 +4,3 @@ members = [
     "html5ever",
     "xml5ever"
 ]
-
-[profile.dev]
-debug = false
-
-[profile.test]
-debug = false
