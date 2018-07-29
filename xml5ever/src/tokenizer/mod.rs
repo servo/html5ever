@@ -404,7 +404,7 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
             StartTag | EmptyTag => {},
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
-                    self.emit_error(Borrowed("Attribtes on an end tag"));
+                    self.emit_error(Borrowed("Attributes on an end tag"));
                 }
             },
             ShortTag => {
