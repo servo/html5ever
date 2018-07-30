@@ -340,6 +340,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 }
                 Script(node) => {
                     assert!(more_tokens.is_empty());
+                    self.sink.complete_script(&node);
                     return tokenizer::TokenSinkResult::Script(node);
                 }
                 ToPlaintext => {
