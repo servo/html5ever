@@ -135,6 +135,7 @@ macro_rules! test_no_parse {
 
 
 test!(empty, r#""#);
+test!(fuzz, "<a a=\r\n", "");
 test!(smoke_test, r#"<p><i>Hello</i>, World!</p>"#);
 
 test!(misnest, r#"<p><i>Hello!</p>, World!</i>"#,

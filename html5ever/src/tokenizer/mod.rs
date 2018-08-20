@@ -550,8 +550,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn discard_char(&mut self, input: &mut BufferQueue) {
-        let c = self.get_char(input);
-        assert!(c.is_some());
+        self.get_char(input);
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
