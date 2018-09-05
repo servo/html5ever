@@ -37,6 +37,7 @@ use tokenizer::states::{RawData, RawKind};
 use tree_builder::types::*;
 use tree_builder::tag_sets::*;
 use util::str::to_escaped_string;
+use log::Level;
 
 pub use self::PushFlag::*;
 
@@ -293,8 +294,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
-        use util::str::to_escaped_string;
-        debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        if log_enabled!(Level::Debug) {
+            debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+        }
     }
 
     fn process_to_completion(&mut self, mut token: Token) -> TokenSinkResult<Handle> {
