@@ -567,6 +567,7 @@ nobr
 noembed
 noframes
 nohref
+nonce
 none
 noresize
 noscript
