@@ -46,14 +46,14 @@ impl Default for SerializeOpts {
 }
 
 #[derive(Default)]
-struct ElemInfo {
+pub struct ElemInfo {
     html_name: Option<LocalName>,
     ignore_children: bool,
     processed_first_child: bool,
 }
 
-struct HtmlSerializer<Wr: Write> {
-    writer: Wr,
+pub struct HtmlSerializer<Wr: Write> {
+    pub writer: Wr,
     opts: SerializeOpts,
     stack: Vec<ElemInfo>,
 }
@@ -71,7 +71,7 @@ fn tagname(name: &QualName) -> LocalName {
 }
 
 impl<Wr: Write> HtmlSerializer<Wr> {
-    fn new(writer: Wr, opts: SerializeOpts) -> Self {
+    pub fn new(writer: Wr, opts: SerializeOpts) -> Self {
         let html_name = match opts.traversal_scope {
             TraversalScope::IncludeNode | TraversalScope::ChildrenOnly(None) => None,
             TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n))
