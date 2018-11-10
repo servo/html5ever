@@ -8,6 +8,3 @@ rust:
     - beta
     - stable
 script: scripts/travis-build.sh
-
-notifications:
-  webhooks: http://build.servo.org:54856/travis

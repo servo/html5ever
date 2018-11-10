@@ -16,7 +16,7 @@ html5ever is written in [Rust][], so it avoids the most notorious security probl
 
 ## Getting started in Rust
 
-Add html5ever as a dependency in your [`Cargo.toml`](http://crates.io/) file:
+Add html5ever as a dependency in your [`Cargo.toml`](https://crates.io/) file:
 
 ```toml
 [dependencies]
@@ -51,9 +51,9 @@ The code is cross-referenced with the WHATWG syntax spec, and eventually we will
 
 html5ever builds against the official stable releases of Rust, though some optimizations are only supported on nightly releases.
 
-[API documentation]: http://doc.servo.org/html5ever/index.html
+[API documentation]: https://doc.servo.org/html5ever/index.html
 [Servo]: https://github.com/servo/servo
-[Rust]: http://www.rust-lang.org/
+[Rust]: https://www.rust-lang.org/
 [in the bug tracker]: https://github.com/servo/html5ever/issues?q=is%3Aopen+is%3Aissue+label%3Aweb-compat
 [html5lib-tests]: https://github.com/html5lib/html5lib-tests
 [`examples/html2html.rs`]: https://github.com/servo/html5ever/blob/master/html5ever/examples/html2html.rs
