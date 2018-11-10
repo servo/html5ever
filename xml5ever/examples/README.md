@@ -64,7 +64,7 @@ To make `SimpleTokenPrinter` a [`TokenSink`](https://ygg01.github.io/docs/xml5ev
 ```
 
 Now, we need some input to process. For input we'll use `stdin`. However, xml5ever `tokenize_to` method only takes `StrTendril`. So we need to construct a
-[`ByteTendril`](http://doc.servo.org/tendril/type.ByteTendril.html) using `ByteTendril::new()`, then read the `stdin` using [`read_to_tendril`](http://doc.servo.org/tendril/trait.ReadExt.html#tymethod.read_to_tendril) extension.
+[`ByteTendril`](https://doc.servo.org/tendril/type.ByteTendril.html) using `ByteTendril::new()`, then read the `stdin` using [`read_to_tendril`](https://doc.servo.org/tendril/trait.ReadExt.html#tymethod.read_to_tendril) extension.
 
 Once that is set, to make `SimpleTokenPrinter` parse the input, call,
 `tokenize_to` with it as the first parameter, input wrapped in Option for second parameter and XmlToke.
