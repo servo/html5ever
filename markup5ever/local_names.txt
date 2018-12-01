@@ -556,6 +556,7 @@ multicol
 multiple
 munder
 munderover
+muted
 name
 nargs
 naturalnumbers
