@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate rand;
 extern crate rustc_serialize;
 extern crate rustc_test as test;
 #[macro_use] extern crate html5ever;
@@ -22,7 +23,6 @@ use std::path::Path;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use rustc_serialize::json::Json;
 use std::collections::BTreeMap;
-use std::borrow::Cow::Borrowed;
 
 use html5ever::{LocalName, QualName};
 use html5ever::tokenizer::{Doctype, StartTag, EndTag, Tag};
@@ -30,7 +30,7 @@ use html5ever::tokenizer::{Token, DoctypeToken, TagToken, CommentToken};
 use html5ever::tokenizer::{CharacterTokens, NullCharacterToken, EOFToken, ParseError};
 use html5ever::tokenizer::{TokenSink, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tokenizer::{BufferQueue};
-use html5ever::tokenizer::states::{Plaintext, RawData, Rcdata, Rawtext};
+use html5ever::tokenizer::states::{CdataSection, Plaintext, RawData, Rawtext, Rcdata, ScriptData};
 use html5ever::tendril::*;
 use html5ever::{Attribute};
 
@@ -42,7 +42,9 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
         return vec!(vec!(s.to_tendril()));
     }
 
-    let mut points: Vec<usize> = s.char_indices().map(|(n,_)| n).collect();
+    let mut points: Vec<usize> =
+        rand::seq::sample_iter(&mut rand::thread_rng(), s.char_indices().map(|(n,_)| n), 200)
+            .unwrap_or_else(|_| s.char_indices().map(|(n,_)| n).collect());
     points.push(s.len());
 
     // do this with iterators?
@@ -107,7 +109,6 @@ impl TokenSink for TokenLogger {
             }
 
             ParseError(_) => if self.exact_errors {
-                self.push(ParseError(Borrowed("")));
             },
 
             TagToken(mut t) => {
@@ -207,26 +208,24 @@ impl JsonExt for Json {
 // Parse a JSON object (other than "ParseError") to a token.
 fn json_to_token(js: &Json) -> Token {
     let parts = js.get_list();
-    // Collect refs here so we don't have to use "ref" in all the patterns below.
-    let args: Vec<&Json> = parts[1..].iter().collect();
     match &*parts[0].get_str() {
         "DOCTYPE" => DoctypeToken(Doctype {
-            name: args[0].get_nullable_tendril(),
-            public_id: args[1].get_nullable_tendril(),
-            system_id: args[2].get_nullable_tendril(),
-            force_quirks: !args[3].get_bool(),
+            name: parts[1].get_nullable_tendril(),
+            public_id: parts[2].get_nullable_tendril(),
+            system_id: parts[3].get_nullable_tendril(),
+            force_quirks: !parts[4].get_bool(),
         }),
 
         "StartTag" => TagToken(Tag {
             kind: StartTag,
-            name: LocalName::from(&*args[0].get_str()),
-            attrs: args[1].get_obj().iter().map(|(k,v)| {
+            name: LocalName::from(&*parts[1].get_str()),
+            attrs: parts[2].get_obj().iter().map(|(k,v)| {
                 Attribute {
                     name: QualName::new(None, ns!(), LocalName::from(&**k)),
                     value: v.get_tendril()
                 }
             }).collect(),
-            self_closing: match args.get(2) {
+            self_closing: match parts.get(3) {
                 Some(b) => b.get_bool(),
                 None => false,
             }
@@ -234,14 +233,14 @@ fn json_to_token(js: &Json) -> Token {
 
         "EndTag" => TagToken(Tag {
             kind: EndTag,
-            name: LocalName::from(&*args[0].get_str()),
+            name: LocalName::from(&*parts[1].get_str()),
             attrs: vec!(),
             self_closing: false
         }),
 
-        "Comment" => CommentToken(args[0].get_tendril()),
+        "Comment" => CommentToken(parts[1].get_tendril()),
 
-        "Character" => CharacterTokens(args[0].get_tendril()),
+        "Character" => CharacterTokens(parts[1].get_tendril()),
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
@@ -256,11 +255,15 @@ fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
-        assert_eq!(match *tok {
-            Json::String(ref s)
-                if &s[..] == "ParseError" => sink.process_token(ParseError(Borrowed("")), 0),
-            _ => sink.process_token(json_to_token(tok), 0),
-        }, TokenSinkResult::Continue);
+        match *tok {
+            Json::String(ref s) if s == "ParseError" => {},
+            _ => {
+                assert_eq!(
+                    sink.process_token(json_to_token(tok), 0),
+                    TokenSinkResult::Continue
+                );
+            }
+        }
     }
     sink.get_tokens()
 }
@@ -326,7 +329,7 @@ fn mk_test(desc: String, input: String, expect: Json, opts: TokenizerOpts)
                 let expect_toks = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect_toks {
                     panic!("\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect);
+                        input, output, expect_toks);
                 }
             }
         })),
@@ -357,9 +360,11 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
     let state_overrides = match obj.get(&"initialStates".to_string()) {
         Some(&Json::Array(ref xs)) => xs.iter().map(|s|
             Some(match &s.get_str()[..] {
+                "CDATA section state" => CdataSection,
                 "PLAINTEXT state" => Plaintext,
-                "RAWTEXT state"   => RawData(Rawtext),
-                "RCDATA state"    => RawData(Rcdata),
+                "RAWTEXT state" => RawData(Rawtext),
+                "RCDATA state" => RawData(Rcdata),
+                "Script data state" => RawData(ScriptData),
                 s => panic!("don't know state {}", s),
             })).collect(),
         None => vec!(None),
