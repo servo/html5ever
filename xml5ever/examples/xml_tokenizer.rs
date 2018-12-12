@@ -7,12 +7,15 @@
 //! [dependencies]
 //! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
+//! markup5ever = "0.7.4"
 //! ```
 extern crate xml5ever;
+extern crate markup5ever;
 
 use std::io::{self};
 use std::default::Default;
 
+use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
 use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, XmlTokenizerOpts, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
@@ -89,13 +92,15 @@ fn main() {
     };
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
-    let input = input.try_reinterpret().unwrap();
+    let mut input_buffer = BufferQueue::new();
+    input_buffer.push_back(input.try_reinterpret().unwrap());
+
     let mut tok = XmlTokenizer::new(sink, XmlTokenizerOpts {
         profile: true,
         exact_errors: true,
         .. Default::default()
     });
-    tok.feed(input);
+    tok.feed(&mut input_buffer);
     tok.end();
     sink.is_char(false);
 }

@@ -108,9 +108,6 @@ pub struct XmlTokenizer<Sink> {
     /// The abstract machine state as described in the spec.
     state: states::XmlState,
 
-    /// Input ready to be tokenized.
-    input_buffers: BufferQueue,
-
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
     at_eof: bool,
@@ -132,6 +129,9 @@ pub struct XmlTokenizer<Sink> {
     /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
     /// beginning of the stream.
     discard_bom: bool,
+
+    /// Temporary buffer
+    temp_buf: StrTendril,
 
     /// Current tag kind.
     current_tag_kind: TagKind,
@@ -180,11 +180,11 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
             sink: sink,
             state: state,
             char_ref_tokenizer: None,
-            input_buffers: BufferQueue::new(),
             at_eof: false,
             current_char: '\0',
             reconsume: false,
             ignore_lf: false,
+            temp_buf: StrTendril::new(),
             discard_bom: discard_bom,
             current_tag_kind: StartTag,
             current_tag_name: StrTendril::new(),
@@ -201,17 +201,22 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, mut input: StrTendril) {
-        if input.len() == 0 {
+    pub fn feed(&mut self, input: &mut BufferQueue) {
+        if input.is_empty() {
             return;
         }
 
-        if self.discard_bom && input.starts_with("\u{FFEF}") {
-            input.pop_front(3);  // length of BOM in UTF-8
-        }
+        if self.discard_bom {
+            if let Some(c) = input.peek() {
+                if c == '\u{feff}' {
+                    input.next();
+                }
+            } else {
+                return;
+            }
+        };
 
-        self.input_buffers.push_back(input);
-        self.run();
+        self.run(input);
     }
 
     fn process_token(&mut self, token: Token) {
@@ -225,11 +230,11 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
 
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char) -> Option<char> {
+    fn get_preprocessed_char(&mut self, mut c: char, input: &mut BufferQueue) -> Option<char> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
-                c = unwrap_or_return!(self.input_buffers.next(), None);
+                c = unwrap_or_return!(input.next(), None);
             }
         }
 
@@ -266,19 +271,19 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         self.emit_error(msg);
     }
 
-    fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
+    fn pop_except_from(&mut self, input: &mut BufferQueue, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
         // always do the same thing as the `NotFromSet` case.
         if self.opts.exact_errors || self.reconsume || self.ignore_lf {
-            return self.get_char().map(|x| FromSet(x));
+            return self.get_char(input).map(|x| FromSet(x));
         }
 
-        let d = self.input_buffers.pop_except_from(set);
+        let d = input.pop_except_from(set);
         debug!("got characters {:?}", d);
         match d {
-            Some(FromSet(c)) => self.get_preprocessed_char(c).map(|x| FromSet(x)),
+            Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(|x| FromSet(x)),
 
             // NB: We don't set self.current_char for a run of characters not
             // in the set.  It shouldn't matter for the codepaths that use
@@ -292,20 +297,27 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
     //
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
-    fn eat(&mut self, pat: &str) -> Option<bool> {
-        match self.input_buffers.eat(pat, u8::eq_ignore_ascii_case) {
+    fn eat(&mut self, input: &mut BufferQueue, pat: &str) -> Option<bool> {
+        input.push_front(replace(&mut self.temp_buf, StrTendril::new()));
+        match input.eat(pat, u8::eq_ignore_ascii_case) {
             None if self.at_eof => Some(false),
-            r => r,
+            None => {
+                while let Some(c) = input.next() {
+                    self.temp_buf.push_char(c);
+                }
+                None
+            },
+            Some(matched) => Some(matched),
         }
     }
 
     /// Run the state machine for as long as we can.
-    pub fn run(&mut self) {
+    pub fn run(&mut self, input: &mut BufferQueue) {
         if self.opts.profile {
             loop {
                 let state = self.state;
                 let old_sink = self.time_in_sink;
-                let (run, mut dt) = time!(self.step());
+                let (run, mut dt) = time!(self.step(input));
                 dt -= self.time_in_sink - old_sink;
                 let new = match self.state_profile.get_mut(&state) {
                     Some(x) => {
@@ -321,20 +333,20 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
                 if !run { break; }
             }
         } else {
-            while self.step() {
+            while self.step(input) {
             }
         }
     }
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self) -> Option<char> {
+    fn get_char(&mut self, input: &mut BufferQueue) -> Option<char> {
         if self.reconsume {
             self.reconsume = false;
             Some(self.current_char)
         } else {
-            self.input_buffers.next()
-                .and_then(|c| self.get_preprocessed_char(c))
+            input.next()
+                .and_then(|c| self.get_preprocessed_char(c, input))
         }
     }
 
@@ -481,21 +493,21 @@ impl <Sink:TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn peek(&mut self) -> Option<char> {
+    fn peek(&mut self, input: &mut BufferQueue) -> Option<char> {
         if self.reconsume {
             Some(self.current_char)
         } else {
-            self.input_buffers.peek()
+            input.peek()
         }
     }
 
-    fn discard_char(&mut self) {
-        let c = self.get_char();
+    fn discard_char(&mut self, input: &mut BufferQueue) {
+        let c = self.get_char(input);
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, buf: StrTendril) {
-        self.input_buffers.push_front(buf);
+    fn unconsume(&mut self, input: &mut BufferQueue, buf: StrTendril) {
+        input.push_front(buf);
     }
 }
 
@@ -504,7 +516,7 @@ macro_rules! shorthand (
     ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c);                                   );
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
     ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c);                  );
-    ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
+    ( $me:ident : discard_tag $input:expr          ) => ( $me.discard_tag($input);                             );
     ( $me:ident : discard_char                     ) => ( $me.discard_char();                                  );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c);                          );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
@@ -607,16 +619,16 @@ macro_rules! go (
 
 // This is a macro because it can cause early return
 // from the function where it is used.
-macro_rules! get_char ( ($me:expr) => (
-    unwrap_or_return!($me.get_char(), false)
+macro_rules! get_char ( ($me:expr, $input:expr) => (
+    unwrap_or_return!($me.get_char($input), false)
 ));
 
-macro_rules! pop_except_from ( ($me:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($set), false)
+macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
+    unwrap_or_return!($me.pop_except_from($input, $set), false)
 ));
 
-macro_rules! eat ( ($me:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($pat), false)
+macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
+    unwrap_or_return!($me.eat($input, $pat), false)
 ));
 
 
@@ -625,9 +637,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
-    fn step(&mut self) -> bool {
+    fn step(&mut self, input: &mut BufferQueue) -> bool {
         if self.char_ref_tokenizer.is_some() {
-            return self.step_char_ref_tokenizer();
+            return self.step_char_ref_tokenizer(input);
         }
 
         debug!("processing in state {:?}", self.state);
@@ -638,7 +650,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ data-state
             XmlState::Data => loop {
-                match pop_except_from!(self, small_char_set!('\r' '&' '<')) {
+                match pop_except_from!(self, input, small_char_set!('\r' '&' '<')) {
                     FromSet('&')  => go!(self: consume_char_ref),
                     FromSet('<')  => go!(self: to TagState),
                     FromSet(c)    => go!(self: emit c),
@@ -646,7 +658,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ tag-state
-            XmlState::TagState => loop { match get_char!(self) {
+            XmlState::TagState => loop { match get_char!(self, input) {
                 '!' => go!(self: to MarkupDecl),
                 '/' => go!(self: to EndTagState),
                 '?' => go!(self: to Pi),
@@ -656,7 +668,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ end-tag-state
-            XmlState::EndTagState => loop { match get_char!(self) {
+            XmlState::EndTagState => loop { match get_char!(self, input) {
                 '>' => go!(self:  emit_short_tag Data),
                 '\t' | '\n' | ' '|
                 '<' | ':'  => go!(self: error; emit '<'; emit '/'; reconsume Data),
@@ -664,7 +676,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ end-tag-name-state
-            XmlState::EndTagName => loop { match get_char!(self) {
+            XmlState::EndTagName => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '   => go!(self: to EndTagNameAfter),
                 '/'     => go!(self: error; to EndTagNameAfter),
@@ -673,7 +685,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ end-tag-name-after-state
-            XmlState::EndTagNameAfter => loop {match get_char!(self) {
+            XmlState::EndTagNameAfter => loop {match get_char!(self, input) {
                 '>'     => go!(self: emit_tag Data),
                 '\t' | '\n'
                 | ' '   => (),
@@ -681,14 +693,14 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ pi-state
-            XmlState::Pi => loop { match get_char!(self) {
+            XmlState::Pi => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '  => go!(self: error; reconsume BogusComment),
                 cl     =>  go!(self: create_pi cl; to PiTarget),
                 }
             },
             //§ pi-target-state
-            XmlState::PiTarget => loop { match get_char!(self) {
+            XmlState::PiTarget => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '  => go!(self: to PiTargetAfter),
                 '?'    => go!(self: to PiAfter),
@@ -696,19 +708,19 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ pi-target-after-state
-            XmlState::PiTargetAfter => loop { match get_char!(self) {
+            XmlState::PiTargetAfter => loop { match get_char!(self, input) {
                 '\t' | '\n' | ' '  => (),
                 _     => go!(self: reconsume PiData),
                 }
             },
             //§ pi-data-state
-            XmlState::PiData => loop { match get_char!(self) {
+            XmlState::PiData => loop { match get_char!(self, input) {
                 '?' => go!(self: to PiAfter),
                 cl  => go!(self: push_pi_data cl),
                 }
             },
             //§ pi-after-state
-            XmlState::PiAfter => loop { match get_char!(self) {
+            XmlState::PiAfter => loop { match get_char!(self, input) {
                 '>' => go!(self: emit_pi Data),
                 '?' => go!(self: to PiAfter),
                 cl  => go!(self: push_pi_data cl),
@@ -716,11 +728,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ markup-declaration-state
             XmlState::MarkupDecl => loop {
-                if eat!(self, "--") {
+                if eat!(self, input,  "--") {
                     go!(self: clear_comment; to CommentStart);
-                } else if eat!(self, "[CDATA[") {
+                } else if eat!(self, input, "[CDATA[") {
                     go!(self: to Cdata);
-                } else if eat!(self, "DOCTYPE") {
+                } else if eat!(self, input, "DOCTYPE") {
                     go!(self: to Doctype);
                 } else {
                     // FIXME: 'error' gives wrong message
@@ -728,59 +740,59 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ comment-start-state
-            XmlState::CommentStart => loop { match get_char!(self) {
+            XmlState::CommentStart => loop { match get_char!(self, input) {
                 '-' => go!(self: to CommentStartDash),
                 '>' => go!(self: error; emit_comment; to Data),
                 _   => go!(self: reconsume Comment),
                 }
             },
             //§ comment-start-dash-state
-            XmlState::CommentStartDash => loop { match get_char!(self) {
+            XmlState::CommentStartDash => loop { match get_char!(self, input) {
                 '-' => go!(self: to CommentEnd),
                 '>' => go!(self: error; emit_comment; to Data),
                 _   => go!(self: push_comment '-'; reconsume Comment),
                 }
             },
             //§ comment-state
-            XmlState::Comment => loop { match get_char!(self) {
+            XmlState::Comment => loop { match get_char!(self, input) {
                 '<' => go!(self: push_comment '<'; to CommentLessThan),
                 '-' => go!(self: to CommentEndDash),
                 c   => go!(self: push_comment c),
                 }
             },
             //§ comment-less-than-sign-state
-            XmlState::CommentLessThan => loop { match get_char!(self) {
+            XmlState::CommentLessThan => loop { match get_char!(self, input) {
                 '!' => go!(self: push_comment '!';to CommentLessThanBang),
                 '<' => go!(self: push_comment '<'),
                 _   => go!(self: reconsume Comment),
                 }
             },
             //§ comment-less-than-sign-bang-state
-            XmlState::CommentLessThanBang => loop { match get_char!(self) {
+            XmlState::CommentLessThanBang => loop { match get_char!(self, input) {
                 '-' => go!(self: to CommentLessThanBangDash),
                 _   => go!(self: reconsume Comment),
                 }
             },
             //§ comment-less-than-sign-bang-dash-state
-            XmlState::CommentLessThanBangDash => loop { match get_char!(self) {
+            XmlState::CommentLessThanBangDash => loop { match get_char!(self, input) {
                 '-' => go!(self: to CommentLessThanBangDashDash),
                 _   => go!(self: reconsume CommentEndDash),
                 }
             },
             //§ comment-less-than-sign-bang-dash-dash-state
-            XmlState::CommentLessThanBangDashDash => loop { match get_char!(self) {
+            XmlState::CommentLessThanBangDashDash => loop { match get_char!(self, input) {
                 '>' => go!(self: reconsume CommentEnd),
                 _   => go!(self: error; reconsume CommentEnd),
                 }
             },
             //§ comment-end-dash-state
-            XmlState::CommentEndDash => loop { match get_char!(self) {
+            XmlState::CommentEndDash => loop { match get_char!(self, input) {
                 '-' => go!(self: to CommentEnd),
                 _   => go!(self: push_comment '-'; reconsume Comment),
                 }
             },
             //§ comment-end-state
-            XmlState::CommentEnd => loop { match get_char!(self) {
+            XmlState::CommentEnd => loop { match get_char!(self, input) {
                 '>' => go!(self: emit_comment; to Data),
                 '!' => go!(self: to CommentEndBang),
                 '-' => go!(self: push_comment '-'),
@@ -788,39 +800,39 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ comment-end-bang-state
-            XmlState::CommentEndBang => loop { match get_char!(self) {
+            XmlState::CommentEndBang => loop { match get_char!(self, input) {
                 '-' => go!(self: append_comment "--!"; to CommentEndDash),
                 '>' => go!(self: error; emit_comment; to Data),
                 _   => go!(self: append_comment "--!"; reconsume Comment),
                 }
             },
             //§ bogus-comment-state
-            XmlState::BogusComment => loop { match get_char!(self) {
+            XmlState::BogusComment => loop { match get_char!(self, input) {
                 '>'  => go!(self: emit_comment; to Data),
                 c    => go!(self: push_comment c),
                 }
             },
             //§ cdata-state
-            XmlState::Cdata => loop { match get_char!(self) {
+            XmlState::Cdata => loop { match get_char!(self, input) {
                     ']' => go!(self: to CdataBracket),
                     cl  => go!(self: emit cl),
                 }
             },
             //§ cdata-bracket-state
-            XmlState::CdataBracket => loop {  match get_char!(self) {
+            XmlState::CdataBracket => loop {  match get_char!(self, input) {
                     ']' => go!(self: to CdataEnd),
                     cl  => go!(self: emit ']'; emit cl; to Cdata),
                 }
             },
             //§ cdata-end-state
-            XmlState::CdataEnd => loop {  match get_char!(self) {
+            XmlState::CdataEnd => loop {  match get_char!(self, input) {
                 '>' => go!(self: to Data),
                 ']' => go!(self: emit ']'),
                 cl  => go!(self: emit ']'; emit ']'; emit cl; to Cdata),
                 }
             },
             //§ tag-name-state
-            XmlState::TagName => loop { match get_char!(self) {
+            XmlState::TagName => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '   => go!(self: to TagAttrNameBefore),
                 '>'     => go!(self: emit_tag Data),
@@ -829,13 +841,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ empty-tag-state
-            XmlState::TagEmpty => loop { match get_char!(self) {
+            XmlState::TagEmpty => loop { match get_char!(self, input) {
                 '>'     => go!(self: emit_empty_tag Data),
                 _       => go!(self: reconsume TagAttrValueBefore),
                 }
             },
             //§ tag-attribute-name-before-state
-            XmlState::TagAttrNameBefore => loop { match get_char!(self) {
+            XmlState::TagAttrNameBefore => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '   => (),
                 '>'     => go!(self: emit_tag Data),
@@ -845,7 +857,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ tag-attribute-name-state
-            XmlState::TagAttrName => loop { match get_char!(self) {
+            XmlState::TagAttrName => loop { match get_char!(self, input) {
                 '='     => go!(self: to TagAttrValueBefore),
                 '>'     => go!(self: emit_tag Data),
                 '\t' | '\n'
@@ -855,7 +867,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ tag-attribute-name-after-state
-            XmlState::TagAttrNameAfter => loop { match get_char!(self) {
+            XmlState::TagAttrNameAfter => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '   => (),
                 '='     => go!(self: to TagAttrValueBefore),
@@ -865,7 +877,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ tag-attribute-value-before-state
-            XmlState::TagAttrValueBefore => loop { match get_char!(self) {
+            XmlState::TagAttrValueBefore => loop { match get_char!(self, input) {
                 '\t' | '\n'
                 | ' '   => (),
                 '"'     => go!(self: to TagAttrValue(DoubleQuoted)),
@@ -877,7 +889,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-double-quoted-state
             XmlState::TagAttrValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\n' '"' '&')) {
+                match pop_except_from!(self, input, small_char_set!('\n' '"' '&')) {
                     FromSet('"')        => go!(self: to TagAttrNameBefore),
                     FromSet('&')        => go!(self: consume_char_ref '"' ),
                     FromSet(c)          => go!(self: push_value c),
@@ -886,7 +898,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-single-quoted-state
             XmlState::TagAttrValue(SingleQuoted) => loop {
-                match pop_except_from!(self, small_char_set!('\n' '\'' '&')) {
+                match pop_except_from!(self, input, small_char_set!('\n' '\'' '&')) {
                     FromSet('\'')       => go!(self: to TagAttrNameBefore),
                     FromSet('&')        => go!(self: consume_char_ref '\''),
                     FromSet(c)          => go!(self: push_value c),
@@ -895,7 +907,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-double-quoted-state
             XmlState::TagAttrValue(Unquoted) => loop {
-                match pop_except_from!(self, small_char_set!('\n' '\t' ' ' '&' '>')) {
+                match pop_except_from!(self, input, small_char_set!('\n' '\t' ' ' '&' '>')) {
                     FromSet('\t') | FromSet('\n') | FromSet(' ')
                      => go!(self: to TagAttrNameBefore),
                     FromSet('&')        => go!(self: consume_char_ref ),
@@ -906,14 +918,14 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
 
             //§ doctype-state
-            XmlState::Doctype => loop { match get_char!(self) {
+            XmlState::Doctype => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' ' => go!(self: to BeforeDoctypeName),
                 _     => go!(self: error; reconsume BeforeDoctypeName),
                 }
             },
             //§ before-doctype-name-state
-            XmlState::BeforeDoctypeName => loop { match get_char!(self) {
+            XmlState::BeforeDoctypeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' ' => (),
                 '>'  => go!(self: error; emit_doctype; to Data),
@@ -922,7 +934,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ doctype-name-state
-            XmlState::DoctypeName => loop { match get_char!(self) {
+            XmlState::DoctypeName => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => go!(self: to AfterDoctypeName),
                 '>'     => go!(self: emit_doctype; to Data),
@@ -932,12 +944,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ after-doctype-name-state
             XmlState::AfterDoctypeName => loop {
-                if eat!(self, "public") {
+                if eat!(self, input, "public") {
                     go!(self: to AfterDoctypeKeyword Public);
-                } else if eat!(self, "system") {
+                } else if eat!(self, input, "system") {
                     go!(self: to AfterDoctypeKeyword System);
                 } else {
-                    match get_char!(self) {
+                    match get_char!(self, input) {
                         '\t' | '\n' | '\x0C' | ' ' => (),
                         '>' => go!(self: emit_doctype; to Data),
                         _   => go!(self: error; to BogusDoctype),
@@ -945,7 +957,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ after-doctype-public-keyword-state
-            XmlState::AfterDoctypeKeyword(Public) => loop { match get_char!(self) {
+            XmlState::AfterDoctypeKeyword(Public) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => go!(self: to BeforeDoctypeIdentifier Public),
                 '"'     => go!(self: error; clear_doctype_id Public; to DoctypeIdentifierDoubleQuoted Public),
@@ -954,8 +966,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 _       => go!(self: error; to BogusDoctype),
                 }
             },
-             //§ after-doctype-system-keyword-state
-            XmlState::AfterDoctypeKeyword(System) => loop { match get_char!(self) {
+            //§ after-doctype-system-keyword-state
+            XmlState::AfterDoctypeKeyword(System) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => go!(self: to BeforeDoctypeIdentifier System),
                 '"'     => go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System),
@@ -965,7 +977,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ before_doctype_public_identifier_state before_doctype_system_identifier_state
-            XmlState::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self) {
+            XmlState::BeforeDoctypeIdentifier(kind) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
                 '"'     => go!(self: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
@@ -975,21 +987,21 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ doctype_public_identifier_double_quoted_state doctype_system_identifier_double_quoted_state
-            XmlState::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self) {
+            XmlState::DoctypeIdentifierDoubleQuoted(kind) => loop { match get_char!(self, input) {
                 '"'     => go!(self: to AfterDoctypeIdentifier kind),
                 '>'     => go!(self: error; emit_doctype; to Data),
                 c       => go!(self: push_doctype_id kind c),
                 }
             },
             //§ doctype_public_identifier_single_quoted_state doctype_system_identifier_single_quoted_state
-            XmlState::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self) {
+            XmlState::DoctypeIdentifierSingleQuoted(kind) => loop { match get_char!(self, input) {
                 '\''    => go!(self: to AfterDoctypeIdentifier kind),
                 '>'     => go!(self: error; emit_doctype; to Data),
                 c       => go!(self: push_doctype_id kind c),
                 }
             },
             //§ doctype_public_identifier_single_quoted_state
-            XmlState::AfterDoctypeIdentifier(Public) => loop { match get_char!(self) {
+            XmlState::AfterDoctypeIdentifier(Public) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => go!(self: to BetweenDoctypePublicAndSystemIdentifiers),
                 '\''    => go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted(System)),
@@ -999,7 +1011,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ doctype_system_identifier_single_quoted_state
-            XmlState::AfterDoctypeIdentifier(System) => loop { match get_char!(self) {
+            XmlState::AfterDoctypeIdentifier(System) => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
                 '>'     => go!(self: emit_doctype; to Data),
@@ -1007,7 +1019,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ between_doctype_public_and_system_identifier_state
-            XmlState::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self) {
+            XmlState::BetweenDoctypePublicAndSystemIdentifiers => loop { match get_char!(self, input) {
                 '\t' | '\n' | '\x0C'
                 | ' '   => (),
                 '>'     => go!(self: emit_doctype; to Data),
@@ -1017,7 +1029,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 }
             },
             //§ bogus_doctype_state
-            XmlState::BogusDoctype => loop { match get_char!(self) {
+            XmlState::BogusDoctype => loop { match get_char!(self, input) {
                 '>'     => go!(self: emit_doctype; to Data),
                 _       => (),
                 }
@@ -1029,10 +1041,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
+        let mut input = BufferQueue::new();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
-                tok.end_of_file(self);
+                tok.end_of_file(self, &mut input);
                 self.process_char_ref(tok.get_result());
             }
         }
@@ -1040,7 +1053,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run();
+        self.run(&mut input);
 
         while self.eof_step() {
             // loop
@@ -1155,9 +1168,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self) -> bool {
+    fn step_char_ref_tokenizer(&mut self, input: &mut BufferQueue) -> bool {
         let mut tok = self.char_ref_tokenizer.take().unwrap();
-        let outcome = tok.step(self);
+        let outcome = tok.step(self, input);
 
         let progress = match outcome {
             char_ref::Done => {
