@@ -26,10 +26,6 @@ harness = false
 [[test]]
 name = "serializer"
 
-[[bench]]
-name = "tokenizer"
-harness = false
-
 [dependencies]
 log = "0.4"
 mac = "0.1"

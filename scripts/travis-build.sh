@@ -12,11 +12,11 @@ set -ex
 
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
-    cargo test -p html5ever --features "rustc-test/capture" --bench tokenizer
+    cargo bench --all
     cargo test -p html5ever --features "rustc-test/capture"
     cargo test -p xml5ever --features "rustc-test/capture"
 else
-    cargo test -p html5ever --bench tokenizer
+    cargo bench --all
     cargo test --all
 fi
 
