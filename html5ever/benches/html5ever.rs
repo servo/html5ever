@@ -5,7 +5,7 @@ extern crate html5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{Criterion, black_box, ParameterizedBenchmark};
+use criterion::{Criterion, black_box};
 
 use html5ever::tokenizer::{BufferQueue, TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tendril::*;
@@ -23,18 +23,6 @@ impl TokenSink for Sink {
     }
 }
 
-impl Sink {
-    fn run(input: Vec<StrTendril>, opts: TokenizerOpts) {
-        let mut tok = Tokenizer::new(Sink, opts.clone());
-        let mut buffer = BufferQueue::new();
-        for buf in input.into_iter() {
-            buffer.push_back(buf);
-            let _ = tok.feed(&mut buffer);
-        }
-        let _ = tok.feed(&mut buffer);
-        tok.end();
-    }
-}
 
 fn run_bench(c: &mut Criterion, name: &str, opts: TokenizerOpts) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

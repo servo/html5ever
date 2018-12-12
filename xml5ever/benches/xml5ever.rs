@@ -6,7 +6,7 @@ extern crate markup5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{Criterion, black_box, ParameterizedBenchmark};
+use criterion::{Criterion, black_box};
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, XmlTokenizerOpts};
@@ -22,18 +22,6 @@ impl TokenSink for Sink {
     }
 }
 
-impl Sink {
-    fn run(input: Vec<StrTendril>, opts: XmlTokenizerOpts) {
-        let mut tok = XmlTokenizer::new(Sink, opts.clone());
-        let mut buffer = BufferQueue::new();
-        for buf in input.into_iter() {
-            buffer.push_back(buf);
-            let _ = tok.feed(&mut buffer);
-        }
-        let _ = tok.feed(&mut buffer);
-        tok.end();
-    }
-}
 
 fn run_bench(c: &mut Criterion, name: &str, opts: XmlTokenizerOpts) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
