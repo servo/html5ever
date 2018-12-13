@@ -23,7 +23,7 @@ impl TokenSink for Sink {
 }
 
 
-fn run_bench(c: &mut Criterion, name: &str, opts: XmlTokenizerOpts) {
+fn run_bench(c: &mut Criterion, name: &str) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("data/bench/");
     path.push(name);
@@ -48,13 +48,10 @@ fn run_bench(c: &mut Criterion, name: &str, opts: XmlTokenizerOpts) {
         total += sz;
     }
 
-    let mut test_name = String::new();
-    test_name.push_str("tokenizing");
-    test_name.push_str(" ");
-    test_name.push_str(name);
+    let test_name = format!("xml tokenizing {}", name);
 
     c.bench_function(&test_name, move |b| b.iter(|| {
-        let mut tok = XmlTokenizer::new(Sink, opts.clone());
+        let mut tok = XmlTokenizer::new(Sink, Default::default());
         let mut buffer = BufferQueue::new();
         // We are doing clone inside the bench function, this is not ideal, but possibly
         // necessary since our iterator consumes the underlying buffer.
@@ -70,7 +67,7 @@ fn run_bench(c: &mut Criterion, name: &str, opts: XmlTokenizerOpts) {
 
 
 fn xml5ever_benchmarks(c: &mut Criterion) {
-    run_bench(c, "strong.xml", Default::default());
+    run_bench(c, "strong.xml");
 }
 
 criterion_group!(benches, xml5ever_benchmarks);

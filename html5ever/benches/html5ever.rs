@@ -24,7 +24,7 @@ impl TokenSink for Sink {
 }
 
 
-fn run_bench(c: &mut Criterion, name: &str, opts: TokenizerOpts) {
+fn run_bench(c: &mut Criterion, name: &str) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("data/bench/");
     path.push(name);
@@ -49,13 +49,10 @@ fn run_bench(c: &mut Criterion, name: &str, opts: TokenizerOpts) {
         total += sz;
     }
 
-    let mut test_name = String::new();
-    test_name.push_str("tokenizing");
-    test_name.push_str(" ");
-    test_name.push_str(name);
+    let test_name = format!("html tokenizing {}", name);
 
     c.bench_function(&test_name, move |b| b.iter(|| {
-        let mut tok = Tokenizer::new(Sink, opts.clone());
+        let mut tok = Tokenizer::new(Sink, Default::default());
         let mut buffer = BufferQueue::new();
         // We are doing clone inside the bench function, this is not ideal, but possibly
         // necessary since our iterator consumes the underlying buffer.
@@ -71,12 +68,12 @@ fn run_bench(c: &mut Criterion, name: &str, opts: TokenizerOpts) {
 
 
 fn html5ever_benchmark(c: &mut Criterion) {
-    run_bench(c, "lipsum.html", Default::default());
-    run_bench(c, "lipsum-zh.html", Default::default());
-    run_bench(c, "medium-fragment.html", Default::default());
-    run_bench(c, "small-fragment.html", Default::default());
-    run_bench(c, "tiny-fragment.html", Default::default());
-    run_bench(c, "strong.html", Default::default());
+    run_bench(c, "lipsum.html");
+    run_bench(c, "lipsum-zh.html");
+    run_bench(c, "medium-fragment.html");
+    run_bench(c, "small-fragment.html");
+    run_bench(c, "tiny-fragment.html");
+    run_bench(c, "strong.html");
 }
 
 criterion_group!(benches, html5ever_benchmark);
