@@ -7,12 +7,15 @@
 //! [dependencies]
 //! xml5ever = "0.1.1"
 //! tendril = "0.1.3"
+//! markup5ever = "0.7.4"
 //! ```
 extern crate xml5ever;
+extern crate markup5ever;
 
 use std::io;
 use std::default::Default;
 
+use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
 use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
@@ -57,13 +60,17 @@ fn main() {
 
     // We need a ByteTendril to read a file
     let mut input = ByteTendril::new();
+
     // Using SliceExt.read_to_tendril we can read stdin
     io::stdin().read_to_tendril(&mut input).unwrap();
     // For xml5ever we need StrTendril, so we reinterpret it
     // into StrTendril.
-    let input = input.try_reinterpret().unwrap();
+
+    // Load input into BufferQueue
+    let mut input_buffer = BufferQueue::new();
+    input_buffer.push_back(input.try_reinterpret().unwrap());
     // Here we create and run tokenizer
     let mut tok = XmlTokenizer::new(sink, Default::default());
-    tok.feed(input);
+    tok.feed(&mut input_buffer);
     tok.end();
 }

@@ -15,6 +15,7 @@ use std::borrow::Cow;
 use tendril;
 use tendril::StrTendril;
 use tendril::stream::{TendrilSink, Utf8LossyDecoder};
+use markup5ever::buffer_queue::BufferQueue;
 
 /// All-encompasing parser setting structure.
 #[derive(Clone, Default)]
@@ -38,7 +39,7 @@ pub fn parse_document<Sink>(sink: Sink, opts: XmlParseOpts) -> XmlParser<Sink>
 
     let tb = XmlTreeBuilder::new(sink, opts.tree_builder);
     let tok = XmlTokenizer::new(tb, opts.tokenizer);
-    XmlParser { tokenizer: tok}
+    XmlParser { tokenizer: tok, input_buffer: BufferQueue::new() }
 }
 
 /// An XML parser,
@@ -46,6 +47,8 @@ pub fn parse_document<Sink>(sink: Sink, opts: XmlParseOpts) -> XmlParser<Sink>
 pub struct XmlParser<Sink> where Sink: TreeSink {
     /// Tokenizer used by XmlParser.
     pub tokenizer: XmlTokenizer<XmlTreeBuilder<Sink::Handle, Sink>>,
+    /// Input used by XmlParser.
+    pub input_buffer: BufferQueue, 
 }
 
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
@@ -53,7 +56,8 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
     type Output = Sink::Output;
 
     fn process(&mut self, t: StrTendril) {
-        self.tokenizer.feed(t)
+        self.input_buffer.push_back(t);
+        self.tokenizer.feed(&mut self.input_buffer);
     }
 
     // FIXME: Is it too noisy to report every character decoding error?

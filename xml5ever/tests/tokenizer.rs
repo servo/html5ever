@@ -9,6 +9,7 @@
 
 extern crate rustc_serialize;
 extern crate rustc_test as test;
+extern crate markup5ever;
 #[macro_use] extern crate xml5ever;
 
 use std::borrow::Cow::Borrowed;
@@ -22,6 +23,7 @@ use rustc_serialize::json::Json;
 use test::{TestDesc, TestDescAndFn, DynTestName, DynTestFn};
 use util::find_tests::foreach_xml5lib_test;
 
+use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::{LocalName, Attribute, QualName};
 use xml5ever::tendril::{StrTendril, SliceExt};
 use xml5ever::tokenizer::{Tag, StartTag, EndTag, CommentToken, EmptyTag, ShortTag};
@@ -131,9 +133,13 @@ impl TokenSink for TokenLogger {
 fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = XmlTokenizer::new(sink, opts);
+    let mut buf = BufferQueue::new();
+
     for chunk in input.into_iter() {
-        tok.feed(chunk);
+        buf.push_back(chunk);
+        let _ = tok.feed(&mut buf);
     }
+    let _ = tok.feed(&mut buf);
     tok.end();
     tok.sink.get_tokens()
 }
