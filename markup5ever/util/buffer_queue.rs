@@ -19,6 +19,7 @@
 //! [`BufferQueue`]: struct.BufferQueue.html
 
 
+use std::cmp::Ordering;
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
@@ -47,6 +48,8 @@ pub enum SetResult {
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: VecDeque<StrTendril>,
+    /// Used during speculative parsing.
+    recorded_len: Option<usize>,
 }
 
 impl BufferQueue {
@@ -55,6 +58,31 @@ impl BufferQueue {
     pub fn new() -> BufferQueue {
         BufferQueue {
             buffers: VecDeque::with_capacity(16),
+            recorded_len: None,
+        }
+    }
+
+    pub fn notify_speculative_parsing_has_started(&mut self) {
+        self.recorded_len = Some(self.buffers.len());
+    }
+
+    /// During speculative parsing, the async tokenizer might mutate network input's contents.
+    /// Also, some chunks might be pushed onto network input. This method is used to
+    /// update network input accordingly.
+    pub fn update_with_new_data(&mut self, new_data: Option<VecDeque<StrTendril>>) {
+        let recorded_len = self.recorded_len.expect("This should contain some value!");
+        self.recorded_len.take();
+        let mut new_data = match new_data {
+            None => return,
+            Some(data) => data,
+        };
+
+        let len = self.buffers.len();
+        assert_ne!(len.cmp(&recorded_len), Ordering::Less);
+        self.buffers = self.buffers.split_off(recorded_len);
+        new_data.append(&mut self.buffers);
+        while let Some(chunk) = new_data.pop_front() {
+            self.buffers.push_back(chunk);
         }
     }
 

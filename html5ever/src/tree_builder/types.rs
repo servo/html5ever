@@ -9,10 +9,13 @@
 
 //! Types used within the tree builder code.  Not exported to users.
 
+use {LocalName, QualName};
 use tokenizer::Tag;
 use tokenizer::states::RawKind;
+use tokenizer::TagKind;
 
-use tendril::StrTendril;
+use tendril::{SendTendril, StrTendril};
+use tendril::fmt::UTF8;
 
 pub use self::InsertionMode::*;
 pub use self::SplitStatus::*;
@@ -75,6 +78,18 @@ pub enum ProcessResult<Handle> {
     Script(Handle),
     ToPlaintext,
     ToRawData(RawKind),
+}
+
+#[derive(Clone)]
+pub enum SendableFormatEntry<Handle> {
+    Element {
+        handle: Handle,
+        tag_kind: TagKind,
+        tag_name: LocalName,
+        tag_self_closing: bool,
+        tag_attrs: Vec<(QualName, SendTendril<UTF8>)>,
+    },
+    Marker
 }
 
 pub enum FormatEntry<Handle> {

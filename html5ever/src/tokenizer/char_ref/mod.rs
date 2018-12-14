@@ -7,10 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use super::{Tokenizer, TokenSink};
+use super::{Tokenizer, TokenSink, Sendable};
 use buffer_queue::BufferQueue;
 use data;
-use tendril::StrTendril;
+use tendril::{SendTendril, StrTendril};
+use tendril::fmt::UTF8;
 use util::str::{is_ascii_alnum};
 
 use std::char::from_u32;
@@ -20,6 +21,7 @@ pub use self::Status::*;
 use self::State::*;
 
 //§ tokenizing-character-references
+#[derive(Clone, Copy)]
 pub struct CharRef {
     /// The resulting character(s)
     pub chars: [char; 2],
@@ -34,7 +36,7 @@ pub enum Status {
     Done,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum State {
     Begin,
     Octothorpe,
@@ -44,6 +46,22 @@ enum State {
     BogusName,
 }
 
+pub struct SendableCharRefTokenizer {
+    state: State,
+    addnl_allowed: Option<char>,
+    result: Option<CharRef>,
+
+    num: u32,
+    num_too_big: bool,
+    seen_digit: bool,
+    hex_marker: Option<char>,
+
+    name_buf_opt: Option<SendTendril<UTF8>>,
+    name_match: Option<(u32, u32)>,
+    name_len: usize,
+}
+
+#[derive(Clone)]
 pub struct CharRefTokenizer {
     state: State,
     addnl_allowed: Option<char>,
@@ -107,6 +125,40 @@ impl CharRefTokenizer {
             num_chars: 1,
         });
         Done
+    }
+}
+
+impl Sendable for CharRefTokenizer {
+    type SendableSelf = SendableCharRefTokenizer;
+
+    fn get_sendable(&self) -> Self::SendableSelf {
+        SendableCharRefTokenizer {
+            state: self.state,
+            addnl_allowed: self.addnl_allowed,
+            result: self.result,
+            num: self.num,
+            num_too_big: self.num_too_big,
+            seen_digit: self.seen_digit,
+            hex_marker: self.hex_marker,
+            name_buf_opt: self.name_buf_opt.clone().map(|s| SendTendril::from(s)),
+            name_match: self.name_match,
+            name_len: self.name_len
+        }
+    }
+
+    fn get_self_from_sendable(sendable_self: Self::SendableSelf) -> Self {
+        CharRefTokenizer {
+            state: sendable_self.state,
+            addnl_allowed: sendable_self.addnl_allowed,
+            result: sendable_self.result,
+            num: sendable_self.num,
+            num_too_big: sendable_self.num_too_big,
+            seen_digit: sendable_self.seen_digit,
+            hex_marker: sendable_self.hex_marker,
+            name_buf_opt: sendable_self.name_buf_opt.clone().map(|s| StrTendril::from(s)),
+            name_match: sendable_self.name_match,
+            name_len: sendable_self.name_len
+        }
     }
 }
 
