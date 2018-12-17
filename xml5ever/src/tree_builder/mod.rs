@@ -9,25 +9,24 @@
 
 mod types;
 
-use std::borrow::{Cow};
+use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
-use std::collections::{VecDeque, BTreeMap, HashSet};
-use std::collections::btree_map::{Iter};
-use std::fmt::{Formatter, Debug, Error};
-use std::result::Result;
+use std::collections::btree_map::Iter;
+use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::fmt::{Debug, Error, Formatter};
 use std::mem;
+use std::result::Result;
 
-use {Prefix, Namespace, LocalName};
-use interface::{self, QualName, Attribute, AppendNode, create_element};
-use interface::{AppendText, ExpandedName};
-use tokenizer::{self, TokenSink, Tag, StartTag, EndTag};
-use tokenizer::{ShortTag, EmptyTag, Pi, Doctype};
-use tokenizer::states::Quiescent;
-pub use self::interface::{TreeSink, Tracer, NodeOrText, NextParserState};
+pub use self::interface::{NextParserState, NodeOrText, Tracer, TreeSink};
 use self::types::*;
+use interface::{self, create_element, AppendNode, Attribute, QualName};
+use interface::{AppendText, ExpandedName};
+use tokenizer::states::Quiescent;
+use tokenizer::{self, EndTag, StartTag, Tag, TokenSink};
+use tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
+use {LocalName, Namespace, Prefix};
 
 use tendril::{StrTendril, Tendril};
-
 
 static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
 static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";
@@ -37,7 +36,7 @@ type InsResult = Result<(), Cow<'static, str>>;
 #[derive(Debug)]
 struct NamespaceMapStack(Vec<NamespaceMap>);
 
-impl NamespaceMapStack{
+impl NamespaceMapStack {
     fn new() -> NamespaceMapStack {
         NamespaceMapStack({
             let mut vec = Vec::new();
@@ -54,9 +53,7 @@ impl NamespaceMapStack{
     pub fn pop(&mut self) {
         self.0.pop();
     }
-
 }
-
 
 #[doc(hidden)]
 pub struct NamespaceMap {
@@ -80,7 +77,6 @@ impl Debug for NamespaceMap {
     }
 }
 
-
 impl NamespaceMap {
     // Returns an empty namespace.
     #[doc(hidden)]
@@ -102,7 +98,6 @@ impl NamespaceMap {
         }
     }
 
-
     #[doc(hidden)]
     pub fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
@@ -113,9 +108,8 @@ impl NamespaceMap {
         self.scope.iter()
     }
 
-
     #[doc(hidden)]
-    pub fn insert(&mut self, name: &QualName)  {
+    pub fn insert(&mut self, name: &QualName) {
         let prefix = if let Some(ref p) = name.prefix {
             Some(p.clone())
         } else {
@@ -149,8 +143,7 @@ impl NamespaceMap {
                 Err(Borrowed("XMLNS namespaces can't be changed"))
             },
 
-            (&Some(namespace_prefix!("xmlns")), _)
-            | (&None, "xmlns")=> {
+            (&Some(namespace_prefix!("xmlns")), _) | (&None, "xmlns") => {
                 // We can have two cases of properly defined xmlns
                 // First with default namespace e.g.
                 //
@@ -173,9 +166,7 @@ impl NamespaceMap {
                 }
             },
 
-            (_, _) => {
-                Err(Borrowed("Invalid namespace declaration."))
-            }
+            (_, _) => Err(Borrowed("Invalid namespace declaration.")),
         };
         result
     }
@@ -183,16 +174,13 @@ impl NamespaceMap {
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
-pub struct XmlTreeBuilderOpts {
-}
+pub struct XmlTreeBuilderOpts {}
 
 impl Default for XmlTreeBuilderOpts {
     fn default() -> XmlTreeBuilderOpts {
-        XmlTreeBuilderOpts{
-        }
+        XmlTreeBuilderOpts {}
     }
 }
-
 
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
@@ -227,8 +215,9 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     phase: XmlPhase,
 }
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
@@ -240,7 +229,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             sink: sink,
             doc_handle: doc_handle,
             next_tokenizer_state: None,
-            open_elems: vec!(),
+            open_elems: vec![],
             curr_elem: None,
             namespace_stack: NamespaceMapStack::new(),
             current_namespace: NamespaceMap::empty(),
@@ -251,7 +240,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
-    pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
+    pub fn trace_handles(&self, tracer: &Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in self.open_elems.iter() {
             tracer.trace_handle(&e);
@@ -263,41 +252,44 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-
         debug!("dump_state on {}", label);
         debug!("    open_elems:");
         for node in self.open_elems.iter() {
             debug!(" {:?}", self.sink.elem_name(node));
-
         }
         debug!("");
     }
 
     #[cfg(for_c)]
-    fn debug_step(&self, _mode: XmlPhase, _token: &Token) {
-    }
+    fn debug_step(&self, _mode: XmlPhase, _token: &Token) {}
 
     #[cfg(not(for_c))]
     fn debug_step(&self, mode: XmlPhase, token: &Token) {
-        debug!("processing {:?} in insertion mode {:?}", format!("{:?}", token), mode);
+        debug!(
+            "processing {:?} in insertion mode {:?}",
+            format!("{:?}", token),
+            mode
+        );
     }
-
 
     fn declare_ns(&mut self, attr: &mut Attribute) {
         if let Err(msg) = self.current_namespace.insert_ns(&attr) {
             self.sink.parse_error(msg);
-
         } else {
             attr.name.ns = ns!(xmlns);
         }
-
     }
 
-    fn find_uri(&self, prefix: &Option<Prefix>) ->  Result<Option<Namespace>, Cow<'static, str> >{
+    fn find_uri(&self, prefix: &Option<Prefix>) -> Result<Option<Namespace>, Cow<'static, str>> {
         let mut uri = Err(Borrowed("No appropriate namespace found"));
 
-        for ns in self.namespace_stack.0.iter()
-                    .chain(Some(&self.current_namespace)).rev() {
+        for ns in self
+            .namespace_stack
+            .0
+            .iter()
+            .chain(Some(&self.current_namespace))
+            .rev()
+        {
             if let Some(el) = ns.get(prefix) {
                 uri = Ok(el.clone());
                 break;
@@ -349,21 +341,21 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     fn process_namespaces(&mut self, tag: &mut Tag) {
         let mut new_attr = vec![];
         // First we extract all namespace declarations
-        for mut attr in tag.attrs.iter_mut()
-            .filter(|attr| attr.name.prefix == Some(namespace_prefix!("xmlns"))
-                          || attr.name.local == local_name!("xmlns")) {
+        for mut attr in tag.attrs.iter_mut().filter(|attr| {
+            attr.name.prefix == Some(namespace_prefix!("xmlns")) ||
+                attr.name.local == local_name!("xmlns")
+        }) {
             self.declare_ns(&mut attr);
         }
 
         // Then we bind those namespace declarations to attributes
-        for attr in tag.attrs.iter_mut()
-            .filter(|attr| attr.name.prefix != Some(namespace_prefix!("xmlns"))
-                          && attr.name.local != local_name!("xmlns")) {
-
+        for attr in tag.attrs.iter_mut().filter(|attr| {
+            attr.name.prefix != Some(namespace_prefix!("xmlns")) &&
+                attr.name.local != local_name!("xmlns")
+        }) {
             if self.bind_attr_qname(&mut attr.name) {
                 new_attr.push(attr.clone());
             }
-
         }
         mem::replace(&mut tag.attrs, new_attr);
         // Then we bind the tags namespace.
@@ -375,10 +367,10 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         // Only start tag doesn't dump current namespace. However, <script /> is treated
         // differently than every other empty tag, so it needs to retain the current
         // namespace as well.
-        if tag.kind == StartTag || (tag.kind == EmptyTag && tag.name.local == local_name!("script")) {
+        if tag.kind == StartTag || (tag.kind == EmptyTag && tag.name.local == local_name!("script"))
+        {
             self.namespace_stack.push(x);
         }
-
     }
 
     fn process_to_completion(&mut self, mut token: Token) {
@@ -391,21 +383,20 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
             match self.step(phase, token) {
                 Done => {
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
-                }
+                },
                 Reprocess(m, t) => {
                     self.phase = m;
                     token = t;
-                }
-
+                },
             }
         }
     }
 }
 
-impl<Handle, Sink> TokenSink
-    for XmlTreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+impl<Handle, Sink> TokenSink for XmlTreeBuilder<Handle, Sink>
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     fn process_token(&mut self, token: tokenizer::Token) {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
@@ -413,10 +404,10 @@ impl<Handle, Sink> TokenSink
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return;
-            }
+            },
 
-            tokenizer::DoctypeToken(d) =>DoctypeToken(d),
-            tokenizer::PIToken(x)   => PIToken(x),
+            tokenizer::DoctypeToken(d) => DoctypeToken(d),
+            tokenizer::PIToken(x) => PIToken(x),
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
             tokenizer::NullCharacterToken => NullCharacterToken,
@@ -444,15 +435,15 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
 
 #[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
-
     fn current_node(&self) -> &Handle {
         self.open_elems.last().expect("no current element")
     }
 
-    fn insert_appropriately(&mut self, child: NodeOrText<Handle>){
+    fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
         let target = current_node(&self.open_elems);
         self.sink.append(target, child);
     }
@@ -473,7 +464,8 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     fn append_tag_to_doc(&mut self, tag: Tag) -> Handle {
         let child = create_element(&mut self.sink, tag.name, tag.attrs);
 
-        self.sink.append(&self.doc_handle, AppendNode(child.clone()));
+        self.sink
+            .append(&self.doc_handle, AppendNode(child.clone()));
         child
     }
 
@@ -524,9 +516,7 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
         Done
     }
 
-
-    fn append_text(&mut self, chars: StrTendril)
-        -> XmlProcessResult {
+    fn append_text(&mut self, chars: StrTendril) -> XmlProcessResult {
         self.insert_appropriately(AppendText(chars));
         Done
     }
@@ -540,7 +530,8 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P)
-        where P: Fn(ExpandedName) -> bool
+    where
+        P: Fn(ExpandedName) -> bool,
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -551,18 +542,23 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         // FIXME: take namespace into consideration:
         set(self.sink.elem_name(self.current_node()))
     }
 
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
-        debug!("Close tag: current_node.name {:?} \n Current tag {:?}",
-                 self.sink.elem_name(self.current_node()), &tag.name);
+        debug!(
+            "Close tag: current_node.name {:?} \n Current tag {:?}",
+            self.sink.elem_name(self.current_node()),
+            &tag.name
+        );
 
         if *self.sink.elem_name(self.current_node()).local != tag.name.local {
-            self.sink.parse_error(Borrowed("Current node doesn't match tag"));
+            self.sink
+                .parse_error(Borrowed("Current node doesn't match tag"));
         }
 
         let is_closed = self.tag_in_open_elems(&tag);
@@ -600,21 +596,26 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 }
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
-    !x.bytes().all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
+    !x.bytes()
+        .all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
 }
 
 #[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
-
     fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult {
         self.debug_step(mode, &token);
 
         match mode {
             StartPhase => match token {
-                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                TagToken(Tag {
+                    kind: StartTag,
+                    name,
+                    attrs,
+                }) => {
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
@@ -628,7 +629,11 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
                 },
-                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                TagToken(Tag {
+                    kind: EmptyTag,
+                    name,
+                    attrs,
+                }) => {
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
@@ -643,18 +648,12 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     self.sink.pop(&handle);
                     Done
                 },
-                CommentToken(comment) => {
-                    self.append_comment_to_doc(comment)
-                },
-                PIToken(pi) => {
-                    self.append_pi_to_doc(pi)
-                },
-                CharacterTokens(ref chars)
-                    if !any_not_whitespace(chars) => {
-                        Done
-                },
+                CommentToken(comment) => self.append_comment_to_doc(comment),
+                PIToken(pi) => self.append_pi_to_doc(pi),
+                CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
                 EOFToken => {
-                    self.sink.parse_error(Borrowed("Unexpected EOF in start phase"));
+                    self.sink
+                        .parse_error(Borrowed("Unexpected EOF in start phase"));
                     Reprocess(EndPhase, EOFToken)
                 },
                 DoctypeToken(d) => {
@@ -662,15 +661,18 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     Done
                 },
                 _ => {
-                    self.sink.parse_error(Borrowed("Unexpected element in start phase"));
+                    self.sink
+                        .parse_error(Borrowed("Unexpected element in start phase"));
                     Done
                 },
             },
             MainPhase => match token {
-                CharacterTokens(chs) => {
-                    self.append_text(chs)
-                },
-                TagToken(Tag{kind: StartTag, name, attrs}) => {
+                CharacterTokens(chs) => self.append_text(chs),
+                TagToken(Tag {
+                    kind: StartTag,
+                    name,
+                    attrs,
+                }) => {
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
@@ -682,7 +684,11 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     };
                     self.insert_tag(tag)
                 },
-                TagToken(Tag{kind: EmptyTag, name, attrs}) => {
+                TagToken(Tag {
+                    kind: EmptyTag,
+                    name,
+                    attrs,
+                }) => {
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
@@ -700,7 +706,11 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                         self.append_tag(tag)
                     }
                 },
-                TagToken(Tag{kind: EndTag, name, attrs}) => {
+                TagToken(Tag {
+                    kind: EndTag,
+                    name,
+                    attrs,
+                }) => {
                     let tag = {
                         let mut tag = Tag {
                             kind: EndTag,
@@ -719,47 +729,33 @@ impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
                     }
                     retval
                 },
-                TagToken(Tag{kind: ShortTag, ..}) => {
+                TagToken(Tag { kind: ShortTag, .. }) => {
                     self.pop();
                     if self.no_open_elems() {
                         self.phase = EndPhase;
                     }
                     Done
                 },
-                CommentToken(comment) => {
-                    self.append_comment_to_tag(comment)
-                },
-                PIToken(pi) => {
-                    self.append_pi_to_tag(pi)
-                },
-                EOFToken | NullCharacterToken=> {
-                    Reprocess(EndPhase, EOFToken)
-                }
+                CommentToken(comment) => self.append_comment_to_tag(comment),
+                PIToken(pi) => self.append_pi_to_tag(pi),
+                EOFToken | NullCharacterToken => Reprocess(EndPhase, EOFToken),
                 DoctypeToken(_) => {
-                    self.sink.parse_error(Borrowed("Unexpected element in main phase"));
+                    self.sink
+                        .parse_error(Borrowed("Unexpected element in main phase"));
                     Done
-                }
+                },
             },
             EndPhase => match token {
-                CommentToken(comment) => {
-                    self.append_comment_to_doc(comment)
-                },
-                PIToken(pi) => {
-                    self.append_pi_to_doc(pi)
-                },
-                CharacterTokens(ref chars)
-                    if !any_not_whitespace(chars) => {
-                        Done
-                },
-                EOFToken => {
-                    self.stop_parsing()
-                }
+                CommentToken(comment) => self.append_comment_to_doc(comment),
+                PIToken(pi) => self.append_pi_to_doc(pi),
+                CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
+                EOFToken => self.stop_parsing(),
                 _ => {
-                    self.sink.parse_error(Borrowed("Unexpected element in end phase"));
+                    self.sink
+                        .parse_error(Borrowed("Unexpected element in end phase"));
                     Done
-                }
+                },
             },
-
         }
     }
 }

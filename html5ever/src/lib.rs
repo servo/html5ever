@@ -7,18 +7,20 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="html5ever"]
-#![crate_type="dylib"]
-
+#![crate_name = "html5ever"]
+#![crate_type = "dylib"]
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
 
-#[macro_use] extern crate log;
-#[macro_use] extern crate markup5ever;
-#[macro_use] extern crate mac;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate markup5ever;
+#[macro_use]
+extern crate mac;
 
+pub use driver::{parse_document, parse_fragment, ParseOpts, Parser};
 pub use markup5ever::*;
-pub use driver::{ParseOpts, parse_document, parse_fragment, Parser};
 
 pub use serialize::serialize;
 
@@ -29,7 +31,7 @@ mod util {
     pub mod str;
 }
 
+pub mod driver;
 pub mod serialize;
 pub mod tokenizer;
 pub mod tree_builder;
-pub mod driver;

@@ -14,7 +14,7 @@ enum QualNameState {
 }
 
 pub struct QualNameTokenizer<'a> {
-    state : QualNameState,
+    state: QualNameState,
     slice: &'a [u8],
     valid_index: Option<u32>,
     curr_ind: usize,
@@ -53,7 +53,7 @@ impl<'a> QualNameTokenizer<'a> {
         match self.state {
             QualNameState::BeforeName => self.do_before_name(),
             QualNameState::InName => self.do_in_name(),
-            QualNameState::AfterColon   => self.do_after_colon(),
+            QualNameState::AfterColon => self.do_after_colon(),
         }
     }
 
@@ -67,7 +67,7 @@ impl<'a> QualNameTokenizer<'a> {
     }
 
     fn do_in_name(&mut self) -> bool {
-        if self.slice[self.curr_ind] == b':' && self.curr_ind +1 < self.slice.len() {
+        if self.slice[self.curr_ind] == b':' && self.curr_ind + 1 < self.slice.len() {
             self.valid_index = Some(self.curr_ind as u32);
             self.state = QualNameState::AfterColon;
         }
@@ -81,6 +81,4 @@ impl<'a> QualNameTokenizer<'a> {
         }
         self.incr()
     }
-
 }
-

@@ -7,16 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] extern crate html5ever;
+#[macro_use]
+extern crate html5ever;
 
 use std::default::Default;
 
-use html5ever::{parse_fragment, parse_document, serialize, QualName};
 use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
-use html5ever::tendril::{StrTendril, SliceExt, TendrilSink};
-use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, TagKind, Tokenizer};
-use html5ever::serialize::{Serialize, Serializer, TraversalScope, SerializeOpts};
+use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope};
+use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
+use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
+use html5ever::{parse_document, parse_fragment, serialize, QualName};
 
 use std::io;
 
@@ -37,7 +38,8 @@ impl Serialize for Tokens {
         S: Serializer,
     {
         for t in self.0.iter() {
-            match t {                // TODO: check whether this is an IE conditional comment or a spec comment
+            match t {
+                // TODO: check whether this is an IE conditional comment or a spec comment
                 &Token::TagToken(ref tag) => {
                     let name = QualName::new(
                         None,
@@ -45,27 +47,20 @@ impl Serialize for Tokens {
                         tag.name.as_ref().into(),
                     );
                     match tag.kind {
-                        TagKind::StartTag => {
-                            serializer.start_elem(
-                                name,
-                                tag.attrs.iter().map(
-                                    |at| (&at.name, &at.value[..]),
-                                ),
-                            )?
-                        }
+                        TagKind::StartTag => serializer.start_elem(
+                            name,
+                            tag.attrs.iter().map(|at| (&at.name, &at.value[..])),
+                        )?,
                         TagKind::EndTag => serializer.end_elem(name)?,
                     }
-                }
-                &Token::DoctypeToken(ref dt) => {
-                    match dt.name {
-                        Some(ref name) => serializer.write_doctype(&name)?,
-                        None => {}
-                    }
-                }
+                },
+                &Token::DoctypeToken(ref dt) => match dt.name {
+                    Some(ref name) => serializer.write_doctype(&name)?,
+                    None => {},
+                },
                 &Token::CommentToken(ref chars) => serializer.write_comment(&chars)?,
                 &Token::CharacterTokens(ref chars) => serializer.write_text(&chars)?,
-                &Token::NullCharacterToken |
-                &Token::EOFToken => {}
+                &Token::NullCharacterToken | &Token::EOFToken => {},
                 &Token::ParseError(ref e) => println!("parse error: {:#?}", e),
             }
         }
@@ -90,15 +85,19 @@ fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
             create_missing_parent: true,
             ..Default::default()
         },
-    ).unwrap();
+    )
+    .unwrap();
     StrTendril::try_from_byte_slice(&output.into_inner()).unwrap()
 }
 
 fn parse_and_serialize(input: StrTendril) -> StrTendril {
     let dom = parse_fragment(
-        RcDom::default(), ParseOpts::default(),
-        QualName::new(None, ns!(html), local_name!("body")), vec![],
-    ).one(input);
+        RcDom::default(),
+        ParseOpts::default(),
+        QualName::new(None, ns!(html), local_name!("body")),
+        vec![],
+    )
+    .one(input);
     let inner = &dom.document.children.borrow()[0];
 
     let mut result = vec![];
@@ -132,22 +131,38 @@ macro_rules! test_no_parse {
     };
 }
 
-
-
 test!(empty, r#""#);
 test!(fuzz, "<a a=\r\n", "");
 test!(smoke_test, r#"<p><i>Hello</i>, World!</p>"#);
 
-test!(misnest, r#"<p><i>Hello!</p>, World!</i>"#,
-    r#"<p><i>Hello!</i></p><i>, World!</i>"#);
+test!(
+    misnest,
+    r#"<p><i>Hello!</p>, World!</i>"#,
+    r#"<p><i>Hello!</i></p><i>, World!</i>"#
+);
 
 test!(attr_literal, r#"<base foo="<'>">"#);
 test!(attr_escape_amp, r#"<base foo="&amp;">"#);
-test!(attr_escape_amp_2, r#"<base foo=&amp>"#, r#"<base foo="&amp;">"#);
-test!(attr_escape_nbsp, "<base foo=x\u{a0}y>", r#"<base foo="x&nbsp;y">"#);
-test!(attr_escape_quot, r#"<base foo='"'>"#, r#"<base foo="&quot;">"#);
-test!(attr_escape_several, r#"<span foo=3 title='test "with" &amp;quot;'>"#,
-    r#"<span foo="3" title="test &quot;with&quot; &amp;quot;"></span>"#);
+test!(
+    attr_escape_amp_2,
+    r#"<base foo=&amp>"#,
+    r#"<base foo="&amp;">"#
+);
+test!(
+    attr_escape_nbsp,
+    "<base foo=x\u{a0}y>",
+    r#"<base foo="x&nbsp;y">"#
+);
+test!(
+    attr_escape_quot,
+    r#"<base foo='"'>"#,
+    r#"<base foo="&quot;">"#
+);
+test!(
+    attr_escape_several,
+    r#"<span foo=3 title='test "with" &amp;quot;'>"#,
+    r#"<span foo="3" title="test &quot;with&quot; &amp;quot;"></span>"#
+);
 
 test!(text_literal, r#"<p>"'"</p>"#);
 test!(text_escape_amp, r#"<p>&amp;</p>"#);
@@ -157,24 +172,55 @@ test!(text_escape_lt, r#"<p>&lt;</p>"#);
 test!(text_escape_gt, r#"<p>&gt;</p>"#);
 test!(text_escape_gt2, r#"<p>></p>"#, r#"<p>&gt;</p>"#);
 
-test!(script_literal, r#"<script>(x & 1) < 2; y > "foo" + 'bar'</script>"#);
-test!(style_literal, r#"<style>(x & 1) < 2; y > "foo" + 'bar'</style>"#);
+test!(
+    script_literal,
+    r#"<script>(x & 1) < 2; y > "foo" + 'bar'</script>"#
+);
+test!(
+    style_literal,
+    r#"<style>(x & 1) < 2; y > "foo" + 'bar'</style>"#
+);
 test!(xmp_literal, r#"<xmp>(x & 1) < 2; y > "foo" + 'bar'</xmp>"#);
-test!(iframe_literal, r#"<iframe>(x & 1) < 2; y > "foo" + 'bar'</iframe>"#);
-test!(noembed_literal, r#"<noembed>(x & 1) < 2; y > "foo" + 'bar'</noembed>"#);
-test!(noframes_literal, r#"<noframes>(x & 1) < 2; y > "foo" + 'bar'</noframes>"#);
+test!(
+    iframe_literal,
+    r#"<iframe>(x & 1) < 2; y > "foo" + 'bar'</iframe>"#
+);
+test!(
+    noembed_literal,
+    r#"<noembed>(x & 1) < 2; y > "foo" + 'bar'</noembed>"#
+);
+test!(
+    noframes_literal,
+    r#"<noframes>(x & 1) < 2; y > "foo" + 'bar'</noframes>"#
+);
 
 test!(pre_lf_0, "<pre>foo bar</pre>");
 test!(pre_lf_1, "<pre>\nfoo bar</pre>", "<pre>foo bar</pre>");
 test!(pre_lf_2, "<pre>\n\nfoo bar</pre>", "<pre>\nfoo bar</pre>");
 
 test!(textarea_lf_0, "<textarea>foo bar</textarea>");
-test!(textarea_lf_1, "<textarea>\nfoo bar</textarea>", "<textarea>foo bar</textarea>");
-test!(textarea_lf_2, "<textarea>\n\nfoo bar</textarea>", "<textarea>\nfoo bar</textarea>");
+test!(
+    textarea_lf_1,
+    "<textarea>\nfoo bar</textarea>",
+    "<textarea>foo bar</textarea>"
+);
+test!(
+    textarea_lf_2,
+    "<textarea>\n\nfoo bar</textarea>",
+    "<textarea>\nfoo bar</textarea>"
+);
 
 test!(listing_lf_0, "<listing>foo bar</listing>");
-test!(listing_lf_1, "<listing>\nfoo bar</listing>", "<listing>foo bar</listing>");
-test!(listing_lf_2, "<listing>\n\nfoo bar</listing>", "<listing>\nfoo bar</listing>");
+test!(
+    listing_lf_1,
+    "<listing>\nfoo bar</listing>",
+    "<listing>foo bar</listing>"
+);
+test!(
+    listing_lf_2,
+    "<listing>\n\nfoo bar</listing>",
+    "<listing>\nfoo bar</listing>"
+);
 
 test!(comment_1, r#"<p>hi <!--world--></p>"#);
 test!(comment_2, r#"<p>hi <!-- world--></p>"#);
@@ -193,9 +239,8 @@ test_no_parse!(malformed_tokens, r#"foo</div><div>"#);
 
 #[test]
 fn doctype() {
-    let dom = parse_document(
-        RcDom::default(), ParseOpts::default()).one("<!doctype html>");
-    dom.document.children.borrow_mut().truncate(1);  // Remove <html>
+    let dom = parse_document(RcDom::default(), ParseOpts::default()).one("<!doctype html>");
+    dom.document.children.borrow_mut().truncate(1); // Remove <html>
     let mut result = vec![];
     serialize(&mut result, &dom.document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");

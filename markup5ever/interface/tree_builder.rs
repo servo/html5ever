@@ -11,12 +11,12 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
+use interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
-use interface::{QualName, ExpandedName, Attribute};
 
 pub use self::NodeOrText::{AppendNode, AppendText};
-pub use self::QuirksMode::{Quirks, LimitedQuirks, NoQuirks};
+pub use self::QuirksMode::{LimitedQuirks, NoQuirks, Quirks};
 
 /// Something which can be inserted into the DOM.
 ///
@@ -72,7 +72,7 @@ pub struct ElementFlags {
     pub mathml_annotation_xml_integration_point: bool,
 
     // Prevent construction from outside module
-    _private: ()
+    _private: (),
 }
 
 /// A constructor for an element.
@@ -106,21 +106,20 @@ pub struct ElementFlags {
 ///
 /// ```
 pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
-where Sink: TreeSink {
+where
+    Sink: TreeSink,
+{
     let mut flags = ElementFlags::default();
     match name.expanded() {
-        expanded_name!(html "template") => {
-            flags.template = true
-        }
+        expanded_name!(html "template") => flags.template = true,
         expanded_name!(mathml "annotation-xml") => {
             flags.mathml_annotation_xml_integration_point = attrs.iter().any(|attr| {
-                attr.name.expanded() == expanded_name!("", "encoding") && (
-                    attr.value.eq_ignore_ascii_case("text/html") ||
-                    attr.value.eq_ignore_ascii_case("application/xhtml+xml")
-                )
+                attr.name.expanded() == expanded_name!("", "encoding") &&
+                    (attr.value.eq_ignore_ascii_case("text/html") ||
+                        attr.value.eq_ignore_ascii_case("application/xhtml+xml"))
             })
-        }
-        _ => {}
+        },
+        _ => {},
     }
     sink.create_element(name, attrs, flags)
 }
@@ -169,8 +168,12 @@ pub trait TreeSink {
     /// See [the template element in the whatwg spec][whatwg template].
     ///
     /// [whatwg template]: https://html.spec.whatwg.org/multipage/#the-template-element
-    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
-                      -> Self::Handle;
+    fn create_element(
+        &mut self,
+        name: QualName,
+        attrs: Vec<Attribute>,
+        flags: ElementFlags,
+    ) -> Self::Handle;
 
     /// Create a comment node.
     fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
@@ -188,16 +191,20 @@ pub trait TreeSink {
     /// When the insertion point is decided by the existence of a parent node of the
     /// element, we consider both possibilities and send the element which will be used
     /// if a parent node exists, along with the element to be used if there isn't one.
-    fn append_based_on_parent_node(&mut self,
+    fn append_based_on_parent_node(
+        &mut self,
         element: &Self::Handle,
         prev_element: &Self::Handle,
-        child: NodeOrText<Self::Handle>);
+        child: NodeOrText<Self::Handle>,
+    );
 
     /// Append a `DOCTYPE` element to the `Document` node.
-    fn append_doctype_to_document(&mut self,
-                                  name: StrTendril,
-                                  public_id: StrTendril,
-                                  system_id: StrTendril);
+    fn append_doctype_to_document(
+        &mut self,
+        name: StrTendril,
+        public_id: StrTendril,
+        system_id: StrTendril,
+    );
 
     /// Mark a HTML `<script>` as "already started".
     fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
@@ -224,9 +231,7 @@ pub trait TreeSink {
     /// be merged, as in the behavior of `append`.
     ///
     /// NB: `new_node` may have an old parent, from which it should be removed.
-    fn append_before_sibling(&mut self,
-        sibling: &Self::Handle,
-        new_node: NodeOrText<Self::Handle>);
+    fn append_before_sibling(&mut self, sibling: &Self::Handle, new_node: NodeOrText<Self::Handle>);
 
     /// Add each attribute to the given element, if no attribute with that name
     /// already exists. The tree builder promises this will never be called
@@ -234,10 +239,13 @@ pub trait TreeSink {
     fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
-    fn associate_with_form(&mut self,
+    fn associate_with_form(
+        &mut self,
         _target: &Self::Handle,
         _form: &Self::Handle,
-        _nodes: (&Self::Handle, Option<&Self::Handle>)) {}
+        _nodes: (&Self::Handle, Option<&Self::Handle>),
+    ) {
+    }
 
     /// Detach the given node from its parent.
     fn remove_from_parent(&mut self, target: &Self::Handle);

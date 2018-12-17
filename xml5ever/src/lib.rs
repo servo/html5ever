@@ -28,13 +28,16 @@
 //!   * Document Type Definition parsing - this is pretty hard to do right and nowadays, its used
 //!
 
-#![crate_name="xml5ever"]
-#![crate_type="dylib"]
+#![crate_name = "xml5ever"]
+#![crate_type = "dylib"]
 #![deny(missing_docs)]
 
-#[macro_use] extern crate markup5ever;
-#[macro_use] extern crate log;
-#[macro_use] extern crate mac;
+#[macro_use]
+extern crate markup5ever;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate mac;
 extern crate time;
 
 pub use markup5ever::*;
@@ -45,16 +48,16 @@ macro_rules! time {
         let result = $e;
         let dt = ::time::precise_time_ns() - t0;
         (result, dt)
-    }}
+    }};
 }
 
 mod util;
 
+/// Driver
+pub mod driver;
+/// Serializer for XML5.
+pub mod serialize;
 /// XML5 tokenizer - converts input into tokens
 pub mod tokenizer;
 /// XML5 tree builder - converts tokens into a tree like structure
 pub mod tree_builder;
-/// Serializer for XML5.
-pub mod serialize;
-/// Driver
-pub mod driver;

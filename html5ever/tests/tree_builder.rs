@@ -8,29 +8,29 @@
 // except according to those terms.
 
 extern crate rustc_test as test;
-#[macro_use] extern crate html5ever;
+#[macro_use]
+extern crate html5ever;
 
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
 
-use std::{fs, io, env};
-use std::io::BufRead;
+use std::collections::{HashMap, HashSet};
+use std::default::Default;
 use std::ffi::OsStr;
+use std::io::BufRead;
 use std::iter::repeat;
 use std::mem::replace;
-use std::default::Default;
 use std::path::Path;
-use std::collections::{HashSet, HashMap};
-use test::{TestDesc, TestDescAndFn, DynTestName, TestFn};
+use std::{env, fs, io};
+use test::{DynTestName, TestDesc, TestDescAndFn, TestFn};
 
-use html5ever::{LocalName, QualName};
-use html5ever::{ParseOpts, parse_document, parse_fragment};
-use html5ever::rcdom::{NodeData, Handle, RcDom};
+use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::tendril::{StrTendril, TendrilSink};
+use html5ever::{parse_document, parse_fragment, ParseOpts};
+use html5ever::{LocalName, QualName};
 
-
-fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, String>> {
-    let mut tests = vec!();
+fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String, String>> {
+    let mut tests = vec![];
     let mut test = HashMap::new();
     let mut key: Option<String> = None;
     let mut val = String::new();
@@ -64,7 +64,7 @@ fn parse_tests<It: Iterator<Item=String>>(mut lines: It) -> Vec<HashMap<String, 
                     val.push_str(&line);
                     val.push('\n');
                 }
-            }
+            },
         }
     }
 
@@ -81,28 +81,36 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     match node.data {
         NodeData::Document => panic!("should not reach Document"),
 
-        NodeData::Doctype { ref name, ref public_id, ref system_id } => {
+        NodeData::Doctype {
+            ref name,
+            ref public_id,
+            ref system_id,
+        } => {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(&name);
             if !public_id.is_empty() || !system_id.is_empty() {
                 buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
-        }
+        },
 
         NodeData::Text { ref contents } => {
             buf.push_str("\"");
             buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
-        }
+        },
 
         NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
             buf.push_str(&contents);
             buf.push_str(" -->\n");
-        }
+        },
 
-        NodeData::Element { ref name, ref attrs, .. } => {
+        NodeData::Element {
+            ref name,
+            ref attrs,
+            ..
+        } => {
             buf.push_str("<");
             match name.ns {
                 ns!(svg) => buf.push_str("svg "),
@@ -118,42 +126,45 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
             for attr in attrs.into_iter() {
                 buf.push_str("|");
-                buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
+                buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
                 match attr.name.ns {
                     ns!(xlink) => buf.push_str("xlink "),
                     ns!(xml) => buf.push_str("xml "),
                     ns!(xmlns) => buf.push_str("xmlns "),
                     _ => (),
                 }
-                buf.push_str(&format!("{}=\"{}\"\n",
-                    attr.name.local, attr.value));
+                buf.push_str(&format!("{}=\"{}\"\n", attr.name.local, attr.value));
             }
-        }
+        },
 
-        NodeData::ProcessingInstruction { .. } => unreachable!()
+        NodeData::ProcessingInstruction { .. } => unreachable!(),
     }
 
     for child in node.children.borrow().iter() {
-        serialize(buf, indent+2, child.clone());
+        serialize(buf, indent + 2, child.clone());
     }
 
-    if let NodeData::Element { template_contents: Some(ref content), .. } = node.data {
+    if let NodeData::Element {
+        template_contents: Some(ref content),
+        ..
+    } = node.data
+    {
         buf.push_str("|");
-        buf.push_str(&repeat(" ").take(indent+2).collect::<String>());
+        buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
         buf.push_str("content\n");
         for child in content.children.borrow().iter() {
-            serialize(buf, indent+4, child.clone());
+            serialize(buf, indent + 4, child.clone());
         }
     }
 }
 
 fn make_test(
-        tests: &mut Vec<TestDescAndFn>,
-        ignores: &HashSet<String>,
-        filename: &str,
-        idx: usize,
-        fields: HashMap<String, String>) {
-
+    tests: &mut Vec<TestDescAndFn>,
+    ignores: &HashSet<String>,
+    filename: &str,
+    idx: usize,
+    fields: HashMap<String, String>,
+) {
     let scripting_flags = &[false, true];
     let scripting_flags = if fields.contains_key("script-off") {
         &scripting_flags[0..1]
@@ -164,18 +175,17 @@ fn make_test(
     };
     let name = format!("tb: {}-{}", filename, idx);
     for scripting_enabled in scripting_flags {
-        let test = make_test_desc_with_scripting_flag(
-            ignores, &name, &fields, *scripting_enabled);
+        let test = make_test_desc_with_scripting_flag(ignores, &name, &fields, *scripting_enabled);
         tests.push(test);
     }
 }
 
 fn make_test_desc_with_scripting_flag(
-        ignores: &HashSet<String>,
-        name: &str,
-        fields: &HashMap<String, String>,
-        scripting_enabled: bool)
-        -> TestDescAndFn {
+    ignores: &HashSet<String>,
+    name: &str,
+    fields: &HashMap<String, String>,
+    scripting_enabled: bool,
+) -> TestDescAndFn {
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
         field.trim_right_matches('\n').to_string()
@@ -184,8 +194,9 @@ fn make_test_desc_with_scripting_flag(
     let mut data = fields.get("data").expect("missing data").to_string();
     data.pop();
     let expected = get_field("document");
-    let context = fields.get("document-fragment")
-                        .map(|field| context_name(field.trim_right_matches('\n')));
+    let context = fields
+        .get("document-fragment")
+        .map(|field| context_name(field.trim_right_matches('\n')));
     let ignore = ignores.contains(name);
     let mut name = name.to_owned();
     if scripting_enabled {
@@ -199,7 +210,7 @@ fn make_test_desc_with_scripting_flag(
     TestDescAndFn {
         desc: TestDesc {
             ignore: ignore,
-            .. TestDesc::new(DynTestName(name))
+            ..TestDesc::new(DynTestName(name))
         },
         testfn: TestFn::dyn_test_fn(move || {
             // Do this here because Tendril isn't Send.
@@ -225,11 +236,13 @@ fn make_test_desc_with_scripting_flag(
                 },
             };
             let len = result.len();
-            result.truncate(len - 1);  // drop the trailing newline
+            result.truncate(len - 1); // drop the trailing newline
 
             if result != expected {
-                panic!("\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
-                    data, result, expected);
+                panic!(
+                    "\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
+                    data, result, expected
+                );
             }
         }),
     }
@@ -246,20 +259,28 @@ fn context_name(context: &str) -> QualName {
 }
 
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
-    let mut tests = vec!();
+    let mut tests = vec![];
 
-    foreach_html5lib_test(src_dir, "tree-construction",
-                          OsStr::new("dat"), |path, file| {
-        let buf = io::BufReader::new(file);
-        let lines = buf.lines()
-            .map(|res| res.ok().expect("couldn't read"));
-        let data = parse_tests(lines);
+    foreach_html5lib_test(
+        src_dir,
+        "tree-construction",
+        OsStr::new("dat"),
+        |path, file| {
+            let buf = io::BufReader::new(file);
+            let lines = buf.lines().map(|res| res.ok().expect("couldn't read"));
+            let data = parse_tests(lines);
 
-        for (i, test) in data.into_iter().enumerate() {
-            make_test(&mut tests, ignores, path.file_name().unwrap().to_str().unwrap(),
-                      i, test);
-        }
-    });
+            for (i, test) in data.into_iter().enumerate() {
+                make_test(
+                    &mut tests,
+                    ignores,
+                    path.file_name().unwrap().to_str().unwrap(),
+                    i,
+                    test,
+                );
+            }
+        },
+    );
 
     tests
 }

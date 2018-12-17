@@ -12,16 +12,15 @@ extern crate xml5ever;
 
 use std::default::Default;
 
-use xml5ever::tendril::TendrilSink;
 use xml5ever::driver::parse_document;
-use xml5ever::tree_builder::{TreeSink};
-use xml5ever::rcdom::{RcDom, NodeData};
+use xml5ever::rcdom::{NodeData, RcDom};
+use xml5ever::tendril::TendrilSink;
+use xml5ever::tree_builder::TreeSink;
 
 fn main() {
     // To parse a string into a tree of nodes, we need to invoke
     // `parse_document` and supply it with a TreeSink implementation (RcDom).
-    let dom: RcDom = parse_document(RcDom::default(), Default::default())
-        .one("<hello>XML</hello>");
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one("<hello>XML</hello>");
 
     // Do some processing
     let doc = &dom.document;
@@ -37,7 +36,7 @@ fn main() {
             &NodeData::Text { ref contents } => {
                 xml.push_str(&contents.borrow());
             },
-            _ => {}
+            _ => {},
         };
 
         xml
