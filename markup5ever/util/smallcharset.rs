@@ -11,7 +11,6 @@
 //!
 //! [`SmallCharSet`]: struct.SmallCharSet.html
 
-
 /// Represents a set of "small characters", those with Unicode scalar
 /// values less than 64.
 ///
@@ -76,8 +75,8 @@ mod test {
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {
-            for x in 0 .. 48u32 {
-                for y in 0 .. 48u32 {
+            for x in 0..48u32 {
+                for y in 0..48u32 {
                     let mut s = repeat("x").take(x as usize).collect::<String>();
                     s.push(c);
                     s.push_str(&repeat("x").take(y as usize).collect::<String>());

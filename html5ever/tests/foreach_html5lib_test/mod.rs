@@ -7,17 +7,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::fs;
 use std::ops::FnMut;
+use std::path::Path;
 
 pub fn foreach_html5lib_test<Mk>(
-        src_dir: &Path,
-        subdir: &'static str,
-        ext: &'static OsStr,
-        mut mk: Mk)
-    where Mk: FnMut(&Path, fs::File)
+    src_dir: &Path,
+    subdir: &'static str,
+    ext: &'static OsStr,
+    mut mk: Mk,
+) where
+    Mk: FnMut(&Path, fs::File),
 {
     let mut test_dir_path = src_dir.to_path_buf();
     test_dir_path.push("html5lib-tests");
@@ -36,6 +37,6 @@ pub fn foreach_html5lib_test<Mk>(
         },
         Err(_) => {
             panic!("Before launching the tests, please run this command:\n\n\tgit submodule update --init\n\nto retrieve an html5lib-tests snapshot.");
-        }
+        },
     }
 }

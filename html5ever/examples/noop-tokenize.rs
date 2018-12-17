@@ -11,11 +11,11 @@
 
 extern crate html5ever;
 
-use std::io;
 use std::default::Default;
+use std::io;
 
-use html5ever::tokenizer::{BufferQueue, TokenSinkResult, TokenSink, Token, Tokenizer};
 use html5ever::tendril::*;
+use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
 
 struct Sink(Vec<Token>);
 

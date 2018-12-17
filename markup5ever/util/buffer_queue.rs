@@ -18,7 +18,6 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
@@ -92,8 +91,14 @@ impl BufferQueue {
 
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
-        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none(),
-                      "invariant \"all buffers in the queue are non-empty\" failed");
+        debug_assert!(
+            self.buffers
+                .iter()
+                .skip_while(|el| el.len32() != 0)
+                .next()
+                .is_none(),
+            "invariant \"all buffers in the queue are non-empty\" failed"
+        );
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
@@ -106,7 +111,7 @@ impl BufferQueue {
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
                 (Some(c), buf.is_empty())
-            }
+            },
         };
 
         if now_empty {
@@ -159,7 +164,7 @@ impl BufferQueue {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
                     (Some(FromSet(c)), buf.is_empty())
                 }
-            }
+            },
         };
 
         // Unborrow self for this part.
@@ -207,7 +212,7 @@ impl BufferQueue {
             let ref buf = self.buffers[buffers_exhausted];
 
             if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
-                return Some(false)
+                return Some(false);
             }
 
             consumed_from_last += 1;
@@ -218,7 +223,7 @@ impl BufferQueue {
         }
 
         // We have a match. Commit changes to the BufferQueue.
-        for _ in 0 .. buffers_exhausted {
+        for _ in 0..buffers_exhausted {
             self.buffers.pop_front();
         }
 

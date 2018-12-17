@@ -7,8 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] extern crate quote;
-#[macro_use] extern crate syn;
+#[macro_use]
+extern crate quote;
+#[macro_use]
+extern crate syn;
 extern crate proc_macro2;
 
 use std::env;
@@ -26,9 +28,12 @@ fn main() {
     println!("cargo:rerun-if-changed={}", input.display());
 
     // We have stack overflows on Servo's CI.
-    let handle = Builder::new().stack_size(128 * 1024 * 1024).spawn(move || {
-        match_token::expand(&input, &output);
-    }).unwrap();
+    let handle = Builder::new()
+        .stack_size(128 * 1024 * 1024)
+        .spawn(move || {
+            match_token::expand(&input, &output);
+        })
+        .unwrap();
 
     handle.join().unwrap();
 }

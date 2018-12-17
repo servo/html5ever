@@ -7,8 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate string_cache;
 extern crate phf;
+extern crate string_cache;
 pub extern crate tendril;
 
 /// Create a [`SmallCharSet`], with each space-separated number stored in the set.
@@ -34,16 +34,16 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
-
 pub mod data;
-#[macro_use] pub mod interface;
+#[macro_use]
+pub mod interface;
 pub mod rcdom;
 pub mod serialize;
 mod util {
-    pub mod smallcharset;
     pub mod buffer_queue;
+    pub mod smallcharset;
 }
 
-pub use util::*;
-pub use interface::{ExpandedName, QualName, Attribute};
+pub use interface::{Attribute, ExpandedName, QualName};
 pub use util::smallcharset::SmallCharSet;
+pub use util::*;

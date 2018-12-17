@@ -12,10 +12,10 @@
 //! This is public for use by the tokenizer tests.  Other library
 //! users should not have to care about this.
 
-pub use self::ScriptEscapeKind::*;
+pub use self::AttrValueKind::*;
 pub use self::DoctypeIdKind::*;
 pub use self::RawKind::*;
-pub use self::AttrValueKind::*;
+pub use self::ScriptEscapeKind::*;
 pub use self::State::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]

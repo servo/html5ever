@@ -10,32 +10,28 @@
 //! ```
 extern crate xml5ever;
 
-use std::io::{self};
 use std::default::Default;
+use std::io;
 use std::string::String;
 
-use xml5ever::tendril::{TendrilSink};
-use xml5ever::driver::{parse_document};
-use xml5ever::rcdom::{NodeData, RcDom, Handle};
+use xml5ever::driver::parse_document;
+use xml5ever::rcdom::{Handle, NodeData, RcDom};
+use xml5ever::tendril::TendrilSink;
 
 fn walk(prefix: &str, handle: Handle) {
     let node = handle;
 
     print!("{}", prefix);
     match node.data {
-        NodeData::Document
-            => println!("#document"),
+        NodeData::Document => println!("#document"),
 
-        NodeData::Text { ref contents }  => {
-            println!("#text {}", escape_default(&contents.borrow()))
-        },
+        NodeData::Text { ref contents } => println!("#text {}", escape_default(&contents.borrow())),
 
         NodeData::Element { ref name, .. } => {
             println!("{}", name.local);
         },
 
         _ => {},
-
     }
 
     let new_indent = {
@@ -45,12 +41,15 @@ fn walk(prefix: &str, handle: Handle) {
         temp
     };
 
-    for child in node.children.borrow().iter()
+    for child in node
+        .children
+        .borrow()
+        .iter()
         .filter(|child| match child.data {
             NodeData::Text { .. } | NodeData::Element { .. } => true,
             _ => false,
-        }
-    ) {
+        })
+    {
         walk(&new_indent, child.clone());
     }
 }

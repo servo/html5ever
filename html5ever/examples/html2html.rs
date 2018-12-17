@@ -17,15 +17,14 @@
 
 extern crate html5ever;
 
-use std::io::{self, Write};
 use std::default::Default;
+use std::io::{self, Write};
 
-
-use html5ever::{parse_document, serialize};
 use html5ever::driver::ParseOpts;
 use html5ever::rcdom::RcDom;
 use html5ever::tendril::TendrilSink;
 use html5ever::tree_builder::TreeBuilderOpts;
+use html5ever::{parse_document, serialize};
 
 fn main() {
     let opts = ParseOpts {
@@ -42,8 +41,11 @@ fn main() {
         .unwrap();
 
     // The validator.nu HTML2HTML always prints a doctype at the very beginning.
-    io::stdout().write_all(b"<!DOCTYPE html>\n")
-        .ok().expect("writing DOCTYPE failed");
+    io::stdout()
+        .write_all(b"<!DOCTYPE html>\n")
+        .ok()
+        .expect("writing DOCTYPE failed");
     serialize(&mut io::stdout(), &dom.document, Default::default())
-        .ok().expect("serialization failed");
+        .ok()
+        .expect("serialization failed");
 }

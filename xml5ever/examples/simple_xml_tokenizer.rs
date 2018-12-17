@@ -9,21 +9,20 @@
 //! tendril = "0.1.3"
 //! markup5ever = "0.7.4"
 //! ```
-extern crate xml5ever;
 extern crate markup5ever;
+extern crate xml5ever;
 
-use std::io;
 use std::default::Default;
+use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{TokenSink, Token, XmlTokenizer, ParseError};
 use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
-use xml5ever::tokenizer::{PIToken, Pi, CommentToken};
-use xml5ever::tokenizer::{EOFToken, DoctypeToken, Doctype};
+use xml5ever::tokenizer::{CommentToken, PIToken, Pi};
+use xml5ever::tokenizer::{Doctype, DoctypeToken, EOFToken};
+use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
 
 struct SimpleTokenPrinter;
-
 
 impl TokenSink for SimpleTokenPrinter {
     fn process_token(&mut self, token: Token) {
@@ -38,7 +37,10 @@ impl TokenSink for SimpleTokenPrinter {
             ParseError(err) => {
                 println!("ERROR: {}", err);
             },
-            PIToken(Pi{ref target, ref data}) => {
+            PIToken(Pi {
+                ref target,
+                ref data,
+            }) => {
                 println!("PI : <?{} {}?>", &*target, &*data);
             },
             CommentToken(ref comment) => {
@@ -47,9 +49,13 @@ impl TokenSink for SimpleTokenPrinter {
             EOFToken => {
                 println!("EOF");
             },
-            DoctypeToken(Doctype{ref name, ref public_id, ..}) => {
+            DoctypeToken(Doctype {
+                ref name,
+                ref public_id,
+                ..
+            }) => {
                 println!("<!DOCTYPE {:?} {:?}>", &*name, &*public_id);
-            }
+            },
         }
     }
 }

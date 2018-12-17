@@ -5,10 +5,12 @@ extern crate html5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{Criterion, black_box};
+use criterion::{black_box, Criterion};
 
-use html5ever::tokenizer::{BufferQueue, TokenSink, Token, Tokenizer, TokenizerOpts, TokenSinkResult};
 use html5ever::tendril::*;
+use html5ever::tokenizer::{
+    BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
+};
 
 struct Sink;
 
@@ -23,7 +25,6 @@ impl TokenSink for Sink {
     }
 }
 
-
 fn run_bench(c: &mut Criterion, name: &str) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("data/bench/");
@@ -32,7 +33,9 @@ fn run_bench(c: &mut Criterion, name: &str) {
 
     // Read the file and treat it as an infinitely repeating sequence of characters.
     let mut file_input = ByteTendril::new();
-    file.read_to_tendril(&mut file_input).ok().expect("can't read file");
+    file.read_to_tendril(&mut file_input)
+        .ok()
+        .expect("can't read file");
     let file_input: StrTendril = file_input.try_reinterpret().unwrap();
     let size = file_input.len();
     let mut stream = file_input.chars().cycle();
@@ -51,21 +54,21 @@ fn run_bench(c: &mut Criterion, name: &str) {
 
     let test_name = format!("html tokenizing {}", name);
 
-    c.bench_function(&test_name, move |b| b.iter(|| {
-        let mut tok = Tokenizer::new(Sink, Default::default());
-        let mut buffer = BufferQueue::new();
-        // We are doing clone inside the bench function, this is not ideal, but possibly
-        // necessary since our iterator consumes the underlying buffer.
-        for buf in input.clone().into_iter() {
-            buffer.push_back(buf);
+    c.bench_function(&test_name, move |b| {
+        b.iter(|| {
+            let mut tok = Tokenizer::new(Sink, Default::default());
+            let mut buffer = BufferQueue::new();
+            // We are doing clone inside the bench function, this is not ideal, but possibly
+            // necessary since our iterator consumes the underlying buffer.
+            for buf in input.clone().into_iter() {
+                buffer.push_back(buf);
+                let _ = tok.feed(&mut buffer);
+            }
             let _ = tok.feed(&mut buffer);
-        }
-        let _ = tok.feed(&mut buffer);
-        tok.end();
-    }));
+            tok.end();
+        })
+    });
 }
-
-
 
 fn html5ever_benchmark(c: &mut Criterion) {
     run_bench(c, "lipsum.html");

@@ -13,13 +13,13 @@ macro_rules! unwrap_or_else {
             None => $else_block,
             Some(x) => x,
         }
-    }
+    };
 }
 
 macro_rules! unwrap_or_return {
     ($opt:expr, $retval:expr) => {
         unwrap_or_else!($opt, { return $retval })
-    }
+    };
 }
 
 macro_rules! time {
@@ -29,5 +29,5 @@ macro_rules! time {
         let d = now.elapsed();
         let dt = d.as_secs() * 1_000_000_000 + u64::from(d.subsec_nanos());
         (result, dt)
-    }}
+    }};
 }
