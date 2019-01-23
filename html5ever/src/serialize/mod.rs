@@ -46,7 +46,7 @@ impl Default for SerializeOpts {
 }
 
 #[derive(Default)]
-pub struct ElemInfo {
+struct ElemInfo {
     html_name: Option<LocalName>,
     ignore_children: bool,
     processed_first_child: bool,
