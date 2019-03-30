@@ -11,10 +11,10 @@
 use std::fmt;
 use tendril::StrTendril;
 
-use super::{LocalName, Prefix, Namespace};
-pub use self::tree_builder::{NodeOrText, AppendNode, AppendText, create_element, ElementFlags};
-pub use self::tree_builder::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use self::tree_builder::{TreeSink, Tracer, NextParserState};
+pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
+pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+pub use self::tree_builder::{NextParserState, Tracer, TreeSink};
+use super::{LocalName, Namespace, Prefix};
 
 /// An [expanded name], containing the tag and the namespace.
 ///
@@ -72,7 +72,7 @@ macro_rules! expanded_name {
             ns: &ns!($ns),
             local: &local_name!($local),
         }
-    }
+    };
 }
 
 pub mod tree_builder;
@@ -318,7 +318,7 @@ impl QualName {
     pub fn expanded(&self) -> ExpandedName {
         ExpandedName {
             ns: &self.ns,
-            local: &self.local
+            local: &self.local,
         }
     }
 }
@@ -337,20 +337,25 @@ pub struct Attribute {
     pub value: StrTendril,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::Namespace;
 
     #[test]
     fn ns_macro() {
-        assert_eq!(ns!(),       Namespace::from(""));
+        assert_eq!(ns!(), Namespace::from(""));
 
-        assert_eq!(ns!(html),   Namespace::from("http://www.w3.org/1999/xhtml"));
-        assert_eq!(ns!(xml),    Namespace::from("http://www.w3.org/XML/1998/namespace"));
-        assert_eq!(ns!(xmlns),  Namespace::from("http://www.w3.org/2000/xmlns/"));
-        assert_eq!(ns!(xlink),  Namespace::from("http://www.w3.org/1999/xlink"));
-        assert_eq!(ns!(svg),    Namespace::from("http://www.w3.org/2000/svg"));
-        assert_eq!(ns!(mathml), Namespace::from("http://www.w3.org/1998/Math/MathML"));
+        assert_eq!(ns!(html), Namespace::from("http://www.w3.org/1999/xhtml"));
+        assert_eq!(
+            ns!(xml),
+            Namespace::from("http://www.w3.org/XML/1998/namespace")
+        );
+        assert_eq!(ns!(xmlns), Namespace::from("http://www.w3.org/2000/xmlns/"));
+        assert_eq!(ns!(xlink), Namespace::from("http://www.w3.org/1999/xlink"));
+        assert_eq!(ns!(svg), Namespace::from("http://www.w3.org/2000/svg"));
+        assert_eq!(
+            ns!(mathml),
+            Namespace::from("http://www.w3.org/1998/Math/MathML")
+        );
     }
 }

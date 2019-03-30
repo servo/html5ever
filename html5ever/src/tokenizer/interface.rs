@@ -7,15 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use LocalName;
 use interface::Attribute;
 use std::borrow::Cow;
 use tendril::StrTendril;
 use tokenizer::states;
+use LocalName;
 
-pub use self::TagKind::{StartTag, EndTag};
-pub use self::Token::{DoctypeToken, TagToken, CommentToken, CharacterTokens};
-pub use self::Token::{NullCharacterToken, EOFToken, ParseError};
+pub use self::TagKind::{EndTag, StartTag};
+pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken};
+pub use self::Token::{EOFToken, NullCharacterToken, ParseError};
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
@@ -87,7 +87,7 @@ pub enum TokenSinkResult<Handle> {
     Continue,
     Script(Handle),
     Plaintext,
-    RawData(states::RawKind)
+    RawData(states::RawKind),
 }
 
 /// Types which can receive tokens from the tokenizer.

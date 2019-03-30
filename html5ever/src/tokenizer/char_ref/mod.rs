@@ -7,17 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use super::{Tokenizer, TokenSink};
+use super::{TokenSink, Tokenizer};
 use buffer_queue::BufferQueue;
 use data;
 use tendril::StrTendril;
-use util::str::{is_ascii_alnum};
+use util::str::is_ascii_alnum;
 
-use std::char::from_u32;
 use std::borrow::Cow::Borrowed;
+use std::char::from_u32;
 
-pub use self::Status::*;
 use self::State::*;
+pub use self::Status::*;
 
 //§ tokenizing-character-references
 pub struct CharRef {
@@ -84,12 +84,14 @@ impl CharRefTokenizer {
     }
 
     fn name_buf<'t>(&'t self) -> &'t StrTendril {
-        self.name_buf_opt.as_ref()
+        self.name_buf_opt
+            .as_ref()
             .expect("name_buf missing in named character reference")
     }
 
     fn name_buf_mut<'t>(&'t mut self) -> &'t mut StrTendril {
-        self.name_buf_opt.as_mut()
+        self.name_buf_opt
+            .as_mut()
             .expect("name_buf missing in named character reference")
     }
 
@@ -112,10 +114,10 @@ impl CharRefTokenizer {
 
 impl CharRefTokenizer {
     pub fn step<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         if self.result.is_some() {
             return Done;
         }
@@ -132,57 +134,55 @@ impl CharRefTokenizer {
     }
 
     fn do_begin<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            '\t' | '\n' | '\x0C' | ' ' | '<' | '&'
-                => self.finish_none(),
-            c if Some(c) == self.addnl_allowed
-                => self.finish_none(),
+            '\t' | '\n' | '\x0C' | ' ' | '<' | '&' => self.finish_none(),
+            c if Some(c) == self.addnl_allowed => self.finish_none(),
 
             '#' => {
                 tokenizer.discard_char(input);
                 self.state = Octothorpe;
                 Progress
-            }
+            },
 
             _ => {
                 self.state = Named;
                 self.name_buf_opt = Some(StrTendril::new());
                 Progress
-            }
+            },
         }
     }
 
     fn do_octothorpe<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
         match c {
             'x' | 'X' => {
                 tokenizer.discard_char(input);
                 self.hex_marker = Some(c);
                 self.state = Numeric(16);
-            }
+            },
 
             _ => {
                 self.hex_marker = None;
                 self.state = Numeric(10);
-            }
+            },
         }
         Progress
     }
 
     fn do_numeric<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue,
-            base: u32)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+        base: u32,
+    ) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
         match c.to_digit(base) {
             Some(n) => {
@@ -196,34 +196,36 @@ impl CharRefTokenizer {
                 self.num = self.num.wrapping_add(n);
                 self.seen_digit = true;
                 Progress
-            }
+            },
 
             None if !self.seen_digit => self.unconsume_numeric(tokenizer, input),
 
             None => {
                 self.state = NumericSemicolon;
                 Progress
-            }
+            },
         }
     }
 
     fn do_numeric_semicolon<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
             ';' => tokenizer.discard_char(input),
-            _   => tokenizer.emit_error(Borrowed("Semicolon missing after numeric character reference")),
+            _ => tokenizer.emit_error(Borrowed(
+                "Semicolon missing after numeric character reference",
+            )),
         };
         self.finish_numeric(tokenizer)
     }
 
     fn unconsume_numeric<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
         match self.hex_marker {
             Some(c) => unconsume.push_char(c),
@@ -249,19 +251,20 @@ impl CharRefTokenizer {
                 None => (conv(self.num), true),
             },
 
-            0x01...0x08 | 0x0B | 0x0D...0x1F | 0x7F | 0xFDD0...0xFDEF
-                => (conv(self.num), true),
+            0x01...0x08 | 0x0B | 0x0D...0x1F | 0x7F | 0xFDD0...0xFDEF => (conv(self.num), true),
 
-            n if (n & 0xFFFE) == 0xFFFE
-                => (conv(n), true),
+            n if (n & 0xFFFE) == 0xFFFE => (conv(n), true),
 
             n => (conv(n), false),
         };
 
         if error {
-            let msg = format_if!(tokenizer.opts.exact_errors,
+            let msg = format_if!(
+                tokenizer.opts.exact_errors,
                 "Invalid numeric character reference",
-                "Invalid numeric character reference value 0x{:06X}", self.num);
+                "Invalid numeric character reference value 0x{:06X}",
+                self.num
+            );
             tokenizer.emit_error(msg);
         }
 
@@ -269,10 +272,10 @@ impl CharRefTokenizer {
     }
 
     fn do_named<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
         self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
@@ -285,7 +288,7 @@ impl CharRefTokenizer {
                 }
                 // Otherwise we just have a prefix match.
                 Progress
-            }
+            },
 
             // Can't continue the match.
             None => self.finish_named(tokenizer, input, Some(c)),
@@ -293,9 +296,12 @@ impl CharRefTokenizer {
     }
 
     fn emit_name_error<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) {
-        let msg = format_if!(tokenizer.opts.exact_errors,
+        let msg = format_if!(
+            tokenizer.opts.exact_errors,
             "Invalid character reference",
-            "Invalid character reference &{}", self.name_buf());
+            "Invalid character reference &{}",
+            self.name_buf()
+        );
         tokenizer.emit_error(msg);
     }
 
@@ -303,10 +309,12 @@ impl CharRefTokenizer {
         input.push_front(self.name_buf_opt.take().unwrap());
     }
 
-    fn finish_named<Sink: TokenSink>(&mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue,
-            end_char: Option<char>) -> Status {
+    fn finish_named<Sink: TokenSink>(
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+        end_char: Option<char>,
+    ) -> Status {
         match self.name_match {
             None => {
                 match end_char {
@@ -315,17 +323,16 @@ impl CharRefTokenizer {
                         // we emit a parse error.
                         self.state = BogusName;
                         return Progress;
-                    }
+                    },
 
                     // Check length because &; is not a parse error.
-                    Some(';') if self.name_buf().len() > 1
-                        => self.emit_name_error(tokenizer),
+                    Some(';') if self.name_buf().len() > 1 => self.emit_name_error(tokenizer),
 
                     _ => (),
                 }
                 self.unconsume_name(input);
                 self.finish_none()
-            }
+            },
 
             Some((c1, c2)) => {
                 // We have a complete match, but we may have consumed
@@ -338,7 +345,7 @@ impl CharRefTokenizer {
 
                 let name_len = self.name_len;
                 assert!(name_len > 0);
-                let last_matched = self.name_buf()[name_len-1..].chars().next().unwrap();
+                let last_matched = self.name_buf()[name_len - 1..].chars().next().unwrap();
 
                 // There might not be a next character after the match, if
                 // we had a full match and then hit EOF.
@@ -361,14 +368,18 @@ impl CharRefTokenizer {
                 let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
                     (_, ';', _) => false,
                     (Some(_), _, Some('=')) => {
-                        tokenizer.emit_error(Borrowed("Equals sign after character reference in attribute"));
+                        tokenizer.emit_error(Borrowed(
+                            "Equals sign after character reference in attribute",
+                        ));
                         true
-                    }
+                    },
                     (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
                     _ => {
-                        tokenizer.emit_error(Borrowed("Character reference does not end with semicolon"));
+                        tokenizer.emit_error(Borrowed(
+                            "Character reference does not end with semicolon",
+                        ));
                         false
-                    }
+                    },
                 };
 
                 if unconsume_all {
@@ -382,54 +393,54 @@ impl CharRefTokenizer {
                     });
                     Done
                 }
-            }
+            },
         }
     }
 
     fn do_bogus_name<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue)
-            -> Status {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
         self.name_buf_mut().push_char(c);
         match c {
             _ if is_ascii_alnum(c) => return Progress,
             ';' => self.emit_name_error(tokenizer),
-            _ => ()
+            _ => (),
         }
         self.unconsume_name(input);
         self.finish_none()
     }
 
     pub fn end_of_file<Sink: TokenSink>(
-            &mut self,
-            tokenizer: &mut Tokenizer<Sink>,
-            input: &mut BufferQueue) {
+        &mut self,
+        tokenizer: &mut Tokenizer<Sink>,
+        input: &mut BufferQueue,
+    ) {
         while self.result.is_none() {
             match self.state {
                 Begin => drop(self.finish_none()),
 
-                Numeric(_) if !self.seen_digit
-                    => drop(self.unconsume_numeric(tokenizer, input)),
+                Numeric(_) if !self.seen_digit => drop(self.unconsume_numeric(tokenizer, input)),
 
                 Numeric(_) | NumericSemicolon => {
                     tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
                     self.finish_numeric(tokenizer);
-                }
+                },
 
                 Named => drop(self.finish_named(tokenizer, input, None)),
 
                 BogusName => {
                     self.unconsume_name(input);
                     self.finish_none();
-                }
+                },
 
                 Octothorpe => {
                     input.push_front(StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
-                }
+                },
             }
         }
     }

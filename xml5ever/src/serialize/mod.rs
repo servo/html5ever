@@ -7,10 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use QualName;
-pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef};
+pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
 use std::io::{self, Write};
 use tree_builder::NamespaceMap;
+use QualName;
 
 #[derive(Clone)]
 /// Struct for setting serializer options.
@@ -22,15 +22,17 @@ pub struct SerializeOpts {
 impl Default for SerializeOpts {
     fn default() -> SerializeOpts {
         SerializeOpts {
-            traversal_scope: TraversalScope::ChildrenOnly(None)
+            traversal_scope: TraversalScope::ChildrenOnly(None),
         }
     }
 }
 
 /// Method for serializing generic node to a given writer.
-pub fn serialize<Wr, T> (writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
-    where Wr: Write, T: Serialize {
-
+pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
+where
+    Wr: Write,
+    T: Serialize,
+{
     let mut ser = XmlSerializer::new(writer);
     node.serialize(&mut ser, opts.traversal_scope)
 }
@@ -60,7 +62,6 @@ impl NamespaceMapStack {
     fn pop(&mut self) {
         self.0.pop();
     }
-
 }
 
 /// Writes given text into the Serializer, escaping it,
@@ -122,7 +123,6 @@ impl<Wr: Write> XmlSerializer<Wr> {
     fn find_uri(&self, name: &QualName) -> bool {
         let mut found = false;
         for stack in self.namespace_stack.0.iter().rev() {
-
             if let Some(&Some(ref el)) = stack.get(&name.prefix) {
                 found = *el == name.ns;
                 break;
@@ -134,7 +134,6 @@ impl<Wr: Write> XmlSerializer<Wr> {
     fn find_or_insert_ns(&mut self, name: &QualName) {
         if name.prefix.is_some() || &*name.ns != "" {
             if !self.find_uri(name) {
-
                 if let Some(last_ns) = self.namespace_stack.0.last_mut() {
                     last_ns.insert(name);
                 }
@@ -147,7 +146,9 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
     /// Serializes given start element into text. Start element contains
     /// qualified name and an attributes iterator.
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
-    where AttrIter: Iterator<Item=AttrRef<'a>> {
+    where
+        AttrIter: Iterator<Item = AttrRef<'a>>,
+    {
         self.namespace_stack.push(NamespaceMap::empty());
 
         try!(self.writer.write_all(b"<"));
@@ -176,7 +177,6 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
             try!(self.writer.write_all(b"=\""));
             try!(write_to_buf_escaped(&mut self.writer, value, true));
             try!(self.writer.write_all(b"\""));
-
         }
         try!(self.writer.write_all(b">"));
         Ok(())
@@ -217,5 +217,4 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
         try!(self.writer.write_all(data.as_bytes()));
         self.writer.write_all(b"?>")
     }
-
 }

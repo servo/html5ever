@@ -9,9 +9,9 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use tree_builder::types::*;
+use tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
 use tree_builder::tag_sets::*;
-use tokenizer::states::{Rcdata, Rawtext, ScriptData, Plaintext};
+use tree_builder::types::*;
 
 use std::borrow::ToOwned;
 
@@ -28,8 +28,9 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
 
 #[doc(hidden)]
 impl<Handle, Sink> TreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);

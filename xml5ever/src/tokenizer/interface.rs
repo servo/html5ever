@@ -9,14 +9,14 @@
 
 use std::borrow::Cow;
 
-use {Attribute, QualName};
 use tendril::StrTendril;
+use {Attribute, QualName};
 
-pub use self::TagKind::{StartTag, EndTag, EmptyTag, ShortTag};
-pub use self::Token::{DoctypeToken, TagToken, PIToken, CommentToken};
-pub use self::Token::{CharacterTokens, EOFToken, ParseError, NullCharacterToken};
+pub use self::TagKind::{EmptyTag, EndTag, ShortTag, StartTag};
+pub use self::Token::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
+pub use self::Token::{CommentToken, DoctypeToken, PIToken, TagToken};
 
-use super::{states};
+use super::states;
 
 /// Tag kind denotes which kind of tag did we encounter.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]

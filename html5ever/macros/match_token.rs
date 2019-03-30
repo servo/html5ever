@@ -99,25 +99,35 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use syn;
+use syn::ext::IdentExt;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::ext::IdentExt;
-use proc_macro2::TokenStream;
 
 pub fn expand(from: &Path, to: &Path) {
     let mut source = String::new();
-    File::open(from).unwrap().read_to_string(&mut source).unwrap();
+    File::open(from)
+        .unwrap()
+        .read_to_string(&mut source)
+        .unwrap();
     let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
     let mut m = MatchTokenParser {};
     let ast = m.fold_file(ast);
-    let code = ast.into_token_stream().to_string().replace("{ ", "{\n").replace(" }", "\n}");
-    File::create(to).unwrap().write_all(code.as_bytes()).unwrap();
+    let code = ast
+        .into_token_stream()
+        .to_string()
+        .replace("{ ", "{\n")
+        .replace(" }", "\n}");
+    File::create(to)
+        .unwrap()
+        .write_all(code.as_bytes())
+        .unwrap();
 }
 
 struct MatchTokenParser {}
@@ -166,8 +176,12 @@ impl Parse for Tag {
         };
         input.parse::<Token![>]>()?;
         Ok(Tag {
-            kind: if closing.is_some() { TagKind::EndTag } else { TagKind::StartTag },
-            name: name
+            kind: if closing.is_some() {
+                TagKind::EndTag
+            } else {
+                TagKind::StartTag
+            },
+            name: name,
         })
     }
 }
@@ -217,11 +231,7 @@ impl Parse for MatchTokenArm {
             RHS::Expression(expr)
         };
 
-        Ok(MatchTokenArm {
-           binding,
-           lhs,
-           rhs,
-        })
+        Ok(MatchTokenArm { binding, lhs, rhs })
     }
 }
 
@@ -234,10 +244,7 @@ impl Parse for MatchToken {
         while !content.is_empty() {
             arms.push(content.parse()?);
         }
-        Ok(MatchToken {
-            ident,
-            arms,
-        })
+        Ok(MatchToken { ident, arms })
     }
 }
 
@@ -274,15 +281,20 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
         };
 
         match (lhs, rhs) {
-            (LHS::Pattern(_), RHS::Else) => panic!("'else' may not appear with an ordinary pattern"),
+            (LHS::Pattern(_), RHS::Else) => {
+                panic!("'else' may not appear with an ordinary pattern")
+            },
 
             // ordinary pattern => expression
             (LHS::Pattern(pat), RHS::Expression(expr)) => {
                 if !wildcards_patterns.is_empty() {
-                    panic!("ordinary patterns may not appear after wildcard tags {:?} {:?}", pat, expr);
+                    panic!(
+                        "ordinary patterns may not appear after wildcard tags {:?} {:?}",
+                        pat, expr
+                    );
                 }
                 arms_code.push(quote!(#binding #pat => #expr,))
-            }
+            },
 
             // <tag> <tag> ... => else
             (LHS::Tags(tags), RHS::Else) => {
@@ -295,7 +307,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                     }
                     wild_excluded_patterns.push(make_tag_pattern(&TokenStream::new(), tag));
                 }
-            }
+            },
 
             // <_> => expression
             // <tag> <tag> ... => expression
@@ -326,7 +338,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                             arms_code.push(make_tag_pattern(&binding, tag));
 
                             wildcard = Some(false);
-                        }
+                        },
 
                         // <_>
                         None => {
@@ -336,16 +348,16 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                             wildcard = Some(true);
                             wildcards_patterns.push(make_tag_pattern(&binding, tag));
                             wildcards_expressions.push(expr.clone());
-                        }
+                        },
                     }
                 }
 
                 match wildcard {
                     None => panic!("[internal macro error] tag arm with no tags"),
                     Some(false) => arms_code.push(quote!( => #expr,)),
-                    Some(true) => {} // codegen for wildcards is deferred
+                    Some(true) => {}, // codegen for wildcards is deferred
                 }
-            }
+            },
         }
     }
 
@@ -376,7 +388,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
         (Some(_), _, _) => panic!("the last arm cannot have an @-binding"),
         (None, LHS::Tags(_), _) => panic!("the last arm cannot have tag patterns"),
         (None, _, RHS::Else) => panic!("the last arm cannot use 'else'"),
-        (None, LHS::Pattern(p), RHS::Expression(e)) => (p, e)
+        (None, LHS::Pattern(p), RHS::Expression(e)) => (p, e),
     };
 
     quote! {
@@ -402,16 +414,18 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
     }
 }
 
-
 impl Fold for MatchTokenParser {
     fn fold_stmt(&mut self, stmt: syn::Stmt) -> syn::Stmt {
         match stmt {
-            syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro{ ref mac, .. })) => {
+            syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) => {
                 if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_stmt(self, syn::Stmt::Expr(expand_match_token(&mac.tts)))
+                    return syn::fold::fold_stmt(
+                        self,
+                        syn::Stmt::Expr(expand_match_token(&mac.tts)),
+                    );
                 }
             },
-            _ => {}
+            _ => {},
         }
 
         syn::fold::fold_stmt(self, stmt)
@@ -419,12 +433,12 @@ impl Fold for MatchTokenParser {
 
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
         match expr {
-            syn::Expr::Macro(syn::ExprMacro{ ref mac, .. }) => {
+            syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) => {
                 if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_expr(self, expand_match_token(&mac.tts))
+                    return syn::fold::fold_expr(self, expand_match_token(&mac.tts));
                 }
             },
-            _ => {}
+            _ => {},
         }
 
         syn::fold::fold_expr(self, expr)
@@ -446,4 +460,3 @@ fn make_tag_pattern(binding: &TokenStream, tag: Tag) -> TokenStream {
         ::tree_builder::types::TagToken(#binding ::tokenizer::Tag { kind: #kind, #name_field .. })
     }
 }
-

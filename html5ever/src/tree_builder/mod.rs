@@ -11,37 +11,38 @@
 
 //! The HTML5 tree builder.
 
-pub use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-pub use interface::{NodeOrText, AppendNode, AppendText, Attribute};
-pub use interface::{TreeSink, Tracer, NextParserState, create_element, ElementFlags};
+pub use interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
+pub use interface::{AppendNode, AppendText, Attribute, NodeOrText};
+pub use interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
 use self::types::*;
 
-use {ExpandedName, QualName, LocalName, Namespace};
 use tendril::StrTendril;
+use {ExpandedName, LocalName, Namespace, QualName};
 
 use tokenizer;
-use tokenizer::{Doctype, StartTag, Tag, EndTag, TokenSink, TokenSinkResult};
 use tokenizer::states as tok_state;
+use tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
 use util::str::is_ascii_whitespace;
 
-use std::{slice, fmt};
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 use std::default::Default;
-use std::iter::{Rev, Enumerate};
+use std::iter::{Enumerate, Rev};
 use std::mem::replace;
+use std::{fmt, slice};
 
-use tokenizer::states::{RawData, RawKind};
-use tree_builder::types::*;
-use tree_builder::tag_sets::*;
-use util::str::to_escaped_string;
 use log::Level;
+use tokenizer::states::{RawData, RawKind};
+use tree_builder::tag_sets::*;
+use tree_builder::types::*;
+use util::str::to_escaped_string;
 
 pub use self::PushFlag::*;
 
-#[macro_use] mod tag_sets;
+#[macro_use]
+mod tag_sets;
 
 mod data;
 mod types;
@@ -124,7 +125,6 @@ pub struct TreeBuilder<Handle, Sink> {
     /// Form element pointer.
     form_elem: Option<Handle>,
     //§ END
-
     /// Frameset-ok flag.
     frameset_ok: bool,
 
@@ -139,7 +139,6 @@ pub struct TreeBuilder<Handle, Sink> {
 
     /// Track current line
     current_line: u64,
-
     // WARNING: If you add new fields that contain Handles, you
     // must add them to trace_handles() below to preserve memory
     // safety!
@@ -148,8 +147,9 @@ pub struct TreeBuilder<Handle, Sink> {
 }
 
 impl<Handle, Sink> TreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
@@ -161,12 +161,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             sink: sink,
             mode: Initial,
             orig_mode: None,
-            template_modes: vec!(),
-            pending_table_text: vec!(),
+            template_modes: vec![],
+            pending_table_text: vec![],
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec!(),
-            active_formatting: vec!(),
+            open_elems: vec![],
+            active_formatting: vec![],
             head_elem: None,
             form_elem: None,
             frameset_ok: true,
@@ -181,24 +181,29 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     /// This is for parsing fragments.
     ///
     /// The tree builder is also a `TokenSink`.
-    pub fn new_for_fragment(mut sink: Sink,
-                            context_elem: Handle,
-                            form_elem: Option<Handle>,
-                            opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
+    pub fn new_for_fragment(
+        mut sink: Sink,
+        context_elem: Handle,
+        form_elem: Option<Handle>,
+        opts: TreeBuilderOpts,
+    ) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
-        let context_is_template =
-            sink.elem_name(&context_elem) == expanded_name!(html "template");
+        let context_is_template = sink.elem_name(&context_elem) == expanded_name!(html "template");
         let mut tb = TreeBuilder {
             opts: opts,
             sink: sink,
             mode: Initial,
             orig_mode: None,
-            template_modes: if context_is_template { vec![InTemplate] } else { vec![] },
-            pending_table_text: vec!(),
+            template_modes: if context_is_template {
+                vec![InTemplate]
+            } else {
+                vec![]
+            },
+            pending_table_text: vec![],
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec!(),
-            active_formatting: vec!(),
+            open_elems: vec![],
+            active_formatting: vec![],
             head_elem: None,
             form_elem: form_elem,
             frameset_ok: true,
@@ -212,7 +217,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         // 5. Let root be a new html element with no attributes.
         // 6. Append the element root to the Document node created above.
         // 7. Set up the parser's stack of open elements so that it contains just the single element root.
-        tb.create_root(vec!());
+        tb.create_root(vec![]);
         // 10. Reset the parser's insertion mode appropriately.
         tb.mode = tb.reset_insertion_mode();
 
@@ -224,32 +229,40 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let elem = self.context_elem.as_ref().expect("no context element");
         let name = match self.sink.elem_name(elem) {
-            ExpandedName { ns: &ns!(html), local } => local,
-            _ => return tok_state::Data
+            ExpandedName {
+                ns: &ns!(html),
+                local,
+            } => local,
+            _ => return tok_state::Data,
         };
         match *name {
             local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
-            local_name!("style") | local_name!("xmp") | local_name!("iframe")
-                | local_name!("noembed") | local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
+            local_name!("style") |
+            local_name!("xmp") |
+            local_name!("iframe") |
+            local_name!("noembed") |
+            local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
 
             local_name!("script") => tok_state::RawData(tok_state::ScriptData),
 
-            local_name!("noscript") => if self.opts.scripting_enabled {
-                tok_state::RawData(tok_state::Rawtext)
-            } else {
-                tok_state::Data
+            local_name!("noscript") => {
+                if self.opts.scripting_enabled {
+                    tok_state::RawData(tok_state::Rawtext)
+                } else {
+                    tok_state::Data
+                }
             },
 
             local_name!("plaintext") => tok_state::Plaintext,
 
-            _ => tok_state::Data
+            _ => tok_state::Data,
         }
     }
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
-    pub fn trace_handles(&self, tracer: &Tracer<Handle=Handle>) {
+    pub fn trace_handles(&self, tracer: &Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in &self.open_elems {
             tracer.trace_handle(e);
@@ -287,7 +300,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                         ns!(html) => print!(" {}", name.local),
                         _ => panic!(),
                     }
-                }
+                },
             }
         }
         println!("");
@@ -295,7 +308,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         if log_enabled!(Level::Debug) {
-            debug!("processing {} in insertion mode {:?}", to_escaped_string(token), mode);
+            debug!(
+                "processing {} in insertion mode {:?}",
+                to_escaped_string(token),
+                mode
+            );
         }
     }
 
@@ -305,8 +322,14 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         let mut more_tokens = VecDeque::new();
 
         loop {
-            let should_have_acknowledged_self_closing_flag =
-                matches!(token, TagToken(Tag { self_closing: true, kind: StartTag, .. }));
+            let should_have_acknowledged_self_closing_flag = matches!(
+                token,
+                TagToken(Tag {
+                    self_closing: true,
+                    kind: StartTag,
+                    ..
+                })
+            );
             let result = if self.is_foreign(&token) {
                 self.step_foreign(token)
             } else {
@@ -316,20 +339,27 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             match result {
                 Done => {
                     if should_have_acknowledged_self_closing_flag {
-                        self.sink.parse_error(Borrowed("Unacknowledged self-closing tag"));
+                        self.sink
+                            .parse_error(Borrowed("Unacknowledged self-closing tag"));
                     }
-                    token = unwrap_or_return!(more_tokens.pop_front(), tokenizer::TokenSinkResult::Continue);
-                }
+                    token = unwrap_or_return!(
+                        more_tokens.pop_front(),
+                        tokenizer::TokenSinkResult::Continue
+                    );
+                },
                 DoneAckSelfClosing => {
-                    token = unwrap_or_return!(more_tokens.pop_front(), tokenizer::TokenSinkResult::Continue);
-                }
+                    token = unwrap_or_return!(
+                        more_tokens.pop_front(),
+                        tokenizer::TokenSinkResult::Continue
+                    );
+                },
                 Reprocess(m, t) => {
                     self.mode = m;
                     token = t;
-                }
+                },
                 ReprocessForeign(t) => {
                     token = t;
-                }
+                },
                 SplitWhitespace(mut buf) => {
                     let p = buf.pop_front_char_run(is_ascii_whitespace);
                     let (first, is_ws) = unwrap_or_return!(p, tokenizer::TokenSinkResult::Continue);
@@ -339,19 +369,19 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     if buf.len32() > 0 {
                         more_tokens.push_back(CharacterTokens(NotSplit, buf));
                     }
-                }
+                },
                 Script(node) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Script(node);
-                }
+                },
                 ToPlaintext => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Plaintext;
-                }
+                },
                 ToRawData(k) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::RawData(k);
-                }
+                },
             }
         }
     }
@@ -362,9 +392,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     /// https://html.spec.whatwg.org/multipage/#appropriate-place-for-inserting-a-node
-    fn appropriate_place_for_insertion(&mut self,
-                                       override_target: Option<Handle>)
-                                       -> InsertionPoint<Handle> {
+    fn appropriate_place_for_insertion(
+        &mut self,
+        override_target: Option<Handle>,
+    ) -> InsertionPoint<Handle> {
         use self::tag_sets::*;
 
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
@@ -401,22 +432,28 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         match insertion_point {
             LastChild(parent) => self.sink.append(&parent, child),
             BeforeSibling(sibling) => self.sink.append_before_sibling(&sibling, child),
-            TableFosterParenting { element, prev_element } => self.sink.append_based_on_parent_node(
-                                                                  &element,
-                                                                  &prev_element,
-                                                                  child),
+            TableFosterParenting {
+                element,
+                prev_element,
+            } => self
+                .sink
+                .append_based_on_parent_node(&element, &prev_element, child),
         }
     }
 }
 
-impl<Handle, Sink> TokenSink
-    for TreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+impl<Handle, Sink> TokenSink for TreeBuilder<Handle, Sink>
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     type Handle = Handle;
 
-    fn process_token(&mut self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
+    fn process_token(
+        &mut self,
+        token: tokenizer::Token,
+        line_number: u64,
+    ) -> TokenSinkResult<Handle> {
         if line_number != self.current_line {
             self.sink.set_current_line(line_number);
         }
@@ -427,34 +464,45 @@ impl<Handle, Sink> TokenSink
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return tokenizer::TokenSinkResult::Continue;
-            }
+            },
 
-            tokenizer::DoctypeToken(dt) => if self.mode == Initial {
-                let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
-                if err {
+            tokenizer::DoctypeToken(dt) => {
+                if self.mode == Initial {
+                    let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
+                    if err {
+                        self.sink.parse_error(format_if!(
+                            self.opts.exact_errors,
+                            "Bad DOCTYPE",
+                            "Bad DOCTYPE: {:?}",
+                            dt
+                        ));
+                    }
+                    let Doctype {
+                        name,
+                        public_id,
+                        system_id,
+                        force_quirks: _,
+                    } = dt;
+                    if !self.opts.drop_doctype {
+                        self.sink.append_doctype_to_document(
+                            name.unwrap_or(StrTendril::new()),
+                            public_id.unwrap_or(StrTendril::new()),
+                            system_id.unwrap_or(StrTendril::new()),
+                        );
+                    }
+                    self.set_quirks_mode(quirk);
+
+                    self.mode = BeforeHtml;
+                    return tokenizer::TokenSinkResult::Continue;
+                } else {
                     self.sink.parse_error(format_if!(
                         self.opts.exact_errors,
-                        "Bad DOCTYPE",
-                        "Bad DOCTYPE: {:?}", dt));
+                        "DOCTYPE in body",
+                        "DOCTYPE in insertion mode {:?}",
+                        self.mode
+                    ));
+                    return tokenizer::TokenSinkResult::Continue;
                 }
-                let Doctype { name, public_id, system_id, force_quirks: _ } = dt;
-                if !self.opts.drop_doctype {
-                    self.sink.append_doctype_to_document(
-                        name.unwrap_or(StrTendril::new()),
-                        public_id.unwrap_or(StrTendril::new()),
-                        system_id.unwrap_or(StrTendril::new())
-                    );
-                }
-                self.set_quirks_mode(quirk);
-
-                self.mode = BeforeHtml;
-                return tokenizer::TokenSinkResult::Continue;
-            } else {
-                self.sink.parse_error(format_if!(
-                    self.opts.exact_errors,
-                    "DOCTYPE in body",
-                    "DOCTYPE in insertion mode {:?}", self.mode));
-                return tokenizer::TokenSinkResult::Continue;
             },
 
             tokenizer::TagToken(x) => TagToken(x),
@@ -470,7 +518,7 @@ impl<Handle, Sink> TokenSink
                     return tokenizer::TokenSinkResult::Continue;
                 }
                 CharacterTokens(NotSplit, x)
-            }
+            },
         };
 
         self.process_to_completion(token)
@@ -484,12 +532,12 @@ impl<Handle, Sink> TokenSink
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.is_empty() &&
-        self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
+            self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
     }
 }
 
 pub fn html_elem<Handle>(open_elems: &[Handle]) -> &Handle {
-     &open_elems[0]
+    &open_elems[0]
 }
 
 pub struct ActiveFormattingIter<'a, Handle: 'a> {
@@ -530,19 +578,23 @@ macro_rules! qualname {
             ns: ns!($ns),
             local: local_name!($local),
         }
-    }
+    };
 }
 
 #[doc(hidden)]
 impl<Handle, Sink> TreeBuilder<Handle, Sink>
-    where Handle: Clone,
-          Sink: TreeSink<Handle=Handle>,
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
 {
     fn unexpected<T: fmt::Debug>(&mut self, _thing: &T) -> ProcessResult<Handle> {
         self.sink.parse_error(format_if!(
             self.opts.exact_errors,
             "Unexpected token",
-            "Unexpected token {} in insertion mode {:?}", to_escaped_string(_thing), self.mode));
+            "Unexpected token {} in insertion mode {:?}",
+            to_escaped_string(_thing),
+            self.mode
+        ));
         Done
     }
 
@@ -559,14 +611,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn position_in_active_formatting(&self, element: &Handle) -> Option<usize> {
-        self.active_formatting
-            .iter()
-            .position(|n| {
-                match n {
-                    &Marker => false,
-                    &Element(ref handle, _) => self.sink.same_node(handle, element)
-                }
-            })
+        self.active_formatting.iter().position(|n| match n {
+            &Marker => false,
+            &Element(ref handle, _) => self.sink.same_node(handle, element),
+        })
     }
 
     fn set_quirks_mode(&mut self, mode: QuirksMode) {
@@ -610,7 +658,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         set(self.sink.elem_name(self.current_node()))
     }
@@ -624,7 +673,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn adoption_agency(&mut self, subject: LocalName) {
         // 1.
         if self.current_node_named(subject.clone()) {
-            if self.position_in_active_formatting(self.current_node()).is_none() {
+            if self
+                .position_in_active_formatting(self.current_node())
+                .is_none()
+            {
                 self.pop();
                 return;
             }
@@ -639,47 +691,49 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     .filter(|&(_, _, tag)| tag.name == subject)
                     .next()
                     .map(|(i, h, t)| (i, h.clone(), t.clone())),
-
                 {
                     self.process_end_tag_in_body(Tag {
                         kind: EndTag,
                         name: subject,
                         self_closing: false,
-                        attrs: vec!(),
+                        attrs: vec![],
                     });
                 }
             );
 
             let fmt_elem_stack_index = unwrap_or_return!(
-                self.open_elems.iter()
+                self.open_elems
+                    .iter()
                     .rposition(|n| self.sink.same_node(n, &fmt_elem)),
-
                 {
-                    self.sink.parse_error(Borrowed("Formatting element not open"));
+                    self.sink
+                        .parse_error(Borrowed("Formatting element not open"));
                     self.active_formatting.remove(fmt_elem_index);
                 }
             );
 
             // 7.
             if !self.in_scope(default_scope, |n| self.sink.same_node(&n, &fmt_elem)) {
-                self.sink.parse_error(Borrowed("Formatting element not in scope"));
+                self.sink
+                    .parse_error(Borrowed("Formatting element not in scope"));
                 return;
             }
 
             // 8.
             if !self.sink.same_node(self.current_node(), &fmt_elem) {
-                self.sink.parse_error(Borrowed("Formatting element not current node"));
+                self.sink
+                    .parse_error(Borrowed("Formatting element not current node"));
             }
 
             // 9.
             let (furthest_block_index, furthest_block) = unwrap_or_return!(
-                self.open_elems.iter()
+                self.open_elems
+                    .iter()
                     .enumerate()
                     .skip(fmt_elem_stack_index)
                     .filter(|&(_, open_element)| self.elem_in(open_element, special_tag))
                     .next()
                     .map(|(i, h)| (i, h.clone())),
-
                 // 10.
                 {
                     self.open_elems.truncate(fmt_elem_stack_index);
@@ -723,7 +777,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
                 let node_formatting_index = unwrap_or_else!(
                     self.position_in_active_formatting(&node),
-
                     // 13.6.
                     {
                         self.open_elems.remove(node_index);
@@ -736,14 +789,16 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     Element(ref h, ref t) => {
                         assert!(self.sink.same_node(h, &node));
                         t.clone()
-                    }
+                    },
                     Marker => panic!("Found marker during adoption agency"),
                 };
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
                 // own, once as part of t.clone() above)?
                 let new_element = create_element(
-                    &mut self.sink, QualName::new(None, ns!(html), tag.name.clone()),
-                    tag.attrs.clone());
+                    &mut self.sink,
+                    QualName::new(None, ns!(html), tag.name.clone()),
+                    tag.attrs.clone(),
+                );
                 self.open_elems[node_index] = new_element.clone();
                 self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
                 node = new_element;
@@ -771,41 +826,51 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
             let new_element = create_element(
-                &mut self.sink, QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
-                fmt_elem_tag.attrs.clone());
+                &mut self.sink,
+                QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
+                fmt_elem_tag.attrs.clone(),
+            );
             let new_entry = Element(new_element.clone(), fmt_elem_tag);
 
             // 16.
             self.sink.reparent_children(&furthest_block, &new_element);
 
             // 17.
-            self.sink.append(&furthest_block, AppendNode(new_element.clone()));
+            self.sink
+                .append(&furthest_block, AppendNode(new_element.clone()));
 
             // 18.
             // FIXME: We could probably get rid of the position_in_active_formatting() calls here
             // if we had a more clever Bookmark representation.
             match bookmark {
                 Bookmark::Replace(to_replace) => {
-                    let index = self.position_in_active_formatting(&to_replace)
+                    let index = self
+                        .position_in_active_formatting(&to_replace)
                         .expect("bookmark not found in active formatting elements");
                     self.active_formatting[index] = new_entry;
-                }
+                },
                 Bookmark::InsertAfter(previous) => {
-                    let index = self.position_in_active_formatting(&previous)
-                        .expect("bookmark not found in active formatting elements") + 1;
+                    let index = self
+                        .position_in_active_formatting(&previous)
+                        .expect("bookmark not found in active formatting elements") +
+                        1;
                     self.active_formatting.insert(index, new_entry);
-                    let old_index = self.position_in_active_formatting(&fmt_elem)
+                    let old_index = self
+                        .position_in_active_formatting(&fmt_elem)
                         .expect("formatting element not found in active formatting elements");
                     self.active_formatting.remove(old_index);
-                }
+                },
             }
 
             // 19.
             self.remove_from_stack(&fmt_elem);
-            let new_furthest_block_index = self.open_elems.iter()
+            let new_furthest_block_index = self
+                .open_elems
+                .iter()
                 .position(|n| self.sink.same_node(n, &furthest_block))
                 .expect("furthest block missing from open element stack");
-            self.open_elems.insert(new_furthest_block_index + 1, new_element);
+            self.open_elems
+                .insert(new_furthest_block_index + 1, new_element);
 
             // 20.
         }
@@ -823,7 +888,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     fn remove_from_stack(&mut self, elem: &Handle) {
         let sink = &mut self.sink;
-        let position = self.open_elems
+        let position = self
+            .open_elems
             .iter()
             .rposition(|x| sink.same_node(elem, &x));
         if let Some(position) = position {
@@ -835,11 +901,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
         match *entry {
             Marker => true,
-            Element(ref node, _) => {
-                self.open_elems.iter()
-                    .rev()
-                    .any(|n| self.sink.same_node(&n, &node))
-            }
+            Element(ref node, _) => self
+                .open_elems
+                .iter()
+                .rev()
+                .any(|n| self.sink.same_node(&n, &node)),
         }
     }
 
@@ -848,19 +914,19 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         {
             let last = unwrap_or_return!(self.active_formatting.last(), ());
             if self.is_marker_or_open(last) {
-                return
+                return;
             }
         }
 
         let mut entry_index = self.active_formatting.len() - 1;
         loop {
             if entry_index == 0 {
-                break
+                break;
             }
             entry_index -= 1;
             if self.is_marker_or_open(&self.active_formatting[entry_index]) {
                 entry_index += 1;
-                break
+                break;
             }
         }
 
@@ -872,11 +938,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
-            let new_element = self.insert_element(Push, ns!(html), tag.name.clone(),
-                                                  tag.attrs.clone());
+            let new_element =
+                self.insert_element(Push, ns!(html), tag.name.clone(), tag.attrs.clone());
             self.active_formatting[entry_index] = Element(new_element, tag);
             if entry_index == self.active_formatting.len() - 1 {
-                break
+                break;
             }
             entry_index += 1;
         }
@@ -884,7 +950,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     /// Get the first element on the stack, which will be the <html> element.
     fn html_elem(&self) -> &Handle {
-         &self.open_elems[0]
+        &self.open_elems[0]
     }
 
     /// Get the second element on the stack, if it's a HTML body element.
@@ -913,11 +979,14 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             {
                 let name = self.sink.elem_name(elem);
                 if body_end_ok(name) {
-                    continue
+                    continue;
                 }
-                error = format_if!(self.opts.exact_errors,
+                error = format_if!(
+                    self.opts.exact_errors,
                     "Unexpected open tag at end of body",
-                    "Unexpected open tag {:?} at end of body", name);
+                    "Unexpected open tag {:?} at end of body",
+                    name
+                );
             }
             self.sink.parse_error(error);
             // FIXME: Do we keep checking after finding one bad tag?
@@ -926,8 +995,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
     }
 
-    fn in_scope<TagSet,Pred>(&self, scope: TagSet, pred: Pred) -> bool
-        where TagSet: Fn(ExpandedName) -> bool, Pred: Fn(Handle) -> bool
+    fn in_scope<TagSet, Pred>(&self, scope: TagSet, pred: Pred) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+        Pred: Fn(Handle) -> bool,
     {
         for node in self.open_elems.iter().rev() {
             if pred(node.clone()) {
@@ -944,7 +1015,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn elem_in<TagSet>(&self, elem: &Handle, set: TagSet) -> bool
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         set(self.sink.elem_name(elem))
     }
@@ -955,7 +1027,9 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn in_html_elem_named(&self, name: LocalName) -> bool {
-        self.open_elems.iter().any(|elem| self.html_elem_named(elem, name.clone()))
+        self.open_elems
+            .iter()
+            .any(|elem| self.html_elem_named(elem, name.clone()))
     }
 
     fn current_node_named(&self, name: LocalName) -> bool {
@@ -963,20 +1037,24 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         self.in_scope(scope, |elem| self.html_elem_named(&elem, name.clone()))
     }
 
     //§ closing-elements-that-have-implied-end-tags
     fn generate_implied_end<TagSet>(&mut self, set: TagSet)
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         loop {
             {
                 let elem = unwrap_or_return!(self.open_elems.last(), ());
                 let nsname = self.sink.elem_name(elem);
-                if !set(nsname) { return; }
+                if !set(nsname) {
+                    return;
+                }
             }
             self.pop();
         }
@@ -995,7 +1073,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     // Pop elements until the current element is in the set.
     fn pop_until_current<TagSet>(&mut self, pred: TagSet)
-        where TagSet: Fn(ExpandedName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
     {
         loop {
             if self.current_node_in(|x| pred(x)) {
@@ -1008,14 +1087,19 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     // Pop elements until an element from the set has been popped.  Returns the
     // number of elements popped.
     fn pop_until<P>(&mut self, pred: P) -> usize
-        where P: Fn(ExpandedName) -> bool
+    where
+        P: Fn(ExpandedName) -> bool,
     {
         let mut n = 0;
         loop {
             n += 1;
             match self.open_elems.pop() {
                 None => break,
-                Some(elem) => if pred(self.sink.elem_name(&elem)) { break; },
+                Some(elem) => {
+                    if pred(self.sink.elem_name(&elem)) {
+                        break;
+                    }
+                },
             }
         }
         n
@@ -1029,9 +1113,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     // Signal an error if it was not the first one.
     fn expect_to_close(&mut self, name: LocalName) {
         if self.pop_until_named(name.clone()) != 1 {
-            self.sink.parse_error(format_if!(self.opts.exact_errors,
+            self.sink.parse_error(format_if!(
+                self.opts.exact_errors,
                 "Unexpected open element",
-                "Unexpected open element while closing {:?}", name));
+                "Unexpected open element while closing {:?}",
+                name
+            ));
         }
     }
 
@@ -1049,7 +1136,11 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
     // Check <input> tags for type=hidden
     fn is_type_hidden(&self, tag: &Tag) -> bool {
-        match tag.attrs.iter().find(|&at| at.name.expanded() == expanded_name!("", "type")) {
+        match tag
+            .attrs
+            .iter()
+            .find(|&at| at.name.expanded() == expanded_name!("", "type"))
+        {
             None => false,
             Some(at) => (&*at.value).eq_ignore_ascii_case("hidden"),
         }
@@ -1071,9 +1162,12 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             self.orig_mode = Some(self.mode);
             Reprocess(InTableText, token)
         } else {
-            self.sink.parse_error(format_if!(self.opts.exact_errors,
+            self.sink.parse_error(format_if!(
+                self.opts.exact_errors,
                 "Unexpected characters in table",
-                "Unexpected characters {} in table", to_escaped_string(&token)));
+                "Unexpected characters {} in table",
+                to_escaped_string(&token)
+            ));
             self.foster_parent_in_body(token)
         }
     }
@@ -1086,7 +1180,10 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 node = ctx;
             }
             let name = match self.sink.elem_name(node) {
-                ExpandedName { ns: &ns!(html), local } => local,
+                ExpandedName {
+                    ns: &ns!(html),
+                    local,
+                } => local,
                 _ => continue,
             };
             match *name {
@@ -1100,14 +1197,24 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                     }
                     return InSelect;
                 },
-                local_name!("td") | local_name!("th") => if !last { return InCell; },
+                local_name!("td") | local_name!("th") => {
+                    if !last {
+                        return InCell;
+                    }
+                },
                 local_name!("tr") => return InRow,
-                local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => return InTableBody,
+                local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => {
+                    return InTableBody;
+                },
                 local_name!("caption") => return InCaption,
                 local_name!("colgroup") => return InColumnGroup,
                 local_name!("table") => return InTable,
                 local_name!("template") => return *self.template_modes.last().unwrap(),
-                local_name!("head") => if !last { return InHead },
+                local_name!("head") => {
+                    if !last {
+                        return InHead;
+                    }
+                },
                 local_name!("body") => return InBody,
                 local_name!("frameset") => return InFrameset,
                 local_name!("html") => match self.head_elem {
@@ -1124,7 +1231,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     fn close_the_cell(&mut self) {
         self.generate_implied_end(cursory_implied_end);
         if self.pop_until(td_th) != 1 {
-            self.sink.parse_error(Borrowed("expected to close <td> or <th> with cell"));
+            self.sink
+                .parse_error(Borrowed("expected to close <td> or <th> with cell"));
         }
         self.clear_active_formatting_to_marker();
     }
@@ -1156,16 +1264,23 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     //§ creating-and-inserting-nodes
     fn create_root(&mut self, attrs: Vec<Attribute>) {
         let elem = create_element(
-            &mut self.sink, QualName::new(None, ns!(html), local_name!("html")),
-            attrs);
+            &mut self.sink,
+            QualName::new(None, ns!(html), local_name!("html")),
+            attrs,
+        );
         self.push(&elem);
         self.sink.append(&self.doc_handle, AppendNode(elem));
         // FIXME: application cache selection algorithm
     }
 
     // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
-    fn insert_element(&mut self, push: PushFlag, ns: Namespace, name: LocalName, attrs: Vec<Attribute>)
-            -> Handle {
+    fn insert_element(
+        &mut self,
+        push: PushFlag,
+        ns: Namespace,
+        name: LocalName,
+        attrs: Vec<Attribute>,
+    ) -> Handle {
         declare_tag_set!(form_associatable =
             "button" "fieldset" "input" "object"
             "output" "select" "textarea" "img");
@@ -1178,18 +1293,22 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
         let insertion_point = self.appropriate_place_for_insertion(None);
         let (node1, node2) = match insertion_point {
-            LastChild(ref p) |
-            BeforeSibling(ref p) => (p.clone(), None),
-            TableFosterParenting { ref element, ref prev_element } => (element.clone(), Some(prev_element.clone())),
+            LastChild(ref p) | BeforeSibling(ref p) => (p.clone(), None),
+            TableFosterParenting {
+                ref element,
+                ref prev_element,
+            } => (element.clone(), Some(prev_element.clone())),
         };
 
         // Step 12.
         if form_associatable(qname.expanded()) &&
-           self.form_elem.is_some() &&
-           !self.in_html_elem_named(local_name!("template")) &&
-           !(listed(qname.expanded()) &&
-                attrs.iter().any(|a| a.name.expanded() == expanded_name!("", "form"))) {
-
+            self.form_elem.is_some() &&
+            !self.in_html_elem_named(local_name!("template")) &&
+            !(listed(qname.expanded()) &&
+                attrs
+                    .iter()
+                    .any(|a| a.name.expanded() == expanded_name!("", "form")))
+        {
             let form = self.form_elem.as_ref().unwrap().clone();
             let node2 = match node2 {
                 Some(ref n) => Some(n),
@@ -1217,7 +1336,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn insert_phantom(&mut self, name: LocalName) -> Handle {
-        self.insert_element(Push, ns!(html), name, vec!())
+        self.insert_element(Push, ns!(html), name, vec![])
     }
     //§ END
 
@@ -1233,7 +1352,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         }
 
         if matches >= 3 {
-            self.active_formatting.remove(first_match.expect("matches with no index"));
+            self.active_formatting
+                .remove(first_match.expect("matches with no index"));
         }
 
         let elem = self.insert_element(Push, ns!(html), tag.name.clone(), tag.attrs.clone());
@@ -1260,7 +1380,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             }
 
             if self.elem_in(elem, special_tag) {
-                self.sink.parse_error(Borrowed("Found special tag while closing generic tag"));
+                self.sink
+                    .parse_error(Borrowed("Found special tag while closing generic tag"));
                 return;
             }
         }
@@ -1272,7 +1393,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 // <html> element is in special_tag.
                 self.unexpected(&tag);
                 return;
-            }
+            },
             Some(x) => x,
         };
 
@@ -1291,7 +1412,6 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
                 .filter(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
                 .next()
                 .map(|(_, n, _)| n.clone()),
-
             ()
         );
 
@@ -1320,8 +1440,13 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
         if mathml_text_integration_point(name) {
             match *token {
                 CharacterTokens(..) | NullCharacterToken => return false,
-                TagToken(Tag { kind: StartTag, ref name, .. })
-                    if !matches!(*name, local_name!("mglyph") | local_name!("malignmark")) => return false,
+                TagToken(Tag {
+                    kind: StartTag,
+                    ref name,
+                    ..
+                }) if !matches!(*name, local_name!("mglyph") | local_name!("malignmark")) => {
+                    return false;
+                },
                 _ => (),
             }
         }
@@ -1336,13 +1461,17 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 
         if let expanded_name!(mathml "annotation-xml") = name {
             match *token {
-                TagToken(Tag { kind: StartTag, name: local_name!("svg"), .. }) => return false,
-                CharacterTokens(..) | NullCharacterToken |
-                TagToken(Tag { kind: StartTag, .. }) => {
-                    return !self.sink.is_mathml_annotation_xml_integration_point(
-                        self.adjusted_current_node())
-                }
-                _ => {}
+                TagToken(Tag {
+                    kind: StartTag,
+                    name: local_name!("svg"),
+                    ..
+                }) => return false,
+                CharacterTokens(..) | NullCharacterToken | TagToken(Tag { kind: StartTag, .. }) => {
+                    return !self
+                        .sink
+                        .is_mathml_annotation_xml_integration_point(self.adjusted_current_node());
+                },
+                _ => {},
             };
         }
 
@@ -1412,7 +1541,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
     }
 
     fn adjust_attributes<F>(&mut self, tag: &mut Tag, mut map: F)
-        where F: FnMut(LocalName) -> Option<QualName>,
+    where
+        F: FnMut(LocalName) -> Option<QualName>,
     {
         for &mut Attribute { ref mut name, .. } in &mut tag.attrs {
             if let Some(replacement) = map(name.local.clone()) {
@@ -1517,7 +1647,7 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             ns!(svg) => {
                 self.adjust_svg_tag_name(&mut tag);
                 self.adjust_svg_attributes(&mut tag);
-            }
+            },
             _ => (),
         }
         self.adjust_foreign_attributes(&mut tag);
@@ -1539,8 +1669,8 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
             self.pop();
             while !self.current_node_in(|n| {
                 *n.ns == ns!(html) ||
-                mathml_text_integration_point(n) ||
-                svg_html_integration_point(n)
+                    mathml_text_integration_point(n) ||
+                    svg_html_integration_point(n)
             }) {
                 self.pop();
             }
@@ -1552,34 +1682,34 @@ impl<Handle, Sink> TreeBuilder<Handle, Sink>
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use markup5ever::interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
-    use markup5ever::interface::{NodeOrText, AppendNode, AppendText};
-    use markup5ever::interface::{TreeSink, Tracer, ElementFlags};
+    use markup5ever::interface::{AppendNode, AppendText, NodeOrText};
+    use markup5ever::interface::{ElementFlags, Tracer, TreeSink};
+    use markup5ever::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
     use super::types::*;
 
+    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
+    use tendril::StrTendril;
     use ExpandedName;
     use QualName;
-    use tendril::StrTendril;
-    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
 
     use tokenizer;
-    use tokenizer::{Tokenizer, TokenizerOpts};
-    use tokenizer::{Doctype, StartTag, Tag, TokenSink};
     use tokenizer::states as tok_state;
+    use tokenizer::{Doctype, StartTag, Tag, TokenSink};
+    use tokenizer::{Tokenizer, TokenizerOpts};
 
     use util::str::is_ascii_whitespace;
 
-    use std::default::Default;
-    use std::mem::replace;
     use std::borrow::Cow;
     use std::borrow::Cow::Borrowed;
     use std::collections::VecDeque;
+    use std::default::Default;
+    use std::mem::replace;
 
+    use super::{TreeBuilder, TreeBuilderOpts};
     use driver::*;
-    use super::{TreeBuilderOpts, TreeBuilder};
     use markup5ever::Attribute;
-    use rcdom::{Node, Handle, RcDom, NodeData};
+    use rcdom::{Handle, Node, NodeData, RcDom};
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,
@@ -1590,7 +1720,9 @@ mod test {
     impl TreeSink for LineCountingDOM {
         type Output = Self;
 
-        fn finish(self) -> Self { self }
+        fn finish(self) -> Self {
+            self
+        }
 
         type Handle = Handle;
 
@@ -1618,8 +1750,12 @@ mod test {
             self.rcdom.elem_name(target)
         }
 
-        fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags)
-                          -> Handle {
+        fn create_element(
+            &mut self,
+            name: QualName,
+            attrs: Vec<Attribute>,
+            flags: ElementFlags,
+        ) -> Handle {
             self.line_vec.push((name.clone(), self.current_line));
             self.rcdom.create_element(name, attrs, flags)
         }
@@ -1636,9 +1772,7 @@ mod test {
             self.rcdom.append(parent, child)
         }
 
-        fn append_before_sibling(&mut self,
-                sibling: &Handle,
-                child: NodeOrText<Handle>) {
+        fn append_before_sibling(&mut self, sibling: &Handle, child: NodeOrText<Handle>) {
             self.rcdom.append_before_sibling(sibling, child)
         }
 
@@ -1646,15 +1780,20 @@ mod test {
             &mut self,
             element: &Handle,
             prev_element: &Handle,
-            child: NodeOrText<Handle>) {
-            self.rcdom.append_based_on_parent_node(element, prev_element, child)
+            child: NodeOrText<Handle>,
+        ) {
+            self.rcdom
+                .append_based_on_parent_node(element, prev_element, child)
         }
 
-        fn append_doctype_to_document(&mut self,
-                                      name: StrTendril,
-                                      public_id: StrTendril,
-                                      system_id: StrTendril) {
-            self.rcdom.append_doctype_to_document(name, public_id, system_id);
+        fn append_doctype_to_document(
+            &mut self,
+            name: StrTendril,
+            public_id: StrTendril,
+            system_id: StrTendril,
+        ) {
+            self.rcdom
+                .append_doctype_to_document(name, public_id, system_id);
         }
 
         fn add_attrs_if_missing(&mut self, target: &Handle, attrs: Vec<Attribute>) {
@@ -1682,10 +1821,10 @@ mod test {
     fn check_four_lines() {
         // Input
         let sink = LineCountingDOM {
-                line_vec: vec!(),
-                current_line: 1,
-                rcdom: RcDom::default(),
-            };
+            line_vec: vec![],
+            current_line: 1,
+            rcdom: RcDom::default(),
+        };
         let opts = ParseOpts::default();
         let mut resultTok = parse_document(sink, opts);
         resultTok.process(StrTendril::from("<a>\n"));
@@ -1695,11 +1834,13 @@ mod test {
         // Actual Output
         let actual = resultTok.finish();
         // Expected Output
-        let expected = vec![(QualName::new(None, ns!(html), local_name!("html")), 1),
-                            (QualName::new(None, ns!(html), local_name!("head")), 1),
-                            (QualName::new(None, ns!(html), local_name!("body")), 1),
-                            (QualName::new(None, ns!(html), local_name!("a")), 1),
-                            (QualName::new(None, ns!(html), local_name!("b")), 3)];
+        let expected = vec![
+            (QualName::new(None, ns!(html), local_name!("html")), 1),
+            (QualName::new(None, ns!(html), local_name!("head")), 1),
+            (QualName::new(None, ns!(html), local_name!("body")), 1),
+            (QualName::new(None, ns!(html), local_name!("a")), 1),
+            (QualName::new(None, ns!(html), local_name!("b")), 3),
+        ];
         // Assertion
         assert_eq!(actual.line_vec, expected);
     }

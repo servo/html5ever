@@ -437,6 +437,7 @@ keyPoints
 keySplines
 keyTimes
 keygen
+kind
 label
 lambda
 lang
@@ -839,6 +840,7 @@ speed
 spreadMethod
 src
 srcdoc
+srclang
 srcset
 standby
 start

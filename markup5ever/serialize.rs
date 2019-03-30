@@ -13,8 +13,8 @@
 //!
 //! [processing instructions]: https://en.wikipedia.org/wiki/Processing_Instruction
 
-use QualName;
 use std::io;
+use QualName;
 
 //§ serializing-html-fragments
 /// Used as a parameter to `serialize`, telling it if we want to skip the parent.
@@ -28,7 +28,7 @@ pub enum TraversalScope {
     /// This is used in the implementation of [`html5ever::serialize::serialize`]
     ///
     /// [`html5ever::serialize::serialize`]: ../../html5ever/serialize/fn.serialize.html
-    ChildrenOnly(Option<QualName>)
+    ChildrenOnly(Option<QualName>),
 }
 
 /// Types that can be serialized (according to the xml-like scheme in `Serializer`) implement this
@@ -37,14 +37,16 @@ pub trait Serialize {
     /// Take the serializer and call its methods to serialize this type. The type will dictate
     /// which methods are called and with what parameters.
     fn serialize<S>(&self, serializer: &mut S, traversal_scope: TraversalScope) -> io::Result<()>
-    where S: Serializer;
+    where
+        S: Serializer;
 }
 
 /// Types that are capable of serializing implement this trait
 pub trait Serializer {
     /// Serialize the start of an element, for example `<div class="test">`.
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
-    where AttrIter: Iterator<Item=AttrRef<'a>>;
+    where
+        AttrIter: Iterator<Item = AttrRef<'a>>;
 
     /// Serialize the end of an element, for example `</div>`.
     fn end_elem(&mut self, name: QualName) -> io::Result<()>;

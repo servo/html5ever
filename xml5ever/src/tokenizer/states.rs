@@ -13,9 +13,8 @@
 //! users should not have to care about this.
 
 pub use self::AttrValueKind::*;
-pub use self::XmlState::*;
 pub use self::DoctypeKind::*;
-
+pub use self::XmlState::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
 #[doc(hidden)]

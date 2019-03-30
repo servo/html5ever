@@ -7,14 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub use markup5ever::serialize::{Serialize, Serializer, TraversalScope, AttrRef};
-use std::io::{self, Write};
+pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
 use std::default::Default;
+use std::io::{self, Write};
 
 use {LocalName, QualName};
 
 pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
-where Wr: Write, T: Serialize {
+where
+    Wr: Write,
+    T: Serialize,
+{
     let mut ser = HtmlSerializer::new(writer, opts.clone());
     node.serialize(&mut ser, opts.traversal_scope)
 }
@@ -52,8 +55,8 @@ struct ElemInfo {
     processed_first_child: bool,
 }
 
-struct HtmlSerializer<Wr: Write> {
-    writer: Wr,
+pub struct HtmlSerializer<Wr: Write> {
+    pub writer: Wr,
     opts: SerializeOpts,
     stack: Vec<ElemInfo>,
 }
@@ -64,26 +67,26 @@ fn tagname(name: &QualName) -> LocalName {
         ref ns => {
             // FIXME(#122)
             warn!("node with weird namespace {:?}", ns);
-        }
+        },
     }
 
     name.local.clone()
 }
 
 impl<Wr: Write> HtmlSerializer<Wr> {
-    fn new(writer: Wr, opts: SerializeOpts) -> Self {
+    pub fn new(writer: Wr, opts: SerializeOpts) -> Self {
         let html_name = match opts.traversal_scope {
             TraversalScope::IncludeNode | TraversalScope::ChildrenOnly(None) => None,
-            TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n))
+            TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n)),
         };
         HtmlSerializer {
             writer: writer,
             opts: opts,
-            stack: vec!(ElemInfo {
+            stack: vec![ElemInfo {
                 html_name: html_name,
                 ignore_children: false,
                 processed_first_child: false,
-            }),
+            }],
         }
     }
 
@@ -116,7 +119,9 @@ impl<Wr: Write> HtmlSerializer<Wr> {
 
 impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     fn start_elem<'a, AttrIter>(&mut self, name: QualName, attrs: AttrIter) -> io::Result<()>
-    where AttrIter: Iterator<Item=AttrRef<'a>> {
+    where
+        AttrIter: Iterator<Item = AttrRef<'a>>,
+    {
         let html_name = match name.ns {
             ns!(html) => Some(name.local.clone()),
             _ => None,
@@ -143,13 +148,13 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
                     if name.local != local_name!("xmlns") {
                         try!(self.writer.write_all(b"xmlns:"));
                     }
-                }
+                },
                 ns!(xlink) => try!(self.writer.write_all(b"xlink:")),
                 ref ns => {
                     // FIXME(#122)
                     warn!("attr with weird namespace {:?}", ns);
                     try!(self.writer.write_all(b"unknown_namespace:"));
-                }
+                },
             }
 
             try!(self.writer.write_all(name.local.as_bytes()));
@@ -159,14 +164,28 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
         }
         try!(self.writer.write_all(b">"));
 
-        let ignore_children = name.ns == ns!(html) && match name.local {
-            local_name!("area") | local_name!("base") | local_name!("basefont") | local_name!("bgsound") | local_name!("br")
-            | local_name!("col") | local_name!("embed") | local_name!("frame") | local_name!("hr") | local_name!("img")
-            | local_name!("input") | local_name!("keygen") | local_name!("link")
-            | local_name!("meta") | local_name!("param") | local_name!("source") | local_name!("track") | local_name!("wbr")
-                => true,
-            _ => false,
-        };
+        let ignore_children = name.ns == ns!(html) &&
+            match name.local {
+                local_name!("area") |
+                local_name!("base") |
+                local_name!("basefont") |
+                local_name!("bgsound") |
+                local_name!("br") |
+                local_name!("col") |
+                local_name!("embed") |
+                local_name!("frame") |
+                local_name!("hr") |
+                local_name!("img") |
+                local_name!("input") |
+                local_name!("keygen") |
+                local_name!("link") |
+                local_name!("meta") |
+                local_name!("param") |
+                local_name!("source") |
+                local_name!("track") |
+                local_name!("wbr") => true,
+                _ => false,
+            };
 
         self.parent().processed_first_child = true;
 
@@ -185,7 +204,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             None if self.opts.create_missing_parent => {
                 warn!("missing ElemInfo, creating default.");
                 Default::default()
-            }
+            },
             _ => panic!("no ElemInfo"),
         };
         if info.ignore_children {
@@ -199,9 +218,13 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
 
     fn write_text(&mut self, text: &str) -> io::Result<()> {
         let escape = match self.parent().html_name {
-            Some(local_name!("style")) | Some(local_name!("script")) | Some(local_name!("xmp"))
-            | Some(local_name!("iframe")) | Some(local_name!("noembed")) | Some(local_name!("noframes"))
-            | Some(local_name!("plaintext")) => false,
+            Some(local_name!("style")) |
+            Some(local_name!("script")) |
+            Some(local_name!("xmp")) |
+            Some(local_name!("iframe")) |
+            Some(local_name!("noembed")) |
+            Some(local_name!("noframes")) |
+            Some(local_name!("plaintext")) => false,
 
             Some(local_name!("noscript")) => !self.opts.scripting_enabled,
 

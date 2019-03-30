@@ -19,9 +19,9 @@ pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c {
-        'a' ... 'z' => Some(c),
-        'A' ... 'Z' => Some((c as u8 - b'A' + b'a') as char),
-        _ => None
+        'a'...'z' => Some(c),
+        'A'...'Z' => Some((c as u8 - b'A' + b'a') as char),
+        _ => None,
     }
 }
 
@@ -44,7 +44,11 @@ mod test {
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));
     test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'));
     test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None);
-    test_eq!(lower_letter_nonascii_is_None, lower_ascii_letter('\u{a66e}'), None);
+    test_eq!(
+        lower_letter_nonascii_is_None,
+        lower_ascii_letter('\u{a66e}'),
+        None
+    );
 
     test_eq!(is_alnum_a, is_ascii_alnum('a'), true);
     test_eq!(is_alnum_A, is_ascii_alnum('A'), true);

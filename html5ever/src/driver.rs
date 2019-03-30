@@ -9,16 +9,16 @@
 
 //! High-level interface to the parser.
 
-use {Attribute, QualName};
 use buffer_queue::BufferQueue;
 use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
-use tree_builder::{TreeBuilderOpts, TreeBuilder, TreeSink, create_element};
+use tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
+use {Attribute, QualName};
 
 use std::borrow::Cow;
 
 use tendril;
-use tendril::StrTendril;
 use tendril::stream::{TendrilSink, Utf8LossyDecoder};
+use tendril::StrTendril;
 
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]
@@ -37,10 +37,16 @@ pub struct ParseOpts {
 /// or all at once with the `one` method.
 ///
 /// If your input is bytes, use `Parser::from_utf8`.
-pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where Sink: TreeSink {
+pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink>
+where
+    Sink: TreeSink,
+{
     let tb = TreeBuilder::new(sink, opts.tree_builder);
     let tok = Tokenizer::new(tb, opts.tokenizer);
-    Parser { tokenizer: tok, input_buffer: BufferQueue::new() }
+    Parser {
+        tokenizer: tok,
+        input_buffer: BufferQueue::new(),
+    }
 }
 
 /// Parse an HTML fragment
@@ -50,33 +56,48 @@ pub fn parse_document<Sink>(sink: Sink, opts: ParseOpts) -> Parser<Sink> where S
 /// or all at once with the `one` method.
 ///
 /// If your input is bytes, use `Parser::from_utf8`.
-pub fn parse_fragment<Sink>(mut sink: Sink, opts: ParseOpts,
-                            context_name: QualName, context_attrs: Vec<Attribute>)
-                            -> Parser<Sink>
-                            where Sink: TreeSink {
+pub fn parse_fragment<Sink>(
+    mut sink: Sink,
+    opts: ParseOpts,
+    context_name: QualName,
+    context_attrs: Vec<Attribute>,
+) -> Parser<Sink>
+where
+    Sink: TreeSink,
+{
     let context_elem = create_element(&mut sink, context_name, context_attrs);
     parse_fragment_for_element(sink, opts, context_elem, None)
 }
 
 /// Like `parse_fragment`, but with an existing context element
 /// and optionally a form element.
-pub fn parse_fragment_for_element<Sink>(sink: Sink, opts: ParseOpts,
-                                        context_element: Sink::Handle,
-                                        form_element: Option<Sink::Handle>)
-                                        -> Parser<Sink>
-                                        where Sink: TreeSink {
+pub fn parse_fragment_for_element<Sink>(
+    sink: Sink,
+    opts: ParseOpts,
+    context_element: Sink::Handle,
+    form_element: Option<Sink::Handle>,
+) -> Parser<Sink>
+where
+    Sink: TreeSink,
+{
     let tb = TreeBuilder::new_for_fragment(sink, context_element, form_element, opts.tree_builder);
     let tok_opts = TokenizerOpts {
         initial_state: Some(tb.tokenizer_state_for_context_elem()),
-        .. opts.tokenizer
+        ..opts.tokenizer
     };
     let tok = Tokenizer::new(tb, tok_opts);
-    Parser { tokenizer: tok, input_buffer: BufferQueue::new() }
+    Parser {
+        tokenizer: tok,
+        input_buffer: BufferQueue::new(),
+    }
 }
 
 /// An HTML parser,
 /// ready to receive Unicode input through the `tendril::TendrilSink` trait’s methods.
-pub struct Parser<Sink> where Sink: TreeSink {
+pub struct Parser<Sink>
+where
+    Sink: TreeSink,
+{
     pub tokenizer: Tokenizer<TreeBuilder<Sink::Handle, Sink>>,
     pub input_buffer: BufferQueue,
 }
@@ -116,10 +137,10 @@ impl<Sink: TreeSink> Parser<Sink> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use rcdom::RcDom;
     use serialize::serialize;
     use tendril::TendrilSink;
-    use super::*;
 
     #[test]
     fn from_utf8() {
@@ -128,7 +149,9 @@ mod tests {
             .one("<title>Test".as_bytes());
         let mut serialized = Vec::new();
         serialize(&mut serialized, &dom.document, Default::default()).unwrap();
-        assert_eq!(String::from_utf8(serialized).unwrap().replace(" ", ""),
-                   "<html><head><title>Test</title></head><body></body></html>");
+        assert_eq!(
+            String::from_utf8(serialized).unwrap().replace(" ", ""),
+            "<html><head><title>Test</title></head><body></body></html>"
+        );
     }
 }

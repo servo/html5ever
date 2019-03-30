@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use interface::{QuirksMode, Quirks, LimitedQuirks, NoQuirks};
+use interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 use tendril::StrTendril;
 use tokenizer::Doctype;
 
@@ -75,9 +75,8 @@ static QUIRKY_PUBLIC_MATCHES: &'static [&'static str] = &[
     "html",
 ];
 
-static QUIRKY_SYSTEM_MATCHES: &'static [&'static str] = &[
-    "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd",
-];
+static QUIRKY_SYSTEM_MATCHES: &'static [&'static str] =
+    &["http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd"];
 
 static LIMITED_QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//w3c//dtd xhtml 1.0 frameset//",
@@ -110,15 +109,30 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
     let system = opt_tendril_as_slice(&doctype.system_id);
 
     let err = match (name, public, system) {
-          (Some("html"), None, None)
-        | (Some("html"), None, Some("about:legacy-compat"))
-        | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None)
-        | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), Some("http://www.w3.org/TR/REC-html40/strict.dtd"))
-        | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None)
-        | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), Some("http://www.w3.org/TR/html4/strict.dtd"))
-        | (Some("html"), Some("-//W3C//DTD XHTML 1.0 Strict//EN"), Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"))
-        | (Some("html"), Some("-//W3C//DTD XHTML 1.1//EN"), Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"))
-            => false,
+        (Some("html"), None, None) |
+        (Some("html"), None, Some("about:legacy-compat")) |
+        (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None) |
+        (
+            Some("html"),
+            Some("-//W3C//DTD HTML 4.0//EN"),
+            Some("http://www.w3.org/TR/REC-html40/strict.dtd"),
+        ) |
+        (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None) |
+        (
+            Some("html"),
+            Some("-//W3C//DTD HTML 4.01//EN"),
+            Some("http://www.w3.org/TR/html4/strict.dtd"),
+        ) |
+        (
+            Some("html"),
+            Some("-//W3C//DTD XHTML 1.0 Strict//EN"),
+            Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"),
+        ) |
+        (
+            Some("html"),
+            Some("-//W3C//DTD XHTML 1.1//EN"),
+            Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"),
+        ) => false,
 
         _ => true,
     };

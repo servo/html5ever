@@ -7,12 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+pub use self::Token::*;
 pub use self::XmlPhase::*;
 pub use self::XmlProcessResult::*;
-pub use self::Token::*;
 
 use tendril::StrTendril;
-use tokenizer::{Tag, Pi, Doctype};
+use tokenizer::{Doctype, Pi, Tag};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {

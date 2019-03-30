@@ -9,17 +9,17 @@
 
 //! Types used within the tree builder code.  Not exported to users.
 
-use tokenizer::Tag;
 use tokenizer::states::RawKind;
+use tokenizer::Tag;
 
 use tendril::StrTendril;
 
+pub use self::FormatEntry::*;
 pub use self::InsertionMode::*;
+pub use self::InsertionPoint::*;
+pub use self::ProcessResult::*;
 pub use self::SplitStatus::*;
 pub use self::Token::*;
-pub use self::ProcessResult::*;
-pub use self::FormatEntry::*;
-pub use self::InsertionPoint::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum InsertionMode {
@@ -88,5 +88,8 @@ pub enum InsertionPoint<Handle> {
     /// Insert before this following sibling.
     BeforeSibling(Handle),
     /// Insertion point is decided based on existence of element's parent node.
-    TableFosterParenting { element: Handle, prev_element: Handle },
+    TableFosterParenting {
+        element: Handle,
+        prev_element: Handle,
+    },
 }

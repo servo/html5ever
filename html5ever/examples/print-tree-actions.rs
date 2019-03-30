@@ -7,17 +7,20 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use] extern crate html5ever;
+#[macro_use]
+extern crate html5ever;
 
-use std::io;
-use std::default::Default;
-use std::collections::HashMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::default::Default;
+use std::io;
 
-use html5ever::{QualName, ExpandedName, Attribute};
-use html5ever::tree_builder::{TreeSink, QuirksMode, NodeOrText, AppendNode, AppendText, ElementFlags};
 use html5ever::parse_document;
 use html5ever::tendril::*;
+use html5ever::tree_builder::{
+    AppendNode, AppendText, ElementFlags, NodeOrText, QuirksMode, TreeSink,
+};
+use html5ever::{Attribute, ExpandedName, QualName};
 
 struct Sink {
     next_id: usize,
@@ -35,7 +38,9 @@ impl Sink {
 impl TreeSink for Sink {
     type Handle = usize;
     type Output = Self;
-    fn finish(self) -> Self { self }
+    fn finish(self) -> Self {
+        self
+    }
 
     fn parse_error(&mut self, msg: Cow<'static, str>) {
         println!("Parse error: {}", msg);
@@ -46,7 +51,8 @@ impl TreeSink for Sink {
     }
 
     fn get_template_contents(&mut self, target: &usize) -> usize {
-        if let Some(expanded_name!(html "template")) = self.names.get(target).map(|n| n.expanded()) {
+        if let Some(expanded_name!(html "template")) = self.names.get(target).map(|n| n.expanded())
+        {
             target + 1
         } else {
             panic!("not a template element")
@@ -85,36 +91,33 @@ impl TreeSink for Sink {
 
     fn append(&mut self, parent: &usize, child: NodeOrText<usize>) {
         match child {
-            AppendNode(n)
-                => println!("Append node {} to {}", n, parent),
-            AppendText(t)
-                => println!("Append text to {}: \"{}\"", parent, escape_default(&t)),
+            AppendNode(n) => println!("Append node {} to {}", n, parent),
+            AppendText(t) => println!("Append text to {}: \"{}\"", parent, escape_default(&t)),
         }
     }
 
-    fn append_before_sibling(&mut self,
-            sibling: &usize,
-            new_node: NodeOrText<usize>) {
+    fn append_before_sibling(&mut self, sibling: &usize, new_node: NodeOrText<usize>) {
         match new_node {
-            AppendNode(n)
-                => println!("Append node {} before {}", n, sibling),
-            AppendText(t)
-                => println!("Append text before {}: \"{}\"", sibling, escape_default(&t)),
+            AppendNode(n) => println!("Append node {} before {}", n, sibling),
+            AppendText(t) => println!("Append text before {}: \"{}\"", sibling, escape_default(&t)),
         }
     }
 
-    fn append_based_on_parent_node(&mut self,
+    fn append_based_on_parent_node(
+        &mut self,
         element: &Self::Handle,
         prev_element: &Self::Handle,
-        child: NodeOrText<Self::Handle>) {
-
+        child: NodeOrText<Self::Handle>,
+    ) {
         self.append_before_sibling(element, child);
     }
 
-    fn append_doctype_to_document(&mut self,
-                                  name: StrTendril,
-                                  public_id: StrTendril,
-                                  system_id: StrTendril) {
+    fn append_doctype_to_document(
+        &mut self,
+        name: StrTendril,
+        public_id: StrTendril,
+        system_id: StrTendril,
+    ) {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
@@ -126,7 +129,12 @@ impl TreeSink for Sink {
         }
     }
 
-    fn associate_with_form(&mut self, _target: &usize, _form: &usize, _nodes: (&usize, Option<&usize>)) {
+    fn associate_with_form(
+        &mut self,
+        _target: &usize,
+        _form: &usize,
+        _nodes: (&usize, Option<&usize>),
+    ) {
         // No form owner support.
     }
 

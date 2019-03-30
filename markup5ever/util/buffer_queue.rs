@@ -18,7 +18,6 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-
 use std::collections::VecDeque;
 
 use tendril::StrTendril;
@@ -44,6 +43,7 @@ pub enum SetResult {
 /// Internally it uses [`VecDeque`] and has the same complexity properties.
 ///
 /// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
+#[derive(Debug)]
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: VecDeque<StrTendril>,
@@ -92,8 +92,14 @@ impl BufferQueue {
 
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
-        debug_assert!(self.buffers.iter().skip_while(|el| el.len32() != 0).next().is_none(),
-                      "invariant \"all buffers in the queue are non-empty\" failed");
+        debug_assert!(
+            self.buffers
+                .iter()
+                .skip_while(|el| el.len32() != 0)
+                .next()
+                .is_none(),
+            "invariant \"all buffers in the queue are non-empty\" failed"
+        );
         self.buffers.front().map(|b| b.chars().next().unwrap())
     }
 
@@ -106,7 +112,7 @@ impl BufferQueue {
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
                 (Some(c), buf.is_empty())
-            }
+            },
         };
 
         if now_empty {
@@ -159,7 +165,7 @@ impl BufferQueue {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
                     (Some(FromSet(c)), buf.is_empty())
                 }
-            }
+            },
         };
 
         // Unborrow self for this part.
@@ -207,7 +213,7 @@ impl BufferQueue {
             let ref buf = self.buffers[buffers_exhausted];
 
             if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
-                return Some(false)
+                return Some(false);
             }
 
             consumed_from_last += 1;
@@ -218,7 +224,7 @@ impl BufferQueue {
         }
 
         // We have a match. Commit changes to the BufferQueue.
-        for _ in 0 .. buffers_exhausted {
+        for _ in 0..buffers_exhausted {
             self.buffers.pop_front();
         }
 
@@ -228,5 +234,72 @@ impl BufferQueue {
         }
 
         Some(true)
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test {
+    use tendril::SliceExt;
+
+    use super::BufferQueue;
+    use super::SetResult::{FromSet, NotFromSet};
+
+    #[test]
+    fn smoke_test() {
+        let mut bq = BufferQueue::new();
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
+
+        bq.push_back("abc".to_tendril());
+        assert_eq!(bq.peek(), Some('a'));
+        assert_eq!(bq.next(), Some('a'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.peek(), Some('b'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.peek(), Some('c'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.peek(), None);
+        assert_eq!(bq.next(), None);
+    }
+
+    #[test]
+    fn can_unconsume() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc".to_tendril());
+        assert_eq!(bq.next(), Some('a'));
+
+        bq.push_front("xy".to_tendril());
+        assert_eq!(bq.next(), Some('x'));
+        assert_eq!(bq.next(), Some('y'));
+        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
+    }
+
+    #[test]
+    fn can_pop_except_set() {
+        let mut bq = BufferQueue::new();
+        bq.push_back("abc&def".to_tendril());
+        let mut pop = || bq.pop_except_from(small_char_set!('&'));
+        assert_eq!(pop(), Some(NotFromSet("abc".to_tendril())));
+        assert_eq!(pop(), Some(FromSet('&')));
+        assert_eq!(pop(), Some(NotFromSet("def".to_tendril())));
+        assert_eq!(pop(), None);
+    }
+
+    #[test]
+    fn can_eat() {
+        // This is not very comprehensive.  We rely on the tokenizer
+        // integration tests for more thorough testing with many
+        // different input buffer splits.
+        let mut bq = BufferQueue::new();
+        bq.push_back("a".to_tendril());
+        bq.push_back("bc".to_tendril());
+        assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
+        assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next(), None);
     }
 }
