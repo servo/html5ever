@@ -122,6 +122,10 @@ pub mod tree_builder;
 ///    |
 ///  prefix (when resolved gives namespace_url `https://furniture.rs`)
 /// ```
+/// 
+/// NOTE: `Prefix`, `LocalName` and `Prefix` are all derivative of 
+/// `string_cache::atom::Atom` and `Atom` implements `Deref<str>`.
+/// 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
@@ -162,7 +166,9 @@ pub struct QualName {
     /// # }
     /// ```
     /// 
-    /// When matching namespaces used by HTML we can use `ns!` macro:
+    /// When matching namespaces used by HTML we can use `ns!` macro. 
+    /// Although keep in mind that ns! macro only works with namespaces
+    /// that are present in HTML spec (like `html`, `xmlns`, `svg`, etc.).
     /// 
     /// ```
     /// #[macro_use] extern crate markup5ever;
