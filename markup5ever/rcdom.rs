@@ -418,61 +418,71 @@ impl Default for RcDom {
     }
 }
 
+enum SerializeOp {
+    Open(Handle),
+    Close(QualName)
+}
+
 impl Serialize for Handle {
     fn serialize<S>(&self, serializer: &mut S, traversal_scope: TraversalScope) -> io::Result<()>
     where
         S: Serializer,
     {
-        match (&traversal_scope, &self.data) {
-            (
-                _,
-                &NodeData::Element {
-                    ref name,
-                    ref attrs,
-                    ..
-                },
-            ) => {
-                if traversal_scope == IncludeNode {
-                    try!(serializer.start_elem(
-                        name.clone(),
-                        attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
-                    ));
+        let mut ops = match traversal_scope {
+            IncludeNode => vec![SerializeOp::Open(self.clone())],
+            ChildrenOnly(_) => self
+                .children
+                .borrow()
+                .iter()
+                .map(|h| SerializeOp::Open(h.clone())).collect(),
+        };
+
+        while !ops.is_empty() {
+            match ops.remove(0) {
+                SerializeOp::Open(handle) => {
+                    match &handle.data {
+                        &NodeData::Element {
+                            ref name,
+                            ref attrs,
+                            ..
+                        } => {
+                            try!(serializer.start_elem(
+                                name.clone(),
+                                attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
+                            ));
+
+                            ops.insert(0, SerializeOp::Close(name.clone()));
+
+                            for child in handle.children.borrow().iter().rev() {
+                                ops.insert(0, SerializeOp::Open(child.clone()));
+                            }
+                        }
+
+                        &NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+
+                        &NodeData::Text { ref contents } => {
+                            serializer.write_text(&contents.borrow())?
+                        }
+
+                        &NodeData::Comment { ref contents } => {
+                            serializer.write_comment(&contents)?
+                        },
+
+                        &NodeData::ProcessingInstruction {
+                            ref target,
+                            ref contents,
+                        }  => serializer.write_processing_instruction(target, contents)?,
+
+                        &NodeData::Document => panic!("Can't serialize Document node itself"),
+                    }
                 }
 
-                for handle in self.children.borrow().iter() {
-                    try!(handle.clone().serialize(serializer, IncludeNode));
+                SerializeOp::Close(name) => {
+                    try!(serializer.end_elem(name));
                 }
-
-                if traversal_scope == IncludeNode {
-                    try!(serializer.end_elem(name.clone()));
-                }
-                Ok(())
-            },
-
-            (&ChildrenOnly(_), &NodeData::Document) => {
-                for handle in self.children.borrow().iter() {
-                    try!(handle.clone().serialize(serializer, IncludeNode));
-                }
-                Ok(())
-            },
-
-            (&ChildrenOnly(_), _) => Ok(()),
-
-            (&IncludeNode, &NodeData::Doctype { ref name, .. }) => serializer.write_doctype(&name),
-            (&IncludeNode, &NodeData::Text { ref contents }) => {
-                serializer.write_text(&contents.borrow())
-            },
-            (&IncludeNode, &NodeData::Comment { ref contents }) => {
-                serializer.write_comment(&contents)
-            },
-            (
-                &IncludeNode,
-                &NodeData::ProcessingInstruction {
-                    ref target,
-                    ref contents,
-                },
-            ) => serializer.write_processing_instruction(target, contents),
-            (&IncludeNode, &NodeData::Document) => panic!("Can't serialize Document node itself"),
+            }
         }
+
+        Ok(())
     }
 }
