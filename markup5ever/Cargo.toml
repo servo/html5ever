@@ -16,6 +16,7 @@ path = "lib.rs"
 string_cache = "0.7"
 phf = "0.7"
 tendril = "0.4"
+log = "0.4"
 
 [build-dependencies]
 string_cache_codegen = "0.4"

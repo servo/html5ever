@@ -18,7 +18,7 @@ use xml5ever::driver::parse_document;
 use xml5ever::rcdom::{Handle, NodeData, RcDom};
 use xml5ever::tendril::TendrilSink;
 
-fn walk(prefix: &str, handle: Handle) {
+fn walk(prefix: &str, handle: &Handle) {
     let node = handle;
 
     print!("{}", prefix);
@@ -50,7 +50,7 @@ fn walk(prefix: &str, handle: Handle) {
             _ => false,
         })
     {
-        walk(&new_indent, child.clone());
+        walk(&new_indent, child);
     }
 }
 
@@ -69,5 +69,5 @@ fn main() {
         .unwrap();;
 
     // Execute our visualizer on RcDom
-    walk("", dom.document);
+    walk("", &dom.document);
 }
