@@ -228,7 +228,7 @@ fn make_test_desc_with_scripting_flag(
                         .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
-                    let doc = dom.document;
+                    let doc = &dom.document;
                     let root = &doc.children.borrow()[0];
                     for child in root.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());

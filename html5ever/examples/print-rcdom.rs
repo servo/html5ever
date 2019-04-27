@@ -21,7 +21,7 @@ use html5ever::tendril::TendrilSink;
 
 // This is not proper HTML serialization, of course.
 
-fn walk(indent: usize, handle: Handle) {
+fn walk(indent: usize, handle: &Handle) {
     let node = handle;
     // FIXME: don't allocate
     print!("{}", repeat(" ").take(indent).collect::<String>());
@@ -58,7 +58,7 @@ fn walk(indent: usize, handle: Handle) {
     }
 
     for child in node.children.borrow().iter() {
-        walk(indent + 4, child.clone());
+        walk(indent + 4, child);
     }
 }
 
@@ -73,11 +73,11 @@ fn main() {
         .from_utf8()
         .read_from(&mut stdin.lock())
         .unwrap();
-    walk(0, dom.document);
+    walk(0, &dom.document);
 
     if !dom.errors.is_empty() {
         println!("\nParse errors:");
-        for err in dom.errors.into_iter() {
+        for err in dom.errors.iter() {
             println!("    {}", err);
         }
     }

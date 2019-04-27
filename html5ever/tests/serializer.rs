@@ -245,3 +245,20 @@ fn doctype() {
     serialize(&mut result, &dom.document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
 }
+
+#[test]
+fn deep_tree() {
+    let parser = parse_fragment(
+        RcDom::default(),
+        ParseOpts::default(),
+        QualName::new(None, ns!(html), local_name!("div")),
+        vec![],
+    );
+    let src = String::from("<b>".repeat(60_000));
+    let dom = parser.one(src);
+    let document = &dom.document;
+    let opts = SerializeOpts::default();
+    let mut ret_val = Vec::new();
+    serialize(&mut ret_val, document, opts)
+        .expect("Writing to a string shouldn't fail (expect on OOM)");
+}

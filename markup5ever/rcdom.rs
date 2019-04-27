@@ -109,6 +109,8 @@ pub struct Node {
     pub children: RefCell<Vec<Handle>>,
     /// Represents this node's data.
     pub data: NodeData,
+    /// Flag to control whether to free any children on destruction.
+    leak_children_on_drop: Cell<bool>,
 }
 
 impl Node {
@@ -118,7 +120,37 @@ impl Node {
             data: data,
             parent: Cell::new(None),
             children: RefCell::new(Vec::new()),
+            leak_children_on_drop: Cell::new(true),
         })
+    }
+
+    /// Drop any child nodes remaining in this node at destruction.
+    ///
+    /// RcDom's destructor automatically drops any nodes and children that are
+    /// present in the document. This setting only affects nodes that are dropped
+    /// by manipulating the tree before RcDom's destructor runs (such as manually
+    /// removing children from a node after parsing is complete).
+    ///
+    /// Unsafety: due to the representation of children, this can trigger
+    /// stack overflow if dropping a node with a very deep tree of children.
+    /// This is not a recommended configuration to use when interacting with
+    /// arbitrary HTML content.
+    pub unsafe fn free_child_nodes_on_drop(&self) {
+        self.leak_children_on_drop.set(false);
+    }
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        if !self.children.borrow().is_empty() {
+            if self.leak_children_on_drop.get() {
+                warn!("Dropping node with children outside of RcDom's destructor. \
+                       Leaking memory for {} children.", self.children.borrow().len());
+                for child in mem::replace(&mut *self.children.borrow_mut(), vec![]) {
+                    mem::forget(child);
+                }
+            }
+        }
     }
 }
 
@@ -193,6 +225,18 @@ pub struct RcDom {
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
+}
+
+impl Drop for RcDom {
+    fn drop(&mut self) {
+        // Ensure that node destructors execute linearly, rather
+        // than recursing through a tree of arbitrary depth.
+        let mut to_be_processed = vec![self.document.clone()];
+        while let Some(node) = to_be_processed.pop() {
+            to_be_processed.extend_from_slice(&*node.children.borrow());
+            node.children.borrow_mut().clear();
+        }
+    }
 }
 
 impl TreeSink for RcDom {
@@ -418,61 +462,71 @@ impl Default for RcDom {
     }
 }
 
+enum SerializeOp {
+    Open(Handle),
+    Close(QualName)
+}
+
 impl Serialize for Handle {
     fn serialize<S>(&self, serializer: &mut S, traversal_scope: TraversalScope) -> io::Result<()>
     where
         S: Serializer,
     {
-        match (&traversal_scope, &self.data) {
-            (
-                _,
-                &NodeData::Element {
-                    ref name,
-                    ref attrs,
-                    ..
-                },
-            ) => {
-                if traversal_scope == IncludeNode {
-                    try!(serializer.start_elem(
-                        name.clone(),
-                        attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
-                    ));
+        let mut ops = match traversal_scope {
+            IncludeNode => vec![SerializeOp::Open(self.clone())],
+            ChildrenOnly(_) => self
+                .children
+                .borrow()
+                .iter()
+                .map(|h| SerializeOp::Open(h.clone())).collect(),
+        };
+
+        while !ops.is_empty() {
+            match ops.remove(0) {
+                SerializeOp::Open(handle) => {
+                    match &handle.data {
+                        &NodeData::Element {
+                            ref name,
+                            ref attrs,
+                            ..
+                        } => {
+                            try!(serializer.start_elem(
+                                name.clone(),
+                                attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
+                            ));
+
+                            ops.insert(0, SerializeOp::Close(name.clone()));
+
+                            for child in handle.children.borrow().iter().rev() {
+                                ops.insert(0, SerializeOp::Open(child.clone()));
+                            }
+                        }
+
+                        &NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+
+                        &NodeData::Text { ref contents } => {
+                            serializer.write_text(&contents.borrow())?
+                        }
+
+                        &NodeData::Comment { ref contents } => {
+                            serializer.write_comment(&contents)?
+                        },
+
+                        &NodeData::ProcessingInstruction {
+                            ref target,
+                            ref contents,
+                        }  => serializer.write_processing_instruction(target, contents)?,
+
+                        &NodeData::Document => panic!("Can't serialize Document node itself"),
+                    }
                 }
 
-                for handle in self.children.borrow().iter() {
-                    try!(handle.clone().serialize(serializer, IncludeNode));
+                SerializeOp::Close(name) => {
+                    try!(serializer.end_elem(name));
                 }
-
-                if traversal_scope == IncludeNode {
-                    try!(serializer.end_elem(name.clone()));
-                }
-                Ok(())
-            },
-
-            (&ChildrenOnly(_), &NodeData::Document) => {
-                for handle in self.children.borrow().iter() {
-                    try!(handle.clone().serialize(serializer, IncludeNode));
-                }
-                Ok(())
-            },
-
-            (&ChildrenOnly(_), _) => Ok(()),
-
-            (&IncludeNode, &NodeData::Doctype { ref name, .. }) => serializer.write_doctype(&name),
-            (&IncludeNode, &NodeData::Text { ref contents }) => {
-                serializer.write_text(&contents.borrow())
-            },
-            (&IncludeNode, &NodeData::Comment { ref contents }) => {
-                serializer.write_comment(&contents)
-            },
-            (
-                &IncludeNode,
-                &NodeData::ProcessingInstruction {
-                    ref target,
-                    ref contents,
-                },
-            ) => serializer.write_processing_instruction(target, contents),
-            (&IncludeNode, &NodeData::Document) => panic!("Can't serialize Document node itself"),
+            }
         }
+
+        Ok(())
     }
 }
