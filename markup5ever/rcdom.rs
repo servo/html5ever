@@ -115,7 +115,7 @@ pub struct Node {
 
 impl Node {
     /// Create a new node from its contents
-    fn new(data: NodeData) -> Rc<Self> {
+    pub fn new(data: NodeData) -> Rc<Self> {
         Rc::new(Node {
             data: data,
             parent: Cell::new(None),
