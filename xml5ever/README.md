@@ -1,6 +1,6 @@
 # xml5ever
 
-[![Build Status](https://travis-ci.org/Ygg01/xml5ever.svg?branch=master)](https://travis-ci.org/Ygg01/xml5ever) ![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg) ![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg) ![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Docs.rs](https://docs.rs/xml5ever/badge.svg)](https://docs.rs/xml5ever)
 [![](http://meritbadge.herokuapp.com/xml5ever)](https://crates.io/crates/xml5ever)
 
