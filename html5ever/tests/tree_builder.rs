@@ -188,7 +188,7 @@ fn make_test_desc_with_scripting_flag(
 ) -> TestDescAndFn {
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
-        field.trim_right_matches('\n').to_string()
+        field.trim_end_matches('\n').to_string()
     };
 
     let mut data = fields.get("data").expect("missing data").to_string();
@@ -196,7 +196,7 @@ fn make_test_desc_with_scripting_flag(
     let expected = get_field("document");
     let context = fields
         .get("document-fragment")
-        .map(|field| context_name(field.trim_right_matches('\n')));
+        .map(|field| context_name(field.trim_end_matches('\n')));
     let ignore = ignores.contains(name);
     let mut name = name.to_owned();
     if scripting_enabled {
@@ -293,7 +293,7 @@ fn main() {
         let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();
         let r = io::BufReader::new(f);
         for ln in r.lines() {
-            ignores.insert(ln.unwrap().trim_right().to_string());
+            ignores.insert(ln.unwrap().trim_end().to_string());
         }
     }
 
