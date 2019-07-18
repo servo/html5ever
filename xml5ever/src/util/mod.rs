@@ -9,7 +9,7 @@
 
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
-    matches!(c, '0'...'9' | 'a'...'z' | 'A'...'Z')
+    matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z')
 }
 
 #[cfg(test)]
