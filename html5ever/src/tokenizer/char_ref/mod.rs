@@ -244,14 +244,14 @@ impl CharRefTokenizer {
 
         let (c, error) = match self.num {
             n if (n > 0x10FFFF) || self.num_too_big => ('\u{fffd}', true),
-            0x00 | 0xD800...0xDFFF => ('\u{fffd}', true),
+            0x00 | 0xD800..=0xDFFF => ('\u{fffd}', true),
 
-            0x80...0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as usize] {
+            0x80..=0x9F => match data::C1_REPLACEMENTS[(self.num - 0x80) as usize] {
                 Some(c) => (c, true),
                 None => (conv(self.num), true),
             },
 
-            0x01...0x08 | 0x0B | 0x0D...0x1F | 0x7F | 0xFDD0...0xFDEF => (conv(self.num), true),
+            0x01..=0x08 | 0x0B | 0x0D..=0x1F | 0x7F | 0xFDD0..=0xFDEF => (conv(self.num), true),
 
             n if (n & 0xFFFE) == 0xFFFE => (conv(n), true),
 

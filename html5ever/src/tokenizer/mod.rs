@@ -264,7 +264,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         if self.opts.exact_errors &&
             match c as u32 {
-                0x01...0x08 | 0x0B | 0x0E...0x1F | 0x7F...0x9F | 0xFDD0...0xFDEF => true,
+                0x01..=0x08 | 0x0B | 0x0E..=0x1F | 0x7F..=0x9F | 0xFDD0..=0xFDEF => true,
                 n if (n & 0xFFFE) == 0xFFFE => true,
                 _ => false,
             }
