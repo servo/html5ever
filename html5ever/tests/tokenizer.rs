@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate rustc_serialize;
+extern crate serde_json;
 extern crate rustc_test as test;
 #[macro_use]
 extern crate html5ever;
@@ -15,11 +15,11 @@ extern crate html5ever;
 mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
 
-use rustc_serialize::json::Json;
+use serde_json::{Value, Map};
 use std::borrow::Cow::Borrowed;
-use std::collections::BTreeMap;
 use std::default::Default;
 use std::ffi::OsStr;
+use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
 use std::{char, env};
@@ -152,65 +152,65 @@ trait JsonExt: Sized {
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Self>;
+    fn get_obj<'t>(&'t self) -> &'t Map<String, Self>;
     fn get_list<'t>(&'t self) -> &'t Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
-impl JsonExt for Json {
+impl JsonExt for Value {
     fn get_str(&self) -> String {
         match *self {
-            Json::String(ref s) => s.to_string(),
-            _ => panic!("Json::get_str: not a String"),
+            Value::String(ref s) => s.to_string(),
+            _ => panic!("Value::get_str: not a String"),
         }
     }
 
     fn get_tendril(&self) -> StrTendril {
         match *self {
-            Json::String(ref s) => s.to_tendril(),
-            _ => panic!("Json::get_tendril: not a String"),
+            Value::String(ref s) => s.to_tendril(),
+            _ => panic!("Value::get_tendril: not a String"),
         }
     }
 
     fn get_nullable_tendril(&self) -> Option<StrTendril> {
         match *self {
-            Json::Null => None,
-            Json::String(ref s) => Some(s.to_tendril()),
-            _ => panic!("Json::get_nullable_tendril: not a String"),
+            Value::Null => None,
+            Value::String(ref s) => Some(s.to_tendril()),
+            _ => panic!("Value::get_nullable_tendril: not a String"),
         }
     }
 
     fn get_bool(&self) -> bool {
         match *self {
-            Json::Boolean(b) => b,
-            _ => panic!("Json::get_bool: not a Boolean"),
+            Value::Bool(b) => b,
+            _ => panic!("Value::get_bool: not a Bool"),
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t BTreeMap<String, Json> {
+    fn get_obj<'t>(&'t self) -> &'t Map<String, Value> {
         match *self {
-            Json::Object(ref m) => &*m,
-            _ => panic!("Json::get_obj: not an Object"),
+            Value::Object(ref m) => &*m,
+            _ => panic!("Value::get_obj: not an Object"),
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t Vec<Json> {
+    fn get_list<'t>(&'t self) -> &'t Vec<Value> {
         match *self {
-            Json::Array(ref m) => m,
-            _ => panic!("Json::get_list: not an Array"),
+            Value::Array(ref m) => m,
+            _ => panic!("Value::get_list: not an Array"),
         }
     }
 
-    fn find<'t>(&'t self, key: &str) -> &'t Json {
+    fn find<'t>(&'t self, key: &str) -> &'t Value {
         self.get_obj().get(&key.to_string()).unwrap()
     }
 }
 
 // Parse a JSON object (other than "ParseError") to a token.
-fn json_to_token(js: &Json) -> Token {
+fn json_to_token(js: &Value) -> Token {
     let parts = js.get_list();
     // Collect refs here so we don't have to use "ref" in all the patterns below.
-    let args: Vec<&Json> = parts[1..].iter().collect();
+    let args: Vec<&Value> = parts[1..].iter().collect();
     match &*parts[0].get_str() {
         "DOCTYPE" => DoctypeToken(Doctype {
             name: args[0].get_nullable_tendril(),
@@ -254,14 +254,14 @@ fn json_to_token(js: &Json) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: &Json, exact_errors: bool) -> Vec<Token> {
+fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
     for tok in js.get_list().iter() {
         assert_eq!(
             match *tok {
-                Json::String(ref s) if &s[..] == "ParseError" => {
+                Value::String(ref s) if &s[..] == "ParseError" => {
                     sink.process_token(ParseError(Borrowed("")), 0)
                 },
                 _ => sink.process_token(json_to_token(tok), 0),
@@ -299,24 +299,24 @@ fn unescape(s: &str) -> Option<String> {
     }
 }
 
-fn unescape_json(js: &Json) -> Json {
+fn unescape_json(js: &Value) -> Value {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        Json::String(ref s) => Json::String(unescape(&s).unwrap()),
-        Json::Array(ref xs) => Json::Array(xs.iter().map(unescape_json).collect()),
-        Json::Object(ref obj) => {
-            let mut new_obj = BTreeMap::new();
+        Value::String(ref s) => Value::String(unescape(&s).unwrap()),
+        Value::Array(ref xs) => Value::Array(xs.iter().map(unescape_json).collect()),
+        Value::Object(ref obj) => {
+            let mut new_obj = Map::new();
             for (k, v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
             }
-            Json::Object(new_obj)
+            Value::Object(new_obj)
         },
         _ => js.clone(),
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Json, opts: TokenizerOpts) -> TestDescAndFn {
+fn mk_test(desc: String, input: String, expect: Value, opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -340,14 +340,14 @@ fn mk_test(desc: String, input: String, expect: Json, opts: TokenizerOpts) -> Te
     }
 }
 
-fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
+fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
-    let mut input = js.find("input").unwrap().get_str();
-    let mut expect = js.find("output").unwrap().clone();
+    let mut input = js.find("input").get_str();
+    let mut expect = js.find("output").clone();
     let desc = format!(
         "tok: {}: {}",
         filename,
-        js.find("description").unwrap().get_str()
+        js.find("description").get_str()
     );
 
     // "Double-escaped" tests require additional processing of
@@ -368,7 +368,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Json) {
 
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.get(&"initialStates".to_string()) {
-        Some(&Json::Array(ref xs)) => xs
+        Some(&Value::Array(ref xs)) => xs
             .iter()
             .map(|s| {
                 Some(match &s.get_str()[..] {
@@ -423,10 +423,12 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         "tokenizer",
         OsStr::new("test"),
         |path, mut file| {
-            let js = Json::from_reader(&mut file).ok().expect("json parse error");
+            let mut s = String::new();
+            file.read_to_string(&mut s).ok().expect("file reading error");
+            let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
 
             match js.get_obj().get(&"tests".to_string()) {
-                Some(&Json::Array(ref lst)) => {
+                Some(&Value::Array(ref lst)) => {
                     for test in lst.iter() {
                         mk_tests(
                             &mut tests,
