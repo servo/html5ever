@@ -240,7 +240,7 @@ where
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
-    pub fn trace_handles(&self, tracer: &Tracer<Handle = Handle>) {
+    pub fn trace_handles(&self, tracer: &dyn Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in self.open_elems.iter() {
             tracer.trace_handle(&e);
