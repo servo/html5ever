@@ -19,15 +19,15 @@ pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
 /// letter, otherwise None.
 pub fn lower_ascii_letter(c: char) -> Option<char> {
     match c {
-        'a'...'z' => Some(c),
-        'A'...'Z' => Some((c as u8 - b'A' + b'a') as char),
+        'a'..='z' => Some(c),
+        'A'..='Z' => Some((c as u8 - b'A' + b'a') as char),
         _ => None,
     }
 }
 
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
-    matches!(c, '0'...'9' | 'a'...'z' | 'A'...'Z')
+    matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z')
 }
 
 /// ASCII whitespace characters, as defined by

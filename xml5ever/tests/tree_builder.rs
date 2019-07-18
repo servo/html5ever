@@ -180,7 +180,7 @@ fn make_xml_test(
 ) {
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
-        field.trim_right_matches('\n').to_string()
+        field.trim_end_matches('\n').to_string()
     };
 
     let data = get_field("data");
@@ -249,7 +249,7 @@ fn run() {
     if let Ok(f) = fs::File::open(&src_dir.join("data/test/ignore")) {
         let r = io::BufReader::new(f);
         for ln in r.lines() {
-            ignores.insert(ln.unwrap().trim_right().to_string());
+            ignores.insert(ln.unwrap().trim_end().to_string());
         }
     }
 
