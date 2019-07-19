@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate rustc_serialize;
 extern crate rustc_test as test;
 #[macro_use]
 extern crate xml5ever;
