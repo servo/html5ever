@@ -1,0 +1,17 @@
+[package]
+name = "markup5ever_rcdom"
+version = "0.1.0"
+authors = [ "The html5ever Project Developers" ]
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "Basic, unsupported DOM structure for use by tests in html5ever/xml5ever"
+readme = "README.md"
+documentation = "https://docs.rs/markup5ever_rcdom"
+categories = [ "parser-implementations", "web-programming" ]
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+tendril = "0.4"
+markup5ever = { version = "0.10", path = "../markup5ever" }

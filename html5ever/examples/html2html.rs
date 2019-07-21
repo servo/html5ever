@@ -16,15 +16,16 @@
 //! where htmlparser-1.4.jar comes from http://about.validator.nu/htmlparser/
 
 extern crate html5ever;
+extern crate markup5ever_rcdom as rcdom;
 
 use std::default::Default;
 use std::io::{self, Write};
 
 use html5ever::driver::ParseOpts;
-use html5ever::rcdom::RcDom;
 use html5ever::tendril::TendrilSink;
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse_document, serialize};
+use rcdom::{RcDom, SerializableHandle};
 
 fn main() {
     let opts = ParseOpts {
@@ -45,7 +46,8 @@ fn main() {
         .write_all(b"<!DOCTYPE html>\n")
         .ok()
         .expect("writing DOCTYPE failed");
-    serialize(&mut io::stdout(), &dom.document, Default::default())
+    let document: SerializableHandle = dom.document.clone().into();
+    serialize(&mut io::stdout(), &document, Default::default())
         .ok()
         .expect("serialization failed");
 }

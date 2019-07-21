@@ -9,6 +9,7 @@
 
 #[macro_use]
 extern crate html5ever;
+extern crate markup5ever_rcdom as rcdom;
 
 use std::default::Default;
 use std::io;
@@ -16,8 +17,8 @@ use std::iter::repeat;
 use std::string::String;
 
 use html5ever::parse_document;
-use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::tendril::TendrilSink;
+use rcdom::{Handle, NodeData, RcDom};
 
 // This is not proper HTML serialization, of course.
 

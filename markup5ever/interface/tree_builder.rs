@@ -83,9 +83,10 @@ pub struct ElementFlags {
 ///
 /// ```
 /// # #[macro_use] extern crate markup5ever;
+/// # extern crate markup5ever_rcdom as rcdom;
 ///
 /// # fn main() {
-/// use markup5ever::{rcdom, QualName, Attribute};
+/// use markup5ever::{QualName, Attribute};
 /// use markup5ever::interface::create_element;
 ///
 /// let mut dom = rcdom::RcDom::default();

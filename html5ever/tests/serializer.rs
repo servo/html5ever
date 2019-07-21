@@ -9,15 +9,16 @@
 
 #[macro_use]
 extern crate html5ever;
+extern crate markup5ever_rcdom as rcdom;
 
 use std::default::Default;
 
 use html5ever::driver::ParseOpts;
-use html5ever::rcdom::RcDom;
 use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope};
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use html5ever::{parse_document, parse_fragment, serialize, QualName};
+use rcdom::{RcDom, SerializableHandle};
 
 use std::io;
 
@@ -98,10 +99,10 @@ fn parse_and_serialize(input: StrTendril) -> StrTendril {
         vec![],
     )
     .one(input);
-    let inner = &dom.document.children.borrow()[0];
+    let inner: SerializableHandle = dom.document.children.borrow()[0].clone().into();
 
     let mut result = vec![];
-    serialize(&mut result, inner, Default::default()).unwrap();
+    serialize(&mut result, &inner, Default::default()).unwrap();
     StrTendril::try_from_byte_slice(&result).unwrap()
 }
 
@@ -242,7 +243,8 @@ fn doctype() {
     let dom = parse_document(RcDom::default(), ParseOpts::default()).one("<!doctype html>");
     dom.document.children.borrow_mut().truncate(1); // Remove <html>
     let mut result = vec![];
-    serialize(&mut result, &dom.document, Default::default()).unwrap();
+    let document: SerializableHandle = dom.document.clone().into();
+    serialize(&mut result, &document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
 }
 
@@ -259,6 +261,7 @@ fn deep_tree() {
     let document = &dom.document;
     let opts = SerializeOpts::default();
     let mut ret_val = Vec::new();
-    serialize(&mut ret_val, document, opts)
+    let document: SerializableHandle = dom.document.clone().into();
+    serialize(&mut ret_val, &document, opts)
         .expect("Writing to a string shouldn't fail (expect on OOM)");
 }
