@@ -1,7 +1,7 @@
 [package]
 
 name = "xml5ever"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["The xml5ever project developers"]
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -23,7 +23,7 @@ doctest = true
 time = "0.1"
 log = "0.4"
 mac = "0.1"
-markup5ever = {version = "0.8", path = "../markup5ever" }
+markup5ever = {version = "0.9", path = "../markup5ever" }
 
 [dev-dependencies]
 serde_json = "1.0"
