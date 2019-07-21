@@ -109,8 +109,6 @@ pub struct Node {
     pub children: RefCell<Vec<Handle>>,
     /// Represents this node's data.
     pub data: NodeData,
-    /// Flag to control whether to free any children on destruction.
-    leak_children_on_drop: Cell<bool>,
 }
 
 impl Node {
@@ -120,36 +118,16 @@ impl Node {
             data: data,
             parent: Cell::new(None),
             children: RefCell::new(Vec::new()),
-            leak_children_on_drop: Cell::new(true),
         })
-    }
-
-    /// Drop any child nodes remaining in this node at destruction.
-    ///
-    /// RcDom's destructor automatically drops any nodes and children that are
-    /// present in the document. This setting only affects nodes that are dropped
-    /// by manipulating the tree before RcDom's destructor runs (such as manually
-    /// removing children from a node after parsing is complete).
-    ///
-    /// Unsafety: due to the representation of children, this can trigger
-    /// stack overflow if dropping a node with a very deep tree of children.
-    /// This is not a recommended configuration to use when interacting with
-    /// arbitrary HTML content.
-    pub unsafe fn free_child_nodes_on_drop(&self) {
-        self.leak_children_on_drop.set(false);
     }
 }
 
 impl Drop for Node {
     fn drop(&mut self) {
-        if !self.children.borrow().is_empty() {
-            if self.leak_children_on_drop.get() {
-                warn!("Dropping node with children outside of RcDom's destructor. \
-                       Leaking memory for {} children.", self.children.borrow().len());
-                for child in mem::replace(&mut *self.children.borrow_mut(), vec![]) {
-                    mem::forget(child);
-                }
-            }
+        let mut nodes = mem::replace(&mut *self.children.borrow_mut(), vec![]);
+        while let Some(node) = nodes.pop() {
+            let children = mem::replace(&mut *node.children.borrow_mut(), vec![]);
+            nodes.extend(children.into_iter());
         }
     }
 }
@@ -225,18 +203,6 @@ pub struct RcDom {
 
     /// The document's quirks mode.
     pub quirks_mode: QuirksMode,
-}
-
-impl Drop for RcDom {
-    fn drop(&mut self) {
-        // Ensure that node destructors execute linearly, rather
-        // than recursing through a tree of arbitrary depth.
-        let mut to_be_processed = vec![self.document.clone()];
-        while let Some(node) = to_be_processed.pop() {
-            to_be_processed.extend_from_slice(&*node.children.borrow());
-            node.children.borrow_mut().clear();
-        }
-    }
 }
 
 impl TreeSink for RcDom {
