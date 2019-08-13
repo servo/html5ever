@@ -421,7 +421,7 @@ impl Fold for MatchTokenParser {
                 if mac.path == parse_quote!(match_token) {
                     return syn::fold::fold_stmt(
                         self,
-                        syn::Stmt::Expr(expand_match_token(&mac.tts)),
+                        syn::Stmt::Expr(expand_match_token(&mac.tokens)),
                     );
                 }
             },
@@ -435,7 +435,7 @@ impl Fold for MatchTokenParser {
         match expr {
             syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) => {
                 if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_expr(self, expand_match_token(&mac.tts));
+                    return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
                 }
             },
             _ => {},
