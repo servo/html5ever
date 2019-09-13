@@ -7,15 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use tokenizer::{XmlTokenizer, XmlTokenizerOpts};
-use tree_builder::{TreeSink, XmlTreeBuilder, XmlTreeBuilderOpts};
+use crate::tokenizer::{XmlTokenizer, XmlTokenizerOpts};
+use crate::tree_builder::{TreeSink, XmlTreeBuilder, XmlTreeBuilderOpts};
 
 use std::borrow::Cow;
 
 use markup5ever::buffer_queue::BufferQueue;
-use tendril;
-use tendril::stream::{TendrilSink, Utf8LossyDecoder};
-use tendril::StrTendril;
+use crate::tendril;
+use crate::tendril::stream::{TendrilSink, Utf8LossyDecoder};
+use crate::tendril::StrTendril;
 
 /// All-encompasing parser setting structure.
 #[derive(Clone, Default)]
@@ -90,9 +90,9 @@ impl<Sink: TreeSink> XmlParser<Sink> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rcdom::RcDom;
-    use serialize::serialize;
-    use tendril::TendrilSink;
+    use crate::rcdom::RcDom;
+    use crate::serialize::serialize;
+    use crate::tendril::TendrilSink;
 
     #[test]
     fn el_ns_serialize() {

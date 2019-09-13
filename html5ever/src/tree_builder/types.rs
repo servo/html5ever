@@ -9,10 +9,10 @@
 
 //! Types used within the tree builder code.  Not exported to users.
 
-use tokenizer::states::RawKind;
-use tokenizer::Tag;
+use crate::tokenizer::states::RawKind;
+use crate::tokenizer::Tag;
 
-use tendril::StrTendril;
+use crate::tendril::StrTendril;
 
 pub use self::FormatEntry::*;
 pub use self::InsertionMode::*;

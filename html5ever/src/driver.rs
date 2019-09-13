@@ -9,16 +9,16 @@
 
 //! High-level interface to the parser.
 
-use buffer_queue::BufferQueue;
-use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
-use tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
-use {Attribute, QualName};
+use crate::buffer_queue::BufferQueue;
+use crate::tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
+use crate::tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
+use crate::{Attribute, QualName};
 
 use std::borrow::Cow;
 
-use tendril;
-use tendril::stream::{TendrilSink, Utf8LossyDecoder};
-use tendril::StrTendril;
+use crate::tendril;
+use crate::tendril::stream::{TendrilSink, Utf8LossyDecoder};
+use crate::tendril::StrTendril;
 
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]
@@ -138,9 +138,9 @@ impl<Sink: TreeSink> Parser<Sink> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rcdom::RcDom;
-    use serialize::serialize;
-    use tendril::TendrilSink;
+    use crate::rcdom::RcDom;
+    use crate::serialize::serialize;
+    use crate::tendril::TendrilSink;
 
     #[test]
     fn from_utf8() {

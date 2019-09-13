@@ -8,11 +8,13 @@
 // except according to those terms.
 
 use super::{TokenSink, Tokenizer};
-use buffer_queue::BufferQueue;
-use data;
-use tendril::StrTendril;
-use util::str::is_ascii_alnum;
+use crate::buffer_queue::BufferQueue;
+use crate::data;
+use crate::tendril::StrTendril;
+use crate::util::str::is_ascii_alnum;
 
+use log::debug;
+use mac::format_if;
 use std::borrow::Cow::Borrowed;
 use std::char::from_u32;
 

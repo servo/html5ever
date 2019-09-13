@@ -21,16 +21,19 @@ use self::states::{Rawtext, Rcdata, ScriptData, ScriptDataEscaped};
 
 use self::char_ref::{CharRef, CharRefTokenizer};
 
-use util::str::lower_ascii_letter;
+use crate::util::str::lower_ascii_letter;
 
+use log::debug;
+use mac::{format_if, matches, _tt_as_expr_hack};
+use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 use std::default::Default;
 use std::mem::replace;
 
-pub use buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
-use tendril::StrTendril;
-use {Attribute, LocalName, QualName, SmallCharSet};
+pub use crate::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
+use crate::tendril::StrTendril;
+use crate::{Attribute, LocalName, QualName, SmallCharSet};
 
 mod char_ref;
 mod interface;
@@ -1523,7 +1526,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 #[allow(non_snake_case)]
 mod test {
     use super::option_push; // private items
-    use tendril::{SliceExt, StrTendril};
+    use crate::tendril::{SliceExt, StrTendril};
 
     use super::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 
@@ -1534,7 +1537,7 @@ mod test {
     use markup5ever::buffer_queue::BufferQueue;
     use std::mem::replace;
 
-    use LocalName;
+    use crate::LocalName;
 
     // LinesMatch implements the TokenSink trait. It is used for testing to see
     // if current_line is being updated when process_token is called. The lines

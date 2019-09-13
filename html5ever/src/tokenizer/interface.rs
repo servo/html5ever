@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use interface::Attribute;
+use crate::interface::Attribute;
 use std::borrow::Cow;
-use tendril::StrTendril;
-use tokenizer::states;
-use LocalName;
+use crate::tendril::StrTendril;
+use crate::tokenizer::states;
+use crate::LocalName;
 
 pub use self::TagKind::{EndTag, StartTag};
 pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken};

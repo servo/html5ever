@@ -75,7 +75,7 @@ fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
         q
     };
     let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
-    tokenizer.feed(&mut input);
+    let _ = tokenizer.feed(&mut input);
     tokenizer.end();
     let mut output = ::std::io::Cursor::new(vec![]);
     serialize(

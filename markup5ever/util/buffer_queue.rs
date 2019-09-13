@@ -23,7 +23,7 @@ use std::collections::VecDeque;
 use tendril::StrTendril;
 
 pub use self::SetResult::{FromSet, NotFromSet};
-use util::smallcharset::SmallCharSet;
+use crate::util::smallcharset::SmallCharSet;
 
 /// Result from [`pop_except_from`] containing either a character from a [`SmallCharSet`], or a
 /// string buffer of characters not from the set.

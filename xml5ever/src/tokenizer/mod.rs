@@ -17,13 +17,16 @@ pub use self::interface::{CommentToken, DoctypeToken, PIToken, TagToken};
 pub use self::interface::{Doctype, Pi};
 pub use self::interface::{EmptyTag, EndTag, ShortTag, StartTag};
 pub use self::interface::{ParseError, Tag, TagKind, Token, TokenSink};
-pub use {LocalName, Namespace, Prefix};
+pub use crate::{LocalName, Namespace, Prefix};
 
+use log::debug;
+use mac::{format_if, unwrap_or_return};
+use markup5ever::{local_name, namespace_prefix, namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 use std::mem::replace;
-use tendril::StrTendril;
-use {buffer_queue, Attribute, QualName, SmallCharSet};
+use crate::tendril::StrTendril;
+use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 
 use self::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
 use self::char_ref::{CharRef, CharRefTokenizer};
@@ -901,8 +904,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::TagAttrValueBefore => loop {
                 match get_char!(self, input) {
                     '\t' | '\n' | ' ' => (),
-                    '"' => go!(self: to TagAttrValue(DoubleQuoted)),
-                    '\'' => go!(self: to TagAttrValue(SingleQuoted)),
+                    '"' => go!(self: to TagAttrValue DoubleQuoted),
+                    '\'' => go!(self: to TagAttrValue SingleQuoted),
                     '&' => go!(self: reconsume TagAttrValue(Unquoted)),
                     '>' => go!(self: emit_tag Data),
                     cl => go!(self: push_value cl; to TagAttrValue(Unquoted)),
@@ -1059,8 +1062,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 match get_char!(self, input) {
                     '\t' | '\n' | '\x0C' | ' ' => (),
                     '>' => go!(self: emit_doctype; to Data),
-                    '\'' => go!(self: to DoctypeIdentifierSingleQuoted(System)),
-                    '"' => go!(self: to DoctypeIdentifierDoubleQuoted(System)),
+                    '\'' => go!(self: to DoctypeIdentifierSingleQuoted System),
+                    '"' => go!(self: to DoctypeIdentifierDoubleQuoted System),
                     _ => go!(self: error; to BogusDoctype),
                 }
             },
@@ -1268,8 +1271,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 mod test {
 
     use super::process_qname;
-    use tendril::SliceExt;
-    use {LocalName, Prefix};
+    use crate::tendril::SliceExt;
+    use crate::{LocalName, Prefix};
 
     #[test]
     fn simple_namespace() {
