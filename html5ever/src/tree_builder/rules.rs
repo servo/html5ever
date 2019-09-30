@@ -9,13 +9,14 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
-use tree_builder::tag_sets::*;
-use tree_builder::types::*;
+use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
+use crate::tree_builder::tag_sets::*;
+use crate::tree_builder::types::*;
 
 use std::borrow::ToOwned;
 
-use tendril::SliceExt;
+use crate::tendril::SliceExt;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan

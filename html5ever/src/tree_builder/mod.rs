@@ -11,20 +11,20 @@
 
 //! The HTML5 tree builder.
 
-pub use interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
-pub use interface::{AppendNode, AppendText, Attribute, NodeOrText};
-pub use interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+pub use crate::interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
+pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
+pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
 use self::types::*;
 
-use tendril::StrTendril;
-use {ExpandedName, LocalName, Namespace, QualName};
+use crate::tendril::StrTendril;
+use crate::{ExpandedName, LocalName, Namespace, QualName};
 
-use tokenizer;
-use tokenizer::states as tok_state;
-use tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
+use crate::tokenizer;
+use crate::tokenizer::states as tok_state;
+use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
-use util::str::is_ascii_whitespace;
+use crate::util::str::is_ascii_whitespace;
 
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
@@ -33,11 +33,12 @@ use std::iter::{Enumerate, Rev};
 use std::mem::replace;
 use std::{fmt, slice};
 
-use log::Level;
-use tokenizer::states::{RawData, RawKind};
-use tree_builder::tag_sets::*;
-use tree_builder::types::*;
-use util::str::to_escaped_string;
+use log::{Level, debug, log_enabled, warn};
+use mac::{format_if, matches, _tt_as_expr_hack};
+use crate::tokenizer::states::{RawData, RawKind};
+use crate::tree_builder::tag_sets::*;
+use crate::tree_builder::types::*;
+use crate::util::str::to_escaped_string;
 
 pub use self::PushFlag::*;
 
@@ -1682,23 +1683,23 @@ where
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use markup5ever::interface::{AppendNode, AppendText, NodeOrText};
-    use markup5ever::interface::{ElementFlags, Tracer, TreeSink};
-    use markup5ever::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+    use crate::interface::{AppendNode, AppendText, NodeOrText};
+    use crate::interface::{ElementFlags, Tracer, TreeSink};
+    use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
     use super::types::*;
 
-    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
-    use tendril::StrTendril;
-    use ExpandedName;
-    use QualName;
+    use crate::tendril::stream::{TendrilSink, Utf8LossyDecoder};
+    use crate::tendril::StrTendril;
+    use crate::ExpandedName;
+    use crate::QualName;
 
-    use tokenizer;
-    use tokenizer::states as tok_state;
-    use tokenizer::{Doctype, StartTag, Tag, TokenSink};
-    use tokenizer::{Tokenizer, TokenizerOpts};
+    use crate::tokenizer;
+    use crate::tokenizer::states as tok_state;
+    use crate::tokenizer::{Doctype, StartTag, Tag, TokenSink};
+    use crate::tokenizer::{Tokenizer, TokenizerOpts};
 
-    use util::str::is_ascii_whitespace;
+    use crate::util::str::is_ascii_whitespace;
 
     use std::borrow::Cow;
     use std::borrow::Cow::Borrowed;
@@ -1707,9 +1708,9 @@ mod test {
     use std::mem::replace;
 
     use super::{TreeBuilder, TreeBuilderOpts};
-    use driver::*;
-    use markup5ever::Attribute;
-    use rcdom::{Handle, Node, NodeData, RcDom};
+    use crate::driver::*;
+    use crate::{Attribute, local_name, namespace_url, ns};
+    use crate::rcdom::{Handle, Node, NodeData, RcDom};
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,

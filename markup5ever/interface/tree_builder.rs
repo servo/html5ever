@@ -11,7 +11,7 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
-use interface::{Attribute, ExpandedName, QualName};
+use crate::interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
 

@@ -9,6 +9,9 @@
 
 mod types;
 
+use log::{debug, warn};
+use mac::*;
+use markup5ever::{local_name, namespace_prefix, namespace_url, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::collections::btree_map::Iter;
@@ -19,14 +22,14 @@ use std::result::Result;
 
 pub use self::interface::{NextParserState, NodeOrText, Tracer, TreeSink};
 use self::types::*;
-use interface::{self, create_element, AppendNode, Attribute, QualName};
-use interface::{AppendText, ExpandedName};
-use tokenizer::states::Quiescent;
-use tokenizer::{self, EndTag, StartTag, Tag, TokenSink};
-use tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
-use {LocalName, Namespace, Prefix};
+use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
+use crate::interface::{AppendText, ExpandedName};
+use crate::tokenizer::states::Quiescent;
+use crate::tokenizer::{self, EndTag, StartTag, Tag, TokenSink};
+use crate::tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
+use crate::{LocalName, Namespace, Prefix};
 
-use tendril::{StrTendril, Tendril};
+use crate::tendril::{StrTendril, Tendril};
 
 static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
 static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";

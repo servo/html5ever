@@ -7,11 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use log::warn;
 pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
+use markup5ever::{local_name, namespace_url, ns};
 use std::default::Default;
 use std::io::{self, Write};
 
-use {LocalName, QualName};
+use crate::{LocalName, QualName};
 
 pub fn serialize<Wr, T>(writer: Wr, node: &T, opts: SerializeOpts) -> io::Result<()>
 where
@@ -104,14 +106,14 @@ impl<Wr: Write> HtmlSerializer<Wr> {
 
     fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
         for c in text.chars() {
-            try!(match c {
+            match c {
                 '&' => self.writer.write_all(b"&amp;"),
                 '\u{00A0}' => self.writer.write_all(b"&nbsp;"),
                 '"' if attr_mode => self.writer.write_all(b"&quot;"),
                 '<' if !attr_mode => self.writer.write_all(b"&lt;"),
                 '>' if !attr_mode => self.writer.write_all(b"&gt;"),
                 c => self.writer.write_fmt(format_args!("{}", c)),
-            });
+            }?;
         }
         Ok(())
     }
@@ -136,33 +138,33 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             return Ok(());
         }
 
-        try!(self.writer.write_all(b"<"));
-        try!(self.writer.write_all(tagname(&name).as_bytes()));
+        self.writer.write_all(b"<")?;
+        self.writer.write_all(tagname(&name).as_bytes())?;
         for (name, value) in attrs {
-            try!(self.writer.write_all(b" "));
+            self.writer.write_all(b" ")?;
 
             match name.ns {
                 ns!() => (),
-                ns!(xml) => try!(self.writer.write_all(b"xml:")),
+                ns!(xml) => self.writer.write_all(b"xml:")?,
                 ns!(xmlns) => {
                     if name.local != local_name!("xmlns") {
-                        try!(self.writer.write_all(b"xmlns:"));
+                        self.writer.write_all(b"xmlns:")?;
                     }
                 },
-                ns!(xlink) => try!(self.writer.write_all(b"xlink:")),
+                ns!(xlink) => self.writer.write_all(b"xlink:")?,
                 ref ns => {
                     // FIXME(#122)
                     warn!("attr with weird namespace {:?}", ns);
-                    try!(self.writer.write_all(b"unknown_namespace:"));
+                    self.writer.write_all(b"unknown_namespace:")?;
                 },
             }
 
-            try!(self.writer.write_all(name.local.as_bytes()));
-            try!(self.writer.write_all(b"=\""));
-            try!(self.write_escaped(value, true));
-            try!(self.writer.write_all(b"\""));
+            self.writer.write_all(name.local.as_bytes())?;
+            self.writer.write_all(b"=\"")?;
+            self.write_escaped(value, true)?;
+            self.writer.write_all(b"\"")?;
         }
-        try!(self.writer.write_all(b">"));
+        self.writer.write_all(b">")?;
 
         let ignore_children = name.ns == ns!(html) &&
             match name.local {
@@ -211,8 +213,8 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             return Ok(());
         }
 
-        try!(self.writer.write_all(b"</"));
-        try!(self.writer.write_all(tagname(&name).as_bytes()));
+        self.writer.write_all(b"</")?;
+        self.writer.write_all(tagname(&name).as_bytes())?;
         self.writer.write_all(b">")
     }
 
@@ -239,22 +241,22 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
     }
 
     fn write_comment(&mut self, text: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<!--"));
-        try!(self.writer.write_all(text.as_bytes()));
+        self.writer.write_all(b"<!--")?;
+        self.writer.write_all(text.as_bytes())?;
         self.writer.write_all(b"-->")
     }
 
     fn write_doctype(&mut self, name: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<!DOCTYPE "));
-        try!(self.writer.write_all(name.as_bytes()));
+        self.writer.write_all(b"<!DOCTYPE ")?;
+        self.writer.write_all(name.as_bytes())?;
         self.writer.write_all(b">")
     }
 
     fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<?"));
-        try!(self.writer.write_all(target.as_bytes()));
-        try!(self.writer.write_all(b" "));
-        try!(self.writer.write_all(data.as_bytes()));
+        self.writer.write_all(b"<?")?;
+        self.writer.write_all(target.as_bytes())?;
+        self.writer.write_all(b" ")?;
+        self.writer.write_all(data.as_bytes())?;
         self.writer.write_all(b">")
     }
 }

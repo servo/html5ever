@@ -47,14 +47,14 @@ use std::rc::{Rc, Weak};
 
 use tendril::StrTendril;
 
-use interface::tree_builder;
-use interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
-use serialize::TraversalScope;
-use serialize::TraversalScope::{ChildrenOnly, IncludeNode};
-use serialize::{Serialize, Serializer};
-use Attribute;
-use ExpandedName;
-use QualName;
+use crate::interface::tree_builder;
+use crate::interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
+use crate::serialize::TraversalScope;
+use crate::serialize::TraversalScope::{ChildrenOnly, IncludeNode};
+use crate::serialize::{Serialize, Serializer};
+use crate::Attribute;
+use crate::ExpandedName;
+use crate::QualName;
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -456,10 +456,10 @@ impl Serialize for Handle {
                             ref attrs,
                             ..
                         } => {
-                            try!(serializer.start_elem(
+                            serializer.start_elem(
                                 name.clone(),
                                 attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
-                            ));
+                            )?;
 
                             ops.insert(0, SerializeOp::Close(name.clone()));
 
@@ -488,7 +488,7 @@ impl Serialize for Handle {
                 }
 
                 SerializeOp::Close(name) => {
-                    try!(serializer.end_elem(name));
+                    serializer.end_elem(name)?;
                 }
             }
         }

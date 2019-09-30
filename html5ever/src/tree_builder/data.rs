@@ -7,9 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
-use tendril::StrTendril;
-use tokenizer::Doctype;
+use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+use crate::tendril::StrTendril;
+use crate::tokenizer::Doctype;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
 static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[

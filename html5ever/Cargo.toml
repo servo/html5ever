@@ -9,6 +9,7 @@ description = "High-performance browser-grade HTML5 parser"
 documentation = "https://docs.rs/html5ever"
 build = "build.rs"
 categories = [ "parser-implementations", "web-programming" ]
+edition = "2018"
 
 [lib]
 name = "html5ever"
