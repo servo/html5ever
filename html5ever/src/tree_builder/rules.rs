@@ -1403,6 +1403,18 @@ where
                 }
             }
 
+            tag @ <script> => {
+                    let elem = create_element(
+                        &mut self.sink, QualName::new(None, ns!(svg), local_name!("script")),
+                        tag.attrs);
+                    if self.is_fragment() {
+                        self.sink.mark_script_already_started(&elem);
+                    }
+                    self.insert_appropriately(AppendNode(elem.clone()), None);
+                    self.open_elems.push(elem);
+                    self.to_raw_text_mode(ScriptData)
+                }
+
             tag @ <_> => self.foreign_start_tag(tag),
 
             // FIXME(#118): </script> in SVG
