@@ -1658,6 +1658,110 @@ mod test {
     }
 
     #[test]
+    fn check_script_inside_svg(){
+        let opts = TokenizerOpts {
+            exact_errors: false,
+            discard_bom: true,
+            profile: false,
+            initial_state: None,
+            last_start_tag_name: None,
+        };
+        let vector = vec![
+            StrTendril::from("<svg>"),
+            StrTendril::from("<script>"),
+            StrTendril::from("</script>"),
+            StrTendril::from("</svg>")
+        ];
+        let expected = vec![
+            (create_tag(StrTendril::from("svg"), StartTag), 1),
+            (create_tag(StrTendril::from("script"), StartTag), 1),
+            (create_tag(StrTendril::from("script"), EndTag), 1),
+            (create_tag(StrTendril::from("svg"), EndTag), 1)
+        ];
+        let results = tokenize(vector, opts);
+        assert_eq!(results, expected);
+    }
+
+    #[test]
+    fn check_script_inside_svg_with_newlines(){
+        let opts = TokenizerOpts{
+            exact_errors: false,
+            discard_bom: true,
+            profile: false,
+            initial_state: None,
+            last_start_tag_name: None,
+        };
+        let vector = vec![
+            StrTendril::from("<svg>\n"),
+            StrTendril::from("<script>\n"),
+            StrTendril::from("</script>\n"),
+            StrTendril::from("</svg>\n")
+        ];
+        let expected = vec![
+            (create_tag(StrTendril::from("svg"), StartTag), 1),
+            (create_tag(StrTendril::from("script"), StartTag), 2),
+            (create_tag(StrTendril::from("script"), EndTag), 3),
+            (create_tag(StrTendril::from("svg"), EndTag), 4),
+         ];
+        let results = tokenize(vector, opts);
+        assert_eq!(results, expected);
+    }
+
+    #[test]
+    fn check_script_body_inside_svg(){
+        let opts = TokenizerOpts{
+            exact_errors: false,
+            discard_bom: true,
+            profile: false,
+            initial_state: None,
+            last_start_tag_name: None,
+        };
+        let vector = vec![
+            StrTendril::from("<svg>"),
+            StrTendril::from("<script>"),
+            StrTendril::from("console.log('parsed');"),
+            StrTendril::from("</script>"),
+            StrTendril::from("</svg>")
+        ];
+        let expected = vec![
+            (create_tag(StrTendril::from("svg"), StartTag), 1),
+            (create_tag(StrTendril::from("script"), StartTag), 1),
+            (CharacterTokens(StrTendril::from("console.log('parsed');" )), 1),
+            (create_tag(StrTendril::from("script"), EndTag), 1),
+            (create_tag(StrTendril::from("svg"), EndTag), 1),
+        ];
+        let results = tokenize(vector, opts);
+        assert_eq!(results, expected);
+    }
+
+    #[test]
+    fn check_script_body_inside_svg_with_newlines(){
+        let opts = TokenizerOpts{
+            exact_errors: false,
+            discard_bom: true,
+            profile: false,
+            initial_state: None,
+            last_start_tag_name: None,
+        };
+        let vector = vec![
+            StrTendril::from("<svg>\n"),
+            StrTendril::from("<script>\n"),
+            StrTendril::from("console.log('parsed');\n"),
+            StrTendril::from("</script>\n"),
+            StrTendril::from("</svg>\n")
+        ];
+        let expected = vec![
+            (create_tag(StrTendril::from("svg"), StartTag), 1),
+            (create_tag(StrTendril::from("script"), StartTag), 2),
+            (CharacterTokens(StrTendril::from("console.log('parsed');" )), 3),
+            (create_tag(StrTendril::from("script"), EndTag), 4),
+            (create_tag(StrTendril::from("svg"), EndTag), 5),
+        ];
+        let results = tokenize(vector, opts);
+        assert_eq!(results, expected);
+    }
+
+    #[test]
     fn check_lines() {
         let opts = TokenizerOpts {
             exact_errors: false,

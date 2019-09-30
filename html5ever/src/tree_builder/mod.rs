@@ -1818,6 +1818,87 @@ mod test {
     }
 
     #[test]
+    fn check_script_element(){
+        // Input
+        let sink = LineCountingDOM {
+            line_vec: vec![],
+            current_line: 1,
+            rcdom: RcDom::default(),
+        };
+
+        let opts = ParseOpts::default();
+        let mut resultTok = parse_document(sink, opts);
+        resultTok.process(StrTendril::from("<svg>"));
+        resultTok.process(StrTendril::from("<script>"));
+        resultTok.process(StrTendril::from("</script>"));
+        resultTok.process(StrTendril::from("</svg>"));
+        let actual = resultTok.finish();
+        let expected = vec![
+            (QualName::new(None, ns!(html), local_name!("html")), 1),
+            (QualName::new(None, ns!(html), local_name!("head")), 1),
+            (QualName::new(None, ns!(html), local_name!("body")), 1),
+            (QualName::new(None, ns!(svg), local_name!("svg")), 1),
+            (QualName::new(None, ns!(svg), local_name!("script")), 1),
+        ];
+
+        assert_eq!(actual.line_vec, expected);
+    }
+
+    #[test]
+    fn check_script_body_element(){
+        // Input
+        let sink = LineCountingDOM {
+            line_vec: vec![],
+            current_line: 1,
+            rcdom: RcDom::default(),
+        };
+
+        let opts = ParseOpts::default();
+        let mut resultTok = parse_document(sink, opts);
+        resultTok.process(StrTendril::from("<svg>"));
+        resultTok.process(StrTendril::from("<script>"));
+        resultTok.process(StrTendril::from("console.log('parsed');"));
+        resultTok.process(StrTendril::from("</script>"));
+        resultTok.process(StrTendril::from("</svg>"));
+        let actual = resultTok.finish();
+        let expected = vec![
+            (QualName::new(None, ns!(html), local_name!("html")), 1),
+            (QualName::new(None, ns!(html), local_name!("head")), 1),
+            (QualName::new(None, ns!(html), local_name!("body")), 1),
+            (QualName::new(None, ns!(svg), local_name!("svg")), 1),
+            (QualName::new(None, ns!(svg), local_name!("script")), 1),
+        ];
+
+        assert_eq!(actual.line_vec, expected);
+    }
+
+    #[test]
+    fn check_self_closing_script_tag(){
+        // Input
+        let sink = LineCountingDOM {
+            line_vec: vec![],
+            current_line: 1,
+            rcdom: RcDom::default(),
+        };
+
+        let opts = ParseOpts::default();
+        let mut resultTok = parse_document(sink, opts);
+        resultTok.process(StrTendril::from("<svg>"));
+        resultTok.process(StrTendril::from("<script src='cats.js' />"));
+        resultTok.process(StrTendril::from("</svg>"));
+        let actual = resultTok.finish();
+        let expected = vec![
+            (QualName::new(None, ns!(html), local_name!("html")), 1),
+            (QualName::new(None, ns!(html), local_name!("head")), 1),
+            (QualName::new(None, ns!(html), local_name!("body")), 1),
+            (QualName::new(None, ns!(svg), local_name!("svg")), 1),
+            (QualName::new(None, ns!(svg), local_name!("script")), 1),
+        ];
+
+        assert_eq!(actual.line_vec, expected);
+    }
+
+    #[test]
     fn check_four_lines() {
         // Input
         let sink = LineCountingDOM {
