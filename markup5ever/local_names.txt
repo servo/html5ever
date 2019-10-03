@@ -750,6 +750,7 @@ readonly
 real
 reals
 rect
+referrerpolicy
 refX
 refY
 rel
