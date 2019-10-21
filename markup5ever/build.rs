@@ -142,11 +142,10 @@ fn named_entities_to_phf(from: &Path, to: &Path) {
 "#
     )
     .unwrap();
-    write!(
+    writeln!(
         &mut file,
-        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = "
+        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = {};",
+        phf_map.build(),
     )
     .unwrap();
-    phf_map.build(&mut file).unwrap();
-    write!(&mut file, ";\n").unwrap();
 }
