@@ -1683,9 +1683,10 @@ where
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use crate::interface::{AppendNode, AppendText, NodeOrText};
-    use crate::interface::{ElementFlags, Tracer, TreeSink};
-    use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+    extern crate markup5ever_rcdom as rcdom;
+    use markup5ever::interface::{AppendNode, AppendText, NodeOrText};
+    use markup5ever::interface::{ElementFlags, Tracer, TreeSink};
+    use markup5ever::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
     use super::types::*;
 
@@ -1698,6 +1699,7 @@ mod test {
     use crate::tokenizer::states as tok_state;
     use crate::tokenizer::{Doctype, StartTag, Tag, TokenSink};
     use crate::tokenizer::{Tokenizer, TokenizerOpts};
+    use crate::driver::*;
 
     use crate::util::str::is_ascii_whitespace;
 
@@ -1708,9 +1710,8 @@ mod test {
     use std::mem::replace;
 
     use super::{TreeBuilder, TreeBuilderOpts};
-    use crate::driver::*;
-    use crate::{Attribute, local_name, namespace_url, ns};
-    use crate::rcdom::{Handle, Node, NodeData, RcDom};
+    use markup5ever::{Attribute, local_name, namespace_url, ns};
+    use self::rcdom::{Handle, Node, NodeData, RcDom};
 
     pub struct LineCountingDOM {
         pub line_vec: Vec<(QualName, u64)>,

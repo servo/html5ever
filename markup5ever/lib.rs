@@ -35,7 +35,6 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 pub mod data;
 #[macro_use]
 pub mod interface;
-pub mod rcdom;
 pub mod serialize;
 mod util {
     pub mod buffer_queue;

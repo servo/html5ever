@@ -89,10 +89,11 @@ impl<Sink: TreeSink> XmlParser<Sink> {
 
 #[cfg(test)]
 mod tests {
+    extern crate markup5ever_rcdom;
     use super::*;
-    use crate::rcdom::RcDom;
+    use self::markup5ever_rcdom::{RcDom, SerializableHandle};
     use crate::serialize::serialize;
-    use crate::tendril::TendrilSink;
+    use tendril::TendrilSink;
 
     #[test]
     fn el_ns_serialize() {
@@ -170,16 +171,18 @@ mod tests {
 
     fn assert_eq_serialization(text: &'static str, dom: RcDom) {
         let mut serialized = Vec::new();
-        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
+        let document: SerializableHandle = dom.document.clone().into();
+        serialize(&mut serialized, &document, Default::default()).unwrap();
 
         let dom_from_text = parse_document(RcDom::default(), XmlParseOpts::default())
             .from_utf8()
             .one(text.as_bytes());
 
         let mut reserialized = Vec::new();
+        let document: SerializableHandle = dom_from_text.document.clone().into();
         serialize(
             &mut reserialized,
-            &dom_from_text.document,
+            &document,
             Default::default(),
         )
         .unwrap();
@@ -192,7 +195,8 @@ mod tests {
 
     fn assert_serialization(text: &'static str, dom: RcDom) {
         let mut serialized = Vec::new();
-        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
+        let document: SerializableHandle = dom.document.clone().into();
+        serialize(&mut serialized, &document, Default::default()).unwrap();
         assert_eq!(String::from_utf8(serialized).unwrap(), text);
     }
 }

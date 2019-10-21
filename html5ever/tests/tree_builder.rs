@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate markup5ever_rcdom as rcdom;
 extern crate rustc_test as test;
 #[macro_use]
 extern crate html5ever;
@@ -24,10 +25,10 @@ use std::path::Path;
 use std::{env, fs, io};
 use test::{DynTestName, TestDesc, TestDescAndFn, TestFn};
 
-use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{parse_document, parse_fragment, ParseOpts};
 use html5ever::{LocalName, QualName};
+use rcdom::{Handle, NodeData, RcDom};
 
 fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec![];

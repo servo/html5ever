@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate markup5ever_rcdom as rcdom;
 extern crate rustc_test as test;
 #[macro_use]
 extern crate xml5ever;
@@ -19,10 +20,10 @@ use std::mem::replace;
 use std::path::Path;
 use std::{env, fs, io};
 
+use rcdom::*;
 use test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::driver::parse_document;
-use xml5ever::rcdom::*;
 use xml5ever::tendril::TendrilSink;
 
 mod util {

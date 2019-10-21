@@ -8,14 +8,15 @@
 //! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
 //! ```
+extern crate markup5ever_rcdom as rcdom;
 extern crate xml5ever;
 
 use std::default::Default;
 use std::io;
 use std::string::String;
 
+use rcdom::{Handle, NodeData, RcDom};
 use xml5ever::driver::parse_document;
-use xml5ever::rcdom::{Handle, NodeData, RcDom};
 use xml5ever::tendril::TendrilSink;
 
 fn walk(prefix: &str, handle: &Handle) {

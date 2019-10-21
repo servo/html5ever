@@ -30,6 +30,7 @@ markup5ever = {version = "0.10", path = "../markup5ever" }
 serde_json = "1.0"
 rustc-test = "0.3"
 criterion = "0.2"
+markup5ever_rcdom = {version = "0.1", path = "../rcdom" }
 
 [[bench]]
 name = "xml5ever"

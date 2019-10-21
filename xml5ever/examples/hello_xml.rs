@@ -8,12 +8,13 @@
 //! xml5ever = "0.2.0"
 //! tendril = "0.1.3"
 //! ```
+extern crate markup5ever_rcdom as rcdom;
 extern crate xml5ever;
 
 use std::default::Default;
 
+use rcdom::{NodeData, RcDom};
 use xml5ever::driver::parse_document;
-use xml5ever::rcdom::{NodeData, RcDom};
 use xml5ever::tendril::TendrilSink;
 use xml5ever::tree_builder::TreeSink;
 
