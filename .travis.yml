@@ -1,10 +1,9 @@
 branches:
   except:
-      - servo
-
+    - servo
 language: rust
 rust:
-    - nightly
-    - beta
-    - stable
+  - nightly
+  - beta
+  - stable
 script: scripts/travis-build.sh
