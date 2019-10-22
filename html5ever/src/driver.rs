@@ -134,26 +134,3 @@ impl<Sink: TreeSink> Parser<Sink> {
         Utf8LossyDecoder::new(self)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    extern crate markup5ever_rcdom;
-    use super::*;
-    use self::markup5ever_rcdom::{RcDom, SerializableHandle};
-    use crate::serialize::serialize;
-    use tendril::TendrilSink;
-
-    #[test]
-    fn from_utf8() {
-        let dom = parse_document(RcDom::default(), ParseOpts::default())
-            .from_utf8()
-            .one("<title>Test".as_bytes());
-        let mut serialized = Vec::new();
-        let document: SerializableHandle = dom.document.clone().into();
-        serialize(&mut serialized, &document, Default::default()).unwrap();
-        assert_eq!(
-            String::from_utf8(serialized).unwrap().replace(" ", ""),
-            "<html><head><title>Test</title></head><body></body></html>"
-        );
-    }
-}

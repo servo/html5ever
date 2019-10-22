@@ -7,12 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate markup5ever;
-extern crate serde_json;
-extern crate rustc_test as test;
-#[macro_use]
-extern crate xml5ever;
-
 use serde_json::{Value, Map};
 use std::borrow::Cow::Borrowed;
 use std::env;
@@ -21,7 +15,7 @@ use std::ffi::OsStr;
 use std::mem::replace;
 use std::path::Path;
 
-use test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
+use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use util::find_tests::foreach_xml5lib_test;
 
 use markup5ever::buffer_queue::BufferQueue;
@@ -31,7 +25,7 @@ use xml5ever::tokenizer::{CommentToken, EmptyTag, EndTag, ShortTag, StartTag, Ta
 use xml5ever::tokenizer::{Doctype, DoctypeToken, PIToken, Pi};
 use xml5ever::tokenizer::{EOFToken, XmlTokenizer, XmlTokenizerOpts};
 use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
-use xml5ever::{Attribute, LocalName, QualName};
+use xml5ever::{Attribute, LocalName, namespace_url, ns, QualName};
 
 mod util {
     pub mod find_tests;
@@ -383,8 +377,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[test]
-fn run() {
+fn main() {
     let args: Vec<_> = env::args().collect();
-    test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    rustc_test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
 }

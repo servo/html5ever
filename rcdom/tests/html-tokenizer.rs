@@ -7,33 +7,26 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate serde_json;
-extern crate rustc_test as test;
-#[macro_use]
-extern crate html5ever;
-
 mod foreach_html5lib_test;
-use foreach_html5lib_test::foreach_html5lib_test;
 
+use foreach_html5lib_test::foreach_html5lib_test;
+use html5ever::{Attribute, LocalName, namespace_url, ns, QualName};
+use html5ever::tendril::*;
+use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
+use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
+use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
+use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
+use html5ever::tokenizer::BufferQueue;
+use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
+use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Value, Map};
+use std::{char, env};
 use std::borrow::Cow::Borrowed;
 use std::default::Default;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
-use std::{char, env};
-use test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
-
-use html5ever::tendril::*;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
-use html5ever::tokenizer::BufferQueue;
-use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
-use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
-use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
-use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
-use html5ever::Attribute;
-use html5ever::{LocalName, QualName};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -449,5 +442,5 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 
 fn main() {
     let args: Vec<_> = env::args().collect();
-    test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    rustc_test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
 }

@@ -7,18 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use]
-extern crate html5ever;
-extern crate markup5ever_rcdom as rcdom;
-
-use std::default::Default;
-
 use html5ever::driver::ParseOpts;
 use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope};
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use html5ever::{parse_document, parse_fragment, serialize, QualName};
-use rcdom::{RcDom, SerializableHandle};
+use markup5ever::{local_name, namespace_url, ns};
+use markup5ever_rcdom::{RcDom, SerializableHandle};
 
 use std::io;
 
@@ -258,7 +253,6 @@ fn deep_tree() {
     );
     let src = String::from("<b>".repeat(60_000));
     let dom = parser.one(src);
-    let document = &dom.document;
     let opts = SerializeOpts::default();
     let mut ret_val = Vec::new();
     let document: SerializableHandle = dom.document.clone().into();
