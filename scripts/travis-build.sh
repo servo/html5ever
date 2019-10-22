@@ -13,8 +13,7 @@ set -ex
 if [ $TRAVIS_RUST_VERSION = nightly ]
 then
     cargo bench --all
-    (cd html5ever && cargo test --features "rustc-test/capture")
-    (cd xml5ever && cargo test --features "rustc-test/capture")
+    (cd rcdom && cargo test --features "rustc-test/capture")
 else
     cargo bench --all
     cargo test --all

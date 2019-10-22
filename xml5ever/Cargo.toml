@@ -15,11 +15,6 @@ exclude = ["xml5lib-tests/*"]
 categories = [ "parser-implementations", "web-programming" ]
 edition = "2018"
 
-[lib]
-name = "xml5ever"
-
-doctest = true
-
 [dependencies]
 time = "0.1"
 log = "0.4"
@@ -27,10 +22,8 @@ mac = "0.1"
 markup5ever = {version = "0.10", path = "../markup5ever" }
 
 [dev-dependencies]
-serde_json = "1.0"
 rustc-test = "0.3"
-criterion = "0.2"
-markup5ever_rcdom = {version = "0.1", path = "../rcdom" }
+criterion = "0.3"
 
 [[bench]]
 name = "xml5ever"

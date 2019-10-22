@@ -10,7 +10,7 @@ use criterion::{black_box, Criterion};
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::*;
-use xml5ever::tokenizer::{Token, TokenSink, XmlTokenizer, XmlTokenizerOpts};
+use xml5ever::tokenizer::{Token, TokenSink, XmlTokenizer};
 
 struct Sink;
 

@@ -9,7 +9,7 @@ use criterion::{black_box, Criterion};
 
 use html5ever::tendril::*;
 use html5ever::tokenizer::{
-    BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
+    BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer,
 };
 
 struct Sink;
