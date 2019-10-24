@@ -43,6 +43,14 @@ impl<'a> fmt::Debug for ExpandedName<'a> {
 
 /// Helper to quickly create an expanded name.
 ///
+/// Can be used with no namespace as `expanded_name!("", "some_name")`
+/// or with a namespace as `expanded_name!(ns "some_name")`.  In the
+/// latter case, `ns` is one of the symbols which the [`ns!`][ns]
+/// macro accepts; note the lack of a comma between the `ns` and
+/// `"some_name"`.
+///
+/// [ns]: macro.ns.html
+///
 /// # Examples
 ///
 /// ```
@@ -57,7 +65,15 @@ impl<'a> fmt::Debug for ExpandedName<'a> {
 ///         ns: &ns!(),
 ///         local: &local_name!("div")
 ///     }
-/// )
+/// );
+///
+/// assert_eq!(
+///     expanded_name!(html "div"),
+///     ExpandedName {
+///         ns: &ns!(html),
+///         local: &local_name!("div")
+///     }
+/// );
 /// # }
 #[macro_export]
 macro_rules! expanded_name {
