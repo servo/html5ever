@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use mac::*;
+use mac::{matches, _tt_as_expr_hack};
 use std::fmt;
 
 pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
