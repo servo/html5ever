@@ -71,7 +71,9 @@ fn main() {
     writeln!(
         generated,
         r#"
-        /// Maps the input of `namespace_prefix!` to the output of `namespace_url!`.
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// the output of [`namespace_url!`](macro.namespace_url.html).
+        ///
         #[macro_export] macro_rules! ns {{
         "#
     )
