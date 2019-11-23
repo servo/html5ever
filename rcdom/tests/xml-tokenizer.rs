@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use serde_json::{Value, Map};
+use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
 use std::env;
-use std::io::Read;
 use std::ffi::OsStr;
+use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
 
@@ -25,7 +25,7 @@ use xml5ever::tokenizer::{CommentToken, EmptyTag, EndTag, ShortTag, StartTag, Ta
 use xml5ever::tokenizer::{Doctype, DoctypeToken, PIToken, Pi};
 use xml5ever::tokenizer::{EOFToken, XmlTokenizer, XmlTokenizerOpts};
 use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
-use xml5ever::{Attribute, LocalName, namespace_url, ns, QualName};
+use xml5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 
 mod util {
     pub mod find_tests;
@@ -280,7 +280,12 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     sink.get_tokens()
 }
 
-fn mk_xml_test(desc: String, input: String, expect: Value, opts: XmlTokenizerOpts) -> TestDescAndFn {
+fn mk_xml_test(
+    desc: String,
+    input: String,
+    expect: Value,
+    opts: XmlTokenizerOpts,
+) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -307,11 +312,7 @@ fn mk_xml_test(desc: String, input: String, expect: Value, opts: XmlTokenizerOpt
 fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let input: &str = &js.find("input").get_str();
     let expect = js.find("output");
-    let desc = format!(
-        "tok: {}: {}",
-        filename,
-        js.find("description").get_str()
-    );
+    let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // Some tests want to start in a state other than Data.
     let state_overrides = vec![None];
@@ -355,7 +356,9 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         OsStr::new("test"),
         |path, mut file| {
             let mut s = String::new();
-            file.read_to_string(&mut s).ok().expect("file reading error");
+            file.read_to_string(&mut s)
+                .ok()
+                .expect("file reading error");
             let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
 
             match js["tests"] {

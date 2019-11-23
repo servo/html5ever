@@ -7,10 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
-use std::io::{self, Write};
 use crate::tree_builder::NamespaceMap;
 use crate::QualName;
+pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
+use std::io::{self, Write};
 
 #[derive(Clone)]
 /// Struct for setting serializer options.

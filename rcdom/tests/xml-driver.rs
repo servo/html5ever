@@ -9,10 +9,7 @@ fn el_ns_serialize() {
         "<a:title xmlns:a=\"http://www.foo.org/\" value=\"test\">Test</a:title>",
         driver::parse_document(RcDom::default(), Default::default())
             .from_utf8()
-            .one(
-                "<a:title xmlns:a=\"http://www.foo.org/\" value=\"test\">Test</title>"
-                    .as_bytes(),
-            ),
+            .one("<a:title xmlns:a=\"http://www.foo.org/\" value=\"test\">Test</title>".as_bytes()),
     );
 }
 
@@ -88,12 +85,7 @@ fn assert_eq_serialization(text: &'static str, dom: RcDom) {
 
     let mut reserialized = Vec::new();
     let document: SerializableHandle = dom_from_text.document.clone().into();
-    serialize::serialize(
-        &mut reserialized,
-        &document,
-        Default::default(),
-    )
-    .unwrap();
+    serialize::serialize(&mut reserialized, &document, Default::default()).unwrap();
 
     assert_eq!(
         String::from_utf8(serialized).unwrap(),

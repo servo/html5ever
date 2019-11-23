@@ -10,23 +10,23 @@
 mod foreach_html5lib_test;
 
 use foreach_html5lib_test::foreach_html5lib_test;
-use html5ever::{Attribute, LocalName, namespace_url, ns, QualName};
 use html5ever::tendril::*;
+use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
+use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
-use html5ever::tokenizer::BufferQueue;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
+use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
-use serde_json::{Value, Map};
-use std::{char, env};
+use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
 use std::default::Default;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
+use std::{char, env};
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -337,11 +337,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
-    let desc = format!(
-        "tok: {}: {}",
-        filename,
-        js.find("description").get_str()
-    );
+    let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
@@ -417,7 +413,9 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         OsStr::new("test"),
         |path, mut file| {
             let mut s = String::new();
-            file.read_to_string(&mut s).ok().expect("file reading error");
+            file.read_to_string(&mut s)
+                .ok()
+                .expect("file reading error");
             let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
 
             match js.get_obj().get(&"tests".to_string()) {

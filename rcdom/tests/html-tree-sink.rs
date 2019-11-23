@@ -1,11 +1,11 @@
 use html5ever::driver;
-use html5ever::ExpandedName;
-use html5ever::QualName;
 use html5ever::tendril::stream::TendrilSink;
 use html5ever::tendril::StrTendril;
-use markup5ever_rcdom::{Handle, RcDom};
-use markup5ever::{Attribute, local_name, namespace_url, ns};
+use html5ever::ExpandedName;
+use html5ever::QualName;
 use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
+use markup5ever::{local_name, namespace_url, ns, Attribute};
+use markup5ever_rcdom::{Handle, RcDom};
 use std::borrow::Cow;
 
 pub struct LineCountingDOM {

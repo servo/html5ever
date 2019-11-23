@@ -33,9 +33,7 @@ fn main() {
     let generated = Path::new(&env::var("OUT_DIR").unwrap()).join("generated.rs");
     let mut generated = BufWriter::new(File::create(&generated).unwrap());
 
-    named_entities_to_phf(
-        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"),
-    );
+    named_entities_to_phf(&Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
 
     // Create a string cache for local names
     let local_names = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("local_names.txt");
@@ -90,10 +88,7 @@ fn named_entities_to_phf(to: &Path) {
         .iter()
         .map(|(name, cp1, cp2)| {
             assert!(name.starts_with("&"));
-            (
-                &name[1..],
-                (*cp1, *cp2),
-            )
+            (&name[1..], (*cp1, *cp2))
         })
         .collect();
 

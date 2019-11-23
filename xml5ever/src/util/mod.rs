@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use mac::{matches, _tt_as_expr_hack};
+use mac::{_tt_as_expr_hack, matches};
 
 /// Is the character an ASCII alphanumeric character?
 pub fn is_ascii_alnum(c: char) -> bool {
