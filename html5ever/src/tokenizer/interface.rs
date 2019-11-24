@@ -8,10 +8,10 @@
 // except according to those terms.
 
 use crate::interface::Attribute;
-use std::borrow::Cow;
 use crate::tendril::StrTendril;
 use crate::tokenizer::states;
 use crate::LocalName;
+use std::borrow::Cow;
 
 pub use self::TagKind::{EndTag, StartTag};
 pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken};

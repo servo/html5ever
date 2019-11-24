@@ -33,12 +33,12 @@ use std::iter::{Enumerate, Rev};
 use std::mem::replace;
 use std::{fmt, slice};
 
-use log::{Level, debug, log_enabled, warn};
-use mac::{format_if, matches, _tt_as_expr_hack};
 use crate::tokenizer::states::{RawData, RawKind};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
 use crate::util::str::to_escaped_string;
+use log::{debug, log_enabled, warn, Level};
+use mac::{_tt_as_expr_hack, format_if, matches};
 
 pub use self::PushFlag::*;
 

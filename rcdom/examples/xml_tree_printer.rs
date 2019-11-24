@@ -67,7 +67,7 @@ fn main() {
     let dom: RcDom = parse_document(RcDom::default(), Default::default())
         .from_utf8()
         .read_from(&mut stdin.lock())
-        .unwrap();;
+        .unwrap();
 
     // Execute our visualizer on RcDom
     walk("", &dom.document);

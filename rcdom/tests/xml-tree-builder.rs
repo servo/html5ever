@@ -10,13 +10,13 @@
 use markup5ever::{namespace_url, ns};
 use markup5ever_rcdom::*;
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
-use std::{env, fs, io};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::iter::repeat;
 use std::mem::replace;
 use std::path::Path;
+use std::{env, fs, io};
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;

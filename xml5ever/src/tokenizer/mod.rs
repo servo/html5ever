@@ -19,14 +19,14 @@ pub use self::interface::{EmptyTag, EndTag, ShortTag, StartTag};
 pub use self::interface::{ParseError, Tag, TagKind, Token, TokenSink};
 pub use crate::{LocalName, Namespace, Prefix};
 
+use crate::tendril::StrTendril;
+use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
 use mac::{format_if, unwrap_or_return};
 use markup5ever::{local_name, namespace_prefix, namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
 use std::mem::replace;
-use crate::tendril::StrTendril;
-use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 
 use self::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
 use self::char_ref::{CharRef, CharRefTokenizer};
