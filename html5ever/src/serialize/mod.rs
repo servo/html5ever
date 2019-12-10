@@ -53,6 +53,7 @@ struct ElemInfo {
     html_name: Option<LocalName>,
     ignore_children: bool,
     processed_first_child: bool,
+    void_element: bool,
 }
 
 pub struct HtmlSerializer<Wr: Write> {
@@ -73,6 +74,27 @@ fn tagname(name: &QualName) -> LocalName {
     name.local.clone()
 }
 
+fn is_name_of_void_element(name: &QualName) -> bool {
+    name.ns == ns!(html)
+        && match name.local {
+            local_name!("area")
+            | local_name!("base")
+            | local_name!("br")
+            | local_name!("col")
+            | local_name!("embed")
+            | local_name!("hr")
+            | local_name!("img")
+            | local_name!("input")
+            | local_name!("link")
+            | local_name!("meta")
+            | local_name!("param")
+            | local_name!("source")
+            | local_name!("track")
+            | local_name!("wbr") => true,
+            _ => false,
+        }
+}
+
 impl<Wr: Write> HtmlSerializer<Wr> {
     pub fn new(writer: Wr, opts: SerializeOpts) -> Self {
         let html_name = match opts.traversal_scope {
@@ -86,6 +108,7 @@ impl<Wr: Write> HtmlSerializer<Wr> {
                 html_name: html_name,
                 ignore_children: false,
                 processed_first_child: false,
+                void_element: false,
             }],
         }
     }
@@ -132,6 +155,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
                 html_name: html_name,
                 ignore_children: true,
                 processed_first_child: false,
+                void_element: is_name_of_void_element(&name),
             });
             return Ok(());
         }
@@ -161,9 +185,13 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             try!(self.writer.write_all(b"=\""));
             try!(self.write_escaped(value, true));
             try!(self.writer.write_all(b"\""));
-        }
-        try!(self.writer.write_all(b">"));
 
+        let is_void_element = is_name_of_void_element(&name);
+        if is_void_element {
+            self.writer.write_all(b" />")?;
+        } else {
+            self.writer.write_all(b">")?;
+        }
         let ignore_children = name.ns == ns!(html) &&
             match name.local {
                 local_name!("area") |
@@ -191,8 +219,9 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
 
         self.stack.push(ElemInfo {
             html_name: html_name,
-            ignore_children: ignore_children,
+            ignore_children,
             processed_first_child: false,
+            void_element: is_void_element,
         });
 
         Ok(())
@@ -207,7 +236,8 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             },
             _ => panic!("no ElemInfo"),
         };
-        if info.ignore_children {
+
+        if info.ignore_children || info.void_element {
             return Ok(());
         }
 
