@@ -7,10 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::tree_builder::NamespaceMap;
+use crate::QualName;
 pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
 use std::io::{self, Write};
-use tree_builder::NamespaceMap;
-use QualName;
 
 #[derive(Clone)]
 /// Struct for setting serializer options.
@@ -74,14 +74,14 @@ impl NamespaceMapStack {
 ///```
 fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -> io::Result<()> {
     for c in text.chars() {
-        try!(match c {
+        match c {
             '&' => writer.write_all(b"&amp;"),
             '\'' if attr_mode => writer.write_all(b"&apos;"),
             '"' if attr_mode => writer.write_all(b"&quot;"),
             '<' if !attr_mode => writer.write_all(b"&lt;"),
             '>' if !attr_mode => writer.write_all(b"&gt;"),
             c => writer.write_fmt(format_args!("{}", c)),
-        });
+        }?;
     }
     Ok(())
 }
@@ -89,11 +89,11 @@ fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -
 #[inline]
 fn write_qual_name<W: Write>(writer: &mut W, name: &QualName) -> io::Result<()> {
     if let Some(ref prefix) = name.prefix {
-        try!(writer.write_all(&prefix.as_bytes()));
-        try!(writer.write_all(b":"));
-        try!(writer.write_all(&*name.local.as_bytes()));
+        writer.write_all(&prefix.as_bytes())?;
+        writer.write_all(b":")?;
+        writer.write_all(&*name.local.as_bytes())?;
     } else {
-        try!(writer.write_all(&*name.local.as_bytes()));
+        writer.write_all(&*name.local.as_bytes())?;
     }
 
     Ok(())
@@ -151,56 +151,56 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
     {
         self.namespace_stack.push(NamespaceMap::empty());
 
-        try!(self.writer.write_all(b"<"));
-        try!(self.qual_name(&name));
+        self.writer.write_all(b"<")?;
+        self.qual_name(&name)?;
         if let Some(current_namespace) = self.namespace_stack.0.last() {
             for (prefix, url_opt) in current_namespace.get_scope_iter() {
-                try!(self.writer.write_all(b" xmlns"));
+                self.writer.write_all(b" xmlns")?;
                 if let &Some(ref p) = prefix {
-                    try!(self.writer.write_all(b":"));
-                    try!(self.writer.write_all(&*p.as_bytes()));
+                    self.writer.write_all(b":")?;
+                    self.writer.write_all(&*p.as_bytes())?;
                 }
 
-                try!(self.writer.write_all(b"=\""));
+                self.writer.write_all(b"=\"")?;
                 let url = if let &Some(ref a) = url_opt {
                     a.as_bytes()
                 } else {
                     b""
                 };
-                try!(self.writer.write_all(url));
-                try!(self.writer.write_all(b"\""));
+                self.writer.write_all(url)?;
+                self.writer.write_all(b"\"")?;
             }
         }
         for (name, value) in attrs {
-            try!(self.writer.write_all(b" "));
-            try!(self.qual_attr_name(&name));
-            try!(self.writer.write_all(b"=\""));
-            try!(write_to_buf_escaped(&mut self.writer, value, true));
-            try!(self.writer.write_all(b"\""));
+            self.writer.write_all(b" ")?;
+            self.qual_attr_name(&name)?;
+            self.writer.write_all(b"=\"")?;
+            write_to_buf_escaped(&mut self.writer, value, true)?;
+            self.writer.write_all(b"\"")?;
         }
-        try!(self.writer.write_all(b">"));
+        self.writer.write_all(b">")?;
         Ok(())
     }
 
     /// Serializes given end element into text.
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         self.namespace_stack.pop();
-        try!(self.writer.write_all(b"</"));
-        try!(self.qual_name(&name));
+        self.writer.write_all(b"</")?;
+        self.qual_name(&name)?;
         self.writer.write_all(b">")
     }
 
     /// Serializes comment into text.
     fn write_comment(&mut self, text: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<!--"));
-        try!(self.writer.write_all(text.as_bytes()));
+        self.writer.write_all(b"<!--")?;
+        self.writer.write_all(text.as_bytes())?;
         self.writer.write_all(b"-->")
     }
 
     /// Serializes given doctype
     fn write_doctype(&mut self, name: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<!DOCTYPE "));
-        try!(self.writer.write_all(name.as_bytes()));
+        self.writer.write_all(b"<!DOCTYPE ")?;
+        self.writer.write_all(name.as_bytes())?;
         self.writer.write_all(b">")
     }
 
@@ -211,10 +211,10 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
 
     /// Serializes given processing instruction.
     fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
-        try!(self.writer.write_all(b"<?"));
-        try!(self.writer.write_all(target.as_bytes()));
-        try!(self.writer.write_all(b" "));
-        try!(self.writer.write_all(data.as_bytes()));
+        self.writer.write_all(b"<?")?;
+        self.writer.write_all(target.as_bytes())?;
+        self.writer.write_all(b" ")?;
+        self.writer.write_all(data.as_bytes())?;
         self.writer.write_all(b"?>")
     }
 }

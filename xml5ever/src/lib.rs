@@ -32,14 +32,6 @@
 #![crate_type = "dylib"]
 #![deny(missing_docs)]
 
-#[macro_use]
-extern crate markup5ever;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate mac;
-extern crate time;
-
 pub use markup5ever::*;
 
 macro_rules! time {

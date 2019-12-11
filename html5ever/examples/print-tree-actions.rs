@@ -106,7 +106,7 @@ impl TreeSink for Sink {
     fn append_based_on_parent_node(
         &mut self,
         element: &Self::Handle,
-        prev_element: &Self::Handle,
+        _prev_element: &Self::Handle,
         child: NodeOrText<Self::Handle>,
     ) {
         self.append_before_sibling(element, child);

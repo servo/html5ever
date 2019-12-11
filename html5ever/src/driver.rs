@@ -9,16 +9,16 @@
 
 //! High-level interface to the parser.
 
-use buffer_queue::BufferQueue;
-use tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
-use tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
-use {Attribute, QualName};
+use crate::buffer_queue::BufferQueue;
+use crate::tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
+use crate::tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
+use crate::{Attribute, QualName};
 
 use std::borrow::Cow;
 
-use tendril;
-use tendril::stream::{TendrilSink, Utf8LossyDecoder};
-use tendril::StrTendril;
+use crate::tendril;
+use crate::tendril::stream::{TendrilSink, Utf8LossyDecoder};
+use crate::tendril::StrTendril;
 
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]
@@ -132,26 +132,5 @@ impl<Sink: TreeSink> Parser<Sink> {
     /// Decoding is lossy, like `String::from_utf8_lossy`.
     pub fn from_utf8(self) -> Utf8LossyDecoder<Self> {
         Utf8LossyDecoder::new(self)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rcdom::RcDom;
-    use serialize::serialize;
-    use tendril::TendrilSink;
-
-    #[test]
-    fn from_utf8() {
-        let dom = parse_document(RcDom::default(), ParseOpts::default())
-            .from_utf8()
-            .one("<title>Test".as_bytes());
-        let mut serialized = Vec::new();
-        serialize(&mut serialized, &dom.document, Default::default()).unwrap();
-        assert_eq!(
-            String::from_utf8(serialized).unwrap().replace(" ", ""),
-            "<html><head><title>Test</title></head><body></body></html>"
-        );
     }
 }

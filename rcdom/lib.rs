@@ -36,6 +36,9 @@
 //! [tree structure]: https://en.wikipedia.org/wiki/Tree_(data_structure)
 //! [dom wiki]: https://en.wikipedia.org/wiki/Document_Object_Model
 
+extern crate markup5ever;
+extern crate tendril;
+
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
@@ -47,14 +50,14 @@ use std::rc::{Rc, Weak};
 
 use tendril::StrTendril;
 
-use interface::tree_builder;
-use interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
-use serialize::TraversalScope;
-use serialize::TraversalScope::{ChildrenOnly, IncludeNode};
-use serialize::{Serialize, Serializer};
-use Attribute;
-use ExpandedName;
-use QualName;
+use markup5ever::interface::tree_builder;
+use markup5ever::interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
+use markup5ever::serialize::TraversalScope;
+use markup5ever::serialize::TraversalScope::{ChildrenOnly, IncludeNode};
+use markup5ever::serialize::{Serialize, Serializer};
+use markup5ever::Attribute;
+use markup5ever::ExpandedName;
+use markup5ever::QualName;
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -430,66 +433,72 @@ impl Default for RcDom {
 
 enum SerializeOp {
     Open(Handle),
-    Close(QualName)
+    Close(QualName),
 }
 
-impl Serialize for Handle {
+pub struct SerializableHandle(Handle);
+
+impl From<Handle> for SerializableHandle {
+    fn from(h: Handle) -> SerializableHandle {
+        SerializableHandle(h)
+    }
+}
+
+impl Serialize for SerializableHandle {
     fn serialize<S>(&self, serializer: &mut S, traversal_scope: TraversalScope) -> io::Result<()>
     where
         S: Serializer,
     {
         let mut ops = match traversal_scope {
-            IncludeNode => vec![SerializeOp::Open(self.clone())],
+            IncludeNode => vec![SerializeOp::Open(self.0.clone())],
             ChildrenOnly(_) => self
+                .0
                 .children
                 .borrow()
                 .iter()
-                .map(|h| SerializeOp::Open(h.clone())).collect(),
+                .map(|h| SerializeOp::Open(h.clone()))
+                .collect(),
         };
 
         while !ops.is_empty() {
             match ops.remove(0) {
-                SerializeOp::Open(handle) => {
-                    match &handle.data {
-                        &NodeData::Element {
-                            ref name,
-                            ref attrs,
-                            ..
-                        } => {
-                            try!(serializer.start_elem(
-                                name.clone(),
-                                attrs.borrow().iter().map(|at| (&at.name, &at.value[..]))
-                            ));
+                SerializeOp::Open(handle) => match &handle.data {
+                    &NodeData::Element {
+                        ref name,
+                        ref attrs,
+                        ..
+                    } => {
+                        serializer.start_elem(
+                            name.clone(),
+                            attrs.borrow().iter().map(|at| (&at.name, &at.value[..])),
+                        )?;
 
-                            ops.insert(0, SerializeOp::Close(name.clone()));
+                        ops.insert(0, SerializeOp::Close(name.clone()));
 
-                            for child in handle.children.borrow().iter().rev() {
-                                ops.insert(0, SerializeOp::Open(child.clone()));
-                            }
+                        for child in handle.children.borrow().iter().rev() {
+                            ops.insert(0, SerializeOp::Open(child.clone()));
                         }
+                    },
 
-                        &NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+                    &NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
 
-                        &NodeData::Text { ref contents } => {
-                            serializer.write_text(&contents.borrow())?
-                        }
+                    &NodeData::Text { ref contents } => {
+                        serializer.write_text(&contents.borrow())?
+                    },
 
-                        &NodeData::Comment { ref contents } => {
-                            serializer.write_comment(&contents)?
-                        },
+                    &NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
 
-                        &NodeData::ProcessingInstruction {
-                            ref target,
-                            ref contents,
-                        }  => serializer.write_processing_instruction(target, contents)?,
+                    &NodeData::ProcessingInstruction {
+                        ref target,
+                        ref contents,
+                    } => serializer.write_processing_instruction(target, contents)?,
 
-                        &NodeData::Document => panic!("Can't serialize Document node itself"),
-                    }
-                }
+                    &NodeData::Document => panic!("Can't serialize Document node itself"),
+                },
 
                 SerializeOp::Close(name) => {
-                    try!(serializer.end_elem(name));
-                }
+                    serializer.end_elem(name)?;
+                },
             }
         }
 

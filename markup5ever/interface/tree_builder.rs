@@ -11,7 +11,7 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
-use interface::{Attribute, ExpandedName, QualName};
+use crate::interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
 
@@ -80,31 +80,6 @@ pub struct ElementFlags {
 /// # Examples
 ///
 /// Create an element like `<div class="test-class-name"></div>`:
-///
-/// ```
-/// # #[macro_use] extern crate markup5ever;
-///
-/// # fn main() {
-/// use markup5ever::{rcdom, QualName, Attribute};
-/// use markup5ever::interface::create_element;
-///
-/// let mut dom = rcdom::RcDom::default();
-/// let el = create_element(&mut dom,
-///     // Namespaces and localnames use precomputed interned strings for
-///     // speed. Use the macros ns! and local_name! to fetch them.
-///     QualName::new(None, ns!(), local_name!("div")),
-///     vec![
-///         Attribute {
-///             name: QualName::new(None, ns!(), local_name!("class")),
-///             // In real scenarios, you would use a view onto an existing
-///             // string if possible to avoid allocation. Tendrils have utilities
-///             // for avoiding allocation & copying wherever possible.
-///             value: String::from("test-class-name").into()
-///         }
-///     ]);
-/// # }
-///
-/// ```
 pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
 where
     Sink: TreeSink,

@@ -11,20 +11,20 @@
 
 //! The HTML5 tree builder.
 
-pub use interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
-pub use interface::{AppendNode, AppendText, Attribute, NodeOrText};
-pub use interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+pub use crate::interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
+pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
+pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
 use self::types::*;
 
-use tendril::StrTendril;
-use {ExpandedName, LocalName, Namespace, QualName};
+use crate::tendril::StrTendril;
+use crate::{ExpandedName, LocalName, Namespace, QualName};
 
-use tokenizer;
-use tokenizer::states as tok_state;
-use tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
+use crate::tokenizer;
+use crate::tokenizer::states as tok_state;
+use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
-use util::str::is_ascii_whitespace;
+use crate::util::str::is_ascii_whitespace;
 
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
@@ -33,11 +33,12 @@ use std::iter::{Enumerate, Rev};
 use std::mem::replace;
 use std::{fmt, slice};
 
-use log::Level;
-use tokenizer::states::{RawData, RawKind};
-use tree_builder::tag_sets::*;
-use tree_builder::types::*;
-use util::str::to_escaped_string;
+use crate::tokenizer::states::{RawData, RawKind};
+use crate::tree_builder::tag_sets::*;
+use crate::tree_builder::types::*;
+use crate::util::str::to_escaped_string;
+use log::{debug, log_enabled, warn, Level};
+use mac::{_tt_as_expr_hack, format_if, matches};
 
 pub use self::PushFlag::*;
 
@@ -1676,172 +1677,5 @@ where
             }
             ReprocessForeign(TagToken(tag))
         }
-    }
-}
-
-#[cfg(test)]
-#[allow(non_snake_case)]
-mod test {
-    use markup5ever::interface::{AppendNode, AppendText, NodeOrText};
-    use markup5ever::interface::{ElementFlags, Tracer, TreeSink};
-    use markup5ever::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
-
-    use super::types::*;
-
-    use tendril::stream::{TendrilSink, Utf8LossyDecoder};
-    use tendril::StrTendril;
-    use ExpandedName;
-    use QualName;
-
-    use tokenizer;
-    use tokenizer::states as tok_state;
-    use tokenizer::{Doctype, StartTag, Tag, TokenSink};
-    use tokenizer::{Tokenizer, TokenizerOpts};
-
-    use util::str::is_ascii_whitespace;
-
-    use std::borrow::Cow;
-    use std::borrow::Cow::Borrowed;
-    use std::collections::VecDeque;
-    use std::default::Default;
-    use std::mem::replace;
-
-    use super::{TreeBuilder, TreeBuilderOpts};
-    use driver::*;
-    use markup5ever::Attribute;
-    use rcdom::{Handle, Node, NodeData, RcDom};
-
-    pub struct LineCountingDOM {
-        pub line_vec: Vec<(QualName, u64)>,
-        pub current_line: u64,
-        pub rcdom: RcDom,
-    }
-
-    impl TreeSink for LineCountingDOM {
-        type Output = Self;
-
-        fn finish(self) -> Self {
-            self
-        }
-
-        type Handle = Handle;
-
-        fn parse_error(&mut self, msg: Cow<'static, str>) {
-            self.rcdom.parse_error(msg);
-        }
-
-        fn get_document(&mut self) -> Handle {
-            self.rcdom.get_document()
-        }
-
-        fn get_template_contents(&mut self, target: &Handle) -> Handle {
-            self.rcdom.get_template_contents(target)
-        }
-
-        fn set_quirks_mode(&mut self, mode: QuirksMode) {
-            self.rcdom.set_quirks_mode(mode)
-        }
-
-        fn same_node(&self, x: &Handle, y: &Handle) -> bool {
-            self.rcdom.same_node(x, y)
-        }
-
-        fn elem_name<'a>(&'a self, target: &'a Handle) -> ExpandedName<'a> {
-            self.rcdom.elem_name(target)
-        }
-
-        fn create_element(
-            &mut self,
-            name: QualName,
-            attrs: Vec<Attribute>,
-            flags: ElementFlags,
-        ) -> Handle {
-            self.line_vec.push((name.clone(), self.current_line));
-            self.rcdom.create_element(name, attrs, flags)
-        }
-
-        fn create_comment(&mut self, text: StrTendril) -> Handle {
-            self.rcdom.create_comment(text)
-        }
-
-        fn create_pi(&mut self, target: StrTendril, content: StrTendril) -> Handle {
-            self.rcdom.create_pi(target, content)
-        }
-
-        fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
-            self.rcdom.append(parent, child)
-        }
-
-        fn append_before_sibling(&mut self, sibling: &Handle, child: NodeOrText<Handle>) {
-            self.rcdom.append_before_sibling(sibling, child)
-        }
-
-        fn append_based_on_parent_node(
-            &mut self,
-            element: &Handle,
-            prev_element: &Handle,
-            child: NodeOrText<Handle>,
-        ) {
-            self.rcdom
-                .append_based_on_parent_node(element, prev_element, child)
-        }
-
-        fn append_doctype_to_document(
-            &mut self,
-            name: StrTendril,
-            public_id: StrTendril,
-            system_id: StrTendril,
-        ) {
-            self.rcdom
-                .append_doctype_to_document(name, public_id, system_id);
-        }
-
-        fn add_attrs_if_missing(&mut self, target: &Handle, attrs: Vec<Attribute>) {
-            self.rcdom.add_attrs_if_missing(target, attrs);
-        }
-
-        fn remove_from_parent(&mut self, target: &Handle) {
-            self.rcdom.remove_from_parent(target);
-        }
-
-        fn reparent_children(&mut self, node: &Handle, new_parent: &Handle) {
-            self.rcdom.reparent_children(node, new_parent);
-        }
-
-        fn mark_script_already_started(&mut self, target: &Handle) {
-            self.rcdom.mark_script_already_started(target);
-        }
-
-        fn set_current_line(&mut self, line_number: u64) {
-            self.current_line = line_number;
-        }
-    }
-
-    #[test]
-    fn check_four_lines() {
-        // Input
-        let sink = LineCountingDOM {
-            line_vec: vec![],
-            current_line: 1,
-            rcdom: RcDom::default(),
-        };
-        let opts = ParseOpts::default();
-        let mut resultTok = parse_document(sink, opts);
-        resultTok.process(StrTendril::from("<a>\n"));
-        resultTok.process(StrTendril::from("</a>\n"));
-        resultTok.process(StrTendril::from("<b>\n"));
-        resultTok.process(StrTendril::from("</b>"));
-        // Actual Output
-        let actual = resultTok.finish();
-        // Expected Output
-        let expected = vec![
-            (QualName::new(None, ns!(html), local_name!("html")), 1),
-            (QualName::new(None, ns!(html), local_name!("head")), 1),
-            (QualName::new(None, ns!(html), local_name!("body")), 1),
-            (QualName::new(None, ns!(html), local_name!("a")), 1),
-            (QualName::new(None, ns!(html), local_name!("b")), 3),
-        ];
-        // Assertion
-        assert_eq!(actual.line_vec, expected);
     }
 }

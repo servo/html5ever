@@ -7,11 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use]
-extern crate log;
-extern crate phf;
-extern crate string_cache;
-pub extern crate tendril;
+pub use tendril;
 
 /// Create a [`SmallCharSet`], with each space-separated number stored in the set.
 ///
@@ -39,7 +35,6 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 pub mod data;
 #[macro_use]
 pub mod interface;
-pub mod rcdom;
 pub mod serialize;
 mod util {
     pub mod buffer_queue;

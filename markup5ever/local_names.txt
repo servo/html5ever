@@ -736,6 +736,7 @@ product
 profile
 progress
 prompt
+property
 prsubset
 q
 quotient
@@ -749,6 +750,7 @@ readonly
 real
 reals
 rect
+referrerpolicy
 refX
 refY
 rel

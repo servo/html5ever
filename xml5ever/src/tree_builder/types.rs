@@ -11,8 +11,8 @@ pub use self::Token::*;
 pub use self::XmlPhase::*;
 pub use self::XmlProcessResult::*;
 
-use tendril::StrTendril;
-use tokenizer::{Doctype, Pi, Tag};
+use crate::tendril::StrTendril;
+use crate::tokenizer::{Doctype, Pi, Tag};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {

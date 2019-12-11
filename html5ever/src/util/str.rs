@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use mac::{_tt_as_expr_hack, matches};
 use std::fmt;
 
 pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
@@ -40,6 +41,7 @@ pub fn is_ascii_whitespace(c: char) -> bool {
 #[allow(non_snake_case)]
 mod test {
     use super::{is_ascii_alnum, lower_ascii_letter};
+    use mac::test_eq;
 
     test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));
     test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'));

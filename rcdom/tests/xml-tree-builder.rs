@@ -7,10 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate rustc_test as test;
-#[macro_use]
-extern crate xml5ever;
-
+use markup5ever::{namespace_url, ns};
+use markup5ever_rcdom::*;
+use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
@@ -18,11 +17,8 @@ use std::iter::repeat;
 use std::mem::replace;
 use std::path::Path;
 use std::{env, fs, io};
-
-use test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::driver::parse_document;
-use xml5ever::rcdom::*;
 use xml5ever::tendril::TendrilSink;
 
 mod util {
@@ -240,8 +236,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
     tests
 }
 
-#[test]
-fn run() {
+fn main() {
     let args: Vec<_> = env::args().collect();
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
@@ -252,5 +247,5 @@ fn run() {
         }
     }
 
-    test::test_main(&args, tests(src_dir, &ignores));
+    rustc_test::test_main(&args, tests(src_dir, &ignores));
 }

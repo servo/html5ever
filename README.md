@@ -56,5 +56,5 @@ html5ever builds against the official stable releases of Rust, though some optim
 [Rust]: https://www.rust-lang.org/
 [in the bug tracker]: https://github.com/servo/html5ever/issues?q=is%3Aopen+is%3Aissue+label%3Aweb-compat
 [html5lib-tests]: https://github.com/html5lib/html5lib-tests
-[`examples/html2html.rs`]: https://github.com/servo/html5ever/blob/master/html5ever/examples/html2html.rs
-[`examples/print-rcdom.rs`]: https://github.com/servo/html5ever/blob/master/html5ever/examples/print-rcdom.rs
+[`examples/html2html.rs`]: https://github.com/servo/html5ever/blob/master/rcdom/examples/html2html.rs
+[`examples/print-rcdom.rs`]: https://github.com/servo/html5ever/blob/master/rcdom/examples/print-rcdom.rs

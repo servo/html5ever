@@ -99,6 +99,9 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
+use quote::quote;
+use syn::{braced, parse_quote, Token};
+
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use std::collections::HashSet;
@@ -447,8 +450,8 @@ impl Fold for MatchTokenParser {
 
 fn make_tag_pattern(binding: &TokenStream, tag: Tag) -> TokenStream {
     let kind = match tag.kind {
-        TagKind::StartTag => quote!(::tokenizer::StartTag),
-        TagKind::EndTag => quote!(::tokenizer::EndTag),
+        TagKind::StartTag => quote!(crate::tokenizer::StartTag),
+        TagKind::EndTag => quote!(crate::tokenizer::EndTag),
     };
     let name_field = if let Some(name) = tag.name {
         let name = name.to_string();
@@ -457,6 +460,6 @@ fn make_tag_pattern(binding: &TokenStream, tag: Tag) -> TokenStream {
         quote!()
     };
     quote! {
-        ::tree_builder::types::TagToken(#binding ::tokenizer::Tag { kind: #kind, #name_field .. })
+        crate::tree_builder::types::TagToken(#binding crate::tokenizer::Tag { kind: #kind, #name_field .. })
     }
 }

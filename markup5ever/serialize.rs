@@ -13,8 +13,8 @@
 //!
 //! [processing instructions]: https://en.wikipedia.org/wiki/Processing_Instruction
 
+use crate::QualName;
 use std::io;
-use QualName;
 
 //§ serializing-html-fragments
 /// Used as a parameter to `serialize`, telling it if we want to skip the parent.

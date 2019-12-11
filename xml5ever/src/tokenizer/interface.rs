@@ -9,8 +9,8 @@
 
 use std::borrow::Cow;
 
-use tendril::StrTendril;
-use {Attribute, QualName};
+use crate::tendril::StrTendril;
+use crate::{Attribute, QualName};
 
 pub use self::TagKind::{EmptyTag, EndTag, ShortTag, StartTag};
 pub use self::Token::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};

@@ -9,15 +9,14 @@
 
 extern crate phf_codegen;
 extern crate string_cache_codegen;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
 
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+
+mod entities;
 
 static NAMESPACES: &'static [(&'static str, &'static str)] = &[
     ("", ""),
@@ -34,12 +33,7 @@ fn main() {
     let generated = Path::new(&env::var("OUT_DIR").unwrap()).join("generated.rs");
     let mut generated = BufWriter::new(File::create(&generated).unwrap());
 
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-
-    named_entities_to_phf(
-        &Path::new(&manifest_dir).join("data").join("entities.json"),
-        &Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"),
-    );
+    named_entities_to_phf(&Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
 
     // Create a string cache for local names
     let local_names = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("local_names.txt");
@@ -71,7 +65,9 @@ fn main() {
     writeln!(
         generated,
         r#"
-        /// Maps the input of `namespace_prefix!` to the output of `namespace_url!`.
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// the output of [`namespace_url!`](macro.namespace_url.html).
+        ///
         #[macro_export] macro_rules! ns {{
         "#
     )
@@ -87,28 +83,12 @@ fn main() {
     writeln!(generated, "}}").unwrap();
 }
 
-fn named_entities_to_phf(from: &Path, to: &Path) {
-    // A struct matching the entries in entities.json.
-    #[derive(Deserialize, Debug)]
-    struct CharRef {
-        codepoints: Vec<u32>,
-        //characters: String,  // Present in the file but we don't need it
-    }
-
-    let entities: HashMap<String, CharRef> =
-        serde_json::from_reader(&mut File::open(from).unwrap()).unwrap();
-    let mut entities: HashMap<&str, (u32, u32)> = entities
+fn named_entities_to_phf(to: &Path) {
+    let mut entities: HashMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
         .iter()
-        .map(|(name, char_ref)| {
+        .map(|(name, cp1, cp2)| {
             assert!(name.starts_with("&"));
-            assert!(char_ref.codepoints.len() <= 2);
-            (
-                &name[1..],
-                (
-                    char_ref.codepoints[0],
-                    *char_ref.codepoints.get(1).unwrap_or(&0),
-                ),
-            )
+            (&name[1..], (*cp1, *cp2))
         })
         .collect();
 
@@ -142,11 +122,10 @@ fn named_entities_to_phf(from: &Path, to: &Path) {
 "#
     )
     .unwrap();
-    write!(
+    writeln!(
         &mut file,
-        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = "
+        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = {};",
+        phf_map.build(),
     )
     .unwrap();
-    phf_map.build(&mut file).unwrap();
-    write!(&mut file, ";\n").unwrap();
 }

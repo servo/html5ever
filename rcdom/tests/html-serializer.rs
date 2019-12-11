@@ -7,17 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[macro_use]
-extern crate html5ever;
-
-use std::default::Default;
-
 use html5ever::driver::ParseOpts;
-use html5ever::rcdom::RcDom;
 use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope};
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use html5ever::{parse_document, parse_fragment, serialize, QualName};
+use markup5ever::{local_name, namespace_url, ns};
+use markup5ever_rcdom::{RcDom, SerializableHandle};
 
 use std::io;
 
@@ -75,7 +71,7 @@ fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
         q
     };
     let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
-    tokenizer.feed(&mut input);
+    let _ = tokenizer.feed(&mut input);
     tokenizer.end();
     let mut output = ::std::io::Cursor::new(vec![]);
     serialize(
@@ -98,10 +94,10 @@ fn parse_and_serialize(input: StrTendril) -> StrTendril {
         vec![],
     )
     .one(input);
-    let inner = &dom.document.children.borrow()[0];
+    let inner: SerializableHandle = dom.document.children.borrow()[0].clone().into();
 
     let mut result = vec![];
-    serialize(&mut result, inner, Default::default()).unwrap();
+    serialize(&mut result, &inner, Default::default()).unwrap();
     StrTendril::try_from_byte_slice(&result).unwrap()
 }
 
@@ -242,7 +238,8 @@ fn doctype() {
     let dom = parse_document(RcDom::default(), ParseOpts::default()).one("<!doctype html>");
     dom.document.children.borrow_mut().truncate(1); // Remove <html>
     let mut result = vec![];
-    serialize(&mut result, &dom.document, Default::default()).unwrap();
+    let document: SerializableHandle = dom.document.clone().into();
+    serialize(&mut result, &document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
 }
 
@@ -256,9 +253,9 @@ fn deep_tree() {
     );
     let src = String::from("<b>".repeat(60_000));
     let dom = parser.one(src);
-    let document = &dom.document;
     let opts = SerializeOpts::default();
     let mut ret_val = Vec::new();
-    serialize(&mut ret_val, document, opts)
+    let document: SerializableHandle = dom.document.clone().into();
+    serialize(&mut ret_val, &document, opts)
         .expect("Writing to a string shouldn't fail (expect on OOM)");
 }

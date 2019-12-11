@@ -8,12 +8,14 @@
 // except according to those terms.
 
 use super::{TokenSink, XmlTokenizer};
-use data;
+use crate::data;
+use crate::tendril::StrTendril;
+use crate::util::is_ascii_alnum;
+use log::debug;
+use mac::{format_if, unwrap_or_return};
 use markup5ever::buffer_queue::BufferQueue;
 use std::borrow::Cow::Borrowed;
 use std::char::from_u32;
-use tendril::StrTendril;
-use util::is_ascii_alnum;
 
 use self::State::*;
 pub use self::Status::*;
