@@ -49,14 +49,14 @@ impl Serialize for Tokens {
                         )?,
                         TagKind::EndTag => serializer.end_elem(name)?,
                     }
-                },
+                }
                 &Token::DoctypeToken(ref dt) => match dt.name {
                     Some(ref name) => serializer.write_doctype(&name)?,
-                    None => {},
+                    None => {}
                 },
                 &Token::CommentToken(ref chars) => serializer.write_comment(&chars)?,
                 &Token::CharacterTokens(ref chars) => serializer.write_text(&chars)?,
-                &Token::NullCharacterToken | &Token::EOFToken => {},
+                &Token::NullCharacterToken | &Token::EOFToken => {}
                 &Token::ParseError(ref e) => println!("parse error: {:#?}", e),
             }
         }
@@ -137,22 +137,22 @@ test!(
     r#"<p><i>Hello!</i></p><i>, World!</i>"#
 );
 
-test!(attr_literal, r#"<base foo="<'>">"#);
-test!(attr_escape_amp, r#"<base foo="&amp;">"#);
+test!(attr_literal, r#"<base foo="<'>" />"#);
+test!(attr_escape_amp, r#"<base foo="&amp;" />"#);
 test!(
     attr_escape_amp_2,
     r#"<base foo=&amp>"#,
-    r#"<base foo="&amp;">"#
+    r#"<base foo="&amp;" />"#
 );
 test!(
     attr_escape_nbsp,
     "<base foo=x\u{a0}y>",
-    r#"<base foo="x&nbsp;y">"#
+    r#"<base foo="x&nbsp;y" />"#
 );
 test!(
     attr_escape_quot,
     r#"<base foo='"'>"#,
-    r#"<base foo="&quot;">"#
+    r#"<base foo="&quot;" />"#
 );
 test!(
     attr_escape_several,
