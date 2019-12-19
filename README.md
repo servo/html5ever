@@ -43,7 +43,7 @@ Run `cargo doc` in the repository root to build local documentation under `targe
 
 ## Details
 
-html5ever uses callbacks to manipulate the DOM, so it works with your choice of DOM representation.  A simple reference-counted DOM is included.
+html5ever uses callbacks to manipulate the DOM, and does not provide any DOM tree representation. 
 
 html5ever exclusively uses UTF-8 to represent strings.  In the future it will support other document encodings (and UCS-2 `document.write`) by converting input.
 
