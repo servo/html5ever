@@ -125,12 +125,74 @@ impl Node {
     }
 }
 
+fn pop_one_child(node: &Node) -> Option<Handle> {
+    node.children.borrow_mut().pop()
+}
+
 impl Drop for Node {
     fn drop(&mut self) {
-        let mut nodes = mem::replace(&mut *self.children.borrow_mut(), vec![]);
-        while let Some(node) = nodes.pop() {
-            let children = mem::replace(&mut *node.children.borrow_mut(), vec![]);
-            nodes.extend(children.into_iter());
+        // This implementation of `Drop` should give exactly the same results as the default
+        // implementation, but uses constant stack space rather than space linear in the maximum
+        // depth of the tree, and should not do any heap allocation. The key idea is that instead
+        // of allocating extra space to keep track of where we've been in the tree, we can just
+        // follow the existing parent pointers.
+        //
+        // If `drop` got an `Rc<Node>` instead of just a mutable reference to the node itself, then
+        // the inner loop below would work for `self` just like it does for the rest of the tree.
+        // But somebody could drop a node that isn't reference counted, so the top layer of the
+        // tree gets special treatment.
+        while let Some(root) = pop_one_child(self) {
+            // If this is not the only strong reference, don't drop any children, because
+            // apparently somebody else wants them. Just let our reference drop instead.
+            if Rc::strong_count(&root) > 1 {
+                continue;
+            }
+
+            // Invariant: Whatever `current` points to must also be strongly reachable from `root`.
+            let mut current = root.clone();
+            loop {
+                while let Some(child) = pop_one_child(&current) {
+                    if Rc::strong_count(&child) > 1 {
+                        continue;
+                    }
+
+                    // Ensure that following the parent pointer back will get back here. Because
+                    // the fields of `Node` are public, we can't rely on any invariants holding,
+                    // but since this is the only strong reference to this child, there can't be
+                    // anyone else who would care if we set this parent pointer however we want.
+                    child.parent.set(Some(Rc::downgrade(&current)));
+
+                    // Maintain the invariant on `current` by keeping a reference to this child in
+                    // its parent until we're done with the child and can clean up below. Because
+                    // we just popped an item off this vector, pushing (the same) item back on
+                    // doesn't allocate.
+                    current.children.borrow_mut().push(child.clone());
+
+                    // Descend a level.
+                    current = child;
+                }
+
+                // Once `current` has no children left, if `current` is the same node as `root`
+                // then we're done with this root.
+                if Rc::ptr_eq(&root, &current) {
+                    break;
+                }
+
+                // Otherwise we're somewhere in the subtree under `root`. Since we always set the
+                // parent pointer correctly before descending, these unwraps can't fail. Don't
+                // bother putting the parent pointer back after taking it, because we're about to
+                // drop the node anyway.
+                let parent = current.parent.take().unwrap().upgrade().unwrap();
+
+                // This subtree is done, so remove the strong reference we pushed above. The
+                // `parent.children` vector can't have changed since we pushed `child` onto it, so
+                // popping the last child again must return the same node as `current`.
+                let child = pop_one_child(&parent);
+                debug_assert!(Rc::ptr_eq(&current, &child.unwrap()));
+
+                // Ascend a level.
+                current = parent;
+            }
         }
     }
 }
