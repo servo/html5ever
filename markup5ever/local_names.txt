@@ -212,6 +212,7 @@ datatemplate
 datetime
 dd
 declare
+decoding
 default
 defer
 definition-src
@@ -243,6 +244,7 @@ dl
 domain
 domainofapplication
 dominant-baseline
+download
 draggable
 dt
 dur
@@ -701,6 +703,7 @@ overline-thickness
 p
 panose-1
 param
+parse
 partialdiff
 path
 pathLength
@@ -771,6 +774,7 @@ requiredFeatures
 restart
 result
 rev
+reversed
 role
 root
 rotate
@@ -839,6 +843,7 @@ specification
 specularConstant
 specularExponent
 speed
+spellcheck
 spreadMethod
 src
 srcdoc
@@ -917,6 +922,7 @@ toggle
 tr
 track
 transform
+translate
 transpose
 tref
 true
