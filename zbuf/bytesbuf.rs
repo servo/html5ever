@@ -79,20 +79,8 @@ fn set_inline_length(metadata: usize, new_len: usize) -> usize {
     with_new_len
 }
 
-/// `size_of::<Inner>()`, except `size_of` can not be used in a constant expression.
-#[cfg(target_pointer_width = "32")]
-const SIZE_OF_INNER: usize = 4 + 4 + 4;
-
-#[cfg(target_pointer_width = "64")]
-const SIZE_OF_INNER: usize = 8 + 4 + 4;
-
-#[allow(dead_code)]
-unsafe fn static_assert(x: Inner) {
-    mem::transmute::<Inner, [u8; SIZE_OF_INNER]>(x); // Assert that SIZE_OF_INNER is correct
-}
-
 /// How many bytes can be stored inline, leaving one byte of metadata.
-const INLINE_CAPACITY: usize = SIZE_OF_INNER - 1;
+const INLINE_CAPACITY: usize = mem::size_of::<Inner>() - 1;
 
 impl BytesBuf {
     /// Return a new, empty, inline buffer.
