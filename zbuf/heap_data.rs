@@ -1,5 +1,6 @@
 //! Heap-allocated data: a header followed by bytes
 
+use std::alloc::{self, Layout};
 use std::cell::Cell;
 use std::mem;
 use std::ptr::NonNull;
@@ -15,10 +16,8 @@ pub struct TaggedPtr(NonNull<HeapAllocation>);
 impl TaggedPtr {
     pub fn allocate(requested_data_capacity: usize) -> Self {
         let ptr = HeapAllocation::allocate(requested_data_capacity);
-        assert!(((ptr as usize) & TAG_MASK) == 0);
-        assert!(!ptr.is_null());
-        // Safety: we just asserted that `ptr` is not null.
-        unsafe { TaggedPtr(NonNull::new_unchecked(ptr)) }
+        assert!(((ptr.as_ptr() as usize) & TAG_MASK) == 0);
+        TaggedPtr(ptr)
     }
 
     #[inline]
@@ -91,9 +90,7 @@ impl Drop for TaggedPtr {
             let new_refcount = heap_allocation.decrement_refcount();
             if new_refcount == 0 {
                 // Safety: we’re dropping the last reference
-                unsafe {
-                    HeapAllocation::deallocate(self.0.as_ptr(), heap_allocation.data_capacity)
-                }
+                unsafe { HeapAllocation::deallocate(self.0, heap_allocation.data_capacity) }
             }
         }
     }
@@ -107,7 +104,7 @@ pub struct HeapAllocation {
 }
 
 impl HeapAllocation {
-    fn allocate(requested_data_capacity: usize) -> *mut Self {
+    fn allocate(requested_data_capacity: usize) -> NonNull<Self> {
         let header_size = mem::size_of::<HeapAllocation>();
 
         // We allocate space for one header, followed immediately by the data.
@@ -120,25 +117,18 @@ impl HeapAllocation {
 
         let actual_data_capacity = usize_to_u32(bytes - header_size);
 
-        // alloc::heap::allocate is unstable (https://github.com/rust-lang/rust/issues/27700),
-        // so we use `Vec` as a memory allocator.
-        // To get correct memory alignment for the header,
-        // we use `Vec<HeapAllocation>` rather than `Vec<u8>`.
-        // So the vector’s capacity is counted in “number of `HeapAllocation` items”, not bytes.
-        //
-        // Integer division rounding up: http://stackoverflow.com/a/2745086/1162888
-        let vec_capacity = 1 + ((bytes - 1) / header_size);
-
-        let mut vec = Vec::<HeapAllocation>::with_capacity(vec_capacity);
-        debug_assert_eq!(vec.capacity(), vec_capacity);
-        vec.push(HeapAllocation {
-            refcount: Cell::new(1),
-            data_capacity: actual_data_capacity,
-            data: [],
-        });
-        let ptr = vec.as_mut_ptr();
-        mem::forget(vec);
-        ptr
+        unsafe {
+            let layout = Layout::from_size_align(bytes, mem::align_of::<Self>()).unwrap();
+            let mut ptr = NonNull::new(alloc::alloc(layout))
+                .unwrap_or_else(|| alloc::handle_alloc_error(layout))
+                .cast();
+            *ptr.as_mut() = HeapAllocation {
+                refcount: Cell::new(1),
+                data_capacity: actual_data_capacity,
+                data: [],
+            };
+            ptr
+        }
     }
 
     #[inline]
@@ -165,20 +155,11 @@ impl HeapAllocation {
     /// Unsafe: `ptr` must be valid, and not used afterwards
     #[inline(never)]
     #[cold]
-    unsafe fn deallocate(ptr: *mut HeapAllocation, data_capacity: u32) {
+    unsafe fn deallocate(ptr: NonNull<HeapAllocation>, data_capacity: u32) {
         let header_size = mem::size_of::<HeapAllocation>();
-        let allocated_bytes = header_size + u32_to_usize(data_capacity);
-        let vec_capacity = allocated_bytes / header_size;
-
-        // `ptr` points to a memory area `size_of::<HeapAllocation> * vec_capacity` bytes wide
-        // that starts with one `HeapAllocation` header and is followed by data bytes.
-        // `length == 1` is the correct way to represent this in terms of `Vec`,
-        // even though in practice `length` doesn’t make a difference
-        // since `HeapAllocation` does not have a destructor.
-        let vec_length = 1;
-
-        let vec = Vec::<HeapAllocation>::from_raw_parts(ptr, vec_length, vec_capacity);
-        mem::drop(vec);
+        let bytes = header_size + u32_to_usize(data_capacity);
+        let layout = Layout::from_size_align(bytes, mem::align_of::<Self>()).unwrap();
+        alloc::dealloc(ptr.cast().as_ptr(), layout)
     }
 
     #[inline]
