@@ -36,10 +36,6 @@
 
 extern crate utf8;
 
-/// FIXME: remove this module and use std::ptr::Shared instead once it is stable.
-/// https://github.com/rust-lang/rust/issues/27730
-mod shared_ptr;
-
 mod bytesbuf;
 mod heap_data;
 mod strbuf;

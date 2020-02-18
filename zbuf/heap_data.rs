@@ -1,8 +1,8 @@
 //! Heap-allocated data: a header followed by bytes
 
-use shared_ptr::Shared;
 use std::cell::Cell;
 use std::mem;
+use std::ptr::NonNull;
 use std::slice;
 use u32_to_usize;
 use usize_to_u32;
@@ -10,7 +10,7 @@ use usize_to_u32;
 const TAG: usize = 1;
 const TAG_MASK: usize = 1;
 
-pub struct TaggedPtr(Shared<HeapAllocation>);
+pub struct TaggedPtr(NonNull<HeapAllocation>);
 
 impl TaggedPtr {
     pub fn allocate(requested_data_capacity: usize) -> Self {
@@ -18,18 +18,18 @@ impl TaggedPtr {
         assert!(((ptr as usize) & TAG_MASK) == 0);
         assert!(!ptr.is_null());
         // Safety: we just asserted that `ptr` is not null.
-        unsafe { TaggedPtr(Shared::new(ptr)) }
+        unsafe { TaggedPtr(NonNull::new_unchecked(ptr)) }
     }
 
     #[inline]
     pub fn new_inline_data(data: usize) -> Self {
         let fake_ptr = (data | TAG) as *mut HeapAllocation;
         // Safety: TAG being non-zero makes `fake_ptr` non-null.
-        unsafe { TaggedPtr(Shared::new(fake_ptr)) }
+        unsafe { TaggedPtr(NonNull::new_unchecked(fake_ptr)) }
     }
 
     #[inline]
-    fn as_valid_ptr(&self) -> Result<&Shared<HeapAllocation>, usize> {
+    fn as_valid_ptr(&self) -> Result<&NonNull<HeapAllocation>, usize> {
         let as_usize = self.0.as_ptr() as usize;
         if (as_usize & TAG_MASK) == 0 {
             Ok(&self.0)
