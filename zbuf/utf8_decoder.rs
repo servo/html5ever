@@ -209,29 +209,21 @@ impl StrictUtf8Decoder {
 
     #[cold]
     fn try_complete(&mut self) -> Option<Result<StrBuf, Utf8DecoderError>> {
-        // FIXME: simplify when borrows are non-lexical
-        let unborrowed = {
-            let input_chunk = &self.input_chunk;
-            self.incomplete_char
-                .try_complete(input_chunk)
-                .map(|(result, remaining_input)| {
-                    let consumed = input_chunk.len() - remaining_input.len();
-                    // `result` here is up to 4 bytes and therefore fits in an inline buffer,
-                    // so it is better to not try to share a heap allocation with `input_chunk`.
-                    let result = result.map(StrBuf::from).map_err(|_| ());
-                    (consumed, result)
-                })
-        };
-        match unborrowed {
-            None => {
-                // Consumed the entire input
-                self.input_chunk = BytesBuf::new();
-                None
-            }
-            Some((consumed_prefix_len, result)) => {
-                self.input_chunk.pop_front(consumed_prefix_len);
-                Some(result.map_err(|()| self.error()))
-            }
+        let input_chunk = &self.input_chunk;
+        let completed = self.incomplete_char.try_complete(input_chunk);
+        if let Some((result, remaining_input)) = completed {
+            let consumed = input_chunk.len() - remaining_input.len();
+            // `result` here is up to 4 bytes and therefore fits in an inline buffer,
+            // so it is better to not try to share a heap allocation with `input_chunk`.
+            self.input_chunk.pop_front(consumed);
+            Some(match result {
+                Ok(decoded) => Ok(StrBuf::from(decoded)),
+                Err(_) => Err(self.error()),
+            })
+        } else {
+            // Consumed the entire input
+            self.input_chunk = BytesBuf::new();
+            None
         }
     }
 }
@@ -253,63 +245,50 @@ impl Iterator for StrictUtf8Decoder {
             return self.try_complete();
         }
 
-        struct IsIncomplete;
-
-        // FIXME: simplify when borrows are non-lexical
-        let unborrowed = match utf8::decode(&self.input_chunk) {
-            Ok(_) => Ok(()),
+        let mut bytes;
+        match utf8::decode(&self.input_chunk) {
+            Ok(_) => bytes = self.take_input(),
             Err(DecodeError::Incomplete {
                 valid_prefix,
                 incomplete_suffix,
             }) => {
                 self.incomplete_char = incomplete_suffix;
-                Err((valid_prefix.len(), Ok(IsIncomplete)))
+                let valid_prefix_len = valid_prefix.len();
+                if valid_prefix_len == 0 {
+                    self.input_chunk = BytesBuf::new();
+                    return None;
+                } else {
+                    bytes = self.take_input();
+                    bytes.truncate(valid_prefix_len)
+                }
             }
             Err(DecodeError::Invalid {
                 valid_prefix,
                 invalid_sequence,
                 remaining_input,
             }) => {
-                let resume_at = if remaining_input.is_empty() {
-                    None
+                if remaining_input.is_empty() {
+                    let valid_prefix_len = valid_prefix.len();
+                    if valid_prefix_len == 0 {
+                        self.input_chunk = BytesBuf::new();
+                        return Some(Err(self.error()));
+                    } else {
+                        self.yield_error_next = true;
+                        bytes = self.take_input();
+                        bytes.truncate(valid_prefix_len);
+                    }
                 } else {
-                    Some(valid_prefix.len() + invalid_sequence.len())
-                };
-                Err((valid_prefix.len(), Err(resume_at)))
-            }
-        };
-
-        let mut bytes;
-        match unborrowed {
-            Ok(()) => bytes = self.take_input(),
-
-            Err((0, Ok(IsIncomplete))) => {
-                self.input_chunk = BytesBuf::new();
-                return None;
-            }
-            Err((valid_prefix_len, Ok(IsIncomplete))) => {
-                bytes = self.take_input();
-                bytes.truncate(valid_prefix_len)
-            }
-
-            Err((0, Err(None))) => {
-                self.input_chunk = BytesBuf::new();
-                return Some(Err(self.error()));
-            }
-            Err((0, Err(Some(resume_at)))) => {
-                self.input_chunk.pop_front(resume_at);
-                return Some(Err(self.error()));
-            }
-            Err((valid_prefix_len, Err(None))) => {
-                self.yield_error_next = true;
-                bytes = self.take_input();
-                bytes.truncate(valid_prefix_len);
-            }
-            Err((valid_prefix_len, Err(Some(resume_at)))) => {
-                self.yield_error_next = true;
-                bytes = self.input_chunk.clone();
-                bytes.truncate(valid_prefix_len);
-                self.input_chunk.pop_front(resume_at);
+                    let resume_at = valid_prefix.len() + invalid_sequence.len();
+                    if valid_prefix.is_empty() {
+                        self.input_chunk.pop_front(resume_at);
+                        return Some(Err(self.error()));
+                    } else {
+                        self.yield_error_next = true;
+                        bytes = self.input_chunk.clone();
+                        bytes.truncate(valid_prefix.len());
+                        self.input_chunk.pop_front(resume_at);
+                    }
+                }
             }
         }
         unsafe { Some(Ok(StrBuf::from_utf8_unchecked(bytes))) }

@@ -587,12 +587,7 @@ impl BytesBuf {
             return;
         }
 
-        // FIXME: remove when borrows are non-lexical
-        fn raw<T>(x: &T) -> *const T {
-            x
-        }
-
-        if let (Ok(a), Ok(b)) = (self.as_allocated().map(raw), other.as_allocated().map(raw)) {
+        if let (Ok(a), Ok(b)) = (self.as_allocated(), other.as_allocated()) {
             // Two heap-allocated buffers…
             if ptr::eq(a, b) {
                 // … that share the same heap allocation…
