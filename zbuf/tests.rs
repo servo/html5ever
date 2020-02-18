@@ -10,7 +10,6 @@ fn inline_capacity() -> usize {
 macro_rules! common_tests {
     ($Buf: ident) => {
         use super::*;
-        use std::ascii::AsciiExt;
 
         fn mutated<F: FnOnce(&mut $Buf)>(initial: &str, f: F) -> $Buf {
             let mut buf = from(initial);
