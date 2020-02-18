@@ -688,7 +688,7 @@ impl fmt::Debug for BytesBuf {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("b\"")?;
         for &byte in &**self {
-            if let b' '...b'~' = byte {
+            if let b' '..=b'~' = byte {
                 formatter.write_char(byte as char)?
             } else {
                 write!(formatter, "\\x{:02X}", byte)?
