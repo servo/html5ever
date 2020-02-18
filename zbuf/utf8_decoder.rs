@@ -197,10 +197,6 @@ impl StrictUtf8Decoder {
         }
     }
 
-    fn take_input(&mut self) -> BytesBuf {
-        mem::replace(&mut self.input_chunk, BytesBuf::new())
-    }
-
     fn error(&self) -> Utf8DecoderError {
         Utf8DecoderError {
             position: self.sum_chunks_len_so_far - self.input_chunk.len(),
@@ -247,7 +243,7 @@ impl Iterator for StrictUtf8Decoder {
 
         let mut bytes;
         match utf8::decode(&self.input_chunk) {
-            Ok(_) => bytes = self.take_input(),
+            Ok(_) => bytes = mem::take(&mut self.input_chunk),
             Err(DecodeError::Incomplete {
                 valid_prefix,
                 incomplete_suffix,
@@ -258,7 +254,7 @@ impl Iterator for StrictUtf8Decoder {
                     self.input_chunk.clear();
                     return None;
                 } else {
-                    bytes = self.take_input();
+                    bytes = mem::take(&mut self.input_chunk);
                     bytes.truncate(valid_prefix_len)
                 }
             }
@@ -274,7 +270,7 @@ impl Iterator for StrictUtf8Decoder {
                         return Some(Err(self.error()));
                     } else {
                         self.yield_error_next = true;
-                        bytes = self.take_input();
+                        bytes = mem::take(&mut self.input_chunk);
                         bytes.truncate(valid_prefix_len);
                     }
                 } else {
