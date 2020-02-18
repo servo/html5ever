@@ -2,7 +2,7 @@
 
 use std::alloc::{self, Layout};
 use std::cell::Cell;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ptr::NonNull;
 use std::slice;
 use u32_to_usize;
@@ -100,7 +100,7 @@ impl Drop for TaggedPtr {
 pub struct HeapAllocation {
     refcount: Cell<u32>,
     data_capacity: u32,
-    data: [u8; 0], // Actually dynamically-sized
+    data: [MaybeUninit<u8>; 0], // Actually dynamically-sized
 }
 
 impl HeapAllocation {
@@ -173,13 +173,13 @@ impl HeapAllocation {
     }
 
     #[inline]
-    pub fn data(&self) -> *const [u8] {
+    pub fn data(&self) -> &[MaybeUninit<u8>] {
         // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe { slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity)) }
     }
 
     #[inline]
-    pub fn data_mut(&mut self) -> *mut [u8] {
+    pub fn data_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
         unsafe {
             slice::from_raw_parts_mut(self.data.as_mut_ptr(), u32_to_usize(self.data_capacity))

@@ -3,7 +3,7 @@ use std::fmt::{self, Write};
 use std::hash;
 use std::io;
 use std::iter::FromIterator;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::slice;
@@ -155,7 +155,7 @@ impl BytesBuf {
         self.len() == 0
     }
 
-    fn data_and_uninitialized_tail(&mut self) -> (&mut [u8], *mut [u8]) {
+    fn data_and_uninitialized_tail(&mut self) -> (&mut [u8], &mut [MaybeUninit<u8>]) {
         if self.0.ptr.is_shared_allocation() {
             *self = {
                 let slice: &[u8] = self;
@@ -165,15 +165,15 @@ impl BytesBuf {
 
         if let Ok(metadata) = self.0.ptr.get_inline_data() {
             let len = inline_length(metadata);
-            let struct_ptr: *mut Inner = &mut self.0;
+            let struct_ptr = &mut self.0 as *mut Inner as *mut MaybeUninit<u8>;
             // Safety relies on INLINE_DATA_OFFSET_BYTES and INLINE_CAPACITY being correct
             // to give a slice within the memory layout of `Inner`.
             // Inline data is never uninitialized.
             unsafe {
-                let data_ptr = (struct_ptr as *mut u8).offset(INLINE_DATA_OFFSET_BYTES);
+                let data_ptr = struct_ptr.offset(INLINE_DATA_OFFSET_BYTES);
                 let inline = slice::from_raw_parts_mut(data_ptr, INLINE_CAPACITY);
                 let (initialized, tail) = inline.split_at_mut(len);
-                return (initialized, tail);
+                return (maybeuninit_slice_get_mut(initialized), tail);
             }
         }
 
@@ -186,10 +186,10 @@ impl BytesBuf {
         let start = u32_to_usize(self.0.start);
         let len = u32_to_usize(self.0.len);
         let data = heap_allocation.data_mut();
+        let (initialized, tail) = data[start..].split_at_mut(len);
         // Safety: the start..(start+len) range is known to be initialized.
         unsafe {
-            let (initialized, tail) = (*data)[start..].split_at_mut(len);
-            return (initialized, tail);
+            return (maybeuninit_slice_get_mut(initialized), tail);
         }
     }
 
@@ -381,32 +381,33 @@ impl BytesBuf {
         // self.capacity() already caps at self.len() for shared (not owned) heap-allocated buffers.
         if new_capacity > self.capacity() {
             let mut copy = Self::with_capacity(new_capacity);
-            // Safety: copy_into_prefix’s contract
-            unsafe { copy.write_to_uninitialized_tail(|uninit| copy_into_prefix(self, uninit)) }
+            copy.push_slice(self);
             *self = copy
         }
     }
 
-    /// Extend this buffer by writing to its existing capacity.
-    ///
-    /// The closure is given a potentially-uninitialized mutable bytes slice,
-    /// and returns the number of consecutive bytes written from the start of the slice.
-    /// The buffer’s length is increased by that much.
+    /// Return the slice of allocated but uninitialized bytes after the end of this buffer.
     ///
     /// If `self.reserve(additional)` is called immediately before this method,
     /// the slice is at least `additional` bytes long.
     /// Without a `reserve` call the slice can be any length, including zero.
     ///
     /// This copies the existing data if there are other references to this buffer.
+    pub fn uninit_capacity(&mut self) -> &mut [MaybeUninit<u8>] {
+        let (_data, uninit) = self.data_and_uninitialized_tail();
+        uninit
+    }
+
+    /// Increase the length of this buffer by assuming that the `extra` bytes after its end
+    /// have been initialized, such as by writing to slice returned by `uninit_capacity`.
     ///
     /// ## Safety
     ///
-    /// The closure must not *read* from the given slice, which may be uninitialized.
-    /// It must initialize the `0..written` range, where `written` is the return value.
+    /// The bytes in question must have been initialized.
     ///
     /// ## Panics
     ///
-    /// Panics if the value returned by the closure is larger than the given closure’s length.
+    /// Panics if the new length is greater than the available capacity.
     ///
     /// ## Examples
     ///
@@ -414,122 +415,19 @@ impl BytesBuf {
     /// # use zbuf::BytesBuf;
     /// let mut buf = BytesBuf::from(b"hello".as_ref());
     /// buf.reserve(10);
+    /// for byte in &mut buf.uninit_capacity()[..3] {
+    ///     *byte = std::mem::MaybeUninit::new(b'!');
+    /// }
     /// unsafe {
-    ///     buf.write_to_uninitialized_tail(|uninitialized| {
-    ///         for byte in &mut uninitialized[..3] {
-    ///             *byte = b'!'
-    ///         }
-    ///         3
-    ///     })
+    ///     buf.assume_init(3)
     /// }
     /// assert_eq!(buf, b"hello!!!");
     /// ```
-    pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut [u8]) -> usize,
-    {
-        let (_, tail) = self.data_and_uninitialized_tail();
-        let written = f(&mut *tail);
-        let new_len = self.len().checked_add(written).expect("overflow");
-        assert!(written <= (*tail).len());
-        // Safety relies on the closure returning a correct value:
-        self.set_len(new_len)
-    }
-
-    /// Extend this buffer by writing to its existing capacity.
-    ///
-    /// The closure is given a mutable bytes slice
-    /// that has been overwritten with zeros (which takes `O(n)` extra time).
-    /// The buffer’s length is increased by the closure’s return value.
-    ///
-    /// If `self.reserve(additional)` is called immediately before this method,
-    /// the slice is at least `additional` bytes long.
-    /// Without a `reserve` call the slice can be any length, including zero.
-    ///
-    /// This copies the existing data if there are other references to this buffer.
-    ///
-    /// ## Panics
-    ///
-    /// Panics if the value returned by the closure is larger than the given closure’s length.
-    ///
-    /// ## Examples
-    ///
-    /// ```
-    /// # use zbuf::BytesBuf;
-    /// let mut buf = BytesBuf::from(b"hello".as_ref());
-    /// buf.reserve(10);
-    /// buf.write_to_zeroed_tail(|zeroed| {
-    ///     for byte in &mut zeroed[..3] {
-    ///         *byte = b'!'
-    ///     }
-    ///     5
-    /// });
-    /// assert_eq!(buf, b"hello!!!\0\0");
-    /// ```
-    pub fn write_to_zeroed_tail<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut [u8]) -> usize,
-    {
-        unsafe {
-            self.write_to_uninitialized_tail(|tail| {
-                ptr::write_bytes(tail.as_mut_ptr(), 0, tail.len());
-                f(tail)
-            })
-        }
-    }
-
-    /// Extend this buffer by writing to its existing capacity, reading from an I/O stream.
-    ///
-    /// `Read::read` is called once with a potentially-uninitialized mutable bytes slice.
-    ///
-    /// If `self.reserve(additional)` is called immediately before this method,
-    /// the slice is at least `additional` bytes long.
-    /// Without a `reserve` call the slice can be any length, including zero.
-    ///
-    /// This copies the existing data if there are other references to this buffer.
-    ///
-    /// ## Safety
-    ///
-    /// The `Read` implementation must be “well-behaved”:
-    /// never read from the slice it is given,
-    /// and actually write the number of byte that the return value says were written.
-    ///
-    /// ## Examples
-    ///
-    /// ```
-    /// #     use zbuf::{BytesBuf, StrBuf};
-    /// #     fn do_io() -> std::io::Result<()> {
-    /// let mut file = std::fs::File::open("bytesbuf.rs")?;
-    /// let mut source = BytesBuf::with_capacity(file.metadata()?.len() as usize);
-    /// unsafe {
-    ///     while source.read_into_unititialized_tail_from(&mut file)? > 0 {}
-    /// }
-    /// // Self-referential test:
-    /// assert!(StrBuf::from_utf8(source)?.contains("This string is unique"));
-    /// #     Ok(())
-    /// #     }
-    /// #     do_io().unwrap()
-    /// ```
-    pub unsafe fn read_into_unititialized_tail_from<R>(
-        &mut self,
-        mut reader: R,
-    ) -> io::Result<usize>
-    where
-        R: io::Read,
-    {
-        let mut result = Ok(0);
-        self.write_to_uninitialized_tail(|tail| {
-            let r = reader.read(tail);
-            let written = match r {
-                Ok(bytes) => bytes,
-                // We don’t know how many bytes were actually written,
-                // conservatively assume none:
-                Err(_) => 0,
-            };
-            result = r;
-            written
-        });
-        result
+    pub unsafe fn assume_init(&mut self, extra: usize) {
+        let len = self.len();
+        assert!(self.capacity() - len >= extra);
+        // Doesn’t overflow since it’s less than the capacity
+        self.set_len(len + extra)
     }
 
     /// Appends the given bytes slice onto the end of this buffer.
@@ -546,9 +444,10 @@ impl BytesBuf {
     /// assert_eq!(buf, b"hello world!");
     /// ```
     pub fn push_slice(&mut self, slice: &[u8]) {
-        self.reserve(slice.len());
-        // Safety: copy_into_prefix’s contract
-        unsafe { self.write_to_uninitialized_tail(|uninit| copy_into_prefix(slice, uninit)) }
+        let extra = slice.len();
+        self.reserve(extra);
+        self.uninit_capacity()[..extra].copy_from_slice(maybeuninit_from_slice(slice));
+        unsafe { self.set_len(self.len() + extra) }
     }
 
     /// Appends the given bytes buffer onto the end of this buffer.
@@ -590,12 +489,21 @@ impl BytesBuf {
     }
 }
 
-/// Copy `source` entirely at the start of `dest`. Return the number of bytes copied.
+// FIXME: use `MaybeUninit::slice_get_ref` when it’s stable
 #[inline]
-unsafe fn copy_into_prefix(source: &[u8], dest: *mut [u8]) -> usize {
-    let len = source.len();
-    (*dest)[..len].copy_from_slice(source);
-    len
+unsafe fn maybeuninit_slice_get_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
+    &*(slice as *const [MaybeUninit<T>] as *const [T])
+}
+
+// FIXME: use `MaybeUninit::slice_get_mut` when it’s stable
+#[inline]
+unsafe fn maybeuninit_slice_get_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
+    &mut *(slice as *mut [MaybeUninit<T>] as *mut [T])
+}
+
+#[inline]
+fn maybeuninit_from_slice<T>(slice: &[T]) -> &[MaybeUninit<T>] {
+    unsafe { &*(slice as *const [T] as *const [MaybeUninit<T>]) }
 }
 
 impl Deref for BytesBuf {
@@ -606,8 +514,9 @@ impl Deref for BytesBuf {
             Ok(heap_allocation) => {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
+                let data = &heap_allocation.data()[start..][..len];
                 // Safety: start..(start+len) is known to be initialized
-                unsafe { &(*heap_allocation.data())[start..][..len] }
+                unsafe { maybeuninit_slice_get_ref(data) }
             }
             Err(metadata) => {
                 let len = inline_length(metadata);

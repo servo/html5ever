@@ -172,48 +172,6 @@ macro_rules! common_tests {
         }
 
         #[test]
-        fn write_to_uninitialized_tail() {
-            let mut buf = from("hello");
-            buf.reserve(10);
-            unsafe {
-                buf.write_to_uninitialized_tail(|uninitialized| {
-                    for byte in &mut as_bytes_mut(uninitialized)[..3] {
-                        *byte = b'!'
-                    }
-                    3
-                })
-            }
-            assert_eq!(buf, "hello!!!");
-        }
-
-        #[test]
-        #[should_panic]
-        fn write_to_uninitialized_tail_out_of_bounds() {
-            unsafe { $Buf::with_capacity(20).write_to_uninitialized_tail(|_| 25) }
-        }
-
-        #[test]
-        fn write_to_zeroed_tail() {
-            let mut buf = from("hello");
-            buf.reserve(10);
-            buf.write_to_zeroed_tail(|zeroed| {
-                let bytes = unsafe { as_bytes_mut(zeroed) };
-                assert!(bytes.iter().all(|&byte| byte == 0));
-                for byte in &mut bytes[..3] {
-                    *byte = b'!'
-                }
-                5
-            });
-            assert_eq!(buf, "hello!!!\0\0");
-        }
-
-        #[test]
-        #[should_panic]
-        fn write_to_zeroed_tail_out_of_bounds() {
-            $Buf::with_capacity(20).write_to_zeroed_tail(|_| 25)
-        }
-
-        #[test]
         fn push_buf() {
             let mut buf = from("1234567890123456");
             buf.pop_front(2);
@@ -239,10 +197,6 @@ macro_rules! common_tests {
 mod bytes_buf {
     fn from(s: &str) -> BytesBuf {
         BytesBuf::from(s.as_bytes())
-    }
-
-    unsafe fn as_bytes_mut(s: &mut [u8]) -> &mut [u8] {
-        s
     }
 
     common_tests!(BytesBuf);
@@ -273,14 +227,20 @@ mod bytes_buf {
     }
 
     #[test]
-    fn read_into_unititialized_tail_from() {
-        let mut file = std::fs::File::open(file!()).unwrap();
-        let mut source = BytesBuf::with_capacity(file.metadata().unwrap().len() as usize);
-        unsafe { while source.read_into_unititialized_tail_from(&mut file).unwrap() > 0 {} }
-        // Self-referential test:
-        assert!(StrBuf::from_utf8(source)
-            .unwrap()
-            .contains("This string is also unique"));
+    fn write_to_uninit_capacity() {
+        let mut buf = from("hello");
+        buf.reserve(10);
+        for byte in &mut buf.uninit_capacity()[..3] {
+            *byte = std::mem::MaybeUninit::new(b'!')
+        }
+        unsafe { buf.assume_init(3) }
+        assert_eq!(buf, "hello!!!");
+    }
+
+    #[test]
+    #[should_panic]
+    fn assume_init_out_of_bounds() {
+        unsafe { BytesBuf::with_capacity(20).assume_init(25) }
     }
 
     #[test]
@@ -309,10 +269,6 @@ mod bytes_buf {
 mod str_buf {
     fn from(s: &str) -> StrBuf {
         StrBuf::from(s)
-    }
-
-    unsafe fn as_bytes_mut(s: &mut str) -> &mut [u8] {
-        ::std::mem::transmute(s)
     }
 
     common_tests!(StrBuf);
