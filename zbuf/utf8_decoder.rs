@@ -222,7 +222,7 @@ impl StrictUtf8Decoder {
             })
         } else {
             // Consumed the entire input
-            self.input_chunk = BytesBuf::new();
+            self.input_chunk.clear();
             None
         }
     }
@@ -255,7 +255,7 @@ impl Iterator for StrictUtf8Decoder {
                 self.incomplete_char = incomplete_suffix;
                 let valid_prefix_len = valid_prefix.len();
                 if valid_prefix_len == 0 {
-                    self.input_chunk = BytesBuf::new();
+                    self.input_chunk.clear();
                     return None;
                 } else {
                     bytes = self.take_input();
@@ -270,7 +270,7 @@ impl Iterator for StrictUtf8Decoder {
                 if remaining_input.is_empty() {
                     let valid_prefix_len = valid_prefix.len();
                     if valid_prefix_len == 0 {
-                        self.input_chunk = BytesBuf::new();
+                        self.input_chunk.clear();
                         return Some(Err(self.error()));
                     } else {
                         self.yield_error_next = true;
