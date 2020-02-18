@@ -40,25 +40,23 @@ extern crate utf8;
 /// https://github.com/rust-lang/rust/issues/27730
 mod shared_ptr;
 
-mod heap_data;
 mod bytesbuf;
+mod heap_data;
 mod strbuf;
 mod utf8_decoder;
 
 pub use bytesbuf::BytesBuf;
-pub use strbuf::{StrBuf, FromUtf8Error};
+pub use strbuf::{FromUtf8Error, StrBuf};
 pub use utf8_decoder::{LossyUtf8Decoder, StrictUtf8Decoder, Utf8DecoderError};
 
-#[cfg(any(target_pointer_width = "32",
-          target_pointer_width = "64"))]
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 fn u32_to_usize(x: u32) -> usize {
-    x as usize  // Valid because usize is at least as big as u32
+    x as usize // Valid because usize is at least as big as u32
 }
 
-#[cfg(any(target_pointer_width = "32",
-          target_pointer_width = "64"))]
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 fn usize_to_u32(x: usize) -> u32 {
-    const MAX: usize = ::std::u32::MAX as usize;  // Valid because usize is at least as big as u32
+    const MAX: usize = ::std::u32::MAX as usize; // Valid because usize is at least as big as u32
     assert!(x <= MAX, "overflow");
     x as u32
 }

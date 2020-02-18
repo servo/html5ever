@@ -1,10 +1,10 @@
-use BytesBuf;
-use StrBuf;
 use std::error;
 use std::fmt;
 use std::io;
 use std::mem;
-use utf8::{self, Incomplete, DecodeError};
+use utf8::{self, DecodeError, Incomplete};
+use BytesBuf;
+use StrBuf;
 
 /// A “zero-copy” incremental lossy UTF-8 decoder.
 ///
@@ -90,7 +90,9 @@ impl Iterator for LossyUtf8Decoder {
     type Item = StrBuf;
 
     fn next(&mut self) -> Option<StrBuf> {
-        self.0.next().map(|result| result.unwrap_or_else(replacement_character))
+        self.0
+            .next()
+            .map(|result| result.unwrap_or_else(replacement_character))
     }
 }
 
@@ -164,7 +166,10 @@ impl StrictUtf8Decoder {
     ///
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
     pub fn feed(&mut self, next_input_chunk: BytesBuf) -> &mut Self {
-        assert!(self.exhausted(), "feeding Utf8Decoder before exhausting the previous input chunk");
+        assert!(
+            self.exhausted(),
+            "feeding Utf8Decoder before exhausting the previous input chunk"
+        );
         self.sum_chunks_len_so_far += next_input_chunk.len();
         self.input_chunk = next_input_chunk;
         self
@@ -178,7 +183,10 @@ impl StrictUtf8Decoder {
     ///
     /// Panics if the input of a previous `.feed(…)` call was not consumed entirely.
     pub fn end(&mut self) -> Result<(), Utf8DecoderError> {
-        assert!(self.exhausted(), "ending Utf8Decoder before exhausting the previous input chunk");
+        assert!(
+            self.exhausted(),
+            "ending Utf8Decoder before exhausting the previous input chunk"
+        );
         if self.incomplete_char.is_empty() {
             Ok(())
         } else {
@@ -204,7 +212,8 @@ impl StrictUtf8Decoder {
         // FIXME: simplify when borrows are non-lexical
         let unborrowed = {
             let input_chunk = &self.input_chunk;
-            self.incomplete_char.try_complete(input_chunk)
+            self.incomplete_char
+                .try_complete(input_chunk)
                 .map(|(result, remaining_input)| {
                     let consumed = input_chunk.len() - remaining_input.len();
                     // `result` here is up to 4 bytes and therefore fits in an inline buffer,
@@ -233,15 +242,15 @@ impl Iterator for StrictUtf8Decoder {
     fn next(&mut self) -> Option<Result<StrBuf, Utf8DecoderError>> {
         if self.yield_error_next {
             self.yield_error_next = false;
-            return Some(Err(self.error()))
+            return Some(Err(self.error()));
         }
 
         if self.input_chunk.is_empty() {
-            return None
+            return None;
         }
 
         if !self.incomplete_char.is_empty() {
-            return self.try_complete()
+            return self.try_complete();
         }
 
         struct IsIncomplete;
@@ -249,11 +258,18 @@ impl Iterator for StrictUtf8Decoder {
         // FIXME: simplify when borrows are non-lexical
         let unborrowed = match utf8::decode(&self.input_chunk) {
             Ok(_) => Ok(()),
-            Err(DecodeError::Incomplete { valid_prefix, incomplete_suffix }) => {
+            Err(DecodeError::Incomplete {
+                valid_prefix,
+                incomplete_suffix,
+            }) => {
                 self.incomplete_char = incomplete_suffix;
                 Err((valid_prefix.len(), Ok(IsIncomplete)))
             }
-            Err(DecodeError::Invalid { valid_prefix, invalid_sequence, remaining_input  }) => {
+            Err(DecodeError::Invalid {
+                valid_prefix,
+                invalid_sequence,
+                remaining_input,
+            }) => {
                 let resume_at = if remaining_input.is_empty() {
                     None
                 } else {
@@ -265,13 +281,11 @@ impl Iterator for StrictUtf8Decoder {
 
         let mut bytes;
         match unborrowed {
-            Ok(()) => {
-                bytes = self.take_input()
-            }
+            Ok(()) => bytes = self.take_input(),
 
             Err((0, Ok(IsIncomplete))) => {
                 self.input_chunk = BytesBuf::new();
-                return None
+                return None;
             }
             Err((valid_prefix_len, Ok(IsIncomplete))) => {
                 bytes = self.take_input();
@@ -280,11 +294,11 @@ impl Iterator for StrictUtf8Decoder {
 
             Err((0, Err(None))) => {
                 self.input_chunk = BytesBuf::new();
-                return Some(Err(self.error()))
+                return Some(Err(self.error()));
             }
             Err((0, Err(Some(resume_at)))) => {
                 self.input_chunk.pop_front(resume_at);
-                return Some(Err(self.error()))
+                return Some(Err(self.error()));
             }
             Err((valid_prefix_len, Err(None))) => {
                 self.yield_error_next = true;
@@ -298,9 +312,7 @@ impl Iterator for StrictUtf8Decoder {
                 self.input_chunk.pop_front(resume_at);
             }
         }
-        unsafe {
-            Some(Ok(StrBuf::from_utf8_unchecked(bytes)))
-        }
+        unsafe { Some(Ok(StrBuf::from_utf8_unchecked(bytes))) }
     }
 }
 
@@ -319,7 +331,11 @@ impl Utf8DecoderError {
 
 impl fmt::Display for Utf8DecoderError {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "invalid UTF-8 byte sequence at byte {}", self.position)
+        write!(
+            formatter,
+            "invalid UTF-8 byte sequence at byte {}",
+            self.position
+        )
     }
 }
 

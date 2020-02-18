@@ -1,8 +1,8 @@
 use bytesbuf::BytesBuf;
 use std::error;
 use std::fmt;
-use std::iter::FromIterator;
 use std::io;
+use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str;
@@ -63,7 +63,7 @@ impl StrBuf {
             Err(error) => Err(FromUtf8Error {
                 bytes_buf: bytes,
                 utf8_error: error,
-            })
+            }),
         }
     }
 
@@ -132,7 +132,10 @@ impl StrBuf {
     /// assert_eq!(StrBuf::from_utf8_iter(&chunks).unwrap(), "🎉");
     /// ```
     pub fn from_utf8_iter<I>(iter: I) -> Result<Self, Utf8DecoderError>
-    where I: IntoIterator, I::Item: Into<BytesBuf> {
+    where
+        I: IntoIterator,
+        I::Item: Into<BytesBuf>,
+    {
         let mut decoder = StrictUtf8Decoder::new();
         let mut buf = StrBuf::new();
         for item in iter {
@@ -162,7 +165,10 @@ impl StrBuf {
     /// assert_eq!(StrBuf::from_utf8_iter_lossy(&chunks), "🎉�");
     /// ```
     pub fn from_utf8_iter_lossy<I>(iter: I) -> Self
-    where I: IntoIterator, I::Item: Into<BytesBuf> {
+    where
+        I: IntoIterator,
+        I::Item: Into<BytesBuf>,
+    {
         let mut decoder = LossyUtf8Decoder::new();
         let mut buf = StrBuf::new();
         for item in iter {
@@ -249,7 +255,7 @@ impl StrBuf {
     /// assert_eq!(buf, "llo");
     /// ```
     pub fn pop_front(&mut self, bytes: usize) {
-        let _: &str = &self[bytes..];  // Check char boundary with a nice panic message
+        let _: &str = &self[bytes..]; // Check char boundary with a nice panic message
         self.0.pop_front(bytes)
     }
 
@@ -273,7 +279,7 @@ impl StrBuf {
         let len = self.len();
         match len.checked_sub(bytes) {
             None => panic!("tried to pop {} bytes, only {} are available", bytes, len),
-            Some(new_len) => self.truncate(new_len)
+            Some(new_len) => self.truncate(new_len),
         }
     }
 
@@ -296,7 +302,7 @@ impl StrBuf {
     /// assert_eq!(tail, "llo");
     /// ```
     pub fn split_off(&mut self, at: usize) -> StrBuf {
-        let _: &str = &self[..at];  // Check char boundary with a nice panic message
+        let _: &str = &self[..at]; // Check char boundary with a nice panic message
         StrBuf(self.0.split_off(at))
     }
 
@@ -339,7 +345,7 @@ impl StrBuf {
     /// ```
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
-            let _: &str = &self[..new_len];  // Check char boundary with a nice panic message
+            let _: &str = &self[..new_len]; // Check char boundary with a nice panic message
             self.0.truncate(new_len)
         }
     }
@@ -408,7 +414,9 @@ impl StrBuf {
     /// }
     /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
-    where F: FnOnce(&mut str) -> usize {
+    where
+        F: FnOnce(&mut str) -> usize,
+    {
         self.0.write_to_uninitialized_tail(|uninitialized| {
             // Safety: the BytesBuf inside StrBuf is private,
             // and this module mantains UTF-8 well-formedness.
@@ -457,14 +465,14 @@ impl StrBuf {
     /// }
     /// ```
     pub fn write_to_zeroed_tail<F>(&mut self, f: F)
-    where F: FnOnce(&mut str) -> usize {
+    where
+        F: FnOnce(&mut str) -> usize,
+    {
         self.0.write_to_zeroed_tail(|tail_bytes| {
             // Safety: a sequence of zero bytes is well-formed UTF-8.
-            let tail_str = unsafe {
-                str_from_utf8_unchecked_mut(tail_bytes)
-            };
+            let tail_str = unsafe { str_from_utf8_unchecked_mut(tail_bytes) };
             let additional_len = f(tail_str);
-            &tail_str[..additional_len];  // Check char boundary
+            &tail_str[..additional_len]; // Check char boundary
             additional_len
         })
     }
@@ -542,9 +550,7 @@ impl Deref for StrBuf {
     fn deref(&self) -> &str {
         // Safety: the BytesBuf inside StrBuf is private,
         // and this module mantains UTF-8 well-formedness.
-        unsafe {
-            str::from_utf8_unchecked(&self.0)
-        }
+        unsafe { str::from_utf8_unchecked(&self.0) }
     }
 }
 
@@ -554,9 +560,7 @@ impl DerefMut for StrBuf {
     fn deref_mut(&mut self) -> &mut str {
         // Safety: the BytesBuf inside StrBuf is private,
         // and this module mantains UTF-8 well-formedness.
-        unsafe {
-            str_from_utf8_unchecked_mut(&mut self.0)
-        }
+        unsafe { str_from_utf8_unchecked_mut(&mut self.0) }
     }
 }
 
@@ -618,7 +622,10 @@ impl<T: AsRef<str>> PartialOrd<T> for StrBuf {
 
 impl Extend<char> for StrBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=char> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = char>,
+    {
         for item in iter {
             self.push_char(item)
         }
@@ -627,7 +634,10 @@ impl Extend<char> for StrBuf {
 
 impl FromIterator<char> for StrBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=char> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = char>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -636,7 +646,10 @@ impl FromIterator<char> for StrBuf {
 
 impl<'a> Extend<&'a char> for StrBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a char> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a char>,
+    {
         for &item in iter {
             self.push_char(item)
         }
@@ -645,7 +658,10 @@ impl<'a> Extend<&'a char> for StrBuf {
 
 impl<'a> FromIterator<&'a char> for StrBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a char> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a char>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -654,7 +670,10 @@ impl<'a> FromIterator<&'a char> for StrBuf {
 
 impl<'a> Extend<&'a str> for StrBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a str> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
         for item in iter {
             self.push_str(item)
         }
@@ -663,7 +682,10 @@ impl<'a> Extend<&'a str> for StrBuf {
 
 impl<'a> FromIterator<&'a str> for StrBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a str> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -672,7 +694,10 @@ impl<'a> FromIterator<&'a str> for StrBuf {
 
 impl<'a> Extend<&'a StrBuf> for StrBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a StrBuf> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a StrBuf>,
+    {
         for item in iter {
             self.push_buf(item)
         }
@@ -681,7 +706,10 @@ impl<'a> Extend<&'a StrBuf> for StrBuf {
 
 impl<'a> FromIterator<&'a StrBuf> for StrBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a StrBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a StrBuf>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -690,7 +718,10 @@ impl<'a> FromIterator<&'a StrBuf> for StrBuf {
 
 impl Extend<StrBuf> for StrBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=StrBuf> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = StrBuf>,
+    {
         for item in iter {
             self.push_buf(&item)
         }
@@ -699,7 +730,10 @@ impl Extend<StrBuf> for StrBuf {
 
 impl FromIterator<StrBuf> for StrBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=StrBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = StrBuf>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf

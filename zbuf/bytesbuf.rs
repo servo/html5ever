@@ -1,8 +1,8 @@
-use heap_data::{TaggedPtr, HeapAllocation};
+use heap_data::{HeapAllocation, TaggedPtr};
 use std::fmt::{self, Write};
 use std::hash;
-use std::iter::FromIterator;
 use std::io;
+use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
@@ -40,7 +40,7 @@ pub struct BytesBuf(Inner);
 ///   and on big-endian platforms (metadata byte at the end of `Inner`).
 #[cfg(target_endian = "little")]
 #[derive(Clone)]
-#[repr(C)]  // Don’t re-order fields
+#[repr(C)] // Don’t re-order fields
 struct Inner {
     ptr: TaggedPtr,
     start: u32,
@@ -49,7 +49,7 @@ struct Inner {
 
 #[cfg(target_endian = "big")]
 #[derive(Clone)]
-#[repr(C)]  // Don’t re-order fields
+#[repr(C)] // Don’t re-order fields
 struct Inner {
     start: u32,
     len: u32,
@@ -88,7 +88,7 @@ const SIZE_OF_INNER: usize = 8 + 4 + 4;
 
 #[allow(dead_code)]
 unsafe fn static_assert(x: Inner) {
-    mem::transmute::<Inner, [u8; SIZE_OF_INNER]>(x);  // Assert that SIZE_OF_INNER is correct
+    mem::transmute::<Inner, [u8; SIZE_OF_INNER]>(x); // Assert that SIZE_OF_INNER is correct
 }
 
 /// How many bytes can be stored inline, leaving one byte of metadata.
@@ -98,7 +98,7 @@ impl BytesBuf {
     /// Return a new, empty, inline buffer.
     #[inline]
     pub fn new() -> Self {
-        let metadata = 0;  // Includes bits for `length = 0`
+        let metadata = 0; // Includes bits for `length = 0`
         BytesBuf(Inner {
             ptr: TaggedPtr::new_inline_data(metadata),
             start: 0,
@@ -185,11 +185,14 @@ impl BytesBuf {
                 let data_ptr = (struct_ptr as *mut u8).offset(INLINE_DATA_OFFSET_BYTES);
                 let inline = slice::from_raw_parts_mut(data_ptr, INLINE_CAPACITY);
                 let (initialized, tail) = inline.split_at_mut(len);
-                return (initialized, tail)
+                return (initialized, tail);
             }
         }
 
-        let heap_allocation = self.0.ptr.as_owned_allocated_mut()
+        let heap_allocation = self
+            .0
+            .ptr
+            .as_owned_allocated_mut()
             .expect("expected owned allocation");
 
         let start = u32_to_usize(self.0.start);
@@ -198,7 +201,7 @@ impl BytesBuf {
         // Safety: the start..(start+len) range is known to be initialized.
         unsafe {
             let (initialized, tail) = (*data)[start..].split_at_mut(len);
-            return (initialized, tail)
+            return (initialized, tail);
         }
     }
 
@@ -215,7 +218,9 @@ impl BytesBuf {
     pub fn capacity(&self) -> usize {
         if let Ok(heap_allocation) = self.as_allocated() {
             let capacity = if heap_allocation.is_owned() {
-                heap_allocation.data_capacity().checked_sub(self.0.start)
+                heap_allocation
+                    .data_capacity()
+                    .checked_sub(self.0.start)
                     .expect("data_capacity < start ??")
             } else {
                 // This heap data is shared, we can’t write to it.
@@ -249,7 +254,10 @@ impl BytesBuf {
         if let Ok(_) = self.as_allocated() {
             let bytes = usize_to_u32(bytes);
             match self.0.len.checked_sub(bytes) {
-                None => panic!("tried to pop {} bytes, only {} are available", bytes, self.0.len),
+                None => panic!(
+                    "tried to pop {} bytes, only {} are available",
+                    bytes, self.0.len
+                ),
                 Some(new_len) => {
                     self.0.len = new_len;
                     self.0.start = self.0.start.checked_add(bytes).expect("overflow");
@@ -281,7 +289,7 @@ impl BytesBuf {
         let len = self.len();
         match len.checked_sub(bytes) {
             None => panic!("tried to pop {} bytes, only {} are available", bytes, len),
-            Some(new_len) => self.truncate(new_len)
+            Some(new_len) => self.truncate(new_len),
         }
     }
 
@@ -306,7 +314,7 @@ impl BytesBuf {
     pub fn split_off(&mut self, at: usize) -> BytesBuf {
         let mut tail;
         if let Ok(_) = self.as_allocated() {
-            let _: &[u8] = &self[at..];  // Check bounds
+            let _: &[u8] = &self[at..]; // Check bounds
             let at = usize_to_u32(at);
             tail = self.clone();
             tail.0.start += at;
@@ -352,18 +360,14 @@ impl BytesBuf {
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
             // Safety: 0..len is known to be initialized
-            unsafe {
-                self.set_len(new_len)
-            }
+            unsafe { self.set_len(new_len) }
         }
     }
 
     /// Unsafe: 0..new_len data must be initialized
     unsafe fn set_len(&mut self, new_len: usize) {
         match self.as_allocated() {
-            Ok(_) => {
-                self.0.len = usize_to_u32(new_len)
-            }
+            Ok(_) => self.0.len = usize_to_u32(new_len),
             Err(metadata) => {
                 self.0.ptr = TaggedPtr::new_inline_data(set_inline_length(metadata, new_len))
             }
@@ -390,9 +394,7 @@ impl BytesBuf {
         if new_capacity > self.capacity() {
             let mut copy = Self::with_capacity(new_capacity);
             // Safety: copy_into_prefix’s contract
-            unsafe {
-                copy.write_to_uninitialized_tail(|uninit| copy_into_prefix(self, uninit))
-            }
+            unsafe { copy.write_to_uninitialized_tail(|uninit| copy_into_prefix(self, uninit)) }
             *self = copy
         }
     }
@@ -435,7 +437,9 @@ impl BytesBuf {
     /// assert_eq!(buf, b"hello!!!");
     /// ```
     pub unsafe fn write_to_uninitialized_tail<F>(&mut self, f: F)
-    where F: FnOnce(&mut [u8]) -> usize {
+    where
+        F: FnOnce(&mut [u8]) -> usize,
+    {
         let (_, tail) = self.data_and_uninitialized_tail();
         let written = f(&mut *tail);
         let new_len = self.len().checked_add(written).expect("overflow");
@@ -475,7 +479,9 @@ impl BytesBuf {
     /// assert_eq!(buf, b"hello!!!\0\0");
     /// ```
     pub fn write_to_zeroed_tail<F>(&mut self, f: F)
-    where F: FnOnce(&mut [u8]) -> usize {
+    where
+        F: FnOnce(&mut [u8]) -> usize,
+    {
         unsafe {
             self.write_to_uninitialized_tail(|tail| {
                 ptr::write_bytes(tail.as_mut_ptr(), 0, tail.len());
@@ -516,9 +522,13 @@ impl BytesBuf {
     /// #     }
     /// #     do_io().unwrap()
     /// ```
-    pub unsafe fn read_into_unititialized_tail_from<R>(&mut self, mut reader: R)
-                                                       -> io::Result<usize>
-    where R: io::Read {
+    pub unsafe fn read_into_unititialized_tail_from<R>(
+        &mut self,
+        mut reader: R,
+    ) -> io::Result<usize>
+    where
+        R: io::Read,
+    {
         let mut result = Ok(0);
         self.write_to_uninitialized_tail(|tail| {
             let r = reader.read(tail);
@@ -550,9 +560,7 @@ impl BytesBuf {
     pub fn push_slice(&mut self, slice: &[u8]) {
         self.reserve(slice.len());
         // Safety: copy_into_prefix’s contract
-        unsafe {
-            self.write_to_uninitialized_tail(|uninit| copy_into_prefix(slice, uninit))
-        }
+        unsafe { self.write_to_uninitialized_tail(|uninit| copy_into_prefix(slice, uninit)) }
     }
 
     /// Appends the given bytes buffer onto the end of this buffer.
@@ -576,11 +584,13 @@ impl BytesBuf {
     pub fn push_buf(&mut self, other: &BytesBuf) {
         if self.is_empty() {
             *self = other.clone();
-            return
+            return;
         }
 
         // FIXME: remove when borrows are non-lexical
-        fn raw<T>(x: &T) -> *const T { x }
+        fn raw<T>(x: &T) -> *const T {
+            x
+        }
 
         if let (Ok(a), Ok(b)) = (self.as_allocated().map(raw), other.as_allocated().map(raw)) {
             // Two heap-allocated buffers…
@@ -589,7 +599,7 @@ impl BytesBuf {
                 if (self.0.start + self.0.len) == other.0.start {
                     // … and are contiguous
                     self.0.len += other.0.len;
-                    return
+                    return;
                 }
             }
         }
@@ -614,9 +624,7 @@ impl Deref for BytesBuf {
                 let start = u32_to_usize(self.0.start);
                 let len = u32_to_usize(self.0.len);
                 // Safety: start..(start+len) is known to be initialized
-                unsafe {
-                    &(*heap_allocation.data())[start..][..len]
-                }
+                unsafe { &(*heap_allocation.data())[start..][..len] }
             }
             Err(metadata) => {
                 let len = inline_length(metadata);
@@ -692,7 +700,10 @@ impl fmt::Debug for BytesBuf {
 
 impl hash::Hash for BytesBuf {
     #[inline]
-    fn hash<H>(&self, hasher: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, hasher: &mut H)
+    where
+        H: hash::Hasher,
+    {
         <[u8]>::hash(self, hasher)
     }
 }
@@ -729,7 +740,10 @@ impl<T: AsRef<[u8]>> PartialOrd<T> for BytesBuf {
 
 impl<'a> Extend<&'a [u8]> for BytesBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a [u8]> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a [u8]>,
+    {
         for item in iter {
             self.push_slice(item)
         }
@@ -738,7 +752,10 @@ impl<'a> Extend<&'a [u8]> for BytesBuf {
 
 impl<'a> FromIterator<&'a [u8]> for BytesBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a [u8]> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a [u8]>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -747,7 +764,10 @@ impl<'a> FromIterator<&'a [u8]> for BytesBuf {
 
 impl<'a> Extend<&'a BytesBuf> for BytesBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a BytesBuf> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a BytesBuf>,
+    {
         for item in iter {
             self.push_buf(item)
         }
@@ -756,7 +776,10 @@ impl<'a> Extend<&'a BytesBuf> for BytesBuf {
 
 impl<'a> FromIterator<&'a BytesBuf> for BytesBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=&'a BytesBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a BytesBuf>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf
@@ -765,7 +788,10 @@ impl<'a> FromIterator<&'a BytesBuf> for BytesBuf {
 
 impl Extend<BytesBuf> for BytesBuf {
     #[inline]
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=BytesBuf> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = BytesBuf>,
+    {
         for item in iter {
             self.push_buf(&item)
         }
@@ -774,7 +800,10 @@ impl Extend<BytesBuf> for BytesBuf {
 
 impl FromIterator<BytesBuf> for BytesBuf {
     #[inline]
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=BytesBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = BytesBuf>,
+    {
         let mut buf = Self::new();
         buf.extend(iter);
         buf

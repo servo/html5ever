@@ -21,7 +21,7 @@ impl<T: ?Sized> Clone for Shared<T> {
     }
 }
 
-impl<T: ?Sized> Copy for Shared<T> { }
+impl<T: ?Sized> Copy for Shared<T> {}
 
 impl<T: ?Sized> Shared<T> {
     /// Creates a new `Shared`.
@@ -31,7 +31,10 @@ impl<T: ?Sized> Shared<T> {
     /// `ptr` must be non-null.
     #[inline]
     pub unsafe fn new(ptr: *mut T) -> Self {
-        Shared { pointer: ptr, _marker: PhantomData }
+        Shared {
+            pointer: ptr,
+            _marker: PhantomData,
+        }
     }
 
     /// Acquires the underlying `*mut` pointer.

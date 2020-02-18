@@ -18,18 +18,14 @@ impl TaggedPtr {
         assert!(((ptr as usize) & TAG_MASK) == 0);
         assert!(!ptr.is_null());
         // Safety: we just asserted that `ptr` is not null.
-        unsafe {
-            TaggedPtr(Shared::new(ptr))
-        }
+        unsafe { TaggedPtr(Shared::new(ptr)) }
     }
 
     #[inline]
     pub fn new_inline_data(data: usize) -> Self {
         let fake_ptr = (data | TAG) as *mut HeapAllocation;
         // Safety: TAG being non-zero makes `fake_ptr` non-null.
-        unsafe {
-            TaggedPtr(Shared::new(fake_ptr))
-        }
+        unsafe { TaggedPtr(Shared::new(fake_ptr)) }
     }
 
     #[inline]
@@ -64,7 +60,7 @@ impl TaggedPtr {
                 } else {
                     None
                 }
-            }
+            },
         }
     }
 
@@ -73,9 +69,7 @@ impl TaggedPtr {
         match self.as_valid_ptr() {
             Err(_) => false,
             // Safety relies on `as_valid_ptr`, reference counting, and ownership of `TaggedPtr`.
-            Ok(ptr) => unsafe {
-                !ptr.as_ref().is_owned()
-            }
+            Ok(ptr) => unsafe { !ptr.as_ref().is_owned() },
         }
     }
 }
@@ -105,11 +99,11 @@ impl Drop for TaggedPtr {
     }
 }
 
-#[repr(C)]  // Preserve field order: data is last
+#[repr(C)] // Preserve field order: data is last
 pub struct HeapAllocation {
     refcount: Cell<u32>,
     data_capacity: u32,
-    data: [u8; 0],  // Actually dynamically-sized
+    data: [u8; 0], // Actually dynamically-sized
 }
 
 impl HeapAllocation {
@@ -117,7 +111,9 @@ impl HeapAllocation {
         let header_size = mem::size_of::<HeapAllocation>();
 
         // We allocate space for one header, followed immediately by the data.
-        let bytes = header_size.checked_add(requested_data_capacity).expect("overflow");
+        let bytes = header_size
+            .checked_add(requested_data_capacity)
+            .expect("overflow");
 
         // Grow exponentially to amortize allocation/copying cost
         let bytes = bytes.checked_next_power_of_two().unwrap_or(bytes);
@@ -147,12 +143,21 @@ impl HeapAllocation {
 
     #[inline]
     fn increment_refcount(&self) {
-        self.refcount.set(self.refcount.get().checked_add(1).expect("refcount overflow"))
+        self.refcount.set(
+            self.refcount
+                .get()
+                .checked_add(1)
+                .expect("refcount overflow"),
+        )
     }
 
     #[inline]
     fn decrement_refcount(&self) -> u32 {
-        let new_count = self.refcount.get().checked_sub(1).expect("refcount underflow");
+        let new_count = self
+            .refcount
+            .get()
+            .checked_sub(1)
+            .expect("refcount underflow");
         self.refcount.set(new_count);
         new_count
     }
@@ -189,9 +194,7 @@ impl HeapAllocation {
     #[inline]
     pub fn data(&self) -> *const [u8] {
         // Safety relies on `vec_capacity` in HeapAllocation::allocate being large enough.
-        unsafe {
-            slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity))
-        }
+        unsafe { slice::from_raw_parts(self.data.as_ptr(), u32_to_usize(self.data_capacity)) }
     }
 
     #[inline]
