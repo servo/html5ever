@@ -133,7 +133,7 @@ where
                         self.sink.mark_script_already_started(&elem);
                     }
                     self.insert_appropriately(AppendNode(elem.clone()), None);
-                    self.open_elems.push(elem);
+                    self.push(&elem);
                     self.to_raw_text_mode(ScriptData)
                 }
 
@@ -267,7 +267,7 @@ where
                 tag @ <html> => {
                     self.unexpected(&tag);
                     if !self.in_html_elem_named(local_name!("template")) {
-                        let top = html_elem(&self.open_elems);
+                        let top = html_elem(self.open_elems.as_ref());
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
                     Done
@@ -300,7 +300,7 @@ where
 
                     // FIXME: can we get here in the fragment case?
                     // What to do with the first element then?
-                    self.open_elems.truncate(1);
+                    self.open_elems.truncate(&self.sink, 1);
                     self.insert_element_for(tag);
                     self.mode = InFrameset;
                     Done
@@ -732,7 +732,7 @@ where
                 EOFToken => {
                     self.unexpected(&token);
                     if self.current_node_named(local_name!("script")) {
-                        let current = current_node(&self.open_elems);
+                        let current = current_node(self.open_elems.as_ref());
                         self.sink.mark_script_already_started(current);
                     }
                     self.pop();
@@ -1429,7 +1429,7 @@ where
                     }
 
                     if eq {
-                        self.open_elems.truncate(stack_idx);
+                        self.open_elems.truncate(&self.sink, stack_idx);
                         return Done;
                     }
 

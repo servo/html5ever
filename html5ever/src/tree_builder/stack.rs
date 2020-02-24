@@ -1,0 +1,273 @@
+use std::collections::HashMap;
+use std::marker::PhantomData;
+
+use super::{namespace_url, ns, ExpandedName, LocalName, Namespace, TreeSink};
+
+const SCAN_THRESHOLD: usize = 100;
+
+#[derive(Hash, PartialEq, Eq)]
+struct ElemName {
+    ns: Namespace,
+    local: LocalName,
+}
+
+impl ElemName {
+    fn expanded(&self) -> ExpandedName<'_> {
+        ExpandedName {
+            ns: &self.ns,
+            local: &self.local,
+        }
+    }
+}
+
+pub struct ElemStack<Handle, Sink> {
+    open_elems: Vec<Handle>,
+    elem_index: Option<HashMap<ElemName, Vec<usize>>>,
+    marker: PhantomData<Sink>,
+}
+
+impl<Handle, Sink> ElemStack<Handle, Sink>
+where
+    Handle: Clone,
+    Sink: TreeSink<Handle = Handle>,
+{
+    pub fn new() -> Self {
+        ElemStack {
+            open_elems: Vec::new(),
+            elem_index: None,
+            marker: PhantomData,
+        }
+    }
+
+    fn build_index(&mut self, sink: &Sink) {
+        if self.open_elems.len() == 0 || self.elem_index.is_some() {
+            return;
+        }
+
+        let mut elem_index = HashMap::<_, Vec<_>>::new();
+        for (index, elem) in self.open_elems.iter().enumerate() {
+            let name = elem_name(sink, elem);
+            elem_index
+                .entry(name)
+                .and_modify(|v| v.push(index))
+                .or_insert_with(|| vec![index]);
+        }
+
+        self.elem_index = Some(elem_index);
+    }
+
+    /// Return topmost index of any of elements in the set
+    pub fn top_index_of_set<TagSet>(&self, scope: TagSet) -> Option<usize>
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+    {
+        let elem_index = self.elem_index.as_ref().expect("index is missing");
+        elem_index
+            .iter()
+            .filter(|(n, v)| !v.is_empty() && scope(n.expanded()))
+            .map(|(_, v)| v.last().cloned())
+            .max()
+            .unwrap_or(None)
+    }
+
+    /// Return topmost index of an element
+    pub fn top_index_of(&self, local: &LocalName) -> Option<usize> {
+        let name = ElemName {
+            ns: ns!(html),
+            local: local.clone(),
+        };
+        let elem_index = self.elem_index.as_ref().expect("index is missing");
+        elem_index.get(&name).and_then(|v| v.last()).cloned()
+    }
+
+    fn scan_in_scope<TagSet, Pred>(&self, sink: &Sink, scope: TagSet, pred: Pred) -> Option<bool>
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+        Pred: Fn(&Handle) -> bool,
+    {
+        for node in self.open_elems.iter().rev().take(SCAN_THRESHOLD) {
+            if pred(node) {
+                return Some(true);
+            }
+            if scope(sink.elem_name(node)) {
+                return Some(false);
+            }
+        }
+
+        if self.open_elems.len() > SCAN_THRESHOLD {
+            None
+        } else {
+            Some(false)
+        }
+    }
+
+    pub fn in_scope_named<TagSet>(&mut self, sink: &Sink, scope: TagSet, name: LocalName) -> bool
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+    {
+        if let Some(res) =
+            self.scan_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, &name))
+        {
+            return res;
+        }
+
+        self.build_index(sink);
+
+        let elem_depth = match self.top_index_of(&name) {
+            Some(depth) => depth,
+            None => return false,
+        };
+
+        let scope_depth = self.top_index_of_set(scope).unwrap_or(0);
+        scope_depth <= elem_depth
+    }
+
+    pub fn push(&mut self, sink: &Sink, elem: &Handle) {
+        let index = self.open_elems.len();
+        self.open_elems.push(elem.clone());
+
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            let name = elem_name(sink, elem);
+            elem_index.entry(name).or_insert_with(Vec::new).push(index);
+        }
+    }
+
+    pub fn pop(&mut self, sink: &Sink) -> Option<Handle> {
+        let elem = self.open_elems.pop()?;
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            let name = elem_name(sink, &elem);
+            let index = elem_index
+                .get_mut(&name)
+                .and_then(Vec::pop)
+                .expect("inconsistent stack state");
+
+            debug_assert_eq!(index, self.open_elems.len());
+        }
+
+        Some(elem)
+    }
+
+    pub fn truncate(&mut self, sink: &Sink, len: usize) {
+        while self.open_elems.len() > len {
+            self.pop(sink);
+        }
+    }
+
+    pub fn insert(&mut self, sink: &Sink, index: usize, new_element: Handle) {
+        self.open_elems.insert(index, new_element.clone());
+
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            let name = sink.elem_name(&new_element);
+            for (n, v) in elem_index.iter_mut() {
+                let ipos = v.binary_search(&index).unwrap_or_else(|i| i);
+                for i in &mut v[ipos..] {
+                    *i += 1;
+                }
+                if name.ns == &n.ns && name.local == &n.local {
+                    v.insert(ipos, index);
+                }
+            }
+        }
+    }
+
+    pub fn remove(&mut self, index: usize) {
+        let elem = self.open_elems.remove(index);
+
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            for v in elem_index.values_mut() {
+                let ipos = match v.binary_search(&index) {
+                    Ok(ipos) => {
+                        v.remove(ipos);
+                        ipos
+                    }
+                    Err(ipos) => ipos,
+                };
+                for i in &mut v[ipos..] {
+                    *i -= 1;
+                }
+            }
+        }
+    }
+
+    pub fn replace(&mut self, sink: &Sink, index: usize, handle: Handle) {
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            let name = elem_name(sink, &self.open_elems[index]);
+            let list = elem_index.get_mut(&name).unwrap();
+            let ipos = list.binary_search(&index).unwrap();
+            list.remove(ipos);
+        }
+
+        self.open_elems[index] = handle.clone();
+
+        if let Some(elem_index) = self.elem_index.as_mut() {
+            let name = elem_name(sink, &handle);
+            elem_index
+                .entry(name)
+                .and_modify(|v| {
+                    let pos = v.binary_search(&index).expect_err("duplicate index");
+                    v.insert(pos, index);
+                })
+                .or_insert_with(|| vec![index]);
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.open_elems.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.open_elems.is_empty()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<Handle> {
+        self.open_elems.iter()
+    }
+
+    pub fn last(&self) -> Option<&Handle> {
+        self.open_elems.last()
+    }
+
+    pub fn drain<R>(&mut self, range: R) -> std::vec::Drain<Handle>
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.open_elems.drain(range)
+    }
+
+    pub fn as_ref(&self) -> &[Handle] {
+        &self.open_elems
+    }
+}
+
+impl<Handle, Sink, I> std::ops::Index<I> for ElemStack<Handle, Sink>
+where
+    I: std::slice::SliceIndex<[Handle]>,
+{
+    type Output = I::Output;
+    fn index(&self, index: I) -> &I::Output {
+        self.open_elems.index(index)
+    }
+}
+
+impl<'a, Handle, Sink> IntoIterator for &'a ElemStack<Handle, Sink> {
+    type IntoIter = std::slice::Iter<'a, Handle>;
+    type Item = &'a Handle;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.open_elems.iter()
+    }
+}
+
+fn html_elem_named<Sink: TreeSink>(sink: &Sink, elem: &Sink::Handle, local: &LocalName) -> bool {
+    let name = sink.elem_name(elem);
+    name.ns == &ns!(html) && name.local == local
+}
+
+fn elem_name<Sink: TreeSink>(sink: &Sink, elem: &Sink::Handle) -> ElemName {
+    let name = sink.elem_name(elem);
+    ElemName {
+        ns: name.ns.clone(),
+        local: name.local.clone(),
+    }
+}
+

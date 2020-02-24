@@ -47,6 +47,7 @@ mod tag_sets;
 
 mod data;
 mod types;
+mod stack;
 
 include!(concat!(env!("OUT_DIR"), "/rules.rs"));
 
@@ -114,7 +115,7 @@ pub struct TreeBuilder<Handle, Sink> {
     doc_handle: Handle,
 
     /// Stack of open elements, most recently added at end.
-    open_elems: Vec<Handle>,
+    open_elems: stack::ElemStack<Handle, Sink>,
 
     /// List of active formatting elements.
     active_formatting: Vec<FormatEntry<Handle>>,
@@ -166,7 +167,7 @@ where
             pending_table_text: vec![],
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec![],
+            open_elems: stack::ElemStack::new(),
             active_formatting: vec![],
             head_elem: None,
             form_elem: None,
@@ -203,7 +204,7 @@ where
             pending_table_text: vec![],
             quirks_mode: opts.quirks_mode,
             doc_handle: doc_handle,
-            open_elems: vec![],
+            open_elems: stack::ElemStack::new(),
             active_formatting: vec![],
             head_elem: None,
             form_elem: form_elem,
@@ -737,7 +738,7 @@ where
                     .map(|(i, h)| (i, h.clone())),
                 // 10.
                 {
-                    self.open_elems.truncate(fmt_elem_stack_index);
+                    self.open_elems.truncate(&self.sink, fmt_elem_stack_index);
                     self.active_formatting.remove(fmt_elem_index);
                 }
             );
@@ -800,7 +801,7 @@ where
                     QualName::new(None, ns!(html), tag.name.clone()),
                     tag.attrs.clone(),
                 );
-                self.open_elems[node_index] = new_element.clone();
+                self.open_elems.replace(&self.sink, node_index, new_element.clone());
                 self.active_formatting[node_formatting_index] = Element(new_element.clone(), tag);
                 node = new_element;
 
@@ -871,18 +872,18 @@ where
                 .position(|n| self.sink.same_node(n, &furthest_block))
                 .expect("furthest block missing from open element stack");
             self.open_elems
-                .insert(new_furthest_block_index + 1, new_element);
+                .insert(&self.sink, new_furthest_block_index + 1, new_element);
 
             // 20.
         }
     }
 
     fn push(&mut self, elem: &Handle) {
-        self.open_elems.push(elem.clone());
+        self.open_elems.push(&self.sink, elem);
     }
 
     fn pop(&mut self) -> Handle {
-        let elem = self.open_elems.pop().expect("no current element");
+        let elem = self.open_elems.pop(&self.sink).expect("no current element");
         self.sink.pop(&elem);
         elem
     }
@@ -1037,11 +1038,11 @@ where
         self.html_elem_named(self.current_node(), name)
     }
 
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
+    fn in_scope_named<TagSet>(&mut self, scope: TagSet, name: LocalName) -> bool
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        self.in_scope(scope, |elem| self.html_elem_named(&elem, name.clone()))
+        self.open_elems.in_scope_named(&self.sink, scope, name)
     }
 
     //§ closing-elements-that-have-implied-end-tags
@@ -1081,7 +1082,7 @@ where
             if self.current_node_in(|x| pred(x)) {
                 break;
             }
-            self.open_elems.pop();
+            self.open_elems.pop(&self.sink);
         }
     }
 
@@ -1094,7 +1095,7 @@ where
         let mut n = 0;
         loop {
             n += 1;
-            match self.open_elems.pop() {
+            match self.open_elems.pop(&self.sink) {
                 None => break,
                 Some(elem) => {
                     if pred(self.sink.elem_name(&elem)) {
@@ -1256,7 +1257,7 @@ where
     }
 
     fn append_comment_to_html(&mut self, text: StrTendril) -> ProcessResult<Handle> {
-        let target = html_elem(&self.open_elems);
+        let target = html_elem(self.open_elems.as_ref());
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
@@ -1404,7 +1405,7 @@ where
             // mis-nested tags
             self.unexpected(&tag);
         }
-        self.open_elems.truncate(match_idx);
+        self.open_elems.truncate(&self.sink, match_idx);
     }
 
     fn handle_misnested_a_tags(&mut self, tag: &Tag) {
