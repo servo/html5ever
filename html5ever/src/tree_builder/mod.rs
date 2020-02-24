@@ -1373,30 +1373,25 @@ where
     }
 
     fn process_end_tag_in_body(&mut self, tag: Tag) {
-        // Look back for a matching open element.
-        let mut match_idx = None;
-        for (i, elem) in self.open_elems.iter().enumerate().rev() {
-            if self.html_elem_named(elem, tag.name.clone()) {
-                match_idx = Some(i);
-                break;
-            }
+        use stack::Position;
 
-            if self.elem_in(elem, special_tag) {
-                self.sink
-                    .parse_error(Borrowed("Found special tag while closing generic tag"));
-                return;
-            }
-        }
+        // Look back for a matching open element.
+        let match_pos = self.open_elems.rposition_in_scope_named(&mut self.sink, &special_tag, &tag.name);
 
         // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-        let match_idx = match match_idx {
-            None => {
+        let match_idx = match match_pos {
+            Position::None => {
                 // I believe this is impossible, because the root
                 // <html> element is in special_tag.
                 self.unexpected(&tag);
                 return;
             },
-            Some(x) => x,
+            Position::NotInScope => {
+                self.sink
+                    .parse_error(Borrowed("Found special tag while closing generic tag"));
+                return;
+            }
+            Position::Some(x) => x,
         };
 
         self.generate_implied_end_except(tag.name.clone());

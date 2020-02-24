@@ -122,6 +122,70 @@ where
         scope_depth <= elem_depth
     }
 
+    fn rposition_in_scope<TagSet, Pred>(
+        &self,
+        sink: &Sink,
+        scope: TagSet,
+        pred: Pred,
+    ) -> Option<Position>
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+        Pred: Fn(&Handle) -> bool,
+    {
+        for (index, node) in self
+            .open_elems
+            .iter()
+            .enumerate()
+            .rev()
+            .take(SCAN_THRESHOLD)
+        {
+            if pred(node) {
+                return Some(Position::Some(index));
+            }
+            if scope(sink.elem_name(node)) {
+                return Some(Position::NotInScope);
+            }
+        }
+
+        if self.open_elems.len() > SCAN_THRESHOLD {
+            None
+        } else {
+            Some(Position::None)
+        }
+    }
+
+    pub fn rposition_in_scope_named<TagSet>(
+        &mut self,
+        sink: &Sink,
+        scope: TagSet,
+        name: &LocalName,
+    ) -> Position
+    where
+        TagSet: Fn(ExpandedName) -> bool,
+    {
+        if let Some(res) =
+            self.rposition_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, name))
+        {
+            return res;
+        }
+
+        self.build_index(sink);
+
+        let elem_depth = self.top_index_of(name);
+        let scope_depth = self.top_index_of_set(&scope);
+
+        if let Some(elem_depth) = elem_depth {
+            if scope_depth.unwrap_or(0) <= elem_depth {
+                return Position::Some(elem_depth);
+            }
+        }
+        if scope_depth.is_some() {
+            return Position::NotInScope;
+        }
+
+        Position::None
+    }
+
     pub fn push(&mut self, sink: &Sink, elem: &Handle) {
         let index = self.open_elems.len();
         self.open_elems.push(elem.clone());
@@ -271,3 +335,8 @@ fn elem_name<Sink: TreeSink>(sink: &Sink, elem: &Sink::Handle) -> ElemName {
     }
 }
 
+pub enum Position {
+    Some(usize),
+    NotInScope,
+    None,
+}
