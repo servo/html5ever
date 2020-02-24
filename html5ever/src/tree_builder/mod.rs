@@ -889,14 +889,10 @@ where
     }
 
     fn remove_from_stack(&mut self, elem: &Handle) {
-        let sink = &mut self.sink;
-        let position = self
-            .open_elems
-            .iter()
-            .rposition(|x| sink.same_node(elem, &x));
+        let position = self.open_elems.rposition(&self.sink, elem);
         if let Some(position) = position {
             self.open_elems.remove(position);
-            sink.pop(elem);
+            self.sink.pop(elem);
         }
     }
 

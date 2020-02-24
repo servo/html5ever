@@ -186,6 +186,21 @@ where
         Position::None
     }
 
+    pub fn rposition(&mut self, sink: &Sink, elem: &Handle) -> Option<usize> {
+        if let Some(res) = self.rposition_in_scope(sink, |n| false, |n| sink.same_node(n, elem)) {
+            return match res {
+                Position::Some(pos) => return Some(pos),
+                _ => return None,
+            }
+        }
+
+        self.build_index(sink);
+
+        let elem_index = self.elem_index.as_ref().expect("index is missing");
+
+        elem_index.get(&elem_name(sink, elem)).and_then(|v| v.last()).cloned()
+    }
+
     pub fn push(&mut self, sink: &Sink, elem: &Handle) {
         let index = self.open_elems.len();
         self.open_elems.push(elem.clone());
