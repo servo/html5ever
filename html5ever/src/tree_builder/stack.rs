@@ -54,7 +54,7 @@ where
         self.elem_index = Some(elem_index);
     }
 
-    /// Return topmost index of any of elements in the set
+    /// Return topmost element with name in the `scope` set of names
     pub fn top_index_of_set<TagSet>(&self, scope: TagSet) -> Option<usize>
     where
         TagSet: Fn(ExpandedName) -> bool,
@@ -68,7 +68,7 @@ where
             .unwrap_or(None)
     }
 
-    /// Return topmost index of an element
+    /// Return topmost index of an element with the given name
     pub fn top_index_of(&self, local: &LocalName) -> Option<usize> {
         let name = ElemName {
             ns: ns!(html),
@@ -78,51 +78,7 @@ where
         elem_index.get(&name).and_then(|v| v.last()).cloned()
     }
 
-    fn scan_in_scope<TagSet, Pred>(&self, sink: &Sink, scope: TagSet, pred: Pred) -> Option<bool>
-    where
-        TagSet: Fn(ExpandedName) -> bool,
-        Pred: Fn(&Handle) -> bool,
-    {
-        for node in self.open_elems.iter().rev().take(SCAN_THRESHOLD) {
-            if pred(node) {
-                return Some(true);
-            }
-            if scope(sink.elem_name(node)) {
-                return Some(false);
-            }
-        }
-
-        if self.open_elems.len() > SCAN_THRESHOLD {
-            None
-        } else {
-            Some(false)
-        }
-    }
-
-    pub fn in_scope_named<TagSet>(&mut self, sink: &Sink, scope: TagSet, name: LocalName) -> bool
-    where
-        TagSet: Fn(ExpandedName) -> bool,
-    {
-        if let None = self.elem_index {
-            if let Some(res) =
-                self.scan_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, &name))
-            {
-                return res;
-            }
-
-            self.build_index(sink);
-        }
-
-        let elem_depth = match self.top_index_of(&name) {
-            Some(depth) => depth,
-            None => return false,
-        };
-
-        let scope_depth = self.top_index_of_set(scope).unwrap_or(0);
-        scope_depth <= elem_depth
-    }
-
-    fn rposition_in_scope<TagSet, Pred>(
+    fn scan_in_scope<TagSet, Pred>(
         &self,
         sink: &Sink,
         scope: TagSet,
@@ -154,7 +110,7 @@ where
         }
     }
 
-    pub fn rposition_in_scope_named<TagSet>(
+    pub fn in_scope_named<TagSet>(
         &mut self,
         sink: &Sink,
         scope: TagSet,
@@ -165,7 +121,7 @@ where
     {
         if let None = self.elem_index {
             if let Some(res) =
-                self.rposition_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, name))
+                self.scan_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, name))
             {
                 return res;
             }
@@ -190,8 +146,7 @@ where
 
     pub fn rposition(&mut self, sink: &Sink, elem: &Handle) -> Option<usize> {
         if let None = self.elem_index {
-            if let Some(res) = self.rposition_in_scope(sink, |n| false, |n| sink.same_node(n, elem))
-            {
+            if let Some(res) = self.scan_in_scope(sink, |n| false, |n| sink.same_node(n, elem)) {
                 return match res {
                     Position::Some(pos) => return Some(pos),
                     _ => return None,
@@ -277,16 +232,14 @@ where
     }
 
     pub fn replace(&mut self, sink: &Sink, index: usize, handle: Handle) {
+        let old_handle = std::mem::replace(&mut self.open_elems[index], handle.clone());
+
         if let Some(elem_index) = self.elem_index.as_mut() {
-            let name = elem_name(sink, &self.open_elems[index]);
+            let name = elem_name(sink, &old_handle);
             let list = elem_index.get_mut(&name).unwrap();
             let ipos = list.binary_search(&index).unwrap();
             list.remove(ipos);
-        }
 
-        self.open_elems[index] = handle.clone();
-
-        if let Some(elem_index) = self.elem_index.as_mut() {
             let name = elem_name(sink, &handle);
             elem_index
                 .entry(name)
@@ -358,9 +311,22 @@ fn elem_name<Sink: TreeSink>(sink: &Sink, elem: &Sink::Handle) -> ElemName {
     }
 }
 
+/// Result of scoped lookups.
 #[derive(Debug, Clone, Copy)]
 pub enum Position {
+    /// Searched element was found.
     Some(usize),
+    /// Scope boundary was reached.
     NotInScope,
+    /// Stack was exhausted without finding named element or any of the scope elements.
     None,
+}
+
+impl Position {
+    pub fn is_some(&self) -> bool {
+        match self {
+            Position::Some(_) => true,
+            _ => false,
+        }
+    }
 }

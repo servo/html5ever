@@ -1038,7 +1038,7 @@ where
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        self.open_elems.in_scope_named(&self.sink, scope, name)
+        self.open_elems.in_scope_named(&self.sink, scope, &name).is_some()
     }
 
     //§ closing-elements-that-have-implied-end-tags
@@ -1372,7 +1372,7 @@ where
         use stack::Position;
 
         // Look back for a matching open element.
-        let match_pos = self.open_elems.rposition_in_scope_named(&mut self.sink, &special_tag, &tag.name);
+        let match_pos = self.open_elems.in_scope_named(&mut self.sink, &special_tag, &tag.name);
 
         // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
         let match_idx = match match_pos {
