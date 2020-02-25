@@ -3,6 +3,8 @@ use std::marker::PhantomData;
 
 use super::{namespace_url, ns, ExpandedName, LocalName, Namespace, TreeSink};
 
+// Number of elements to scan through in the stack of open elements,
+// before switching to the hashmap based index.
 const SCAN_THRESHOLD: usize = 100;
 
 #[derive(Hash, PartialEq, Eq)]
@@ -40,10 +42,6 @@ where
     }
 
     fn build_index(&mut self, sink: &Sink) {
-        if self.open_elems.len() == 0 || self.elem_index.is_some() {
-            return;
-        }
-
         let mut elem_index = HashMap::<_, Vec<_>>::new();
         for (index, elem) in self.open_elems.iter().enumerate() {
             let name = elem_name(sink, elem);
@@ -105,13 +103,15 @@ where
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        if let Some(res) =
-            self.scan_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, &name))
-        {
-            return res;
-        }
+        if let None = self.elem_index {
+            if let Some(res) =
+                self.scan_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, &name))
+            {
+                return res;
+            }
 
-        self.build_index(sink);
+            self.build_index(sink);
+        }
 
         let elem_depth = match self.top_index_of(&name) {
             Some(depth) => depth,
@@ -163,13 +163,15 @@ where
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        if let Some(res) =
-            self.rposition_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, name))
-        {
-            return res;
-        }
+        if let None = self.elem_index {
+            if let Some(res) =
+                self.rposition_in_scope(sink, &scope, |elem| html_elem_named(sink, elem, name))
+            {
+                return res;
+            }
 
-        self.build_index(sink);
+            self.build_index(sink);
+        }
 
         let elem_depth = self.top_index_of(name);
         let scope_depth = self.top_index_of_set(&scope);
@@ -187,18 +189,24 @@ where
     }
 
     pub fn rposition(&mut self, sink: &Sink, elem: &Handle) -> Option<usize> {
-        if let Some(res) = self.rposition_in_scope(sink, |n| false, |n| sink.same_node(n, elem)) {
-            return match res {
-                Position::Some(pos) => return Some(pos),
-                _ => return None,
+        if let None = self.elem_index {
+            if let Some(res) = self.rposition_in_scope(sink, |n| false, |n| sink.same_node(n, elem))
+            {
+                return match res {
+                    Position::Some(pos) => return Some(pos),
+                    _ => return None,
+                };
             }
-        }
 
-        self.build_index(sink);
+            self.build_index(sink);
+        }
 
         let elem_index = self.elem_index.as_ref().expect("index is missing");
 
-        elem_index.get(&elem_name(sink, elem)).and_then(|v| v.last()).cloned()
+        elem_index
+            .get(&elem_name(sink, elem))
+            .and_then(|v| v.last())
+            .cloned()
     }
 
     pub fn push(&mut self, sink: &Sink, elem: &Handle) {
@@ -350,6 +358,7 @@ fn elem_name<Sink: TreeSink>(sink: &Sink, elem: &Sink::Handle) -> ElemName {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Position {
     Some(usize),
     NotInScope,
