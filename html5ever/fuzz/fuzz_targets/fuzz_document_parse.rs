@@ -1,9 +1,6 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-extern crate markup5ever_rcdom as rcdom;
-extern crate html5ever;
-
 use std::io::BufReader;
 use html5ever::driver::ParseOpts;
 use markup5ever_rcdom::{RcDom, SerializableHandle};
