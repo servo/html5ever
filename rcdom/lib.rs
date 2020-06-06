@@ -89,7 +89,7 @@ pub enum NodeData {
         /// For HTML \<template\> elements, the [template contents].
         ///
         /// [template contents]: https://html.spec.whatwg.org/multipage/#template-contents
-        template_contents: Option<Handle>,
+        template_contents: RefCell<Option<Handle>>,
 
         /// Whether the node is a [HTML integration point].
         ///
@@ -131,6 +131,11 @@ impl Drop for Node {
         while let Some(node) = nodes.pop() {
             let children = mem::replace(&mut *node.children.borrow_mut(), vec![]);
             nodes.extend(children.into_iter());
+            if let NodeData::Element { ref template_contents, .. } = node.data {
+                if let Some(template_contents) = template_contents.borrow_mut().take() {
+                    nodes.push(template_contents);
+                }
+            }
         }
     }
 }
@@ -226,11 +231,11 @@ impl TreeSink for RcDom {
 
     fn get_template_contents(&mut self, target: &Handle) -> Handle {
         if let NodeData::Element {
-            template_contents: Some(ref contents),
+            ref template_contents,
             ..
         } = target.data
         {
-            contents.clone()
+            template_contents.borrow().as_ref().expect("not a template element!").clone()
         } else {
             panic!("not a template element!")
         }
@@ -260,11 +265,11 @@ impl TreeSink for RcDom {
         Node::new(NodeData::Element {
             name: name,
             attrs: RefCell::new(attrs),
-            template_contents: if flags.template {
+            template_contents: RefCell::new(if flags.template {
                 Some(Node::new(NodeData::Document))
             } else {
                 None
-            },
+            }),
             mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
         })
     }

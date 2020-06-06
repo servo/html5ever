@@ -16,3 +16,14 @@ fn from_utf8() {
         "<html><head><title>Test</title></head><body></body></html>"
     );
 }
+
+#[test]
+fn many_templates() {
+    let mut body = String::new();
+    for _ in 1..10000 {
+        body.push_str("<template>");
+    }
+    let _ = driver::parse_document(RcDom::default(), Default::default())
+        .from_utf8()
+        .one(body.as_bytes());
+}

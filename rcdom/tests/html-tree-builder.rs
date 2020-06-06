@@ -146,15 +146,17 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     }
 
     if let NodeData::Element {
-        template_contents: Some(ref content),
+        ref template_contents,
         ..
     } = node.data
     {
-        buf.push_str("|");
-        buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
-        buf.push_str("content\n");
-        for child in content.children.borrow().iter() {
-            serialize(buf, indent + 4, child.clone());
+        if let Some(ref content) = &*template_contents.borrow() {
+            buf.push_str("|");
+            buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+            buf.push_str("content\n");
+            for child in content.children.borrow().iter() {
+                serialize(buf, indent + 4, child.clone());
+            }
         }
     }
 }
