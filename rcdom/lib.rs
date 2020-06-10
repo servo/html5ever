@@ -41,7 +41,7 @@ extern crate tendril;
 
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::default::Default;
 use std::fmt;
 use std::io;
@@ -454,19 +454,19 @@ impl Serialize for SerializableHandle {
     where
         S: Serializer,
     {
-        let mut ops = match traversal_scope {
-            IncludeNode => vec![SerializeOp::Open(self.0.clone())],
-            ChildrenOnly(_) => self
+        let mut ops = VecDeque::new();
+        match traversal_scope {
+            IncludeNode => ops.push_back(SerializeOp::Open(self.0.clone())),
+            ChildrenOnly(_) => ops.extend(self
                 .0
                 .children
                 .borrow()
                 .iter()
-                .map(|h| SerializeOp::Open(h.clone()))
-                .collect(),
-        };
+                .map(|h| SerializeOp::Open(h.clone())))
+        }
 
-        while !ops.is_empty() {
-            match ops.remove(0) {
+        while let Some(op) = ops.pop_front() {
+            match op {
                 SerializeOp::Open(handle) => match &handle.data {
                     &NodeData::Element {
                         ref name,
@@ -478,10 +478,11 @@ impl Serialize for SerializableHandle {
                             attrs.borrow().iter().map(|at| (&at.name, &at.value[..])),
                         )?;
 
-                        ops.insert(0, SerializeOp::Close(name.clone()));
+                        ops.reserve(1 + handle.children.borrow().len());
+                        ops.push_front(SerializeOp::Close(name.clone()));
 
                         for child in handle.children.borrow().iter().rev() {
-                            ops.insert(0, SerializeOp::Open(child.clone()));
+                            ops.push_front(SerializeOp::Open(child.clone()));
                         }
                     },
 
