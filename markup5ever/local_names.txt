@@ -456,6 +456,7 @@ lighting-color
 limit
 limitingConeAngle
 line
+line-height
 linearGradient
 linebreak
 linethickness
