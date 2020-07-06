@@ -29,7 +29,7 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let mut out = Vec::with_capacity(data.len());
+    let mut out = std::io::sink();
     let document: SerializableHandle = dom.document.into();
     let _ = serialize(&mut out, &document, Default::default());
 });
