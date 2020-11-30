@@ -11,7 +11,7 @@ It can parse and serialize HTML according to the [WHATWG](https://whatwg.org/) s
 
 Note that the HTML syntax is very similar to XML.  For correct parsing of XHTML, use an XML parser (That said, many XHTML documents in the wild are serialized in an HTML-compatible form).
 
-html5ever is written in [Rust][], therefore it avoids the notorious security problems that come along with using C.  However, Rust makes the library come with the high-grade performance you would expect from an html parser written in C.  html5ever is basically a C html parser, but without needing a garbage collector or other heavy runtime processes.
+html5ever is written in [Rust][], therefore it avoids the notorious security problems that come along with using C.  Being built with Rust also makes the library come with the high-grade performance you would expect from an html parser written in C.  html5ever is basically a C html parser, but without needing a garbage collector or other heavy runtime processes.
 
 
 ## Getting started in Rust
