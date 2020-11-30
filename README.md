@@ -7,11 +7,11 @@
 
 html5ever is an HTML parser developed as part of the [Servo][] project.
 
-It can parse and serialize HTML according to the [WHATWG](https://whatwg.org/) specs (aka "HTML5").  There are some omissions at present, most of which are documented [in the bug tracker][].  html5ever passes all tokenizer tests from [html5lib-tests][], and most tree builder tests outside of the unimplemented features.  The goal is to pass all html5lib tests, and also provide all hooks needed by a production web browser, e.g. `document.write`.
+It can parse and serialize HTML according to the [WHATWG](https://whatwg.org/) specs (aka "HTML5").  However, there are some differences in the actual behavior currently, most of which are documented [in the bug tracker][].  html5ever passes all tokenizer tests from [html5lib-tests][], with most tree builder tests outside of the unimplemented features.  The goal is to pass all html5lib tests, while also providing all hooks needed by a production web browser, e.g. `document.write`.
 
-Note that the HTML syntax is a language almost, but not quite, entirely unlike XML.  For correct parsing of XHTML, use an XML parser.  (That said, many XHTML documents in the wild are serialized in an HTML-compatible form.)
+Note that the HTML syntax is very similar to XML.  For correct parsing of XHTML, use an XML parser (That said, many XHTML documents in the wild are serialized in an HTML-compatible form).
 
-html5ever is written in [Rust][], so it avoids the most notorious security problems from C, but has performance similar to a parser written in C.  You can call html5ever as if it were a C library, without pulling in a garbage collector or other heavy runtime requirements.
+html5ever is written in [Rust][], therefore it avoids the notorious security problems that come along with using C.  However, Rust makes the library come with the high-grade performance you would expect from an html parser written in C.  html5ever is basically a C html parser, but without needing a garbage collector or other heavy runtime processes.
 
 
 ## Getting started in Rust
@@ -23,7 +23,7 @@ Add html5ever as a dependency in your [`Cargo.toml`](https://crates.io/) file:
 html5ever = "*"
 ```
 
-Then take a look at [`examples/html2html.rs`] and [`examples/print-rcdom.rs`] and the [API documentation][].
+You should also take a look at [`examples/html2html.rs`], [`examples/print-rcdom.rs`], and the [API documentation][].
 
 ## Getting started in other languages
 
@@ -43,7 +43,7 @@ Run `cargo doc` in the repository root to build local documentation under `targe
 
 ## Details
 
-html5ever uses callbacks to manipulate the DOM, and does not provide any DOM tree representation. 
+html5ever uses callbacks to manipulate the DOM, therefore it does not provide any DOM tree representation. 
 
 html5ever exclusively uses UTF-8 to represent strings.  In the future it will support other document encodings (and UCS-2 `document.write`) by converting input.
 
