@@ -304,9 +304,9 @@ impl QualName {
     #[inline]
     pub fn new(prefix: Option<Prefix>, ns: Namespace, local: LocalName) -> QualName {
         QualName {
-            prefix: prefix,
-            ns: ns,
-            local: local,
+            prefix,
+            ns,
+            local,
         }
     }
 

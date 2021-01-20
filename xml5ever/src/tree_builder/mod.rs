@@ -229,8 +229,8 @@ where
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
             _opts: opts,
-            sink: sink,
-            doc_handle: doc_handle,
+            sink,
+            doc_handle,
             next_tokenizer_state: None,
             open_elems: vec![],
             curr_elem: None,
@@ -622,8 +622,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -640,8 +640,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -679,8 +679,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -695,8 +695,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -717,8 +717,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EndTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag

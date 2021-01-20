@@ -82,10 +82,10 @@ impl<Wr: Write> HtmlSerializer<Wr> {
             TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n)),
         };
         HtmlSerializer {
-            writer: writer,
-            opts: opts,
+            writer,
+            opts,
             stack: vec![ElemInfo {
-                html_name: html_name,
+                html_name,
                 ignore_children: false,
                 processed_first_child: false,
             }],
@@ -131,7 +131,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
 
         if self.parent().ignore_children {
             self.stack.push(ElemInfo {
-                html_name: html_name,
+                html_name,
                 ignore_children: true,
                 processed_first_child: false,
             });
@@ -192,8 +192,8 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
         self.parent().processed_first_child = true;
 
         self.stack.push(ElemInfo {
-            html_name: html_name,
-            ignore_children: ignore_children,
+            html_name,
+            ignore_children,
             processed_first_child: false,
         });
 

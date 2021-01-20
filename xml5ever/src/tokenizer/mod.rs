@@ -175,16 +175,16 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
         let discard_bom = opts.discard_bom;
         XmlTokenizer {
-            opts: opts,
-            sink: sink,
-            state: state,
+            opts,
+            sink,
+            state,
             char_ref_tokenizer: None,
             at_eof: false,
             current_char: '\0',
             reconsume: false,
             ignore_lf: false,
             temp_buf: StrTendril::new(),
-            discard_bom: discard_bom,
+            discard_bom,
             current_tag_kind: StartTag,
             current_tag_name: StrTendril::new(),
             current_tag_attrs: vec![],

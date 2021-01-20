@@ -103,7 +103,7 @@ impl<Wr: Write> XmlSerializer<Wr> {
     /// Creates a new Serializier from a writer and given serialization options.
     pub fn new(writer: Wr) -> Self {
         XmlSerializer {
-            writer: writer,
+            writer,
             namespace_stack: NamespaceMapStack::new(),
         }
     }
