@@ -31,8 +31,8 @@ use crate::{LocalName, Namespace, Prefix};
 
 use crate::tendril::{StrTendril, Tendril};
 
-static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
-static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";
+static XML_URI: &str = "http://www.w3.org/XML/1998/namespace";
+static XMLNS_URI: &str = "http://www.w3.org/2000/xmlns/";
 
 type InsResult = Result<(), Cow<'static, str>>;
 

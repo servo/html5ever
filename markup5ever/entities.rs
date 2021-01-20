@@ -1,4 +1,4 @@
-pub const NAMED_ENTITIES: [(&'static str, u32, u32); 2231] = [
+pub const NAMED_ENTITIES: [(&str, u32, u32); 2231] = [
     ("&Aacute;", 193, 0),
     ("&Aacute", 193, 0),
     ("&aacute;", 225, 0),
