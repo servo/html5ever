@@ -649,7 +649,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         match self.state {
             XmlState::Quiescent => {
                 self.state = XmlState::Data;
-                return false;
+                false
             },
             //§ data-state
             XmlState::Data => loop {
