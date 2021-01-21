@@ -530,7 +530,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token_and_continue(DoctypeToken(doctype));
     }
 
-    fn doctype_id<'a>(&'a mut self, kind: DoctypeIdKind) -> &'a mut Option<StrTendril> {
+    fn doctype_id(&mut self, kind: DoctypeIdKind) -> &mut Option<StrTendril> {
         match kind {
             Public => &mut self.current_doctype.public_id,
             System => &mut self.current_doctype.system_id,

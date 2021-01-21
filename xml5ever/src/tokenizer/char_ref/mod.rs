@@ -84,13 +84,13 @@ impl CharRefTokenizer {
         self.result.expect("get_result called before done")
     }
 
-    fn name_buf<'t>(&'t self) -> &'t StrTendril {
+    fn name_buf(&self) -> &StrTendril {
         self.name_buf_opt
             .as_ref()
             .expect("name_buf missing in named character reference")
     }
 
-    fn name_buf_mut<'t>(&'t mut self) -> &'t mut StrTendril {
+    fn name_buf_mut(&mut self) -> &mut StrTendril {
         self.name_buf_opt
             .as_mut()
             .expect("name_buf missing in named character reference")
