@@ -130,6 +130,7 @@ impl<Sink: TreeSink> Parser<Sink> {
     ///
     /// Use this when your input is bytes that are known to be in the UTF-8 encoding.
     /// Decoding is lossy, like `String::from_utf8_lossy`.
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_utf8(self) -> Utf8LossyDecoder<Self> {
         Utf8LossyDecoder::new(self)
     }
