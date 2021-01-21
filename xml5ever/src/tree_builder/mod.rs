@@ -362,7 +362,8 @@ where
                 new_attr.push(attr.clone());
             }
         }
-        mem::replace(&mut tag.attrs, new_attr);
+        tag.attrs = new_attr;
+
         // Then we bind the tags namespace.
         self.bind_qname(&mut tag.name);
 
