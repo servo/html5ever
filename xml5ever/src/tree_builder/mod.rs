@@ -248,7 +248,9 @@ where
         for e in self.open_elems.iter() {
             tracer.trace_handle(&e);
         }
-        self.curr_elem.as_ref().map(|h| tracer.trace_handle(&h));
+        if let Some(h) = self.curr_elem.as_ref() {
+            tracer.trace_handle(&h);
+        }
     }
 
     // Debug helper
