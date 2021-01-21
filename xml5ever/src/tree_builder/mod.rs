@@ -74,7 +74,7 @@ impl Debug for NamespaceMap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "\nNamespaceMap[")?;
         for (key, value) in &self.scope {
-            write!(f, "   {:?} : {:?}\n", key, value)?;
+            writeln!(f, "   {:?} : {:?}", key, value)?;
         }
         write!(f, "]")
     }
@@ -386,6 +386,8 @@ where
 
         loop {
             let phase = self.phase;
+
+            #[allow(clippy::unused_unit)]
             match self.step(phase, token) {
                 Done => {
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
