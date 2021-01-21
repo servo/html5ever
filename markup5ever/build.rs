@@ -87,7 +87,7 @@ fn named_entities_to_phf(to: &Path) {
     let mut entities: HashMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
         .iter()
         .map(|(name, cp1, cp2)| {
-            assert!(name.starts_with("&"));
+            assert!(name.starts_with('&'));
             (&name[1..], (*cp1, *cp2))
         })
         .collect();
