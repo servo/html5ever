@@ -95,8 +95,7 @@ impl BufferQueue {
         debug_assert!(
             self.buffers
                 .iter()
-                .skip_while(|el| el.len32() != 0)
-                .next()
+                .find(|el| el.len32() == 0)
                 .is_none(),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
