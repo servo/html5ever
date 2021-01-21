@@ -18,7 +18,7 @@ use std::path::Path;
 
 mod entities;
 
-static NAMESPACES: &'static [(&'static str, &'static str)] = &[
+static NAMESPACES: &[(&str, &str)] = &[
     ("", ""),
     ("*", "*"),
     ("html", "http://www.w3.org/1999/xhtml"),

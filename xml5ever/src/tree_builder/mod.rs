@@ -31,8 +31,8 @@ use crate::{LocalName, Namespace, Prefix};
 
 use crate::tendril::{StrTendril, Tendril};
 
-static XML_URI: &'static str = "http://www.w3.org/XML/1998/namespace";
-static XMLNS_URI: &'static str = "http://www.w3.org/2000/xmlns/";
+static XML_URI: &str = "http://www.w3.org/XML/1998/namespace";
+static XMLNS_URI: &str = "http://www.w3.org/2000/xmlns/";
 
 type InsResult = Result<(), Cow<'static, str>>;
 
@@ -229,8 +229,8 @@ where
         let doc_handle = sink.get_document();
         XmlTreeBuilder {
             _opts: opts,
-            sink: sink,
-            doc_handle: doc_handle,
+            sink,
+            doc_handle,
             next_tokenizer_state: None,
             open_elems: vec![],
             curr_elem: None,
@@ -622,8 +622,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -640,8 +640,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -679,8 +679,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: StartTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -695,8 +695,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EmptyTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag
@@ -717,8 +717,8 @@ where
                     let tag = {
                         let mut tag = Tag {
                             kind: EndTag,
-                            name: name,
-                            attrs: attrs,
+                            name,
+                            attrs,
                         };
                         self.process_namespaces(&mut tag);
                         tag

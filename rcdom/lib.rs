@@ -263,7 +263,7 @@ impl TreeSink for RcDom {
         flags: ElementFlags,
     ) -> Handle {
         Node::new(NodeData::Element {
-            name: name,
+            name,
             attrs: RefCell::new(attrs),
             template_contents: RefCell::new(if flags.template {
                 Some(Node::new(NodeData::Document))
@@ -371,9 +371,9 @@ impl TreeSink for RcDom {
         append(
             &self.document,
             Node::new(NodeData::Doctype {
-                name: name,
-                public_id: public_id,
-                system_id: system_id,
+                name,
+                public_id,
+                system_id,
             }),
         );
     }

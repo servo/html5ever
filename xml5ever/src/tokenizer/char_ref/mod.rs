@@ -66,7 +66,7 @@ impl CharRefTokenizer {
     pub fn new(addnl_allowed: Option<char>) -> CharRefTokenizer {
         CharRefTokenizer {
             state: Begin,
-            addnl_allowed: addnl_allowed,
+            addnl_allowed,
             result: None,
             num: 0,
             num_too_big: false,

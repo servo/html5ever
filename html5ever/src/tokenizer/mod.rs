@@ -180,15 +180,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let state = opts.initial_state.unwrap_or(states::Data);
         let discard_bom = opts.discard_bom;
         Tokenizer {
-            opts: opts,
-            sink: sink,
-            state: state,
+            opts,
+            sink,
+            state,
             char_ref_tokenizer: None,
             at_eof: false,
             current_char: '\0',
             reconsume: false,
             ignore_lf: false,
-            discard_bom: discard_bom,
+            discard_bom,
             current_tag_kind: StartTag,
             current_tag_name: StrTendril::new(),
             current_tag_self_closing: false,
@@ -431,7 +431,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         let token = TagToken(Tag {
             kind: self.current_tag_kind,
-            name: name,
+            name,
             self_closing: self.current_tag_self_closing,
             attrs: replace(&mut self.current_tag_attrs, vec![]),
         });
@@ -1632,7 +1632,7 @@ mod test {
         let name = LocalName::from(&*token);
         let token = TagToken(Tag {
             kind: tagkind,
-            name: name,
+            name,
             self_closing: false,
             attrs: vec![],
         });

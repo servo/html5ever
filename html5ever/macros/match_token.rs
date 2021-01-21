@@ -184,7 +184,7 @@ impl Parse for Tag {
             } else {
                 TagKind::StartTag
             },
-            name: name,
+            name,
         })
     }
 }

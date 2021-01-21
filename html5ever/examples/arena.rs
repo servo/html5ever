@@ -238,7 +238,7 @@ impl<'arena> TreeSink for Sink<'arena> {
         flags: ElementFlags,
     ) -> Ref<'arena> {
         self.new_node(NodeData::Element {
-            name: name,
+            name,
             attrs: RefCell::new(attrs),
             template_contents: if flags.template {
                 Some(self.new_node(NodeData::Document))
@@ -296,9 +296,9 @@ impl<'arena> TreeSink for Sink<'arena> {
         system_id: StrTendril,
     ) {
         self.document.append(self.new_node(NodeData::Doctype {
-            name: name,
-            public_id: public_id,
-            system_id: system_id,
+            name,
+            public_id,
+            system_id,
         }))
     }
 
