@@ -118,7 +118,7 @@ impl Node {
     /// Create a new node from its contents
     pub fn new(data: NodeData) -> Rc<Self> {
         Rc::new(Node {
-            data: data,
+            data,
             parent: Cell::new(None),
             children: RefCell::new(Vec::new()),
         })
@@ -280,7 +280,7 @@ impl TreeSink for RcDom {
 
     fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Handle {
         Node::new(NodeData::ProcessingInstruction {
-            target: target,
+            target,
             contents: data,
         })
     }
@@ -467,8 +467,8 @@ impl Serialize for SerializableHandle {
 
         while let Some(op) = ops.pop_front() {
             match op {
-                SerializeOp::Open(handle) => match &handle.data {
-                    &NodeData::Element {
+                SerializeOp::Open(handle) => match handle.data {
+                    NodeData::Element {
                         ref name,
                         ref attrs,
                         ..
@@ -486,20 +486,20 @@ impl Serialize for SerializableHandle {
                         }
                     },
 
-                    &NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+                    NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
 
-                    &NodeData::Text { ref contents } => {
+                    NodeData::Text { ref contents } => {
                         serializer.write_text(&contents.borrow())?
                     },
 
-                    &NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
+                    NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
 
-                    &NodeData::ProcessingInstruction {
+                    NodeData::ProcessingInstruction {
                         ref target,
                         ref contents,
                     } => serializer.write_processing_instruction(target, contents)?,
 
-                    &NodeData::Document => panic!("Can't serialize Document node itself"),
+                    NodeData::Document => panic!("Can't serialize Document node itself"),
                 },
 
                 SerializeOp::Close(name) => {
