@@ -1226,7 +1226,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn finish_attribute(&mut self) {
-        if self.current_attr_name.len() == 0 {
+        if self.current_attr_name.is_empty() {
             return;
         }
 

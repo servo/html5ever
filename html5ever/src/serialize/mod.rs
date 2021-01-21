@@ -93,7 +93,7 @@ impl<Wr: Write> HtmlSerializer<Wr> {
     }
 
     fn parent(&mut self) -> &mut ElemInfo {
-        if self.stack.len() == 0 {
+        if self.stack.is_empty() {
             if self.opts.create_missing_parent {
                 warn!("ElemInfo stack empty, creating new parent");
                 self.stack.push(Default::default());

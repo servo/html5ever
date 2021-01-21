@@ -1429,7 +1429,7 @@ where
             return false;
         }
 
-        if self.open_elems.len() == 0 {
+        if self.open_elems.is_empty() {
             return false;
         }
 

@@ -31,7 +31,7 @@ impl<'a> QualNameTokenizer<'a> {
     }
 
     pub fn run(&mut self) -> Option<u32> {
-        if self.slice.len() > 0 {
+        if !self.slice.is_empty() {
             loop {
                 if !self.step() {
                     break;
