@@ -683,6 +683,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // Run the state machine for a while.
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
+    #[allow(clippy::never_loop)]
     fn step(&mut self, input: &mut BufferQueue) -> ProcessResult<Sink::Handle> {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer(input);
