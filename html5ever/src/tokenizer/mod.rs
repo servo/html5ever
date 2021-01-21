@@ -300,13 +300,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // It shouldn't matter because the fallback `FromSet` case should
         // always do the same thing as the `NotFromSet` case.
         if self.opts.exact_errors || self.reconsume || self.ignore_lf {
-            return self.get_char(input).map(|x| FromSet(x));
+            return self.get_char(input).map(FromSet);
         }
 
         let d = input.pop_except_from(set);
         debug!("got characters {:?}", d);
         match d {
-            Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(|x| FromSet(x)),
+            Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(FromSet),
 
             // NB: We don't set self.current_char for a run of characters not
             // in the set.  It shouldn't matter for the codepaths that use
