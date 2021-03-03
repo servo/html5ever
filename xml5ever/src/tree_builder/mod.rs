@@ -502,7 +502,7 @@ where
                 Some(expr) => expr,
                 None => Tendril::new(),
             }
-        };
+        }
         self.sink.append_doctype_to_document(
             get_tendril(doctype.name),
             get_tendril(doctype.public_id),
