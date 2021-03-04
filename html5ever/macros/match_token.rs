@@ -108,7 +108,6 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
-use syn;
 use syn::ext::IdentExt;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
@@ -254,7 +253,7 @@ impl Parse for MatchToken {
 pub fn expand_match_token(body: &TokenStream) -> syn::Expr {
     let match_token = syn::parse2::<MatchToken>(body.clone());
     let ast = expand_match_token_macro(match_token.unwrap());
-    syn::parse2(ast.into()).unwrap()
+    syn::parse2(ast).unwrap()
 }
 
 fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {

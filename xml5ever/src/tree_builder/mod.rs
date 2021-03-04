@@ -74,7 +74,7 @@ impl Debug for NamespaceMap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "\nNamespaceMap[")?;
         for (key, value) in &self.scope {
-            write!(f, "   {:?} : {:?}\n", key, value)?;
+            writeln!(f, "   {:?} : {:?}", key, value)?;
         }
         write!(f, "]")
     }
@@ -248,7 +248,9 @@ where
         for e in self.open_elems.iter() {
             tracer.trace_handle(&e);
         }
-        self.curr_elem.as_ref().map(|h| tracer.trace_handle(&h));
+        if let Some(h) = self.curr_elem.as_ref() {
+            tracer.trace_handle(&h);
+        }
     }
 
     // Debug helper
@@ -360,7 +362,8 @@ where
                 new_attr.push(attr.clone());
             }
         }
-        mem::replace(&mut tag.attrs, new_attr);
+        tag.attrs = new_attr;
+
         // Then we bind the tags namespace.
         self.bind_qname(&mut tag.name);
 
@@ -383,6 +386,8 @@ where
 
         loop {
             let phase = self.phase;
+
+            #[allow(clippy::unused_unit)]
             match self.step(phase, token) {
                 Done => {
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
@@ -497,7 +502,7 @@ where
                 Some(expr) => expr,
                 None => Tendril::new(),
             }
-        };
+        }
         self.sink.append_doctype_to_document(
             get_tendril(doctype.name),
             get_tendril(doctype.public_id),

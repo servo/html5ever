@@ -95,8 +95,7 @@ impl BufferQueue {
         debug_assert!(
             self.buffers
                 .iter()
-                .skip_while(|el| el.len32() != 0)
-                .next()
+                .find(|el| el.len32() == 0)
                 .is_none(),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
@@ -202,15 +201,14 @@ impl BufferQueue {
     pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;
-        if self.buffers.front().is_none() {
-            return None;
-        }
+
+        self.buffers.front()?;
 
         for pattern_byte in pat.bytes() {
             if buffers_exhausted >= self.buffers.len() {
                 return None;
             }
-            let ref buf = self.buffers[buffers_exhausted];
+            let buf = &self.buffers[buffers_exhausted];
 
             if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
                 return Some(false);
