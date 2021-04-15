@@ -185,7 +185,7 @@ kind of function that will help us traverse it. We shall call that function `wal
                 => println!("#document"),
 
             Text(ref text)  => {
-                println!("#text {}", escape_default(text))
+                println!("#text {}", text.escape_default())
             },
 
             Element(ref name, _) => {
