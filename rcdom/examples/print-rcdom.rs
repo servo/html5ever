@@ -36,10 +36,10 @@ fn walk(indent: usize, handle: &Handle) {
         } => println!("<!DOCTYPE {} \"{}\" \"{}\">", name, public_id, system_id),
 
         NodeData::Text { ref contents } => {
-            println!("#text: {}", escape_default(&contents.borrow()))
+            println!("#text: {}", contents.borrow().escape_default())
         },
 
-        NodeData::Comment { ref contents } => println!("<!-- {} -->", escape_default(contents)),
+        NodeData::Comment { ref contents } => println!("<!-- {} -->", contents.escape_default()),
 
         NodeData::Element {
             ref name,
@@ -61,11 +61,6 @@ fn walk(indent: usize, handle: &Handle) {
     for child in node.children.borrow().iter() {
         walk(indent + 4, child);
     }
-}
-
-// FIXME: Copy of str::escape_default from std, which is currently unstable
-pub fn escape_default(s: &str) -> String {
-    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 fn main() {

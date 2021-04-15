@@ -80,7 +80,7 @@ impl TreeSink for Sink {
 
     fn create_comment(&mut self, text: StrTendril) -> usize {
         let id = self.get_id();
-        println!("Created comment \"{}\" as {}", escape_default(&text), id);
+        println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
     }
 
@@ -92,14 +92,14 @@ impl TreeSink for Sink {
     fn append(&mut self, parent: &usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n) => println!("Append node {} to {}", n, parent),
-            AppendText(t) => println!("Append text to {}: \"{}\"", parent, escape_default(&t)),
+            AppendText(t) => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
         }
     }
 
     fn append_before_sibling(&mut self, sibling: &usize, new_node: NodeOrText<usize>) {
         match new_node {
             AppendNode(n) => println!("Append node {} before {}", n, sibling),
-            AppendText(t) => println!("Append text before {}: \"{}\"", sibling, escape_default(&t)),
+            AppendText(t) => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
         }
     }
 
@@ -157,11 +157,6 @@ impl TreeSink for Sink {
     fn pop(&mut self, elem: &usize) {
         println!("Popped element {}", elem);
     }
-}
-
-// FIXME: Copy of str::escape_default from std, which is currently unstable
-pub fn escape_default(s: &str) -> String {
-    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 fn main() {

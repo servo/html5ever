@@ -26,7 +26,7 @@ fn walk(prefix: &str, handle: &Handle) {
     match node.data {
         NodeData::Document => println!("#document"),
 
-        NodeData::Text { ref contents } => println!("#text {}", escape_default(&contents.borrow())),
+        NodeData::Text { ref contents } => println!("#text {}", contents.borrow().escape_default()),
 
         NodeData::Element { ref name, .. } => {
             println!("{}", name.local);
@@ -53,10 +53,6 @@ fn walk(prefix: &str, handle: &Handle) {
     {
         walk(&new_indent, child);
     }
-}
-
-pub fn escape_default(s: &str) -> String {
-    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 fn main() {
