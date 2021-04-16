@@ -11,7 +11,6 @@ use super::{TokenSink, Tokenizer};
 use crate::buffer_queue::BufferQueue;
 use crate::data;
 use crate::tendril::StrTendril;
-use crate::util::str::is_ascii_alnum;
 
 use log::debug;
 use mac::format_if;
@@ -320,7 +319,7 @@ impl CharRefTokenizer {
         match self.name_match {
             None => {
                 match end_char {
-                    Some(c) if is_ascii_alnum(c) => {
+                    Some(c) if c.is_ascii_alphanumeric() => {
                         // Keep looking for a semicolon, to determine whether
                         // we emit a parse error.
                         self.state = BogusName;
@@ -375,7 +374,7 @@ impl CharRefTokenizer {
                         ));
                         true
                     },
-                    (Some(_), _, Some(c)) if is_ascii_alnum(c) => true,
+                    (Some(_), _, Some(c)) if c.is_ascii_alphanumeric() => true,
                     _ => {
                         tokenizer.emit_error(Borrowed(
                             "Character reference does not end with semicolon",
@@ -407,7 +406,7 @@ impl CharRefTokenizer {
         let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
         self.name_buf_mut().push_char(c);
         match c {
-            _ if is_ascii_alnum(c) => return Progress,
+            _ if c.is_ascii_alphanumeric() => return Progress,
             ';' => self.emit_name_error(tokenizer),
             _ => (),
         }
