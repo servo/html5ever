@@ -10,7 +10,7 @@
 mod types;
 
 use log::{debug, warn};
-use mac::{_tt_as_expr_hack, matches, unwrap_or_return};
+use mac::unwrap_or_return;
 use markup5ever::{local_name, namespace_prefix, namespace_url, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;

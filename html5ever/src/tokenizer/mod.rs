@@ -24,7 +24,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use crate::util::str::lower_ascii_letter;
 
 use log::debug;
-use mac::{_tt_as_expr_hack, format_if, matches};
+use mac::format_if;
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;

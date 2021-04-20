@@ -36,7 +36,7 @@ use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
 use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
-use mac::{_tt_as_expr_hack, format_if, matches};
+use mac::{_tt_as_expr_hack, format_if};
 
 pub use self::PushFlag::*;
 
