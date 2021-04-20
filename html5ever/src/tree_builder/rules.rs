@@ -20,7 +20,7 @@ use crate::tendril::SliceExt;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
-    x.chars().any(|c| !is_ascii_whitespace(c))
+    x.chars().any(|c| !c.is_ascii_whitespace())
 }
 
 fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {

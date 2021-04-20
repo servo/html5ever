@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use mac::{_tt_as_expr_hack, matches};
 use std::fmt;
 
 pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
@@ -24,12 +23,6 @@ pub fn lower_ascii_letter(c: char) -> Option<char> {
         'A'..='Z' => Some((c as u8 - b'A' + b'a') as char),
         _ => None,
     }
-}
-
-/// ASCII whitespace characters, as defined by
-/// tree construction modes that treat them specially.
-pub fn is_ascii_whitespace(c: char) -> bool {
-    matches!(c, '\t' | '\r' | '\n' | '\x0C' | ' ')
 }
 
 #[cfg(test)]
