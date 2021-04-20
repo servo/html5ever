@@ -24,8 +24,6 @@ use crate::tokenizer;
 use crate::tokenizer::states as tok_state;
 use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
-use crate::util::str::is_ascii_whitespace;
-
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 use std::default::Default;
@@ -362,7 +360,7 @@ where
                     token = t;
                 },
                 SplitWhitespace(mut buf) => {
-                    let p = buf.pop_front_char_run(is_ascii_whitespace);
+                    let p = buf.pop_front_char_run(|c| c.is_ascii_whitespace());
                     let (first, is_ws) = unwrap_or_return!(p, tokenizer::TokenSinkResult::Continue);
                     let status = if is_ws { Whitespace } else { NotWhitespace };
                     token = CharacterTokens(status, first);
