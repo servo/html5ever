@@ -43,8 +43,6 @@ macro_rules! time {
     }};
 }
 
-mod util;
-
 /// Driver
 pub mod driver;
 /// Serializer for XML5.
