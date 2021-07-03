@@ -15,10 +15,10 @@ path = "lib.rs"
 
 [dependencies]
 string_cache = "0.8"
-phf = "0.8"
+phf = "0.9"
 tendril = "0.4"
 log = "0.4"
 
 [build-dependencies]
 string_cache_codegen = "0.5.1"
-phf_codegen = "0.8"
+phf_codegen = "0.9"
