@@ -11,7 +11,6 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
-use log::warn;
 use crate::interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
@@ -215,15 +214,20 @@ pub trait TreeSink {
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(not(api_v2))]
     #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
-    fn pop(&mut self, node: &Self::Handle) {
-        self.pop_unconditional(node)
-    }
+    fn pop(&mut self, _node: &Self::Handle) {}
 
+    #[cfg(api_v2)]
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
     fn pop_unconditional(&mut self, node: &Self::Handle) {
         if self.pop_v2(node).is_err() {
             warn!("no current element");
         };
+    }
+
+    #[cfg(not(api_v2))]
+    /// Like pop(), but in the case of no open element, just warn instead of returning an error.
+    fn pop_unconditional(&mut self, node: &Self::Handle) {
+        self.pop(node)
     }
 
     /// Indicate that a node was popped off the stack of open elements.

@@ -655,16 +655,23 @@ where
     #[cfg(not(api_v2))]
     #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn current_node(&self) -> &Handle {
-        self.current_node_unconditional()
+        self.open_elems.last().expect("no current node")
     }
 
-    /// Like pop(), but in the case of no open element, just warn instead of returning an error.
+    #[cfg(api_v2)]
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
         let current = self.current_node();
         if self.current_node_v2().is_none() {
             warn!("no current element");
         }
         current
+    }
+
+    #[cfg(not(api_v2))]
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
+    fn current_node_unconditional(&self) -> &Handle {
+        self.current_node()
     }
 
     /// Note: Don't use this function, use pop() with api_v2 feature instead.

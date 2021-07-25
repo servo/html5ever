@@ -138,7 +138,7 @@ where
                 }
 
                 </head> => {
-                    self.pop();
+                    self.pop_unconditional();
                     self.mode = AfterHead;
                     Done
                 }
@@ -171,7 +171,7 @@ where
                 tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(AfterHead, token)
                 }
             }),
@@ -181,7 +181,7 @@ where
                 <html> => self.step(InBody, token),
 
                 </noscript> => {
-                    self.pop();
+                    self.pop_unconditional();
                     self.mode = InHead;
                     Done
                 },
@@ -201,7 +201,7 @@ where
 
                 token => {
                     self.unexpected(&token);
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(InHead, token)
                 },
             }),
@@ -353,7 +353,7 @@ where
                     self.close_p_element_in_button_scope();
                     if self.current_node_in(heading_tag) {
                         self.sink.parse_error(Borrowed("nested heading tags"));
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -666,7 +666,7 @@ where
 
                 tag @ <optgroup> <option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
@@ -735,7 +735,7 @@ where
                         let current = current_node(&self.open_elems);
                         self.sink.mark_script_already_started(current);
                     }
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(self.orig_mode.take().unwrap(), token)
                 }
 
@@ -928,7 +928,7 @@ where
 
                 </colgroup> => {
                     if self.current_node_named(local_name!("colgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                         self.mode = InTable;
                     } else {
                         self.unexpected(&token);
@@ -944,7 +944,7 @@ where
 
                 token => {
                     if self.current_node_named(local_name!("colgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                         Reprocess(InTable, token)
                     } else {
                         self.unexpected(&token)
@@ -971,7 +971,7 @@ where
                 tag @ </tbody> </tfoot> </thead> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
-                        self.pop();
+                        self.pop_unconditional();
                         self.mode = InTable;
                     } else {
                         self.unexpected(&tag);
@@ -983,7 +983,7 @@ where
                     declare_tag_set!(table_outer = "table" "tbody" "tfoot");
                     if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
                         self.pop_until_current(table_body_context);
-                        self.pop();
+                        self.pop_unconditional();
                         Reprocess(InTable, token)
                     } else {
                         self.unexpected(&token)
@@ -1098,7 +1098,7 @@ where
 
                 tag @ <option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -1106,10 +1106,10 @@ where
 
                 tag @ <optgroup> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -1120,10 +1120,10 @@ where
                         && self.current_node_named(local_name!("option"))
                         && self.html_elem_named(&self.open_elems[self.open_elems.len() - 2],
                             local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     } else {
                         self.unexpected(&token);
                     }
@@ -1132,7 +1132,7 @@ where
 
                 </option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     } else {
                         self.unexpected(&token);
                     }
@@ -1289,7 +1289,7 @@ where
                     if self.open_elems.len() == 1 {
                         self.unexpected(&token);
                     } else {
-                        self.pop();
+                        self.pop_unconditional();
                         if !self.is_fragment() && !self.current_node_named(local_name!("frameset")) {
                             self.mode = AfterFrameset;
                         }
