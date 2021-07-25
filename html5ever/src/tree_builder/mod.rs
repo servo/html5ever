@@ -647,29 +647,29 @@ where
 
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(api_v2)]
-    fn current_node(&mut self, node: &Self::Handle) -> Option<&Handle> {
-        self.current_node_v2(node)
+    fn current_node(&self) -> Option<&Handle> {
+        self.current_node_v2()
     }
 
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(not(api_v2))]
     #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
-    fn current_node(&mut self, node: &Handle) -> &Handle {
-        self.current_node_unconditional(node)
+    fn current_node(&self) -> &Handle {
+        self.current_node_unconditional()
     }
 
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
-    fn current_node_unconditional(&mut self, node: &Handle) -> &Handle {
-        let current = self.current_node(node);
-        if self.current_node_v2(node).is_none() {
+    fn current_node_unconditional(&self) -> &Handle {
+        let current = self.current_node();
+        if self.current_node_v2().is_none() {
             warn!("no current element");
         }
         current
     }
 
     /// Note: Don't use this function, use pop() with api_v2 feature instead.
-    fn current_node_v2(&mut self, node: &Self::Handle) -> Option<&Handle> {
-        self.open_elems.last(node)
+    fn current_node_v2(&self) -> Option<&Handle> {
+        self.open_elems.last()
     }
 
     fn adjusted_current_node(&self) -> &Handle {
