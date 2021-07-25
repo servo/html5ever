@@ -696,7 +696,7 @@ where
                 return ctx;
             }
         }
-        self.current_node()
+        self.current_node_unconditional()
     }
 
     // FIXME: Deprecate

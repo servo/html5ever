@@ -471,7 +471,7 @@ where
                         self.generate_implied_end(cursory_implied_end);
                         if let Some(current) = self.current_node_v2() {
                             self.remove_from_stack(&node);
-                            if !self.sink.same_node(&self.current_node().clone(), &node) {
+                            if !self.sink.same_node(&self.current_node_unconditional().clone(), &node) {
                                 self.sink.parse_error(Borrowed("Bad open element on </form>"));
                             }
                         }

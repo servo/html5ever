@@ -609,10 +609,10 @@ where
         self.open_elems.is_empty()
     }
 
-    #[cfg(feature = "api_v2")]
-    fn pop(&mut self) -> Result<Handle, SuperfluousClosingElement> {
-        self.pop_v2()
-    }
+    // #[cfg(feature = "api_v2")]
+    // fn pop(&mut self) -> Result<Handle, SuperfluousClosingElement> {
+    //     self.pop_v2()
+    // }
 
     #[cfg(not(feature = "api_v2"))]
     fn pop(&mut self) -> Handle {
