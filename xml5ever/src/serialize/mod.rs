@@ -60,7 +60,7 @@ impl NamespaceMapStack {
     }
 
     fn pop(&mut self) {
-        self.0.pop();
+        self.0.pop().expect("no such element");
     }
 }
 

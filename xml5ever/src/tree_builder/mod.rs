@@ -11,7 +11,7 @@ mod types;
 
 use log::{debug, warn};
 use mac::{_tt_as_expr_hack, matches, unwrap_or_return};
-use markup5ever::{local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{local_name, namespace_prefix, namespace_url, ns, interface::tree_builder::SuperfluousClosingElement};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::collections::btree_map::Iter;
@@ -53,8 +53,8 @@ impl NamespaceMapStack {
     }
 
     #[doc(hidden)]
-    pub fn pop(&mut self) {
-        self.0.pop();
+    pub fn pop_v2(&mut self) -> Option<NamespaceMap> {
+        self.0.pop()
     }
 }
 
@@ -428,7 +428,7 @@ where
 
     fn end(&mut self) {
         for node in self.open_elems.drain(..).rev() {
-            self.sink.pop(&node);
+            self.sink.pop_unconditional(&node); // It may give multiple warnings. Maybe better to produce just a single warning.
         }
     }
 
@@ -437,8 +437,29 @@ where
     }
 }
 
-fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
-    open_elems.last().expect("no current element")
+/// Indicate that a node was popped off the stack of open elements.
+#[cfg(api_v2)]
+fn current_node<Handle>(open_elems: &[Handle]) -> Option<&Handle> {
+    current_node_v2(open_elems)
+}
+
+// /// Indicate that a node was popped off the stack of open elements.
+// #[cfg(not(api_v2))]
+// #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+// fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
+//     current_node_unconditional(open_elems)
+// }
+
+/// Like pop(), but in the case of no open element, just warn instead of returning an error.
+fn current_node_unconditional<Handle>(open_elems: &[Handle]) -> &Handle {
+    current_node_v2(open_elems).expect("no current element")
+}
+
+/// Indicate that a node was popped off the stack of open elements.
+///
+/// Note: Don't use this function, use pop() with api_v2 feature instead.
+fn current_node_v2<Handle>(open_elems: &[Handle]) -> Option<&Handle> {
+    open_elems.last()
 }
 
 #[doc(hidden)]
@@ -447,12 +468,16 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn current_node(&self) -> &Handle {
-        self.open_elems.last().expect("no current element")
+    fn current_node_v2(&self) -> Option<&Handle> {
+        self.open_elems.last()
+    }
+
+    fn current_node_unconditional(&self) -> &Handle {
+        self.current_node_v2().expect("no current element")
     }
 
     fn insert_appropriately(&mut self, child: NodeOrText<Handle>) {
-        let target = current_node(&self.open_elems);
+        let target = current_node_unconditional(&self.open_elems); // FIXME: Is using `current_node_unconditional()` correct?
         self.sink.append(target, child);
     }
 
@@ -465,7 +490,7 @@ where
     fn append_tag(&mut self, tag: Tag) -> XmlProcessResult {
         let child = create_element(&mut self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
-        self.sink.pop(&child);
+        self.sink.pop_unconditional(&child); // FIXME: This may be an error: Does the element necessarily exist?
         Done
     }
 
@@ -490,7 +515,7 @@ where
     }
 
     fn append_comment_to_tag(&mut self, text: StrTendril) -> XmlProcessResult {
-        let target = current_node(&self.open_elems);
+        let target = current_node_unconditional(&self.open_elems); // FIXME: Is using `current_node_unconditional()` correct?
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
@@ -518,7 +543,7 @@ where
     }
 
     fn append_pi_to_tag(&mut self, pi: Pi) -> XmlProcessResult {
-        let target = current_node(&self.open_elems);
+        let target = current_node_unconditional(&self.open_elems); // FIXME: Is using `current_node_unconditional()` correct?
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(target, AppendNode(pi));
         Done
@@ -545,26 +570,27 @@ where
             if self.current_node_in(|x| pred(x)) {
                 break;
             }
-            self.pop();
+            self.pop_unconditional();
         }
     }
 
+    // FIXME: Is using `current_node_unconditional()` correct?
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
         // FIXME: take namespace into consideration:
-        set(self.sink.elem_name(self.current_node()))
+        set(self.sink.elem_name(self.current_node_unconditional()))
     }
 
     fn close_tag(&mut self, tag: Tag) -> XmlProcessResult {
         debug!(
             "Close tag: current_node.name {:?} \n Current tag {:?}",
-            self.sink.elem_name(self.current_node()),
+            self.sink.elem_name(self.current_node_unconditional()),
             &tag.name
         );
 
-        if *self.sink.elem_name(self.current_node()).local != tag.name.local {
+        if *self.sink.elem_name(self.current_node_unconditional()).local != tag.name.local {
             self.sink
                 .parse_error(Borrowed("Current node doesn't match tag"));
         }
@@ -573,7 +599,7 @@ where
 
         if is_closed {
             self.pop_until(|p| p == tag.name.expanded());
-            self.pop();
+            self.pop_unconditional(); // FIXME: May this erroneously panic?
         }
 
         Done
@@ -583,11 +609,39 @@ where
         self.open_elems.is_empty()
     }
 
-    fn pop(&mut self) -> Handle {
-        self.namespace_stack.pop();
-        let node = self.open_elems.pop().expect("no current element");
-        self.sink.pop(&node);
-        node
+    #[cfg(api_v2)]
+    fn pop(&mut self) -> Result<Handle, SuperfluousClosingElement> {
+        self.pop_v2()
+    }
+
+    // #[cfg(not(api_v2))]
+    // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+    // fn pop(&mut self) -> Handle {
+    //     self.pop_unconditional()
+    // }
+
+    /// Like pop(), but in the case of no open element, just warn instead of returning an error.
+    fn pop_unconditional(&mut self) -> Handle {
+        if let Ok(result) = self.pop_v2() {
+            result
+        } else {
+            panic!("no current element");
+        }
+    }
+
+    /// Indicate that a node was popped off the stack of open elements.
+    ///
+    /// Note: Don't use this function, use pop() with api_v2 feature instead.
+    fn pop_v2(&mut self) -> Result<Handle, SuperfluousClosingElement> {
+        if self.namespace_stack.pop_v2().is_none() {
+            return Err(SuperfluousClosingElement::new())
+        }
+        if let Some(node) = self.open_elems.pop() {
+            self.sink.pop_v2(&node)?;
+            Ok(node)
+        } else {
+            Err(SuperfluousClosingElement::new())
+        }
     }
 
     fn stop_parsing(&mut self) -> XmlProcessResult {
@@ -595,8 +649,9 @@ where
         Done
     }
 
+    // FIMXE: Is using `current_node_unconditional()` correct?
     fn complete_script(&mut self) {
-        let current = current_node(&self.open_elems);
+        let current = current_node_unconditional(&self.open_elems);
         if self.sink.complete_script(current) == NextParserState::Suspend {
             self.next_tokenizer_state = Some(Quiescent);
         }
@@ -653,7 +708,7 @@ where
                     };
                     self.phase = EndPhase;
                     let handle = self.append_tag_to_doc(tag);
-                    self.sink.pop(&handle);
+                    self.sink.pop_v2(&handle).unwrap();
                     Done
                 },
                 CommentToken(comment) => self.append_comment_to_doc(comment),
@@ -738,7 +793,7 @@ where
                     retval
                 },
                 TagToken(Tag { kind: ShortTag, .. }) => {
-                    self.pop();
+                    self.pop_unconditional(); // FIXME: May this erroneously panic?
                     if self.no_open_elems() {
                         self.phase = EndPhase;
                     }
