@@ -740,10 +740,11 @@ where
                 }
 
                 tag @ </_> => {
-                    let node = self.pop();
-                    self.mode = self.orig_mode.take().unwrap();
-                    if tag.name == local_name!("script") {
-                        return Script(node);
+                    if let Ok(node) = self.pop_v2() {
+                        self.mode = self.orig_mode.take().unwrap();
+                        if tag.name == local_name!("script") {
+                            return Script(node);
+                        }
                     }
                     Done
                 }
@@ -1009,9 +1010,10 @@ where
                 </tr> => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
-                        let node = self.pop();
-                        self.assert_named(&node, local_name!("tr"));
-                        self.mode = InTableBody;
+                        if let Ok(node) = self.pop_v2() {
+                            self.assert_named(&node, local_name!("tr"));
+                            self.mode = InTableBody;
+                        }
                     } else {
                         self.unexpected(&token);
                     }
@@ -1021,9 +1023,12 @@ where
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> <tr> </table> => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
-                        let node = self.pop();
-                        self.assert_named(&node, local_name!("tr"));
-                        Reprocess(InTableBody, token)
+                        if let Ok(node) = self.pop_v2() {
+                            self.assert_named(&node, local_name!("tr"));
+                            Reprocess(InTableBody, token)
+                        } else {
+                            self.unexpected(&token)
+                        }
                     } else {
                         self.unexpected(&token)
                     }
@@ -1033,9 +1038,12 @@ where
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         if self.in_scope_named(table_scope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
-                            let node = self.pop();
-                            self.assert_named(&node, local_name!("tr"));
-                            Reprocess(InTableBody, TagToken(tag))
+                            if let Ok(node) = self.pop_v2() {
+                                self.assert_named(&node, local_name!("tr"));
+                                Reprocess(InTableBody, TagToken(tag))
+                            } else {
+                                Done
+                            }
                         } else {
                             Done
                         }
