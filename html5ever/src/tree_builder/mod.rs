@@ -660,9 +660,10 @@ where
         self.current_node_v2()
     }
 
+    // FIXME: #[cfg] seems not to work together with deprecated.
     /// Indicate that a node was popped off the stack of open elements.
+    // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     #[cfg(not(api_v2))]
-    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn current_node(&self) -> &Handle {
         self.open_elems.last().expect("no current element")
     }
