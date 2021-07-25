@@ -178,6 +178,15 @@ where
         }
     }
 
+    // TODO: Hack to prevent accessing empty stack.
+    fn pop_open_elem(&mut self) -> Option<Handle> {
+        if !self.open_elems.is_empty() {
+            self.open_elems.pop()
+        } else {
+            None
+        }
+    }
+
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     /// This is for parsing fragments.
     ///
