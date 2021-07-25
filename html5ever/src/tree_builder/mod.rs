@@ -913,11 +913,9 @@ where
         }
     }
 
-    fn pop_unconditional(&mut self) -> Handle {
-        if let Ok(result) = self.pop_v2() {
-            result
-        } else {
-            panic!("no current element");
+    fn pop_unconditional(&mut self) {
+        if  self.pop_v2().is_err() {
+            warn!("no current element");
         }
     }
 
@@ -1091,7 +1089,7 @@ where
                     return;
                 }
             }
-            self.pop();
+            self.pop_unconditional();
         }
     }
 
@@ -1701,13 +1699,13 @@ where
         if self.is_fragment() {
             self.foreign_start_tag(tag)
         } else {
-            self.pop();
+            self.pop_unconditional();
             while !self.current_node_in(|n| {
                 *n.ns == ns!(html) ||
                     mathml_text_integration_point(n) ||
                     svg_html_integration_point(n)
             }) {
-                self.pop();
+                self.pop_unconditional();
             }
             ReprocessForeign(TagToken(tag))
         }
