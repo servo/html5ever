@@ -39,3 +39,7 @@ harness = false
 [[test]]
 name = "xml-tokenizer"
 harness = false
+
+[features]
+# Always use this feature in new code. In the future it will become the default.
+api_v2 = []
