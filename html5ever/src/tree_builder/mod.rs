@@ -181,7 +181,7 @@ where
     // TODO: Hack to prevent accessing empty stack.
     fn pop_open_elem(&mut self) -> Option<Handle> {
         if self.open_elems.len() > 1 {
-            self.open_elems.pop()
+            self.pop_open_elem()
         } else {
             None
         }
@@ -1155,7 +1155,7 @@ where
             if self.current_node_in(|x| pred(x)) {
                 break;
             }
-            self.open_elems.pop();
+            self.pop_open_elem();
         }
     }
 
@@ -1168,7 +1168,7 @@ where
         let mut n = 0;
         loop {
             n += 1;
-            match self.open_elems.pop() {
+            match self.pop_open_elem() {
                 None => break,
                 Some(elem) => {
                     if pred(self.sink.elem_name(&elem)) {
