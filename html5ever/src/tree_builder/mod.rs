@@ -180,7 +180,7 @@ where
 
     // TODO: Hack to prevent accessing empty stack.
     fn pop_open_elem(&mut self) -> Option<Handle> {
-        if !self.open_elems.is_empty() {
+        if self.open_elems.len() > 1 {
             self.open_elems.pop()
         } else {
             None
