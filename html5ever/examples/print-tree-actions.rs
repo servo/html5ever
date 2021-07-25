@@ -155,9 +155,15 @@ impl TreeSink for Sink {
         println!("Set current line to {}", line_number);
     }
 
+    #[cfg(api_v2)]
     fn pop(&mut self, elem: &usize) -> Result<(), SuperfluousClosingElement> {
         println!("Popped element {}", elem);
         Ok(())
+    }
+
+    #[cfg(not(api_v2))]
+    fn pop(&mut self, elem: &usize) {
+        println!("Popped element {}", elem);
     }
 }
 
