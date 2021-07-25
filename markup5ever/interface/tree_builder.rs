@@ -213,7 +213,6 @@ pub trait TreeSink {
 
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(not(api_v2))]
-    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn pop(&mut self, _node: &Self::Handle) {}
 
     #[cfg(api_v2)]
