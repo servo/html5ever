@@ -24,4 +24,5 @@ string_cache_codegen = "0.5.1"
 phf_codegen = "0.9"
 
 [features]
+# Always use this feature in new code. In the future it will become the default.
 api_v2 = []
