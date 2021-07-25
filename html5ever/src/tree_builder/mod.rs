@@ -655,7 +655,7 @@ where
     #[cfg(not(api_v2))]
     #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn current_node(&self) -> &Handle {
-        self.open_elems.last().expect("no current node")
+        self.open_elems.last().expect("no current element")
     }
 
     #[cfg(api_v2)]
