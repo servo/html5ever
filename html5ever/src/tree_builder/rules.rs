@@ -469,10 +469,11 @@ where
                             return Done;
                         }
                         self.generate_implied_end(cursory_implied_end);
-                        let current = self.current_node().clone();
-                        self.remove_from_stack(&node);
-                        if !self.sink.same_node(&current, &node) {
-                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        if let Some(current) = self.current_node_v2() {
+                            self.remove_from_stack(&node);
+                            if !self.sink.same_node(&self.current_node().clone(), &node) {
+                                self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                            }
                         }
                     } else {
                         if !self.in_scope_named(default_scope, local_name!("form")) {

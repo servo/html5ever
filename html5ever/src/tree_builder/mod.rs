@@ -400,29 +400,31 @@ where
         use self::tag_sets::*;
 
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
-        let target = override_target.unwrap_or_else(|| self.current_node().clone());
-        if !(self.foster_parenting && self.elem_in(&target, foster_target)) {
-            if self.html_elem_named(&target, local_name!("template")) {
-                // No foster parenting (inside template).
-                let contents = self.sink.get_template_contents(&target);
-                return LastChild(contents);
-            } else {
-                // No foster parenting (the common case).
-                return LastChild(target);
+        if let Some(current_node) = self.current_node_v2() {
+            let target = override_target.unwrap_or_else(|| current_node.clone());
+            if !(self.foster_parenting && self.elem_in(&target, foster_target)) {
+                if self.html_elem_named(&target, local_name!("template")) {
+                    // No foster parenting (inside template).
+                    let contents = self.sink.get_template_contents(&target);
+                    return LastChild(contents);
+                } else {
+                    // No foster parenting (the common case).
+                    return LastChild(target);
+                }
             }
-        }
 
-        // Foster parenting
-        let mut iter = self.open_elems.iter().rev().peekable();
-        while let Some(elem) = iter.next() {
-            if self.html_elem_named(&elem, local_name!("template")) {
-                let contents = self.sink.get_template_contents(&elem);
-                return LastChild(contents);
-            } else if self.html_elem_named(&elem, local_name!("table")) {
-                return TableFosterParenting {
-                    element: elem.clone(),
-                    prev_element: (*iter.peek().unwrap()).clone(),
-                };
+            // Foster parenting
+            let mut iter = self.open_elems.iter().rev().peekable();
+            while let Some(elem) = iter.next() {
+                if self.html_elem_named(&elem, local_name!("template")) {
+                    let contents = self.sink.get_template_contents(&elem);
+                    return LastChild(contents);
+                } else if self.html_elem_named(&elem, local_name!("table")) {
+                    return TableFosterParenting {
+                        element: elem.clone(),
+                        prev_element: (*iter.peek().unwrap()).clone(),
+                    };
+                }
             }
         }
         let html_elem = self.html_elem();
@@ -532,8 +534,15 @@ where
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
-        !self.open_elems.is_empty() &&
-            self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
+        if !self.open_elems.is_empty() {
+            if let Some(current) = self.adjusted_current_node_v2() {
+                self.sink.elem_name(current).ns != &ns!(html)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -661,11 +670,12 @@ where
     #[cfg(api_v2)]
     /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
-        let current = self.current_node();
-        if self.current_node_v2().is_none() {
+        if let Some(current) = self.current_node_v2() {
+            current
+        } else {
             warn!("no current element");
+            self.html_elem()
         }
-        current
     }
 
     #[cfg(not(api_v2))]
@@ -679,6 +689,7 @@ where
         self.open_elems.last()
     }
 
+    // FIXME: Deprecate
     fn adjusted_current_node(&self) -> &Handle {
         if self.open_elems.len() == 1 {
             if let Some(ctx) = self.context_elem.as_ref() {
@@ -686,6 +697,17 @@ where
             }
         }
         self.current_node()
+    }
+
+    // FIXME: Deprecate
+    // #[cfg(api_v2)]
+    fn adjusted_current_node_v2(&self) -> Option<&Handle> {
+        if self.open_elems.len() == 1 {
+            if let Some(ctx) = self.context_elem.as_ref() {
+                return Some(ctx);
+            }
+        }
+        self.current_node_v2()
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
@@ -1073,7 +1095,11 @@ where
     }
 
     fn current_node_named(&self, name: LocalName) -> bool {
-        self.html_elem_named(self.current_node(), name)
+        if let Some(current) = self.current_node_v2() {
+            self.html_elem_named(current, name)
+        } else {
+            false
+        }
     }
 
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
@@ -1472,6 +1498,10 @@ where
             return false;
         }
 
+        if self.adjusted_current_node_v2().is_none() { // hack
+            return false;
+        }
+
         let name = self.sink.elem_name(self.adjusted_current_node());
         if let ns!(html) = *name.ns {
             return false;
@@ -1507,9 +1537,13 @@ where
                     ..
                 }) => return false,
                 CharacterTokens(..) | NullCharacterToken | TagToken(Tag { kind: StartTag, .. }) => {
-                    return !self
-                        .sink
-                        .is_mathml_annotation_xml_integration_point(self.adjusted_current_node());
+                    if let Some(current) = self.adjusted_current_node_v2() {
+                        return !self
+                            .sink
+                            .is_mathml_annotation_xml_integration_point(current);
+                    } else {
+                        return false;
+                    }
                 },
                 _ => {},
             };
