@@ -206,18 +206,17 @@ pub trait TreeSink {
     fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
 
     /// Indicate that a node was popped off the stack of open elements.
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     fn pop(&mut self, _node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
         self.pop_v2(node)
     }
 
-    // FIXME: #[cfg] seems not to work together with deprecated.
     /// Indicate that a node was popped off the stack of open elements.
-    #[cfg(not(api_v2))]
-    // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+    #[cfg(not(feature = "api_v2"))]
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn pop(&mut self, _node: &Self::Handle) {}
 
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
     fn pop_unconditional(&mut self, node: &Self::Handle) {
         if self.pop_v2(node).is_err() {
@@ -225,7 +224,7 @@ pub trait TreeSink {
         };
     }
 
-    #[cfg(not(api_v2))]
+    #[cfg(not(feature = "api_v2"))]
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
     fn pop_unconditional(&mut self, node: &Self::Handle) {
         #[allow(deprecated)]

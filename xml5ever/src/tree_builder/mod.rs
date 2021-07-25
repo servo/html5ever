@@ -438,13 +438,13 @@ where
 }
 
 /// Indicate that a node was popped off the stack of open elements.
-// #[cfg(api_v2)]
+// #[cfg(feature = "api_v2")]
 // fn current_node<Handle>(open_elems: &[Handle]) -> Option<&Handle> {
 //     current_node_v2(open_elems)
 // }
 
 // /// Indicate that a node was popped off the stack of open elements.
-// #[cfg(not(api_v2))]
+// #[cfg(not(feature = "api_v2"))]
 // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
 // fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
 //     current_node_unconditional(open_elems)
@@ -609,12 +609,12 @@ where
         self.open_elems.is_empty()
     }
 
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     fn pop(&mut self) -> Result<Handle, SuperfluousClosingElement> {
         self.pop_v2()
     }
 
-    #[cfg(not(api_v2))]
+    #[cfg(not(feature = "api_v2"))]
     fn pop(&mut self) -> Handle {
         if let Ok(result) = self.pop_v2() {
             result
@@ -623,21 +623,21 @@ where
         }
     }
 
-    // #[cfg(not(api_v2))]
+    // #[cfg(not(feature = "api_v2"))]
     // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     // fn pop(&mut self) -> Handle {
     //     self.pop_unconditional()
     // }
 
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     fn pop_unconditional(&mut self) {
         if self.pop_v2().is_err() {
             warn!("no current element");
         }
     }
 
-    #[cfg(not(api_v2))]
+    #[cfg(not(feature = "api_v2"))]
     fn pop_unconditional(&mut self) -> Handle {
         self.pop()
     }

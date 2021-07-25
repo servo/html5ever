@@ -655,20 +655,19 @@ where
     //§ END
 
     /// Indicate that a node was popped off the stack of open elements.
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     fn current_node(&self) -> Option<&Handle> {
         self.current_node_v2()
     }
 
-    // FIXME: #[cfg] seems not to work together with deprecated.
     /// Indicate that a node was popped off the stack of open elements.
-    // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
-    #[cfg(not(api_v2))]
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+    #[cfg(not(feature = "api_v2"))]
     fn current_node(&self) -> &Handle {
         self.open_elems.last().expect("no current element")
     }
 
-    #[cfg(api_v2)]
+    #[cfg(feature = "api_v2")]
     /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
         if let Some(current) = self.current_node_v2() {
@@ -679,7 +678,7 @@ where
         }
     }
 
-    #[cfg(not(api_v2))]
+    #[cfg(not(feature = "api_v2"))]
     /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
         self.current_node()
@@ -701,7 +700,7 @@ where
     }
 
     // FIXME: Deprecate
-    // #[cfg(api_v2)]
+    // #[cfg(feature = "api_v2")]
     fn adjusted_current_node_v2(&self) -> Option<&Handle> {
         if self.open_elems.len() == 1 {
             if let Some(ctx) = self.context_elem.as_ref() {
