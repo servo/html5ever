@@ -181,7 +181,7 @@ where
     // TODO: Hack to prevent accessing empty stack.
     fn pop_open_elem(&mut self) -> Option<Handle> {
         if self.open_elems.len() > 1 {
-            self.pop_open_elem()
+            self.open_elems.pop()
         } else {
             None
         }
@@ -943,7 +943,7 @@ where
     }
 
     fn pop_v2(&mut self) -> Result<Handle, SuperfluousClosingElement> {
-        if let Some(elem) = self.open_elems.pop() {
+        if let Some(elem) = self.pop_open_elem() {
             self.sink.pop(&elem);
             Ok(elem)
         } else {
