@@ -241,7 +241,6 @@ pub trait TreeSink {
     /// Indicate that a node was popped off the stack of open elements.
     ///
     /// Note: Don't use this function, use pop() with api_v2 feature instead.
-    #[cfg(feature = "api_v2")]
     fn pop_v2(&mut self, _node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
         Ok(())
     }
