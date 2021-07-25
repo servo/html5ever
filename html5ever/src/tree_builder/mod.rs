@@ -669,13 +669,14 @@ where
         self.current_node_v2()
     }
 
-    /// Indicate that a node was popped off the stack of open elements.
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     #[cfg(not(feature = "api_v2"))]
     fn current_node(&self) -> &Handle {
         self.open_elems.last().expect("no current element")
     }
 
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     #[cfg(feature = "api_v2")]
     /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
@@ -685,12 +686,6 @@ where
             warn!("no current element");
             self.html_elem()
         }
-    }
-
-    #[cfg(feature = "api_v2")]
-    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
-    fn current_node(&self) -> &Handle {
-        self.current_node_unconditional()
     }
 
     #[cfg(not(feature = "api_v2"))]
