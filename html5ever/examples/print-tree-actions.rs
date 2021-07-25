@@ -17,11 +17,13 @@ use std::io;
 
 use html5ever::parse_document;
 use html5ever::tendril::*;
-use html5ever::tree_builder::TreeBuilder;
 use html5ever::tree_builder::{
     AppendNode, AppendText, ElementFlags, NodeOrText, QuirksMode, TreeSink,
 };
 use html5ever::{Attribute, ExpandedName, QualName};
+
+#[cfg(feature = "api_v2")]
+use markup5ever::interface::tree_builder::SuperfluousClosingElement;
 
 struct Sink {
     next_id: usize,
