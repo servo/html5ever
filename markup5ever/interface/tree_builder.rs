@@ -213,6 +213,7 @@ pub trait TreeSink {
 
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(not(api_v2))]
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn pop(&mut self, _node: &Self::Handle) {}
 
     #[cfg(api_v2)]
@@ -226,6 +227,7 @@ pub trait TreeSink {
     #[cfg(not(api_v2))]
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
     fn pop_unconditional(&mut self, node: &Self::Handle) {
+        #[allow(deprecated)]
         self.pop(node)
     }
 
