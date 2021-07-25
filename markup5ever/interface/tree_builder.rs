@@ -11,6 +11,9 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
+#[cfg(feature = "api_v2")]
+use log::warn;
+
 use crate::interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
@@ -207,7 +210,7 @@ pub trait TreeSink {
 
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(feature = "api_v2")]
-    fn pop(&mut self, _node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
+    fn pop(&mut self, node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
         self.pop_v2(node)
     }
 
