@@ -687,29 +687,34 @@ where
         }
     }
 
+    #[cfg(feature = "api_v2")]
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
+    fn current_node(&self) -> &Handle {
+        self.current_node_unconditional()
+    }
+
     #[cfg(not(feature = "api_v2"))]
     /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
     fn current_node_unconditional(&self) -> &Handle {
         self.current_node()
     }
 
-    /// Note: Don't use this function, use pop() with api_v2 feature instead.
+    #[doc(hidden)]
     fn current_node_v2(&self) -> Option<&Handle> {
         self.open_elems.last()
     }
 
-    // FIXME: Deprecate
-    fn adjusted_current_node(&self) -> &Handle {
-        if self.open_elems.len() == 1 {
-            if let Some(ctx) = self.context_elem.as_ref() {
-                return ctx;
-            }
-        }
-        self.current_node_unconditional()
+    #[cfg(feature = "api_v2")]
+    fn adjusted_current_node(&self) -> Option<&Handle> {
+        self.adjusted_current_node_v2()
     }
 
-    // FIXME: Deprecate
-    // #[cfg(feature = "api_v2")]
+    #[cfg(not(feature = "api_v2"))]
+    fn adjusted_current_node(&self) {
+        self.adjusted_current_node()
+    }
+
+    #[doc(hidden)]
     fn adjusted_current_node_v2(&self) -> Option<&Handle> {
         if self.open_elems.len() == 1 {
             if let Some(ctx) = self.context_elem.as_ref() {
@@ -717,6 +722,10 @@ where
             }
         }
         self.current_node_v2()
+    }
+
+    fn adjusted_current_node_unconditional(&self) -> &Handle {
+        self.adjusted_current_node_v2().expect("no current node")
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
@@ -1511,7 +1520,7 @@ where
             return false;
         }
 
-        let name = self.sink.elem_name(self.adjusted_current_node());
+        let name = self.sink.elem_name(self.adjusted_current_node_unconditional());
         if let ns!(html) = *name.ns {
             return false;
         }
@@ -1724,7 +1733,7 @@ where
     }
 
     fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult<Handle> {
-        let current_ns = self.sink.elem_name(self.adjusted_current_node()).ns.clone();
+        let current_ns = self.sink.elem_name(self.adjusted_current_node_unconditional()).ns.clone();
         match current_ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),
             ns!(svg) => {

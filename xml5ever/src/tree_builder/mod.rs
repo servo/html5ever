@@ -468,6 +468,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
+    #[doc(hidden)]
     fn current_node_v2(&self) -> Option<&Handle> {
         self.open_elems.last()
     }
@@ -623,12 +624,6 @@ where
         }
     }
 
-    // #[cfg(not(feature = "api_v2"))]
-    // #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
-    // fn pop(&mut self) -> Handle {
-    //     self.pop_unconditional()
-    // }
-
     /// Like pop(), but in the case of no open element, just warn instead of returning an error.
     #[cfg(feature = "api_v2")]
     fn pop_unconditional(&mut self) {
@@ -642,9 +637,7 @@ where
         self.pop()
     }
 
-    /// Indicate that a node was popped off the stack of open elements.
-    ///
-    /// Note: Don't use this function, use pop() with api_v2 feature instead.
+    #[doc(hidden)]
     fn pop_v2(&mut self) -> Result<Handle, SuperfluousClosingElement> {
         if self.namespace_stack.pop_v2().is_none() {
             return Err(SuperfluousClosingElement::new())

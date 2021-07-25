@@ -208,6 +208,10 @@ pub trait TreeSink {
     /// Mark a HTML `<script>` as "already started".
     fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
 
+    /// Note: Don't use this function, use pop() with api_v2 feature instead.
+    #[cfg(feature = "api_v2")]
+    fn pop_v2(&mut self, node: &Self::Handle) -> Result<(), SuperfluousClosingElement>;
+
     /// Indicate that a node was popped off the stack of open elements.
     #[cfg(feature = "api_v2")]
     fn pop(&mut self, node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
