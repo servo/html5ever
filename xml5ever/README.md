@@ -2,7 +2,7 @@
 
 ![http://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-Apache-blue.svg) ![https://opensource.org/licenses/MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Docs.rs](https://docs.rs/xml5ever/badge.svg)](https://docs.rs/xml5ever)
-[![](http://meritbadge.herokuapp.com/xml5ever)](https://crates.io/crates/xml5ever)
+[![](https://img.shields.io/crates/v/xml5ever.svg)](https://crates.io/crates/xml5ever)
 
 [API documentation](https://Ygg01.github.io/docs/xml5ever/xml5ever/index.html)
 
