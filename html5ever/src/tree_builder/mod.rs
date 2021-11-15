@@ -35,7 +35,7 @@ use crate::tokenizer::states::{RawData, RawKind};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
 use crate::util::str::to_escaped_string;
-use log::{debug, log_enabled, warn, Level};
+use log::{log_enabled, trace, warn, Level};
 use mac::{_tt_as_expr_hack, format_if, matches};
 
 pub use self::PushFlag::*;
@@ -306,8 +306,8 @@ where
     }
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
-        if log_enabled!(Level::Debug) {
-            debug!(
+        if log_enabled!(Level::Trace) {
+            trace!(
                 "processing {} in insertion mode {:?}",
                 to_escaped_string(token),
                 mode

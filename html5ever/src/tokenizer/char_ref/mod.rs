@@ -12,7 +12,7 @@ use crate::buffer_queue::BufferQueue;
 use crate::data;
 use crate::tendril::StrTendril;
 
-use log::debug;
+use log::trace;
 use mac::format_if;
 use std::borrow::Cow::Borrowed;
 use std::char::from_u32;
@@ -123,7 +123,7 @@ impl CharRefTokenizer {
             return Done;
         }
 
-        debug!("char ref tokenizer stepping in state {:?}", self.state);
+        trace!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             Begin => self.do_begin(tokenizer, input),
             Octothorpe => self.do_octothorpe(tokenizer, input),
