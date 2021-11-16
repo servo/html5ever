@@ -63,7 +63,7 @@ impl TokenLogger {
         TokenLogger {
             tokens: vec![],
             current_str: StrTendril::new(),
-            exact_errors: exact_errors,
+            exact_errors,
         }
     }
 
@@ -93,17 +93,17 @@ impl TokenSink for TokenLogger {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
-            },
+            }
 
             NullCharacterToken => {
                 self.current_str.push_char('\0');
-            },
+            }
 
             ParseError(_) => {
                 if self.exact_errors {
                     self.push(ParseError(Borrowed("")));
                 }
-            },
+            }
 
             TagToken(mut t) => {
                 // The spec seems to indicate that one can emit
@@ -113,11 +113,11 @@ impl TokenSink for TokenLogger {
                     EndTag => {
                         t.self_closing = false;
                         t.attrs = vec![];
-                    },
+                    }
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
                 self.push(TagToken(t));
-            },
+            }
 
             EOFToken => (),
 
@@ -145,8 +145,8 @@ trait JsonExt: Sized {
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Self>;
-    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
+    fn get_obj(&self) -> &Map<String, Self>;
+    fn get_list(&self) -> &Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
@@ -180,14 +180,14 @@ impl JsonExt for Value {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Value> {
+    fn get_obj(&self) -> &Map<String, Value> {
         match *self {
             Value::Object(ref m) => &*m,
             _ => panic!("Value::get_obj: not an Object"),
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t Vec<Value> {
+    fn get_list(&self) -> &Vec<Value> {
         match *self {
             Value::Array(ref m) => m,
             _ => panic!("Value::get_list: not an Array"),
@@ -256,7 +256,7 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
             match *tok {
                 Value::String(ref s) if &s[..] == "ParseError" => {
                     sink.process_token(ParseError(Borrowed("")), 0)
-                },
+                }
                 _ => sink.process_token(json_to_token(tok), 0),
             },
             TokenSinkResult::Continue
@@ -276,7 +276,7 @@ fn unescape(s: &str) -> Option<String> {
                 if it.peek() != Some(&'u') {
                     panic!("can't understand escape");
                 }
-                drop(it.next());
+                it.next();
                 let hex: String = it.by_ref().take(4).collect();
                 match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
@@ -286,7 +286,7 @@ fn unescape(s: &str) -> Option<String> {
                     None => return None,
                     Some(c) => out.push(c),
                 }
-            },
+            }
             Some(c) => out.push(c),
         }
     }
@@ -296,7 +296,7 @@ fn unescape_json(js: &Value) -> Value {
     match *js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        Value::String(ref s) => Value::String(unescape(&s).unwrap()),
+        Value::String(ref s) => Value::String(unescape(s).unwrap()),
         Value::Array(ref xs) => Value::Array(xs.iter().map(unescape_json).collect()),
         Value::Object(ref obj) => {
             let mut new_obj = Map::new();
@@ -304,7 +304,7 @@ fn unescape_json(js: &Value) -> Value {
                 new_obj.insert(k.clone(), unescape_json(v));
             }
             Value::Object(new_obj)
-        },
+        }
         _ => js.clone(),
     }
 }
@@ -376,9 +376,8 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     for state in state_overrides.into_iter() {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
-            match state {
-                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
-                None => (),
+            if let Some(s) = state {
+                newdesc = format!("{} (in state {:?})", newdesc, s)
             };
             if exact_errors {
                 newdesc = format!("{} (exact errors)", newdesc);
@@ -389,7 +388,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 input.clone(),
                 expect.clone(),
                 TokenizerOpts {
-                    exact_errors: exact_errors,
+                    exact_errors,
                     initial_state: state,
                     last_start_tag_name: start_tag.clone(),
 
@@ -413,24 +412,18 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         OsStr::new("test"),
         |path, mut file| {
             let mut s = String::new();
-            file.read_to_string(&mut s)
-                .ok()
-                .expect("file reading error");
-            let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+            file.read_to_string(&mut s).expect("file reading error");
+            let js: Value = serde_json::from_str(&s).expect("json parse error");
 
-            match js.get_obj().get(&"tests".to_string()) {
-                Some(&Value::Array(ref lst)) => {
-                    for test in lst.iter() {
-                        mk_tests(
-                            &mut tests,
-                            path.file_name().unwrap().to_str().unwrap(),
-                            test,
-                        );
-                    }
-                },
-
-                // xmlViolation.test doesn't follow this format.
-                _ => (),
+            // xmlViolation.test doesn't follow this format.
+            if let Some(&Value::Array(ref lst)) = js.get_obj().get(&"tests".to_string()) {
+                for test in lst.iter() {
+                    mk_tests(
+                        &mut tests,
+                        path.file_name().unwrap().to_str().unwrap(),
+                        test,
+                    );
+                }
             }
         },
     );

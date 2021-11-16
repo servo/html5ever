@@ -76,7 +76,7 @@ fn from_utf8() {
 
 fn assert_eq_serialization(text: &'static str, dom: RcDom) {
     let mut serialized = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
 
     let dom_from_text = driver::parse_document(RcDom::default(), Default::default())
@@ -84,7 +84,7 @@ fn assert_eq_serialization(text: &'static str, dom: RcDom) {
         .one(text.as_bytes());
 
     let mut reserialized = Vec::new();
-    let document: SerializableHandle = dom_from_text.document.clone().into();
+    let document: SerializableHandle = dom_from_text.document.into();
     serialize::serialize(&mut reserialized, &document, Default::default()).unwrap();
 
     assert_eq!(
@@ -95,7 +95,7 @@ fn assert_eq_serialization(text: &'static str, dom: RcDom) {
 
 fn assert_serialization(text: &'static str, dom: RcDom) {
     let mut serialized = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(serialized).unwrap(), text);
 }

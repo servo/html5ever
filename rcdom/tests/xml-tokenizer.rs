@@ -66,7 +66,7 @@ impl TokenLogger {
         TokenLogger {
             tokens: vec![],
             current_str: StrTendril::new(),
-            exact_errors: exact_errors,
+            exact_errors,
         }
     }
 
@@ -94,17 +94,17 @@ impl TokenSink for TokenLogger {
         match token {
             CharacterTokens(b) => {
                 self.current_str.push_slice(&b);
-            },
+            }
 
             NullCharacterToken => {
                 self.current_str.push_char('\0');
-            },
+            }
 
             ParseError(_) => {
                 if self.exact_errors {
                     self.push(ParseError(Borrowed("")));
                 }
-            },
+            }
 
             TagToken(mut t) => {
                 // The spec seems to indicate that one can emit
@@ -113,11 +113,11 @@ impl TokenSink for TokenLogger {
                 match t.kind {
                     EndTag => {
                         t.attrs = vec![];
-                    },
+                    }
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
                 self.push(TagToken(t));
-            },
+            }
 
             EOFToken => (),
 
@@ -145,8 +145,8 @@ trait JsonExt: Sized {
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Self>;
-    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
+    fn get_obj(&self) -> &Map<String, Self>;
+    fn get_list(&self) -> &Vec<Self>;
     fn find<'t>(&'t self, key: &str) -> &'t Self;
 }
 
@@ -180,14 +180,14 @@ impl JsonExt for Value {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Value> {
+    fn get_obj(&self) -> &Map<String, Value> {
         match *self {
             Value::Object(ref m) => &*m,
             _ => panic!("Value::get_obj: not an Object"),
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t Vec<Value> {
+    fn get_list(&self) -> &Vec<Value> {
         match *self {
             Value::Array(ref m) => m,
             _ => panic!("Value::get_list: not an Array"),
@@ -273,7 +273,7 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
         match *tok {
             Value::String(ref s) if &s[..] == "ParseError" => {
                 sink.process_token(ParseError(Borrowed("")))
-            },
+            }
             _ => sink.process_token(json_to_token(tok)),
         }
     }
@@ -296,7 +296,7 @@ fn mk_xml_test(
                 // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize_xml(input.clone(), opts.clone());
+                let output = tokenize_xml(input.clone(), opts);
                 let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
                     panic!(
@@ -321,9 +321,8 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     for state in state_overrides.into_iter() {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
-            match state {
-                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
-                None => (),
+            if let Some(s) = state {
+                newdesc = format!("{} (in state {:?})", newdesc, s)
             };
             if exact_errors {
                 newdesc = format!("{} (exact errors)", newdesc);
@@ -334,7 +333,7 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 String::from(input),
                 expect.clone(),
                 XmlTokenizerOpts {
-                    exact_errors: exact_errors,
+                    exact_errors,
                     initial_state: state,
 
                     // Not discarding a BOM is what the test suite expects; see
@@ -356,23 +355,17 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         OsStr::new("test"),
         |path, mut file| {
             let mut s = String::new();
-            file.read_to_string(&mut s)
-                .ok()
-                .expect("file reading error");
-            let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+            file.read_to_string(&mut s).expect("file reading error");
+            let js: Value = serde_json::from_str(&s).expect("json parse error");
 
-            match js["tests"] {
-                Value::Array(ref lst) => {
-                    for test in lst.iter() {
-                        mk_xml_tests(
-                            &mut tests,
-                            path.file_name().unwrap().to_str().unwrap(),
-                            test,
-                        );
-                    }
-                },
-
-                _ => (),
+            if let Value::Array(ref lst) = js["tests"] {
+                for test in lst.iter() {
+                    mk_xml_tests(
+                        &mut tests,
+                        path.file_name().unwrap().to_str().unwrap(),
+                        test,
+                    );
+                }
             }
         },
     );

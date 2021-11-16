@@ -75,7 +75,7 @@ fn process_qname(tag_name: StrTendril) -> QualName {
             let local = tag_name.subtendril(col + 1, len - col - 1);
             let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
             QualName::new(Some(Prefix::from(&*prefix)), ns, LocalName::from(&*local))
-        },
+        }
     }
 }
 
@@ -208,7 +208,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         if self.discard_bom {
             if let Some(c) = input.peek() {
                 if c == '\u{feff}' {
-                    input.next();
+                    input.next_char();
                 }
             } else {
                 return;
@@ -233,7 +233,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
-                c = unwrap_or_return!(input.next(), None);
+                c = unwrap_or_return!(input.next_char(), None);
             }
         }
 
@@ -248,8 +248,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
 
         // Exclude forbidden Unicode characters
-        if self.opts.exact_errors &&
-            match c as u32 {
+        if self.opts.exact_errors
+            && match c as u32 {
                 0x01..=0x08 | 0x0B | 0x0E..=0x1F | 0x7F..=0x9F | 0xFDD0..=0xFDEF => true,
                 n if (n & 0xFFFE) == 0xFFFE => true,
                 _ => false,
@@ -305,11 +305,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         match input.eat(pat, u8::eq_ignore_ascii_case) {
             None if self.at_eof => Some(false),
             None => {
-                while let Some(c) = input.next() {
+                while let Some(c) = input.next_char() {
                     self.temp_buf.push_char(c);
                 }
                 None
-            },
+            }
             Some(matched) => Some(matched),
         }
     }
@@ -326,7 +326,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     Some(x) => {
                         *x += dt;
                         false
-                    },
+                    }
                     None => true,
                 };
                 if new {
@@ -350,7 +350,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             Some(self.current_char)
         } else {
             input
-                .next()
+                .next_char()
                 .and_then(|c| self.get_preprocessed_char(c, input))
         }
     }
@@ -418,23 +418,23 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         let qname = process_qname(replace(&mut self.current_tag_name, StrTendril::new()));
 
         match self.current_tag_kind {
-            StartTag | EmptyTag => {},
+            StartTag | EmptyTag => {}
             EndTag => {
                 if !self.current_tag_attrs.is_empty() {
                     self.emit_error(Borrowed("Attributes on an end tag"));
                 }
-            },
+            }
             ShortTag => {
                 if !self.current_tag_attrs.is_empty() {
                     self.emit_error(Borrowed("Attributes on a short tag"));
                 }
-            },
+            }
         }
 
         let token = TagToken(Tag {
             kind: self.current_tag_kind,
             name: qname,
-            attrs: replace(&mut self.current_tag_attrs, vec![]),
+            attrs: std::mem::take(&mut self.current_tag_attrs),
         });
         self.process_token(token);
 
@@ -517,32 +517,32 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c);                                   );
+    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c)                                    );
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c);                  );
+    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c)                   );
     ( $me:ident : discard_tag $input:expr          ) => ( $me.discard_tag($input);                             );
     ( $me:ident : discard_char                     ) => ( $me.discard_char();                                  );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c);                          );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
     ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c);                            );
-    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c);                 );
-    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c);                );
-    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c);             );
-    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c);                   );
+    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c)                  );
+    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c)                 );
+    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c)              );
+    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c)                    );
     ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c);                  );
     ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment();                          );
     ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear();                         );
     ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new();                );
     ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c);      );
-    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
+    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c)                  );
     ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k);                            );
     ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype();                          );
-    ( $me:ident : error                            ) => ( $me.bad_char_error();                                );
+    ( $me:ident : error                            ) => ( $me.bad_char_error()                                 );
     ( $me:ident : error_eof                        ) => ( $me.bad_eof_error();                                 );
     ( $me:ident : create_pi $c:expr                ) => ( $me.create_pi($c);                                   );
-    ( $me:ident : push_pi_target $c:expr           ) => ( $me.current_pi_target.push_char($c);                 );
-    ( $me:ident : push_pi_data $c:expr             ) => ( $me.current_pi_data.push_char($c);                   );
+    ( $me:ident : push_pi_target $c:expr           ) => ( $me.current_pi_target.push_char($c)                  );
+    ( $me:ident : push_pi_data $c:expr             ) => ( $me.current_pi_data.push_char($c)                    );
     ( $me:ident : set_empty_tag                    ) => ( $me.set_empty_tag();                                 );
 );
 
@@ -615,7 +615,7 @@ macro_rules! go (
     ( $me:ident : eof ) => ({ $me.emit_eof(); return false; });
 
     // If nothing else matched, it's a single command
-    ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+); );
+    ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+) );
 
     // or nothing.
     ( $me:ident : ) => (());
@@ -650,7 +650,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::Quiescent => {
                 self.state = XmlState::Data;
                 false
-            },
+            }
             //§ data-state
             XmlState::Data => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '&' '<')) {
@@ -668,7 +668,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     '?' => go!(self: to Pi),
                     '\t' | '\n' | ' ' | ':' | '<' | '>' => {
                         go!(self: error; emit '<'; reconsume Data)
-                    },
+                    }
                     cl => go!(self: create_tag StartTag cl; to TagName),
                 }
             },
@@ -678,7 +678,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     '>' => go!(self:  emit_short_tag Data),
                     '\t' | '\n' | ' ' | '<' | ':' => {
                         go!(self: error; emit '<'; emit '/'; reconsume Data)
-                    },
+                    }
                     cl => go!(self: create_tag EndTag cl; to EndTagName),
                 }
             },
@@ -986,10 +986,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     '\t' | '\n' | '\x0C' | ' ' => go!(self: to BeforeDoctypeIdentifier Public),
                     '"' => {
                         go!(self: error; clear_doctype_id Public; to DoctypeIdentifierDoubleQuoted Public)
-                    },
+                    }
                     '\'' => {
                         go!(self: error; clear_doctype_id Public; to DoctypeIdentifierSingleQuoted Public)
-                    },
+                    }
                     '>' => go!(self: error; emit_doctype; to Data),
                     _ => go!(self: error; to BogusDoctype),
                 }
@@ -1000,10 +1000,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     '\t' | '\n' | '\x0C' | ' ' => go!(self: to BeforeDoctypeIdentifier System),
                     '"' => {
                         go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted System)
-                    },
+                    }
                     '\'' => {
                         go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System)
-                    },
+                    }
                     '>' => go!(self: error; emit_doctype; to Data),
                     _ => go!(self: error; to BogusDoctype),
                 }
@@ -1039,13 +1039,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 match get_char!(self, input) {
                     '\t' | '\n' | '\x0C' | ' ' => {
                         go!(self: to BetweenDoctypePublicAndSystemIdentifiers)
-                    },
+                    }
                     '\'' => {
                         go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted(System))
-                    },
+                    }
                     '"' => {
                         go!(self: error; clear_doctype_id System; to DoctypeIdentifierDoubleQuoted(System))
-                    },
+                    }
                     '>' => go!(self: emit_doctype; to Data),
                     _ => go!(self: error; to BogusDoctype),
                 }
@@ -1070,9 +1070,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ bogus_doctype_state
             XmlState::BogusDoctype => loop {
-                match get_char!(self, input) {
-                    '>' => go!(self: emit_doctype; to Data),
-                    _ => (),
+                if get_char!(self, input) == '>' {
+                    go!(self: emit_doctype; to Data);
                 }
             },
         }
@@ -1088,7 +1087,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             Some(mut tok) => {
                 tok.end_of_file(self, &mut input);
                 self.process_char_ref(tok.get_result());
-            },
+            }
         }
 
         // Process all remaining buffered input.
@@ -1138,44 +1137,44 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::Data | XmlState::Quiescent => go!(self: eof),
             XmlState::CommentStart | XmlState::CommentLessThan | XmlState::CommentLessThanBang => {
                 go!(self: reconsume Comment)
-            },
+            }
             XmlState::CommentLessThanBangDash => go!(self: reconsume CommentEndDash),
             XmlState::CommentLessThanBangDashDash => go!(self: reconsume CommentEnd),
-            XmlState::CommentStartDash |
-            XmlState::Comment |
-            XmlState::CommentEndDash |
-            XmlState::CommentEnd |
-            XmlState::CommentEndBang => go!(self: error_eof; emit_comment; eof),
+            XmlState::CommentStartDash
+            | XmlState::Comment
+            | XmlState::CommentEndDash
+            | XmlState::CommentEnd
+            | XmlState::CommentEndBang => go!(self: error_eof; emit_comment; eof),
             XmlState::TagState => go!(self: error_eof; emit '<'; to Data),
             XmlState::EndTagState => go!(self: error_eof; emit '<'; emit '/'; to Data),
             XmlState::TagEmpty => go!(self: error_eof; to TagAttrNameBefore),
             XmlState::Cdata | XmlState::CdataBracket | XmlState::CdataEnd => {
                 go!(self: error_eof; to Data)
-            },
+            }
             XmlState::Pi => go!(self: error_eof; to BogusComment),
             XmlState::PiTargetAfter | XmlState::PiAfter => go!(self: reconsume PiData),
             XmlState::MarkupDecl => go!(self: error_eof; to BogusComment),
-            XmlState::TagName |
-            XmlState::TagAttrNameBefore |
-            XmlState::EndTagName |
-            XmlState::TagAttrNameAfter |
-            XmlState::EndTagNameAfter |
-            XmlState::TagAttrValueBefore |
-            XmlState::TagAttrValue(_) => go!(self: error_eof; emit_tag Data),
+            XmlState::TagName
+            | XmlState::TagAttrNameBefore
+            | XmlState::EndTagName
+            | XmlState::TagAttrNameAfter
+            | XmlState::EndTagNameAfter
+            | XmlState::TagAttrValueBefore
+            | XmlState::TagAttrValue(_) => go!(self: error_eof; emit_tag Data),
             XmlState::PiData | XmlState::PiTarget => go!(self: error_eof; emit_pi Data),
             XmlState::TagAttrName => go!(self: error_eof; emit_start_tag Data),
-            XmlState::BeforeDoctypeName |
-            XmlState::Doctype |
-            XmlState::DoctypeName |
-            XmlState::AfterDoctypeName |
-            XmlState::AfterDoctypeKeyword(_) |
-            XmlState::BeforeDoctypeIdentifier(_) |
-            XmlState::AfterDoctypeIdentifier(_) |
-            XmlState::DoctypeIdentifierSingleQuoted(_) |
-            XmlState::DoctypeIdentifierDoubleQuoted(_) |
-            XmlState::BetweenDoctypePublicAndSystemIdentifiers => {
+            XmlState::BeforeDoctypeName
+            | XmlState::Doctype
+            | XmlState::DoctypeName
+            | XmlState::AfterDoctypeName
+            | XmlState::AfterDoctypeKeyword(_)
+            | XmlState::BeforeDoctypeIdentifier(_)
+            | XmlState::AfterDoctypeIdentifier(_)
+            | XmlState::DoctypeIdentifierSingleQuoted(_)
+            | XmlState::DoctypeIdentifierDoubleQuoted(_)
+            | XmlState::BetweenDoctypePublicAndSystemIdentifiers => {
                 go!(self: error_eof; emit_doctype; to Data)
-            },
+            }
             XmlState::BogusDoctype => go!(self: emit_doctype; to Data),
             XmlState::BogusComment => go!(self: emit_comment; to Data),
         }
@@ -1215,7 +1214,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             char_ref::Done => {
                 self.process_char_ref(tok.get_result());
                 return true;
-            },
+            }
 
             char_ref::Stuck => false,
             char_ref::Progress => true,
@@ -1251,8 +1250,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             };
 
-            if qname.local == local_name!("xmlns") ||
-                qname.prefix == Some(namespace_prefix!("xmlns"))
+            if qname.local == local_name!("xmlns")
+                || qname.prefix == Some(namespace_prefix!("xmlns"))
             {
                 self.current_tag_attrs.insert(0, attr);
             } else {

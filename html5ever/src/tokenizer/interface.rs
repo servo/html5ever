@@ -38,6 +38,12 @@ impl Doctype {
     }
 }
 
+impl Default for Doctype {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum TagKind {
     StartTag,

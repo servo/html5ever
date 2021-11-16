@@ -237,11 +237,11 @@ where
         match *name {
             local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
-            local_name!("style") |
-            local_name!("xmp") |
-            local_name!("iframe") |
-            local_name!("noembed") |
-            local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
+            local_name!("style")
+            | local_name!("xmp")
+            | local_name!("iframe")
+            | local_name!("noembed")
+            | local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
 
             local_name!("script") => tok_state::RawData(tok_state::ScriptData),
 
@@ -251,7 +251,7 @@ where
                 } else {
                     tok_state::Data
                 }
-            },
+            }
 
             local_name!("plaintext") => tok_state::Plaintext,
 
@@ -261,7 +261,7 @@ where
 
     /// Call the `Tracer`'s `trace_handle` method on every `Handle` in the tree builder's
     /// internal state.  This is intended to support garbage-collected DOMs.
-    pub fn trace_handles(&self, tracer: &Tracer<Handle = Handle>) {
+    pub fn trace_handles(&self, tracer: &dyn Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in &self.open_elems {
             tracer.trace_handle(e);
@@ -299,7 +299,7 @@ where
                         ns!(html) => print!(" {}", name.local),
                         _ => panic!(),
                     }
-                },
+                }
             }
         }
         println!("");
@@ -345,20 +345,20 @@ where
                         more_tokens.pop_front(),
                         tokenizer::TokenSinkResult::Continue
                     );
-                },
+                }
                 DoneAckSelfClosing => {
                     token = unwrap_or_return!(
                         more_tokens.pop_front(),
                         tokenizer::TokenSinkResult::Continue
                     );
-                },
+                }
                 Reprocess(m, t) => {
                     self.mode = m;
                     token = t;
-                },
+                }
                 ReprocessForeign(t) => {
                     token = t;
-                },
+                }
                 SplitWhitespace(mut buf) => {
                     let p = buf.pop_front_char_run(|c| c.is_ascii_whitespace());
                     let (first, is_ws) = unwrap_or_return!(p, tokenizer::TokenSinkResult::Continue);
@@ -368,19 +368,19 @@ where
                     if buf.len32() > 0 {
                         more_tokens.push_back(CharacterTokens(NotSplit, buf));
                     }
-                },
+                }
                 Script(node) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Script(node);
-                },
+                }
                 ToPlaintext => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Plaintext;
-                },
+                }
                 ToRawData(k) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::RawData(k);
-                },
+                }
             }
         }
     }
@@ -463,7 +463,7 @@ where
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return tokenizer::TokenSinkResult::Continue;
-            },
+            }
 
             tokenizer::DoctypeToken(dt) => {
                 if self.mode == Initial {
@@ -502,7 +502,7 @@ where
                     ));
                     return tokenizer::TokenSinkResult::Continue;
                 }
-            },
+            }
 
             tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
@@ -517,7 +517,7 @@ where
                     return tokenizer::TokenSinkResult::Continue;
                 }
                 CharacterTokens(NotSplit, x)
-            },
+            }
         };
 
         self.process_to_completion(token)
@@ -530,8 +530,8 @@ where
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
-        !self.open_elems.is_empty() &&
-            self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
+        !self.open_elems.is_empty()
+            && self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
     }
 }
 
@@ -788,7 +788,7 @@ where
                     Element(ref h, ref t) => {
                         assert!(self.sink.same_node(h, &node));
                         t.clone()
-                    },
+                    }
                     Marker => panic!("Found marker during adoption agency"),
                 };
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
@@ -847,18 +847,18 @@ where
                         .position_in_active_formatting(&to_replace)
                         .expect("bookmark not found in active formatting elements");
                     self.active_formatting[index] = new_entry;
-                },
+                }
                 Bookmark::InsertAfter(previous) => {
                     let index = self
                         .position_in_active_formatting(&previous)
-                        .expect("bookmark not found in active formatting elements") +
-                        1;
+                        .expect("bookmark not found in active formatting elements")
+                        + 1;
                     self.active_formatting.insert(index, new_entry);
                     let old_index = self
                         .position_in_active_formatting(&fmt_elem)
                         .expect("formatting element not found in active formatting elements");
                     self.active_formatting.remove(old_index);
-                },
+                }
             }
 
             // 19.
@@ -1098,7 +1098,7 @@ where
                     if pred(self.sink.elem_name(&elem)) {
                         break;
                     }
-                },
+                }
             }
         }
         n
@@ -1195,16 +1195,16 @@ where
                         }
                     }
                     return InSelect;
-                },
+                }
                 local_name!("td") | local_name!("th") => {
                     if !last {
                         return InCell;
                     }
-                },
+                }
                 local_name!("tr") => return InRow,
                 local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => {
                     return InTableBody;
-                },
+                }
                 local_name!("caption") => return InCaption,
                 local_name!("colgroup") => return InColumnGroup,
                 local_name!("table") => return InTable,
@@ -1213,7 +1213,7 @@ where
                     if !last {
                         return InHead;
                     }
-                },
+                }
                 local_name!("body") => return InBody,
                 local_name!("frameset") => return InFrameset,
                 local_name!("html") => match self.head_elem {
@@ -1300,11 +1300,11 @@ where
         };
 
         // Step 12.
-        if form_associatable(qname.expanded()) &&
-            self.form_elem.is_some() &&
-            !self.in_html_elem_named(local_name!("template")) &&
-            !(listed(qname.expanded()) &&
-                attrs
+        if form_associatable(qname.expanded())
+            && self.form_elem.is_some()
+            && !self.in_html_elem_named(local_name!("template"))
+            && !(listed(qname.expanded())
+                && attrs
                     .iter()
                     .any(|a| a.name.expanded() == expanded_name!("", "form")))
         {
@@ -1392,7 +1392,7 @@ where
                 // <html> element is in special_tag.
                 self.unexpected(&tag);
                 return;
-            },
+            }
             Some(x) => x,
         };
 
@@ -1445,7 +1445,7 @@ where
                     ..
                 }) if !matches!(*name, local_name!("mglyph") | local_name!("malignmark")) => {
                     return false;
-                },
+                }
                 _ => (),
             }
         }
@@ -1469,8 +1469,8 @@ where
                     return !self
                         .sink
                         .is_mathml_annotation_xml_integration_point(self.adjusted_current_node());
-                },
-                _ => {},
+                }
+                _ => {}
             };
         }
 
@@ -1646,7 +1646,7 @@ where
             ns!(svg) => {
                 self.adjust_svg_tag_name(&mut tag);
                 self.adjust_svg_attributes(&mut tag);
-            },
+            }
             _ => (),
         }
         self.adjust_foreign_attributes(&mut tag);
@@ -1667,9 +1667,9 @@ where
         } else {
             self.pop();
             while !self.current_node_in(|n| {
-                *n.ns == ns!(html) ||
-                    mathml_text_integration_point(n) ||
-                    svg_html_integration_point(n)
+                *n.ns == ns!(html)
+                    || mathml_text_integration_point(n)
+                    || svg_html_integration_point(n)
             }) {
                 self.pop();
             }

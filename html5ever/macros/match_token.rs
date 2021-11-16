@@ -285,7 +285,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
         match (lhs, rhs) {
             (LHS::Pattern(_), RHS::Else) => {
                 panic!("'else' may not appear with an ordinary pattern")
-            },
+            }
 
             // ordinary pattern => expression
             (LHS::Pattern(pat), RHS::Expression(expr)) => {
@@ -296,7 +296,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                     );
                 }
                 arms_code.push(quote!(#binding #pat => #expr,))
-            },
+            }
 
             // <tag> <tag> ... => else
             (LHS::Tags(tags), RHS::Else) => {
@@ -309,7 +309,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                     }
                     wild_excluded_patterns.push(make_tag_pattern(&TokenStream::new(), tag));
                 }
-            },
+            }
 
             // <_> => expression
             // <tag> <tag> ... => expression
@@ -340,7 +340,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                             arms_code.push(make_tag_pattern(&binding, tag));
 
                             wildcard = Some(false);
-                        },
+                        }
 
                         // <_>
                         None => {
@@ -350,16 +350,16 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                             wildcard = Some(true);
                             wildcards_patterns.push(make_tag_pattern(&binding, tag));
                             wildcards_expressions.push(expr.clone());
-                        },
+                        }
                     }
                 }
 
                 match wildcard {
                     None => panic!("[internal macro error] tag arm with no tags"),
                     Some(false) => arms_code.push(quote!( => #expr,)),
-                    Some(true) => {}, // codegen for wildcards is deferred
+                    Some(true) => {} // codegen for wildcards is deferred
                 }
-            },
+            }
         }
     }
 
@@ -418,29 +418,23 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
 
 impl Fold for MatchTokenParser {
     fn fold_stmt(&mut self, stmt: syn::Stmt) -> syn::Stmt {
-        match stmt {
-            syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) => {
-                if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_stmt(
-                        self,
-                        syn::Stmt::Expr(expand_match_token(&mac.tokens)),
-                    );
-                }
-            },
-            _ => {},
+        if let syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) = stmt {
+            if mac.path == parse_quote!(match_token) {
+                return syn::fold::fold_stmt(
+                    self,
+                    syn::Stmt::Expr(expand_match_token(&mac.tokens)),
+                );
+            }
         }
 
         syn::fold::fold_stmt(self, stmt)
     }
 
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
-        match expr {
-            syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) => {
-                if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
-                }
-            },
-            _ => {},
+        if let syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) = expr {
+            if mac.path == parse_quote!(match_token) {
+                return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
+            }
         }
 
         syn::fold::fold_expr(self, expr)

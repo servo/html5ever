@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub use self::Token::*;
+pub use self::TokenWrapper::*;
 pub use self::XmlPhase::*;
 pub use self::XmlProcessResult::*;
 
@@ -16,15 +16,15 @@ use crate::tokenizer::{Doctype, Pi, Tag};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {
-    StartPhase,
-    MainPhase,
-    EndPhase,
+    Start,
+    Main,
+    End,
 }
 
 /// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum Token {
+pub enum TokenWrapper {
     TagToken(Tag),
     DoctypeToken(Doctype),
     CommentToken(StrTendril),
@@ -36,5 +36,5 @@ pub enum Token {
 
 pub enum XmlProcessResult {
     Done,
-    Reprocess(XmlPhase, Token),
+    Reprocess(XmlPhase, TokenWrapper),
 }

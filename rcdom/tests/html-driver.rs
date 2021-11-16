@@ -9,7 +9,7 @@ fn from_utf8() {
         .from_utf8()
         .one("<title>Test".as_bytes());
     let mut serialized = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
     assert_eq!(
         String::from_utf8(serialized).unwrap().replace(" ", ""),

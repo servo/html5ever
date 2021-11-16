@@ -85,6 +85,12 @@ impl Doctype {
     }
 }
 
+impl Default for Doctype {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A ProcessingInstruction token.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Pi {

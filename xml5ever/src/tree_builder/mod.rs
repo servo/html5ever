@@ -41,11 +41,7 @@ struct NamespaceMapStack(Vec<NamespaceMap>);
 
 impl NamespaceMapStack {
     fn new() -> NamespaceMapStack {
-        NamespaceMapStack({
-            let mut vec = Vec::new();
-            vec.push(NamespaceMap::default());
-            vec
-        })
+        NamespaceMapStack(vec![NamespaceMap::default()])
     }
 
     fn push(&mut self, map: NamespaceMap) {
@@ -113,11 +109,7 @@ impl NamespaceMap {
 
     #[doc(hidden)]
     pub fn insert(&mut self, name: &QualName) {
-        let prefix = if let Some(ref p) = name.prefix {
-            Some(p.clone())
-        } else {
-            None
-        };
+        let prefix = name.prefix.as_ref().cloned();
         let namespace = Some(Namespace::from(&*name.ns));
         self.scope.insert(prefix, namespace);
     }
@@ -140,11 +132,11 @@ impl NamespaceMap {
                 } else {
                     Ok(())
                 }
-            },
+            }
 
             (&Some(namespace_prefix!("xmlns")), "xmlns") => {
                 Err(Borrowed("XMLNS namespaces can't be changed"))
-            },
+            }
 
             (&Some(namespace_prefix!("xmlns")), _) | (&None, "xmlns") => {
                 // We can have two cases of properly defined xmlns
@@ -167,7 +159,7 @@ impl NamespaceMap {
                     self.scope.insert(ns_prefix, opt_uri);
                     Ok(())
                 }
-            },
+            }
 
             (_, _) => Err(Borrowed("Invalid namespace declaration.")),
         };
@@ -237,7 +229,7 @@ where
             namespace_stack: NamespaceMapStack::new(),
             current_namespace: NamespaceMap::empty(),
             present_attrs: HashSet::new(),
-            phase: StartPhase,
+            phase: Start,
         }
     }
 
@@ -246,10 +238,10 @@ where
     pub fn trace_handles(&self, tracer: &dyn Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in self.open_elems.iter() {
-            tracer.trace_handle(&e);
+            tracer.trace_handle(e);
         }
         if let Some(h) = self.curr_elem.as_ref() {
-            tracer.trace_handle(&h);
+            tracer.trace_handle(h);
         }
     }
 
@@ -266,10 +258,10 @@ where
     }
 
     #[cfg(for_c)]
-    fn debug_step(&self, _mode: XmlPhase, _token: &Token) {}
+    fn debug_step(&self, _mode: XmlPhase, _token: &TokenWrapper) {}
 
     #[cfg(not(for_c))]
-    fn debug_step(&self, mode: XmlPhase, token: &Token) {
+    fn debug_step(&self, mode: XmlPhase, token: &TokenWrapper) {
         debug!(
             "processing {:?} in insertion mode {:?}",
             format!("{:?}", token),
@@ -278,7 +270,7 @@ where
     }
 
     fn declare_ns(&mut self, attr: &mut Attribute) {
-        if let Err(msg) = self.current_namespace.insert_ns(&attr) {
+        if let Err(msg) = self.current_namespace.insert_ns(attr) {
             self.sink.parse_error(msg);
         } else {
             attr.name.ns = ns!(xmlns);
@@ -311,10 +303,10 @@ where
                     None => ns!(),
                 };
                 name.ns = ns_uri;
-            },
+            }
             Err(msg) => {
                 self.sink.parse_error(msg);
-            },
+            }
         }
     }
 
@@ -347,16 +339,16 @@ where
         let mut new_attr = vec![];
         // First we extract all namespace declarations
         for mut attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix == Some(namespace_prefix!("xmlns")) ||
-                attr.name.local == local_name!("xmlns")
+            attr.name.prefix == Some(namespace_prefix!("xmlns"))
+                || attr.name.local == local_name!("xmlns")
         }) {
             self.declare_ns(&mut attr);
         }
 
         // Then we bind those namespace declarations to attributes
         for attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix != Some(namespace_prefix!("xmlns")) &&
-                attr.name.local != local_name!("xmlns")
+            attr.name.prefix != Some(namespace_prefix!("xmlns"))
+                && attr.name.local != local_name!("xmlns")
         }) {
             if self.bind_attr_qname(&mut attr.name) {
                 new_attr.push(attr.clone());
@@ -379,7 +371,7 @@ where
         }
     }
 
-    fn process_to_completion(&mut self, mut token: Token) {
+    fn process_to_completion(&mut self, mut token: TokenWrapper) {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -391,11 +383,11 @@ where
             match self.step(phase, token) {
                 Done => {
                     token = unwrap_or_return!(more_tokens.pop_front(), ());
-                },
+                }
                 Reprocess(m, t) => {
                     self.phase = m;
                     token = t;
-                },
+                }
             }
         }
     }
@@ -412,7 +404,7 @@ where
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
                 return;
-            },
+            }
 
             tokenizer::DoctypeToken(d) => DoctypeToken(d),
             tokenizer::PIToken(x) => PIToken(x),
@@ -614,11 +606,11 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&mut self, mode: XmlPhase, token: Token) -> XmlProcessResult {
+    fn step(&mut self, mode: XmlPhase, token: TokenWrapper) -> XmlProcessResult {
         self.debug_step(mode, &token);
 
         match mode {
-            StartPhase => match token {
+            Start => match token {
                 TagToken(Tag {
                     kind: StartTag,
                     name,
@@ -633,10 +625,10 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase = MainPhase;
+                    self.phase = Main;
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
-                },
+                }
                 TagToken(Tag {
                     kind: EmptyTag,
                     name,
@@ -651,30 +643,30 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase = EndPhase;
+                    self.phase = End;
                     let handle = self.append_tag_to_doc(tag);
                     self.sink.pop(&handle);
                     Done
-                },
+                }
                 CommentToken(comment) => self.append_comment_to_doc(comment),
                 PIToken(pi) => self.append_pi_to_doc(pi),
                 CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
                 EOFToken => {
                     self.sink
                         .parse_error(Borrowed("Unexpected EOF in start phase"));
-                    Reprocess(EndPhase, EOFToken)
-                },
+                    Reprocess(End, EOFToken)
+                }
                 DoctypeToken(d) => {
                     self.append_doctype_to_doc(d);
                     Done
-                },
+                }
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in start phase"));
                     Done
-                },
+                }
             },
-            MainPhase => match token {
+            Main => match token {
                 CharacterTokens(chs) => self.append_text(chs),
                 TagToken(Tag {
                     kind: StartTag,
@@ -691,7 +683,7 @@ where
                         tag
                     };
                     self.insert_tag(tag)
-                },
+                }
                 TagToken(Tag {
                     kind: EmptyTag,
                     name,
@@ -713,7 +705,7 @@ where
                     } else {
                         self.append_tag(tag)
                     }
-                },
+                }
                 TagToken(Tag {
                     kind: EndTag,
                     name,
@@ -733,27 +725,27 @@ where
                     }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
-                        self.phase = EndPhase;
+                        self.phase = End;
                     }
                     retval
-                },
+                }
                 TagToken(Tag { kind: ShortTag, .. }) => {
                     self.pop();
                     if self.no_open_elems() {
-                        self.phase = EndPhase;
+                        self.phase = End;
                     }
                     Done
-                },
+                }
                 CommentToken(comment) => self.append_comment_to_tag(comment),
                 PIToken(pi) => self.append_pi_to_tag(pi),
-                EOFToken | NullCharacterToken => Reprocess(EndPhase, EOFToken),
+                EOFToken | NullCharacterToken => Reprocess(End, EOFToken),
                 DoctypeToken(_) => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in main phase"));
                     Done
-                },
+                }
             },
-            EndPhase => match token {
+            End => match token {
                 CommentToken(comment) => self.append_comment_to_doc(comment),
                 PIToken(pi) => self.append_pi_to_doc(pi),
                 CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
@@ -762,7 +754,7 @@ where
                     self.sink
                         .parse_error(Borrowed("Unexpected element in end phase"));
                     Done
-                },
+                }
             },
         }
     }

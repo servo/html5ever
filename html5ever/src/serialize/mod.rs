@@ -53,7 +53,7 @@ impl Default for SerializeOpts {
 #[derive(Default)]
 struct ElemInfo {
     html_name: Option<LocalName>,
-    ignore_children: bool
+    ignore_children: bool,
 }
 
 pub struct HtmlSerializer<Wr: Write> {
@@ -68,7 +68,7 @@ fn tagname(name: &QualName) -> LocalName {
         ref ns => {
             // FIXME(#122)
             warn!("node with weird namespace {:?}", ns);
-        },
+        }
     }
 
     name.local.clone()
@@ -147,13 +147,13 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
                     if name.local != local_name!("xmlns") {
                         self.writer.write_all(b"xmlns:")?;
                     }
-                },
+                }
                 ns!(xlink) => self.writer.write_all(b"xlink:")?,
                 ref ns => {
                     // FIXME(#122)
                     warn!("attr with weird namespace {:?}", ns);
                     self.writer.write_all(b"unknown_namespace:")?;
-                },
+                }
             }
 
             self.writer.write_all(name.local.as_bytes())?;
@@ -163,28 +163,28 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
         }
         self.writer.write_all(b">")?;
 
-        let ignore_children = name.ns == ns!(html) &&
-            match name.local {
-                local_name!("area") |
-                local_name!("base") |
-                local_name!("basefont") |
-                local_name!("bgsound") |
-                local_name!("br") |
-                local_name!("col") |
-                local_name!("embed") |
-                local_name!("frame") |
-                local_name!("hr") |
-                local_name!("img") |
-                local_name!("input") |
-                local_name!("keygen") |
-                local_name!("link") |
-                local_name!("meta") |
-                local_name!("param") |
-                local_name!("source") |
-                local_name!("track") |
-                local_name!("wbr") => true,
-                _ => false,
-            };
+        let ignore_children = name.ns == ns!(html)
+            && matches!(
+                name.local,
+                local_name!("area")
+                    | local_name!("base")
+                    | local_name!("basefont")
+                    | local_name!("bgsound")
+                    | local_name!("br")
+                    | local_name!("col")
+                    | local_name!("embed")
+                    | local_name!("frame")
+                    | local_name!("hr")
+                    | local_name!("img")
+                    | local_name!("input")
+                    | local_name!("keygen")
+                    | local_name!("link")
+                    | local_name!("meta")
+                    | local_name!("param")
+                    | local_name!("source")
+                    | local_name!("track")
+                    | local_name!("wbr")
+            );
 
         self.stack.push(ElemInfo {
             html_name,
@@ -200,7 +200,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
             None if self.opts.create_missing_parent => {
                 warn!("missing ElemInfo, creating default.");
                 Default::default()
-            },
+            }
             _ => panic!("no ElemInfo"),
         };
         if info.ignore_children {
@@ -214,13 +214,13 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
 
     fn write_text(&mut self, text: &str) -> io::Result<()> {
         let escape = match self.parent().html_name {
-            Some(local_name!("style")) |
-            Some(local_name!("script")) |
-            Some(local_name!("xmp")) |
-            Some(local_name!("iframe")) |
-            Some(local_name!("noembed")) |
-            Some(local_name!("noframes")) |
-            Some(local_name!("plaintext")) => false,
+            Some(local_name!("style"))
+            | Some(local_name!("script"))
+            | Some(local_name!("xmp"))
+            | Some(local_name!("iframe"))
+            | Some(local_name!("noembed"))
+            | Some(local_name!("noframes"))
+            | Some(local_name!("plaintext")) => false,
 
             Some(local_name!("noscript")) => !self.opts.scripting_enabled,
 

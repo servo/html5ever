@@ -49,14 +49,15 @@ impl Serialize for Tokens {
                         )?,
                         TagKind::EndTag => serializer.end_elem(name)?,
                     }
-                },
-                &Token::DoctypeToken(ref dt) => match dt.name {
-                    Some(ref name) => serializer.write_doctype(&name)?,
-                    None => {},
-                },
-                &Token::CommentToken(ref chars) => serializer.write_comment(&chars)?,
-                &Token::CharacterTokens(ref chars) => serializer.write_text(&chars)?,
-                &Token::NullCharacterToken | &Token::EOFToken => {},
+                }
+                &Token::DoctypeToken(ref dt) => {
+                    if let Some(ref name) = dt.name {
+                        serializer.write_doctype(name)?
+                    }
+                }
+                &Token::CommentToken(ref chars) => serializer.write_comment(chars)?,
+                &Token::CharacterTokens(ref chars) => serializer.write_text(chars)?,
+                &Token::NullCharacterToken | &Token::EOFToken => {}
                 &Token::ParseError(ref e) => println!("parse error: {:#?}", e),
             }
         }
@@ -67,7 +68,7 @@ impl Serialize for Tokens {
 fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
     let mut input = {
         let mut q = ::html5ever::tokenizer::BufferQueue::new();
-        q.push_front(input.into());
+        q.push_front(input);
         q
     };
     let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
@@ -238,7 +239,7 @@ fn doctype() {
     let dom = parse_document(RcDom::default(), ParseOpts::default()).one("<!doctype html>");
     dom.document.children.borrow_mut().truncate(1); // Remove <html>
     let mut result = vec![];
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize(&mut result, &document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(result).unwrap(), "<!DOCTYPE html>");
 }
@@ -251,11 +252,11 @@ fn deep_tree() {
         QualName::new(None, ns!(html), local_name!("div")),
         vec![],
     );
-    let src = String::from("<b>".repeat(60_000));
+    let src = "<b>".repeat(60_000);
     let dom = parser.one(src);
     let opts = SerializeOpts::default();
     let mut ret_val = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize(&mut ret_val, &document, opts)
         .expect("Writing to a string shouldn't fail (expect on OOM)");
 }

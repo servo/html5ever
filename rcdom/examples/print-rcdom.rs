@@ -11,21 +11,18 @@
 extern crate html5ever;
 extern crate markup5ever_rcdom as rcdom;
 
-use std::default::Default;
-use std::io;
-use std::iter::repeat;
-use std::string::String;
-
 use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
 use rcdom::{Handle, NodeData, RcDom};
+use std::default::Default;
+use std::io;
 
 // This is not proper HTML serialization, of course.
 
 fn walk(indent: usize, handle: &Handle) {
     let node = handle;
     // FIXME: don't allocate
-    print!("{}", repeat(" ").take(indent).collect::<String>());
+    print!("{}", " ".repeat(indent));
     match node.data {
         NodeData::Document => println!("#Document"),
 
@@ -37,7 +34,7 @@ fn walk(indent: usize, handle: &Handle) {
 
         NodeData::Text { ref contents } => {
             println!("#text: {}", contents.borrow().escape_default())
-        },
+        }
 
         NodeData::Comment { ref contents } => println!("<!-- {} -->", contents.escape_default()),
 
@@ -53,7 +50,7 @@ fn walk(indent: usize, handle: &Handle) {
                 print!(" {}=\"{}\"", attr.name.local, attr.value);
             }
             println!(">");
-        },
+        }
 
         NodeData::ProcessingInstruction { .. } => unreachable!(),
     }

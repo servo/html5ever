@@ -89,13 +89,10 @@ fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -
 #[inline]
 fn write_qual_name<W: Write>(writer: &mut W, name: &QualName) -> io::Result<()> {
     if let Some(ref prefix) = name.prefix {
-        writer.write_all(&prefix.as_bytes())?;
+        writer.write_all(prefix.as_bytes())?;
         writer.write_all(b":")?;
-        writer.write_all(&*name.local.as_bytes())?;
-    } else {
-        writer.write_all(&*name.local.as_bytes())?;
     }
-
+    writer.write_all(&*name.local.as_bytes())?;
     Ok(())
 }
 
@@ -132,11 +129,9 @@ impl<Wr: Write> XmlSerializer<Wr> {
     }
 
     fn find_or_insert_ns(&mut self, name: &QualName) {
-        if name.prefix.is_some() || &*name.ns != "" {
-            if !self.find_uri(name) {
-                if let Some(last_ns) = self.namespace_stack.0.last_mut() {
-                    last_ns.insert(name);
-                }
+        if (name.prefix.is_some() || !name.ns.is_empty()) && !self.find_uri(name) {
+            if let Some(last_ns) = self.namespace_stack.0.last_mut() {
+                last_ns.insert(name);
             }
         }
     }
@@ -173,7 +168,7 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
         }
         for (name, value) in attrs {
             self.writer.write_all(b" ")?;
-            self.qual_attr_name(&name)?;
+            self.qual_attr_name(name)?;
             self.writer.write_all(b"=\"")?;
             write_to_buf_escaped(&mut self.writer, value, true)?;
             self.writer.write_all(b"\"")?;

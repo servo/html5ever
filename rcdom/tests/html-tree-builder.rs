@@ -19,8 +19,6 @@ use std::collections::{HashMap, HashSet};
 use std::default::Default;
 use std::ffi::OsStr;
 use std::io::BufRead;
-use std::iter::repeat;
-use std::mem::replace;
 use std::path::Path;
 use std::{env, fs, io};
 use test::{DynTestName, TestDesc, TestDescAndFn, TestFn};
@@ -40,14 +38,14 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match key.take() {
             None => (),
             Some(key) => {
-                assert!(test.insert(key, replace(&mut val, String::new())).is_none());
+                assert!(test.insert(key, std::mem::take(&mut val)).is_none());
             }
         }
     ));
 
     macro_rules! finish_test ( () => (
         if !test.is_empty() {
-            tests.push(replace(&mut test, HashMap::new()));
+            tests.push(std::mem::take(&mut test));
         }
     ));
 
@@ -55,17 +53,17 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match lines.next() {
             None => break,
             Some(line) => {
-                if line.starts_with("#") {
+                if let Some(stripped) = line.strip_prefix('#') {
                     finish_val!();
                     if line == "#data" {
                         finish_test!();
                     }
-                    key = Some(line[1..].to_string());
+                    key = Some(stripped.to_string());
                 } else {
                     val.push_str(&line);
                     val.push('\n');
                 }
-            },
+            }
         }
     }
 
@@ -75,8 +73,8 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 }
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
-    buf.push_str("|");
-    buf.push_str(&repeat(" ").take(indent).collect::<String>());
+    buf.push('|');
+    buf.push_str(&" ".repeat(indent));
 
     let node = handle;
     match node.data {
@@ -88,31 +86,31 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             ref system_id,
         } => {
             buf.push_str("<!DOCTYPE ");
-            buf.push_str(&name);
+            buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
                 buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
-        },
+        }
 
         NodeData::Text { ref contents } => {
-            buf.push_str("\"");
+            buf.push('\"');
             buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
-        },
+        }
 
         NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&contents);
+            buf.push_str(contents);
             buf.push_str(" -->\n");
-        },
+        }
 
         NodeData::Element {
             ref name,
             ref attrs,
             ..
         } => {
-            buf.push_str("<");
+            buf.push('<');
             match name.ns {
                 ns!(svg) => buf.push_str("svg "),
                 ns!(mathml) => buf.push_str("math "),
@@ -126,8 +124,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             // FIXME: sort by UTF-16 code unit
 
             for attr in attrs.into_iter() {
-                buf.push_str("|");
-                buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+                buf.push('|');
+                buf.push_str(&" ".repeat(indent + 2));
                 match attr.name.ns {
                     ns!(xlink) => buf.push_str("xlink "),
                     ns!(xml) => buf.push_str("xml "),
@@ -136,7 +134,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 }
                 buf.push_str(&format!("{}=\"{}\"\n", attr.name.local, attr.value));
             }
-        },
+        }
 
         NodeData::ProcessingInstruction { .. } => unreachable!(),
     }
@@ -151,8 +149,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     } = node.data
     {
         if let Some(ref content) = &*template_contents.borrow() {
-            buf.push_str("|");
-            buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+            buf.push('|');
+            buf.push_str(&" ".repeat(indent + 2));
             buf.push_str("content\n");
             for child in content.children.borrow().iter() {
                 serialize(buf, indent + 4, child.clone());
@@ -212,7 +210,7 @@ fn make_test_desc_with_scripting_flag(
 
     TestDescAndFn {
         desc: TestDesc {
-            ignore: ignore,
+            ignore,
             ..TestDesc::new(DynTestName(name))
         },
         testfn: TestFn::dyn_test_fn(move || {
@@ -225,7 +223,7 @@ fn make_test_desc_with_scripting_flag(
                     for child in dom.document.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
-                },
+                }
                 Some(ref context) => {
                     let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![])
                         .one(data.clone());
@@ -236,7 +234,7 @@ fn make_test_desc_with_scripting_flag(
                     for child in root.children.borrow().iter() {
                         serialize(&mut result, 1, child.clone());
                     }
-                },
+                }
             };
             let len = result.len();
             result.truncate(len - 1); // drop the trailing newline
@@ -252,10 +250,10 @@ fn make_test_desc_with_scripting_flag(
 }
 
 fn context_name(context: &str) -> QualName {
-    if context.starts_with("svg ") {
-        QualName::new(None, ns!(svg), LocalName::from(&context[4..]))
-    } else if context.starts_with("math ") {
-        QualName::new(None, ns!(mathml), LocalName::from(&context[5..]))
+    if let Some(stripped) = context.strip_prefix("svg ") {
+        QualName::new(None, ns!(svg), LocalName::from(stripped))
+    } else if let Some(stripped) = context.strip_prefix("math ") {
+        QualName::new(None, ns!(mathml), LocalName::from(stripped))
     } else {
         QualName::new(None, ns!(html), LocalName::from(context))
     }
@@ -270,7 +268,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
         OsStr::new("dat"),
         |path, file| {
             let buf = io::BufReader::new(file);
-            let lines = buf.lines().map(|res| res.ok().expect("couldn't read"));
+            let lines = buf.lines().map(|res| res.expect("couldn't read"));
             let data = parse_tests(lines);
 
             for (i, test) in data.into_iter().enumerate() {

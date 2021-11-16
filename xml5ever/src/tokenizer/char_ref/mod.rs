@@ -146,13 +146,13 @@ impl CharRefTokenizer {
                 tokenizer.discard_char(input);
                 self.state = Octothorpe;
                 Progress
-            },
+            }
 
             _ => {
                 self.state = Named;
                 self.name_buf_opt = Some(StrTendril::new());
                 Progress
-            },
+            }
         }
     }
 
@@ -167,12 +167,12 @@ impl CharRefTokenizer {
                 tokenizer.discard_char(input);
                 self.hex_marker = Some(c);
                 self.state = Numeric(16);
-            },
+            }
 
             _ => {
                 self.hex_marker = None;
                 self.state = Numeric(10);
-            },
+            }
         }
         Progress
     }
@@ -196,14 +196,14 @@ impl CharRefTokenizer {
                 self.num = self.num.wrapping_add(n);
                 self.seen_digit = true;
                 Progress
-            },
+            }
 
             None if !self.seen_digit => self.unconsume_numeric(tokenizer, input),
 
             None => {
                 self.state = NumericSemicolon;
                 Progress
-            },
+            }
         }
     }
 
@@ -227,9 +227,8 @@ impl CharRefTokenizer {
         input: &mut BufferQueue,
     ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
-        match self.hex_marker {
-            Some(c) => unconsume.push_char(c),
-            None => (),
+        if let Some(c) = self.hex_marker {
+            unconsume.push_char(c)
         }
 
         tokenizer.unconsume(input, unconsume);
@@ -288,7 +287,7 @@ impl CharRefTokenizer {
                 }
                 // Otherwise we just have a prefix match.
                 Progress
-            },
+            }
 
             // Can't continue the match.
             None => self.finish_named(tokenizer, Some(c), input),
@@ -327,7 +326,7 @@ impl CharRefTokenizer {
                         // we emit a parse error.
                         self.state = BogusName;
                         return Progress;
-                    },
+                    }
 
                     // Check length because &; is not a parse error.
                     Some(';') if self.name_buf().len() > 1 => self.emit_name_error(tokenizer),
@@ -336,7 +335,7 @@ impl CharRefTokenizer {
                 }
                 self.unconsume_name(tokenizer, input);
                 self.finish_none()
-            },
+            }
 
             Some((c1, c2)) => {
                 // We have a complete match, but we may have consumed
@@ -376,14 +375,14 @@ impl CharRefTokenizer {
                             "Equals sign after character reference in attribute",
                         ));
                         true
-                    },
+                    }
                     (Some(_), _, Some(c)) if c.is_ascii_alphanumeric() => true,
                     _ => {
                         tokenizer.emit_error(Borrowed(
                             "Character reference does not end with semicolon",
                         ));
                         false
-                    },
+                    }
                 };
 
                 if unconsume_all {
@@ -398,7 +397,7 @@ impl CharRefTokenizer {
                     });
                     Done
                 }
-            },
+            }
         }
     }
 
@@ -432,20 +431,20 @@ impl CharRefTokenizer {
                 Numeric(_) | NumericSemicolon => {
                     tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
                     self.finish_numeric(tokenizer);
-                },
+                }
 
                 Named => drop(self.finish_named(tokenizer, None, input)),
 
                 BogusName => {
                     self.unconsume_name(tokenizer, input);
                     self.finish_none();
-                },
+                }
 
                 Octothorpe => {
                     tokenizer.unconsume(input, StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
-                },
+                }
             }
         }
     }

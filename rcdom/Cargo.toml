@@ -8,7 +8,7 @@ description = "Basic, unsupported DOM structure for use by tests in html5ever/xm
 readme = "README.md"
 documentation = "https://docs.rs/markup5ever_rcdom"
 categories = [ "parser-implementations", "web-programming" ]
-edition = "2018"
+edition = "2021"
 publish = false
 
 [lib]

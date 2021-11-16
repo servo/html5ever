@@ -93,10 +93,7 @@ impl BufferQueue {
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         debug_assert!(
-            self.buffers
-                .iter()
-                .find(|el| el.len32() == 0)
-                .is_none(),
+            !self.buffers.iter().any(|el| el.len32() == 0),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
         self.buffers.front().map(|b| b.chars().next().unwrap())
@@ -105,13 +102,13 @@ impl BufferQueue {
     /// Get the next character if one is available, removing it from the queue.
     ///
     /// This function manages the buffers, removing them as they become empty.
-    pub fn next(&mut self) -> Option<char> {
+    pub fn next_char(&mut self) -> Option<char> {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
                 (Some(c), buf.is_empty())
-            },
+            }
         };
 
         if now_empty {
@@ -152,7 +149,7 @@ impl BufferQueue {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(buf) => {
-                let n = set.nonmember_prefix_len(&buf);
+                let n = set.nonmember_prefix_len(buf);
                 if n > 0 {
                     let out;
                     unsafe {
@@ -164,7 +161,7 @@ impl BufferQueue {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
                     (Some(FromSet(c)), buf.is_empty())
                 }
-            },
+            }
         };
 
         // Unborrow self for this part.
@@ -235,6 +232,12 @@ impl BufferQueue {
     }
 }
 
+impl Default for BufferQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
@@ -247,32 +250,32 @@ mod test {
     fn smoke_test() {
         let mut bq = BufferQueue::new();
         assert_eq!(bq.peek(), None);
-        assert_eq!(bq.next(), None);
+        assert_eq!(bq.next_char(), None);
 
         bq.push_back("abc".to_tendril());
         assert_eq!(bq.peek(), Some('a'));
-        assert_eq!(bq.next(), Some('a'));
+        assert_eq!(bq.next_char(), Some('a'));
         assert_eq!(bq.peek(), Some('b'));
         assert_eq!(bq.peek(), Some('b'));
-        assert_eq!(bq.next(), Some('b'));
+        assert_eq!(bq.next_char(), Some('b'));
         assert_eq!(bq.peek(), Some('c'));
-        assert_eq!(bq.next(), Some('c'));
+        assert_eq!(bq.next_char(), Some('c'));
         assert_eq!(bq.peek(), None);
-        assert_eq!(bq.next(), None);
+        assert_eq!(bq.next_char(), None);
     }
 
     #[test]
     fn can_unconsume() {
         let mut bq = BufferQueue::new();
         bq.push_back("abc".to_tendril());
-        assert_eq!(bq.next(), Some('a'));
+        assert_eq!(bq.next_char(), Some('a'));
 
         bq.push_front("xy".to_tendril());
-        assert_eq!(bq.next(), Some('x'));
-        assert_eq!(bq.next(), Some('y'));
-        assert_eq!(bq.next(), Some('b'));
-        assert_eq!(bq.next(), Some('c'));
-        assert_eq!(bq.next(), None);
+        assert_eq!(bq.next_char(), Some('x'));
+        assert_eq!(bq.next_char(), Some('y'));
+        assert_eq!(bq.next_char(), Some('b'));
+        assert_eq!(bq.next_char(), Some('c'));
+        assert_eq!(bq.next_char(), None);
     }
 
     #[test]
@@ -297,7 +300,7 @@ mod test {
         assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
         assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
         assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
-        assert_eq!(bq.next(), Some('c'));
-        assert_eq!(bq.next(), None);
+        assert_eq!(bq.next_char(), Some('c'));
+        assert_eq!(bq.next_char(), None);
     }
 }

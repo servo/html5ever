@@ -33,11 +33,8 @@ fn main() {
     let xml = {
         let mut xml = String::new();
 
-        match &text_node.data {
-            &NodeData::Text { ref contents } => {
-                xml.push_str(&contents.borrow());
-            },
-            _ => {},
+        if let NodeData::Text { ref contents } = &text_node.data {
+            xml.push_str(&contents.borrow());
         };
 
         xml
