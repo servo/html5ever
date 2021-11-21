@@ -16,7 +16,6 @@ categories = [ "parser-implementations", "web-programming" ]
 edition = "2018"
 
 [dependencies]
-time = "0.1"
 log = "0.4"
 mac = "0.1"
 markup5ever = {version = "0.10", path = "../markup5ever" }
