@@ -18,6 +18,8 @@ markup5ever = { version = "0.10", path = "../markup5ever" }
 
 [dev-dependencies]
 typed-arena = "1.3.0"
+
+[target.'cfg(bench)'.dev-dependencies]
 criterion = "0.3"
 
 [build-dependencies]

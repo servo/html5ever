@@ -23,6 +23,8 @@ markup5ever = {version = "0.10", path = "../markup5ever" }
 
 [dev-dependencies]
 rustc-test = "0.3"
+
+[target.'cfg(bench)'.dev-dependencies]
 criterion = "0.3"
 
 [[bench]]
