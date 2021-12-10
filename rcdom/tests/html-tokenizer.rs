@@ -11,7 +11,7 @@ mod foreach_html5lib_test;
 
 use foreach_html5lib_test::foreach_html5lib_test;
 use html5ever::tendril::*;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
+use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata, ScriptData, CdataSection, Data};
 use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
@@ -364,6 +364,9 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                     "PLAINTEXT state" => Plaintext,
                     "RAWTEXT state" => RawData(Rawtext),
                     "RCDATA state" => RawData(Rcdata),
+                    "Script data state" => RawData(ScriptData),
+                    "CDATA section state" => CdataSection,
+                    "Data state" => Data,
                     s => panic!("don't know state {}", s),
                 })
             })
