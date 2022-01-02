@@ -575,30 +575,30 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c);                                   );
-    ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c);                           );
-    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c);                  );
-    ( $me:ident : discard_tag                      ) => ( $me.discard_tag();                                   );
-    ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input);                            );
-    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c);                          );
-    ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf();                                 );
-    ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf();                                );
-    ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c);                            );
-    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c);                 );
-    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c);                );
-    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c);             );
-    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c);                   );
-    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c);                  );
-    ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment();                          );
-    ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear();                         );
-    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new();                );
-    ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c);      );
-    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c);                 );
-    ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k);                            );
-    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.force_quirks = true;             );
-    ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype();                          );
-    ( $me:ident : error                            ) => ( $me.bad_char_error();                                );
-    ( $me:ident : error_eof                        ) => ( $me.bad_eof_error();                                 );
+    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c)                                   );
+    ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c)                           );
+    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c)                  );
+    ( $me:ident : discard_tag                      ) => ( $me.discard_tag()                                   );
+    ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input)                            );
+    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c)                          );
+    ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf()                                 );
+    ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf()                                );
+    ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c)                            );
+    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c)                 );
+    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c)                );
+    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c)             );
+    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c)                   );
+    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c)                  );
+    ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment()                          );
+    ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear()                         );
+    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new()                );
+    ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c)      );
+    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c)                 );
+    ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k)                            );
+    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.force_quirks = true             );
+    ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype()                          );
+    ( $me:ident : error                            ) => ( $me.bad_char_error()                                );
+    ( $me:ident : error_eof                        ) => ( $me.bad_eof_error()                                 );
 );
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
@@ -644,7 +644,7 @@ macro_rules! go (
     ( $me:ident : eof ) => ({ $me.emit_eof(); return ProcessResult::Suspend; });
 
     // If nothing else matched, it's a single command
-    ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+); );
+    ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+) );
 
     // or nothing.
     ( $me:ident : ) => (());
