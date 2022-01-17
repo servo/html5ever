@@ -20,6 +20,7 @@ use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts}
 use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
+use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::default::Default;
 use std::ffi::OsStr;
@@ -54,6 +55,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
+    errors: Vec<Cow<'static, str>>,
     current_str: StrTendril,
     exact_errors: bool,
 }
@@ -62,6 +64,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: vec![],
+            errors: vec![],
             current_str: StrTendril::new(),
             exact_errors: exact_errors,
         }
@@ -80,9 +83,9 @@ impl TokenLogger {
         }
     }
 
-    fn get_tokens(mut self) -> Vec<Token> {
+    fn get_tokens(mut self) -> (Vec<Token>, Vec<Cow<'static, str>>){
         self.finish_str();
-        self.tokens
+        (self.tokens, self.errors)
     }
 }
 
@@ -101,7 +104,8 @@ impl TokenSink for TokenLogger {
 
             ParseError(_) => {
                 if self.exact_errors {
-                    self.push(ParseError(Borrowed("")));
+                    // TODO: actually match exact error messages
+                    self.errors.push(Borrowed(""));
                 }
             },
 
@@ -127,7 +131,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
+fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<Cow<'static, str>>) {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
     let mut buffer = BufferQueue::new();
@@ -247,21 +251,24 @@ fn json_to_token(js: &Value) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
+fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<Cow<'static, str>>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
-    for tok in js.get_list().iter() {
+    for tok in js_tokens.get_list().iter() {
         assert_eq!(
-            match *tok {
-                Value::String(ref s) if &s[..] == "ParseError" => {
-                    sink.process_token(ParseError(Borrowed("")), 0)
-                },
-                _ => sink.process_token(json_to_token(tok), 0),
-            },
+            sink.process_token(json_to_token(tok), 0),
             TokenSinkResult::Continue
         );
     }
+
+    for err in js_errors {
+        assert_eq!(
+            sink.process_token(ParseError(err.find("code").get_str().into()), 0),
+            TokenSinkResult::Continue
+        );
+    }
+
     sink.get_tokens()
 }
 
@@ -309,7 +316,7 @@ fn unescape_json(js: &Value) -> Value {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Value, opts: TokenizerOpts) -> TestDescAndFn {
+fn mk_test(desc: String, input: String, expect: Value, expect_errors: Vec<Value>, opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -321,11 +328,11 @@ fn mk_test(desc: String, input: String, expect: Value, opts: TokenizerOpts) -> T
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
-                let expect_toks = json_to_tokens(&expect, opts.exact_errors);
+                let expect_toks = json_to_tokens(&expect, &expect_errors, opts.exact_errors);
                 if output != expect_toks {
                     panic!(
                         "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect
+                        input, output, expect_toks
                     );
                 }
             }
@@ -337,6 +344,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
+    let expect_errors = js.get("errors").map(JsonExt::get_list).map(Vec::as_slice).unwrap_or_default();
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -391,6 +399,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 newdesc,
                 input.clone(),
                 expect.clone(),
+                expect_errors.to_owned(),
                 TokenizerOpts {
                     exact_errors: exact_errors,
                     initial_state: state,
