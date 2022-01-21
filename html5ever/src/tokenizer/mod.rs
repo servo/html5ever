@@ -1185,7 +1185,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     match get_char!(self, input) {
                         '\t' | '\n' | '\x0C' | ' ' => (),
                         '>' => go!(self: emit_doctype; to Data),
-                        _ => go!(self: error; force_quirks; to BogusDoctype),
+                        _ => go!(self: error; force_quirks; reconsume BogusDoctype),
                     }
                 }
             },
@@ -1281,6 +1281,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::BogusDoctype => loop {
                 match get_char!(self, input) {
                     '>' => go!(self: emit_doctype; to Data),
+                    '\0' => go!(self: error),
                     _ => (),
                 }
             },
