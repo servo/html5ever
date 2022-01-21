@@ -1201,7 +1201,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         go!(self: error; clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind)
                     },
                     '>' => go!(self: error; force_quirks; emit_doctype; to Data),
-                    _ => go!(self: error; force_quirks; to BogusDoctype),
+                    _ => go!(self: error; force_quirks; reconsume BogusDoctype),
                 }
             },
 
