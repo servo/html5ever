@@ -21,13 +21,23 @@ use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
 use std::borrow::Cow;
-use std::borrow::Cow::Borrowed;
 use std::default::Default;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
 use std::{char, env};
+
+
+#[derive(Debug)]
+struct TestError(Cow<'static, str>);
+
+impl PartialEq for TestError {
+    fn eq(&self, _: &TestError) -> bool {
+        // TODO: actually match exact error messages
+        true
+    }
+}
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -55,7 +65,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
 
 struct TokenLogger {
     tokens: Vec<Token>,
-    errors: Vec<Cow<'static, str>>,
+    errors: Vec<TestError>,
     current_str: StrTendril,
     exact_errors: bool,
 }
@@ -83,7 +93,7 @@ impl TokenLogger {
         }
     }
 
-    fn get_tokens(mut self) -> (Vec<Token>, Vec<Cow<'static, str>>){
+    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>){
         self.finish_str();
         (self.tokens, self.errors)
     }
@@ -102,10 +112,9 @@ impl TokenSink for TokenLogger {
                 self.current_str.push_char('\0');
             },
 
-            ParseError(_) => {
+            ParseError(e) => {
                 if self.exact_errors {
-                    // TODO: actually match exact error messages
-                    self.errors.push(Borrowed(""));
+                    self.errors.push(TestError(e));
                 }
             },
 
@@ -131,7 +140,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<Cow<'static, str>>) {
+fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
     let mut buffer = BufferQueue::new();
@@ -251,7 +260,7 @@ fn json_to_token(js: &Value) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<Cow<'static, str>>) {
+fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<TestError>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
