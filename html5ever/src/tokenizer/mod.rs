@@ -1310,7 +1310,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             go!(self: clear_temp; to CdataSection);
                         }
                     }
-                    go!(self: error; reconsume BogusComment);
+                    go!(self: error; clear_comment; reconsume BogusComment);
                 }
             },
 
