@@ -1126,9 +1126,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CommentEnd => loop {
                 match get_char!(self, input) {
                     '>' => go!(self: emit_comment; to Data),
-                    '\0' => go!(self: error; append_comment "--\u{fffd}"; to Comment),
-                    '!' => go!(self: error; to CommentEndBang),
-                    '-' => go!(self: error; push_comment '-'),
+                    '!' => go!(self: to CommentEndBang),
+                    '-' => go!(self: push_comment '-'),
                     _ => go!(self: append_comment "--"; reconsume Comment),
                 }
             },
