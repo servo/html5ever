@@ -783,12 +783,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::EndTagOpen => loop {
                 match get_char!(self, input) {
                     '>' => go!(self: error; to Data),
-                    '\0' => {
-                        go!(self: error; clear_comment; push_comment '\u{fffd}'; to BogusComment)
-                    },
                     c => match lower_ascii_letter(c) {
                         Some(cl) => go!(self: create_tag EndTag cl; to TagName),
-                        None => go!(self: error; clear_comment; push_comment c; to BogusComment),
+                        None => go!(self: error; clear_comment; reconsume BogusComment),
                     },
                 }
             },
@@ -1291,7 +1288,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::BogusComment => loop {
                 match get_char!(self, input) {
                     '>' => go!(self: emit_comment; to Data),
-                    '\0' => go!(self: push_comment '\u{fffd}'),
+                    '\0' => go!(self: error; push_comment '\u{fffd}'),
                     c => go!(self: push_comment c),
                 }
             },
