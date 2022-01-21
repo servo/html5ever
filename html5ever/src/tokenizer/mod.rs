@@ -769,7 +769,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ tag-open-state
             states::TagOpen => loop {
                 match get_char!(self, input) {
-                    '!' => go!(self: clear_temp; to MarkupDeclarationOpen),
+                    '!' => go!(self: to MarkupDeclarationOpen),
                     '/' => go!(self: to EndTagOpen),
                     '?' => go!(self: error; clear_comment; reconsume BogusComment),
                     c => match lower_ascii_letter(c) {
@@ -1307,7 +1307,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         .adjusted_current_node_present_but_not_in_html_namespace()
                     {
                         if eat_exact!(self, input, "[CDATA[") {
-                            // TODO: not present in html5gum
                             go!(self: clear_temp; to CdataSection);
                         }
                     }
