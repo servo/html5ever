@@ -1147,6 +1147,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::Doctype => loop {
                 match get_char!(self, input) {
                     '\t' | '\n' | '\x0C' | ' ' => go!(self: to BeforeDoctypeName),
+                    '>' => go!(self: reconsume BeforeDoctypeName),
                     _ => go!(self: error; reconsume BeforeDoctypeName),
                 }
             },
