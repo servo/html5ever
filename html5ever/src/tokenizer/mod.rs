@@ -771,7 +771,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match get_char!(self, input) {
                     '!' => go!(self: clear_temp; to MarkupDeclarationOpen),
                     '/' => go!(self: to EndTagOpen),
-                    '?' => go!(self: error; clear_comment; push_comment '?'; to BogusComment),
+                    '?' => go!(self: error; clear_comment; reconsume BogusComment),
                     c => match lower_ascii_letter(c) {
                         Some(cl) => go!(self: create_tag StartTag cl; to TagName),
                         None => go!(self: error; emit '<'; reconsume Data),
@@ -1212,7 +1212,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '"' => go!(self: clear_doctype_id kind; to DoctypeIdentifierDoubleQuoted kind),
                     '\'' => go!(self: clear_doctype_id kind; to DoctypeIdentifierSingleQuoted kind),
                     '>' => go!(self: error; force_quirks; emit_doctype; to Data),
-                    _ => go!(self: error; force_quirks; to BogusDoctype),
+                    _ => go!(self: error; force_quirks; reconsume BogusDoctype),
                 }
             },
 
@@ -1249,7 +1249,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '\'' => {
                         go!(self: error; clear_doctype_id System; to DoctypeIdentifierSingleQuoted System)
                     },
-                    _ => go!(self: error; force_quirks; to BogusDoctype),
+                    _ => go!(self: error; force_quirks; reconsume BogusDoctype),
                 }
             },
 
@@ -1258,7 +1258,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match get_char!(self, input) {
                     '\t' | '\n' | '\x0C' | ' ' => (),
                     '>' => go!(self: emit_doctype; to Data),
-                    _ => go!(self: error; to BogusDoctype),
+                    _ => go!(self: error; reconsume BogusDoctype),
                 }
             },
 
@@ -1273,7 +1273,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '\'' => {
                         go!(self: clear_doctype_id System; to DoctypeIdentifierSingleQuoted System)
                     },
-                    _ => go!(self: error; force_quirks; to BogusDoctype),
+                    _ => go!(self: error; force_quirks; reconsume BogusDoctype),
                 }
             },
 
@@ -1307,10 +1307,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         .adjusted_current_node_present_but_not_in_html_namespace()
                     {
                         if eat_exact!(self, input, "[CDATA[") {
+                            // TODO: not present in html5gum
                             go!(self: clear_temp; to CdataSection);
                         }
                     }
-                    go!(self: error; to BogusComment);
+                    go!(self: error; reconsume BogusComment);
                 }
             },
 
