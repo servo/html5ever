@@ -1129,7 +1129,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '\0' => go!(self: error; append_comment "--\u{fffd}"; to Comment),
                     '!' => go!(self: error; to CommentEndBang),
                     '-' => go!(self: error; push_comment '-'),
-                    c => go!(self: error; append_comment "--"; push_comment c; to Comment),
+                    c => go!(self: append_comment "--"; reconsume Comment),
                 }
             },
 
