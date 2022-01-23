@@ -1107,9 +1107,43 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ comment-state
             states::Comment => loop {
                 match get_char!(self, input) {
+                    c @ '<' => go!(self: push_comment c; to CommentLessThanSign),
                     '-' => go!(self: to CommentEndDash),
                     '\0' => go!(self: error; push_comment '\u{fffd}'),
                     c => go!(self: push_comment c),
+                }
+            },
+
+            //§ comment-less-than-sign-state
+            states::CommentLessThanSign => loop {
+                match get_char!(self, input) {
+                    c @ '!' => go!(self: push_comment c; to CommentLessThanSignBang),
+                    c @ '<' => go!(self: push_comment c),
+                    _ => go!(self: reconsume Comment),
+                }
+            },
+
+            //§ comment-less-than-sign-bang
+            states::CommentLessThanSignBang => loop {
+                match get_char!(self, input) {
+                    '-' => go!(self: to CommentLessThanSignBangDash),
+                    _ => go!(self: reconsume Comment),
+                }
+            },
+
+            //§ comment-less-than-sign-bang-dash
+            states::CommentLessThanSignBangDash => loop {
+                match get_char!(self, input) {
+                    '-' => go!(self: to CommentLessThanSignBangDashDash),
+                    _ => go!(self: reconsume CommentEndDash),
+                }
+            },
+
+            //§ comment-less-than-sign-bang-dash-dash
+            states::CommentLessThanSignBangDashDash => loop {
+                match get_char!(self, input) {
+                    '>' => go!(self: to CommentEnd),
+                    _ => go!(self: error; reconsume CommentEnd),
                 }
             },
 
@@ -1487,6 +1521,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CommentStart |
             states::CommentStartDash |
             states::Comment |
+            states::CommentLessThanSign |
+            states::CommentLessThanSignBang |
+            states::CommentLessThanSignBangDash |
+            states::CommentLessThanSignBangDashDash |
             states::CommentEndDash |
             states::CommentEnd |
             states::CommentEndBang => go!(self: error_eof; emit_comment; to Data),
