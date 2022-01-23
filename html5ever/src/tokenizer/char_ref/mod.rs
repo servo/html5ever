@@ -356,26 +356,20 @@ impl CharRefTokenizer {
                     Some(self.name_buf()[name_len..].chars().next().unwrap())
                 };
 
-                // "If the character reference is being consumed as part of an
-                // attribute, and the last character matched is not a U+003B
-                // SEMICOLON character (;), and the next character is either a
-                // U+003D EQUALS SIGN character (=) or an alphanumeric ASCII
-                // character, then, for historical reasons, all the characters
-                // that were matched after the U+0026 AMPERSAND character (&)
-                // must be unconsumed, and nothing is returned. However, if
-                // this next character is in fact a U+003D EQUALS SIGN
-                // character (=), then this is a parse error"
+                // If the character reference was consumed as part of an attribute, and the last
+                // character matched is not a U+003B SEMICOLON character (;), and the next input
+                // character is either a U+003D EQUALS SIGN character (=) or an ASCII alphanumeric,
+                // then, for historical reasons, flush code points consumed as a character
+                // reference and switch to the return state.
 
                 let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
                     (_, ';', _) => false,
-                    (Some(_), _, Some('=')) => {
-                        tokenizer.emit_error(Borrowed(
-                            "Equals sign after character reference in attribute",
-                        ));
-                        true
-                    },
+                    (Some(_), _, Some('=')) => true,
                     (Some(_), _, Some(c)) if c.is_ascii_alphanumeric() => true,
                     _ => {
+                        // 1. If the last character matched is not a U+003B SEMICOLON character
+                        //    (;), then this is a missing-semicolon-after-character-reference parse
+                        //    error.
                         tokenizer.emit_error(Borrowed(
                             "Character reference does not end with semicolon",
                         ));
