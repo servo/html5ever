@@ -545,10 +545,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn consume_char_ref(&mut self, addnl_allowed: Option<char>) {
-        // NB: The char ref tokenizer assumes we have an additional allowed
-        // character iff we're tokenizing in an attribute value.
-        self.char_ref_tokenizer = Some(Box::new(CharRefTokenizer::new(addnl_allowed)));
+    fn consume_char_ref(&mut self) {
+        self.char_ref_tokenizer = Some(
+            Box::new(CharRefTokenizer::new(matches!(self.state, states::AttributeValue(_))))
+        );
     }
 
     fn emit_eof(&mut self) {
@@ -632,8 +632,7 @@ macro_rules! go (
     ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
     ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
 
-    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return ProcessResult::Continue;         });
-    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return ProcessResult::Continue; });
+    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(); return ProcessResult::Continue;         });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
@@ -1023,7 +1022,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::AttributeValue(DoubleQuoted) => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '"' '&' '\0' '\n')) {
                     FromSet('"') => go!(self: to AfterAttributeValueQuoted),
-                    FromSet('&') => go!(self: consume_char_ref '"'),
+                    FromSet('&') => go!(self: consume_char_ref),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c) => go!(self: push_value c),
                     NotFromSet(ref b) => go!(self: append_value b),
@@ -1034,7 +1033,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::AttributeValue(SingleQuoted) => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '\'' '&' '\0' '\n')) {
                     FromSet('\'') => go!(self: to AfterAttributeValueQuoted),
-                    FromSet('&') => go!(self: consume_char_ref '\''),
+                    FromSet('&') => go!(self: consume_char_ref),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c) => go!(self: push_value c),
                     NotFromSet(ref b) => go!(self: append_value b),
@@ -1051,7 +1050,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ') => {
                         go!(self: to BeforeAttributeName)
                     },
-                    FromSet('&') => go!(self: consume_char_ref '>'),
+                    FromSet('&') => go!(self: consume_char_ref),
                     FromSet('>') => go!(self: emit_tag Data),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c) => {

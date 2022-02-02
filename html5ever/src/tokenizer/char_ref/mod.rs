@@ -47,8 +47,8 @@ enum State {
 
 pub struct CharRefTokenizer {
     state: State,
-    addnl_allowed: Option<char>,
     result: Option<CharRef>,
+    is_consumed_in_attribute: bool,
 
     num: u32,
     num_too_big: bool,
@@ -61,12 +61,10 @@ pub struct CharRefTokenizer {
 }
 
 impl CharRefTokenizer {
-    // NB: We assume that we have an additional allowed character iff we're
-    // tokenizing in an attribute value.
-    pub fn new(addnl_allowed: Option<char>) -> CharRefTokenizer {
+    pub fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
         CharRefTokenizer {
+            is_consumed_in_attribute,
             state: Begin,
-            addnl_allowed,
             result: None,
             num: 0,
             num_too_big: false,
@@ -141,7 +139,6 @@ impl CharRefTokenizer {
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&' => self.finish_none(),
-            c if Some(c) == self.addnl_allowed => self.finish_none(),
 
             '#' => {
                 tokenizer.discard_char(input);
@@ -362,10 +359,10 @@ impl CharRefTokenizer {
                 // then, for historical reasons, flush code points consumed as a character
                 // reference and switch to the return state.
 
-                let unconsume_all = match (self.addnl_allowed, last_matched, next_after) {
+                let unconsume_all = match (self.is_consumed_in_attribute, last_matched, next_after) {
                     (_, ';', _) => false,
-                    (Some(_), _, Some('=')) => true,
-                    (Some(_), _, Some(c)) if c.is_ascii_alphanumeric() => true,
+                    (true, _, Some('=')) => true,
+                    (true, _, Some(c)) if c.is_ascii_alphanumeric() => true,
                     _ => {
                         // 1. If the last character matched is not a U+003B SEMICOLON character
                         //    (;), then this is a missing-semicolon-after-character-reference parse
