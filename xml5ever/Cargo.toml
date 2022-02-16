@@ -29,3 +29,7 @@ criterion = "0.3"
 [[bench]]
 name = "xml5ever"
 harness = false
+
+[features]
+# Always use this feature in new code. In the future it will become the default.
+api_v2 = []

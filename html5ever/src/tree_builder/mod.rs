@@ -11,6 +11,8 @@
 
 //! The HTML5 tree builder.
 
+use markup5ever::interface::tree_builder::SuperfluousClosingElement;
+
 pub use crate::interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
 pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
 pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
@@ -173,6 +175,15 @@ where
             foster_parenting: false,
             context_elem: None,
             current_line: 1,
+        }
+    }
+
+    // TODO: Hack to prevent accessing empty stack.
+    fn pop_open_elem(&mut self) -> Option<Handle> {
+        if self.open_elems.len() > 1 {
+            self.open_elems.pop()
+        } else {
+            None
         }
     }
 
@@ -398,29 +409,31 @@ where
         use self::tag_sets::*;
 
         declare_tag_set!(foster_target = "table" "tbody" "tfoot" "thead" "tr");
-        let target = override_target.unwrap_or_else(|| self.current_node().clone());
-        if !(self.foster_parenting && self.elem_in(&target, foster_target)) {
-            if self.html_elem_named(&target, local_name!("template")) {
-                // No foster parenting (inside template).
-                let contents = self.sink.get_template_contents(&target);
-                return LastChild(contents);
-            } else {
-                // No foster parenting (the common case).
-                return LastChild(target);
+        if let Some(current_node) = self.current_node_v2() {
+            let target = override_target.unwrap_or_else(|| current_node.clone());
+            if !(self.foster_parenting && self.elem_in(&target, foster_target)) {
+                if self.html_elem_named(&target, local_name!("template")) {
+                    // No foster parenting (inside template).
+                    let contents = self.sink.get_template_contents(&target);
+                    return LastChild(contents);
+                } else {
+                    // No foster parenting (the common case).
+                    return LastChild(target);
+                }
             }
-        }
 
-        // Foster parenting
-        let mut iter = self.open_elems.iter().rev().peekable();
-        while let Some(elem) = iter.next() {
-            if self.html_elem_named(&elem, local_name!("template")) {
-                let contents = self.sink.get_template_contents(&elem);
-                return LastChild(contents);
-            } else if self.html_elem_named(&elem, local_name!("table")) {
-                return TableFosterParenting {
-                    element: elem.clone(),
-                    prev_element: (*iter.peek().unwrap()).clone(),
-                };
+            // Foster parenting
+            let mut iter = self.open_elems.iter().rev().peekable();
+            while let Some(elem) = iter.next() {
+                if self.html_elem_named(&elem, local_name!("template")) {
+                    let contents = self.sink.get_template_contents(&elem);
+                    return LastChild(contents);
+                } else if self.html_elem_named(&elem, local_name!("table")) {
+                    return TableFosterParenting {
+                        element: elem.clone(),
+                        prev_element: (*iter.peek().unwrap()).clone(),
+                    };
+                }
             }
         }
         let html_elem = self.html_elem();
@@ -530,8 +543,15 @@ where
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
-        !self.open_elems.is_empty() &&
-            self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
+        if !self.open_elems.is_empty() {
+            if let Some(current) = self.adjusted_current_node_v2() {
+                self.sink.elem_name(current).ns != &ns!(html)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -643,24 +663,71 @@ where
     }
     //§ END
 
+    /// Indicate that a node was popped off the stack of open elements.
+    #[cfg(feature = "api_v2")]
+    fn current_node(&self) -> Option<&Handle> {
+        self.current_node_v2()
+    }
+
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+    #[cfg(not(feature = "api_v2"))]
     fn current_node(&self) -> &Handle {
         self.open_elems.last().expect("no current element")
     }
 
-    fn adjusted_current_node(&self) -> &Handle {
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
+    #[cfg(feature = "api_v2")]
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
+    fn current_node_unconditional(&self) -> &Handle {
+        if let Some(current) = self.current_node_v2() {
+            current
+        } else {
+            warn!("no current element");
+            self.html_elem()
+        }
+    }
+
+    #[cfg(not(feature = "api_v2"))]
+    /// Like current_node(), but in the case of no open element, just warn instead of returning an error.
+    fn current_node_unconditional(&self) -> &Handle {
+        self.current_node()
+    }
+
+    #[doc(hidden)]
+    fn current_node_v2(&self) -> Option<&Handle> {
+        self.open_elems.last()
+    }
+
+    #[cfg(feature = "api_v2")]
+    fn adjusted_current_node(&self) -> Option<&Handle> {
+        self.adjusted_current_node_v2()
+    }
+
+    #[cfg(not(feature = "api_v2"))]
+    fn adjusted_current_node(&self) {
+        self.adjusted_current_node()
+    }
+
+    #[doc(hidden)]
+    fn adjusted_current_node_v2(&self) -> Option<&Handle> {
         if self.open_elems.len() == 1 {
             if let Some(ctx) = self.context_elem.as_ref() {
-                return ctx;
+                return Some(ctx);
             }
         }
-        self.current_node()
+        self.current_node_v2()
+    }
+
+    fn adjusted_current_node_unconditional(&self) -> &Handle {
+        self.adjusted_current_node_v2().expect("no current node")
     }
 
     fn current_node_in<TagSet>(&self, set: TagSet) -> bool
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        set(self.sink.elem_name(self.current_node()))
+        set(self.sink.elem_name(self.current_node_unconditional())) // FIXME: Is using `current_node_unconditional()` correct?
     }
 
     // Insert at the "appropriate place for inserting a node".
@@ -673,10 +740,10 @@ where
         // 1.
         if self.current_node_named(subject.clone()) {
             if self
-                .position_in_active_formatting(self.current_node())
+                .position_in_active_formatting(self.current_node_unconditional()) // FIXME: Is using `current_node_unconditional()` correct?
                 .is_none()
             {
-                self.pop();
+                self.pop_unconditional(); // FIXME: Is using `current_node_unconditional()` correct?
                 return;
             }
         }
@@ -719,7 +786,7 @@ where
             }
 
             // 8.
-            if !self.sink.same_node(self.current_node(), &fmt_elem) {
+            if !self.sink.same_node(self.current_node_unconditional(), &fmt_elem) { // FIXME: Is using `current_node_unconditional()` correct?
                 self.sink
                     .parse_error(Borrowed("Formatting element not current node"));
             }
@@ -879,10 +946,19 @@ where
         self.open_elems.push(elem.clone());
     }
 
-    fn pop(&mut self) -> Handle {
-        let elem = self.open_elems.pop().expect("no current element");
-        self.sink.pop(&elem);
-        elem
+    fn pop_v2(&mut self) -> Result<Handle, SuperfluousClosingElement> {
+        if let Some(elem) = self.pop_open_elem() {
+            self.sink.pop(&elem);
+            Ok(elem)
+        } else {
+            Err(SuperfluousClosingElement::new())
+        }
+    }
+
+    fn pop_unconditional(&mut self) {
+        if  self.pop_v2().is_err() {
+            warn!("no current element");
+        }
     }
 
     fn remove_from_stack(&mut self, elem: &Handle) {
@@ -1032,7 +1108,11 @@ where
     }
 
     fn current_node_named(&self, name: LocalName) -> bool {
-        self.html_elem_named(self.current_node(), name)
+        if let Some(current) = self.current_node_v2() {
+            self.html_elem_named(current, name)
+        } else {
+            false
+        }
     }
 
     fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
@@ -1055,7 +1135,7 @@ where
                     return;
                 }
             }
-            self.pop();
+            self.pop_unconditional();
         }
     }
 
@@ -1079,7 +1159,7 @@ where
             if self.current_node_in(|x| pred(x)) {
                 break;
             }
-            self.open_elems.pop();
+            self.pop_open_elem();
         }
     }
 
@@ -1092,7 +1172,7 @@ where
         let mut n = 0;
         loop {
             n += 1;
-            match self.open_elems.pop() {
+            match self.pop_open_elem() {
                 None => break,
                 Some(elem) => {
                     if pred(self.sink.elem_name(&elem)) {
@@ -1431,7 +1511,11 @@ where
             return false;
         }
 
-        let name = self.sink.elem_name(self.adjusted_current_node());
+        if self.adjusted_current_node_v2().is_none() { // hack
+            return false;
+        }
+
+        let name = self.sink.elem_name(self.adjusted_current_node_unconditional());
         if let ns!(html) = *name.ns {
             return false;
         }
@@ -1466,9 +1550,13 @@ where
                     ..
                 }) => return false,
                 CharacterTokens(..) | NullCharacterToken | TagToken(Tag { kind: StartTag, .. }) => {
-                    return !self
-                        .sink
-                        .is_mathml_annotation_xml_integration_point(self.adjusted_current_node());
+                    if let Some(current) = self.adjusted_current_node_v2() {
+                        return !self
+                            .sink
+                            .is_mathml_annotation_xml_integration_point(current);
+                    } else {
+                        return false;
+                    }
                 },
                 _ => {},
             };
@@ -1640,7 +1728,7 @@ where
     }
 
     fn foreign_start_tag(&mut self, mut tag: Tag) -> ProcessResult<Handle> {
-        let current_ns = self.sink.elem_name(self.adjusted_current_node()).ns.clone();
+        let current_ns = self.sink.elem_name(self.adjusted_current_node_unconditional()).ns.clone();
         match current_ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),
             ns!(svg) => {
@@ -1665,13 +1753,13 @@ where
         if self.is_fragment() {
             self.foreign_start_tag(tag)
         } else {
-            self.pop();
+            self.pop_unconditional();
             while !self.current_node_in(|n| {
                 *n.ns == ns!(html) ||
                     mathml_text_integration_point(n) ||
                     svg_html_integration_point(n)
             }) {
-                self.pop();
+                self.pop_unconditional();
             }
             ReprocessForeign(TagToken(tag))
         }

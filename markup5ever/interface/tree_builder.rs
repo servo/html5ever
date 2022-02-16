@@ -11,6 +11,9 @@
 //!
 //! It can be used by a parser to create the DOM graph structure in memory.
 
+#[cfg(feature = "api_v2")]
+use log::warn;
+
 use crate::interface::{Attribute, ExpandedName, QualName};
 use std::borrow::Cow;
 use tendril::StrTendril;
@@ -73,6 +76,27 @@ pub struct ElementFlags {
 
     // Prevent construction from outside module
     _private: (),
+}
+
+#[derive(Debug)]
+pub enum TreeBuilderError {
+    WronglyClosed(SuperfluousClosingElement),
+}
+
+// TODO: Error message.
+#[derive(Debug)]
+pub struct SuperfluousClosingElement {}
+
+impl SuperfluousClosingElement {
+    pub fn new() -> Self {
+        Self { }
+    }
+}
+
+impl From<SuperfluousClosingElement> for TreeBuilderError {
+    fn from(value: SuperfluousClosingElement) -> Self {
+        Self::WronglyClosed(value)
+    }
 }
 
 /// A constructor for an element.
@@ -185,7 +209,37 @@ pub trait TreeSink {
     fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
 
     /// Indicate that a node was popped off the stack of open elements.
+    #[cfg(feature = "api_v2")]
+    fn pop(&mut self, node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
+        self.pop_v2(node)
+    }
+
+    /// Indicate that a node was popped off the stack of open elements.
+    #[cfg(not(feature = "api_v2"))]
+    #[deprecated(note = "You are using an outdated API. Please use api_v2 feature.")]
     fn pop(&mut self, _node: &Self::Handle) {}
+
+    #[cfg(feature = "api_v2")]
+    /// Like pop(), but in the case of no open element, just warn instead of returning an error.
+    fn pop_unconditional(&mut self, node: &Self::Handle) {
+        if self.pop_v2(node).is_err() {
+            warn!("no current element");
+        };
+    }
+
+    #[cfg(not(feature = "api_v2"))]
+    /// Like pop(), but in the case of no open element, just warn instead of returning an error.
+    fn pop_unconditional(&mut self, node: &Self::Handle) {
+        #[allow(deprecated)]
+        self.pop(node)
+    }
+
+    /// Indicate that a node was popped off the stack of open elements.
+    ///
+    /// Note: Don't use this function, use pop() with api_v2 feature instead.
+    fn pop_v2(&mut self, _node: &Self::Handle) -> Result<(), SuperfluousClosingElement> {
+        Ok(())
+    }
 
     /// Get a handle to a template's template contents. The tree builder
     /// promises this will never be called with something else than

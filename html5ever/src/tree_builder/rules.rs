@@ -138,7 +138,7 @@ where
                 }
 
                 </head> => {
-                    self.pop();
+                    self.pop_unconditional();
                     self.mode = AfterHead;
                     Done
                 }
@@ -171,7 +171,7 @@ where
                 tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(AfterHead, token)
                 }
             }),
@@ -181,7 +181,7 @@ where
                 <html> => self.step(InBody, token),
 
                 </noscript> => {
-                    self.pop();
+                    self.pop_unconditional();
                     self.mode = InHead;
                     Done
                 },
@@ -201,7 +201,7 @@ where
 
                 token => {
                     self.unexpected(&token);
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(InHead, token)
                 },
             }),
@@ -353,7 +353,7 @@ where
                     self.close_p_element_in_button_scope();
                     if self.current_node_in(heading_tag) {
                         self.sink.parse_error(Borrowed("nested heading tags"));
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -469,10 +469,11 @@ where
                             return Done;
                         }
                         self.generate_implied_end(cursory_implied_end);
-                        let current = self.current_node().clone();
-                        self.remove_from_stack(&node);
-                        if !self.sink.same_node(&current, &node) {
-                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                        if let Some(current) = self.current_node_v2() {
+                            self.remove_from_stack(&node);
+                            if !self.sink.same_node(&self.current_node_unconditional().clone(), &node) {
+                                self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                            }
                         }
                     } else {
                         if !self.in_scope_named(default_scope, local_name!("form")) {
@@ -666,7 +667,7 @@ where
 
                 tag @ <optgroup> <option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
@@ -735,15 +736,16 @@ where
                         let current = current_node(&self.open_elems);
                         self.sink.mark_script_already_started(current);
                     }
-                    self.pop();
+                    self.pop_unconditional();
                     Reprocess(self.orig_mode.take().unwrap(), token)
                 }
 
                 tag @ </_> => {
-                    let node = self.pop();
-                    self.mode = self.orig_mode.take().unwrap();
-                    if tag.name == local_name!("script") {
-                        return Script(node);
+                    if let Ok(node) = self.pop_v2() {
+                        self.mode = self.orig_mode.take().unwrap();
+                        if tag.name == local_name!("script") {
+                            return Script(node);
+                        }
                     }
                     Done
                 }
@@ -928,7 +930,7 @@ where
 
                 </colgroup> => {
                     if self.current_node_named(local_name!("colgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                         self.mode = InTable;
                     } else {
                         self.unexpected(&token);
@@ -944,7 +946,7 @@ where
 
                 token => {
                     if self.current_node_named(local_name!("colgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                         Reprocess(InTable, token)
                     } else {
                         self.unexpected(&token)
@@ -971,7 +973,7 @@ where
                 tag @ </tbody> </tfoot> </thead> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
-                        self.pop();
+                        self.pop_unconditional();
                         self.mode = InTable;
                     } else {
                         self.unexpected(&tag);
@@ -983,7 +985,7 @@ where
                     declare_tag_set!(table_outer = "table" "tbody" "tfoot");
                     if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
                         self.pop_until_current(table_body_context);
-                        self.pop();
+                        self.pop_unconditional();
                         Reprocess(InTable, token)
                     } else {
                         self.unexpected(&token)
@@ -1009,9 +1011,10 @@ where
                 </tr> => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
-                        let node = self.pop();
-                        self.assert_named(&node, local_name!("tr"));
-                        self.mode = InTableBody;
+                        if let Ok(node) = self.pop_v2() {
+                            self.assert_named(&node, local_name!("tr"));
+                            self.mode = InTableBody;
+                        }
                     } else {
                         self.unexpected(&token);
                     }
@@ -1021,9 +1024,12 @@ where
                 <caption> <col> <colgroup> <tbody> <tfoot> <thead> <tr> </table> => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
-                        let node = self.pop();
-                        self.assert_named(&node, local_name!("tr"));
-                        Reprocess(InTableBody, token)
+                        if let Ok(node) = self.pop_v2() {
+                            self.assert_named(&node, local_name!("tr"));
+                            Reprocess(InTableBody, token)
+                        } else {
+                            self.unexpected(&token)
+                        }
                     } else {
                         self.unexpected(&token)
                     }
@@ -1033,9 +1039,12 @@ where
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         if self.in_scope_named(table_scope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
-                            let node = self.pop();
-                            self.assert_named(&node, local_name!("tr"));
-                            Reprocess(InTableBody, TagToken(tag))
+                            if let Ok(node) = self.pop_v2() {
+                                self.assert_named(&node, local_name!("tr"));
+                                Reprocess(InTableBody, TagToken(tag))
+                            } else {
+                                Done
+                            }
                         } else {
                             Done
                         }
@@ -1098,7 +1107,7 @@ where
 
                 tag @ <option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -1106,10 +1115,10 @@ where
 
                 tag @ <optgroup> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     self.insert_element_for(tag);
                     Done
@@ -1120,10 +1129,10 @@ where
                         && self.current_node_named(local_name!("option"))
                         && self.html_elem_named(&self.open_elems[self.open_elems.len() - 2],
                             local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     }
                     if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
+                        self.pop_unconditional();
                     } else {
                         self.unexpected(&token);
                     }
@@ -1132,7 +1141,7 @@ where
 
                 </option> => {
                     if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                        self.pop_unconditional();
                     } else {
                         self.unexpected(&token);
                     }
@@ -1289,7 +1298,7 @@ where
                     if self.open_elems.len() == 1 {
                         self.unexpected(&token);
                     } else {
-                        self.pop();
+                        self.pop_unconditional();
                         if !self.is_fragment() && !self.current_node_named(local_name!("frameset")) {
                             self.mode = AfterFrameset;
                         }

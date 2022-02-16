@@ -22,6 +22,9 @@ use html5ever::tree_builder::{
 };
 use html5ever::{Attribute, ExpandedName, QualName};
 
+#[cfg(feature = "api_v2")]
+use markup5ever::interface::tree_builder::SuperfluousClosingElement;
+
 struct Sink {
     next_id: usize,
     names: HashMap<usize, QualName>,
@@ -154,6 +157,13 @@ impl TreeSink for Sink {
         println!("Set current line to {}", line_number);
     }
 
+    #[cfg(feature = "api_v2")]
+    fn pop(&mut self, elem: &usize) -> Result<(), SuperfluousClosingElement> {
+        println!("Popped element {}", elem);
+        Ok(())
+    }
+
+    #[cfg(not(feature = "api_v2"))]
     fn pop(&mut self, elem: &usize) {
         println!("Popped element {}", elem);
     }
