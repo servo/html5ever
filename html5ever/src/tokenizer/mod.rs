@@ -23,7 +23,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 
 use crate::util::str::lower_ascii_letter;
 
-use log::debug;
+use log::{debug, trace};
 use mac::{_tt_as_expr_hack, format_if, matches};
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
@@ -276,7 +276,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.emit_error(Cow::Owned(msg));
         }
 
-        debug!("got character {}", c);
+        trace!("got character {}", c);
         self.current_char = c;
         Some(c)
     }
@@ -304,7 +304,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         let d = input.pop_except_from(set);
-        debug!("got characters {:?}", d);
+        trace!("got characters {:?}", d);
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(FromSet),
 
@@ -605,7 +605,7 @@ macro_rules! shorthand (
 // so it's behind a cfg flag.
 #[cfg(trace_tokenizer)]
 macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ({
-    debug!("  {:s}", stringify!($($cmds)*));
+    trace!("  {:s}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }));
 
@@ -689,7 +689,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             return self.step_char_ref_tokenizer(input);
         }
 
-        debug!("processing in state {:?}", self.state);
+        trace!("processing in state {:?}", self.state);
         match self.state {
             //§ data-state
             states::Data => loop {
