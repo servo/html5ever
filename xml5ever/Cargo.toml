@@ -3,7 +3,7 @@
 name = "xml5ever"
 version = "0.16.2"
 authors = ["The xml5ever project developers"]
-license = "MIT / Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "Push based streaming parser for xml"
 documentation = "https://docs.rs/xml5ever/"
