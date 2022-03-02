@@ -3,7 +3,7 @@
 name = "html5ever"
 version = "0.25.1"
 authors = [ "The html5ever Project Developers" ]
-license = "MIT / Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "High-performance browser-grade HTML5 parser"
 documentation = "https://docs.rs/html5ever"
