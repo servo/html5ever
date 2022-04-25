@@ -902,7 +902,7 @@ let enable_wildcards = match last_arm_token {
 _ => true ,
 } ; match (enable_wildcards , last_arm_token) {
 (_ , token) => {
-let pending = replace (& mut self . pending_table_text , vec ! ()) ; let contains_nonspace = pending . iter () . any (| & (split , ref text) | {
+let pending = :: std :: mem :: take (& mut self . pending_table_text) ; let contains_nonspace = pending . iter () . any (| & (split , ref text) | {
 match split {
 Whitespace => false , NotWhitespace => true , NotSplit => any_not_whitespace (text) ,
 }
