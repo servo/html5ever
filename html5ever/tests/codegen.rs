@@ -8,20 +8,20 @@
 // except according to those terms.
 
 use std::env;
+use std::fs::{self, File};
 use std::io::Write;
-use std::fs::File;
 use std::path::Path;
 use std::thread::Builder;
 
-#[path = "macros/match_token.rs"]
+#[path = "../macros/match_token.rs"]
 mod match_token;
 
-fn main() {
+#[test]
+fn generated_code_is_fresh() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     let input = Path::new(&manifest_dir).join("src/tree_builder/rules.rs");
-    let output = Path::new(&env::var("OUT_DIR").unwrap()).join("rules.rs");
-    println!("cargo:rerun-if-changed={}", input.display());
+    let output = Path::new(&manifest_dir).join("src/tree_builder/generated.rs");
 
     #[cfg(target_os = "haiku")]
     let stack_size = 16;
@@ -34,10 +34,17 @@ fn main() {
         .stack_size(stack_size * 1024 * 1024)
         .spawn(move || {
             let generated = match_token::expand(&input);
+            let current = fs::read_to_string(&output).unwrap_or_default();
+
+            if generated == current {
+                return;
+            }
+
             File::create(output)
                 .unwrap()
                 .write_all(generated.as_bytes())
                 .unwrap();
+            panic!("generated code is stale, updating...");
         })
         .unwrap();
 
