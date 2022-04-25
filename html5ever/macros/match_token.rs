@@ -106,13 +106,13 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
 use syn::ext::IdentExt;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
 
-pub fn expand(from: &Path, to: &Path) {
+pub fn expand(from: &Path) -> String {
     let mut source = String::new();
     File::open(from)
         .unwrap()
@@ -121,15 +121,10 @@ pub fn expand(from: &Path, to: &Path) {
     let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
     let mut m = MatchTokenParser {};
     let ast = m.fold_file(ast);
-    let code = ast
-        .into_token_stream()
+    ast.into_token_stream()
         .to_string()
         .replace("{ ", "{\n")
-        .replace(" }", "\n}");
-    File::create(to)
-        .unwrap()
-        .write_all(code.as_bytes())
-        .unwrap();
+        .replace(" }", "\n}")
 }
 
 struct MatchTokenParser {}

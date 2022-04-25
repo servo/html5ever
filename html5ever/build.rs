@@ -8,6 +8,8 @@
 // except according to those terms.
 
 use std::env;
+use std::io::Write;
+use std::fs::File;
 use std::path::Path;
 use std::thread::Builder;
 
@@ -31,7 +33,11 @@ fn main() {
     let handle = Builder::new()
         .stack_size(stack_size * 1024 * 1024)
         .spawn(move || {
-            match_token::expand(&input, &output);
+            let generated = match_token::expand(&input);
+            File::create(output)
+                .unwrap()
+                .write_all(generated.as_bytes())
+                .unwrap();
         })
         .unwrap();
 
