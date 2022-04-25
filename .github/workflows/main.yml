@@ -21,6 +21,7 @@ jobs:
         run: |
           rustup set profile minimal
           rustup override set ${{ matrix.version }}
+          rustup component add rustfmt
 
       - name: Init submodules
         run: git submodule update --init

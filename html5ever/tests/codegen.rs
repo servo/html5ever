@@ -12,6 +12,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::thread::Builder;
 
 use proc_macro2::TokenStream;
@@ -39,21 +40,39 @@ fn generated_code_is_fresh() {
         .stack_size(stack_size * 1024 * 1024)
         .spawn(move || {
             let generated = expand(&input);
+            let formatted = reformat(&generated);
             let current = fs::read_to_string(&output).unwrap_or_default();
 
-            if generated == current {
+            if formatted == current {
                 return;
             }
 
             File::create(output)
                 .unwrap()
-                .write_all(generated.as_bytes())
+                .write_all(formatted.as_bytes())
                 .unwrap();
             panic!("generated code is stale, updating...");
         })
         .unwrap();
 
     handle.join().unwrap();
+}
+
+fn reformat(code: &str) -> String {
+    let mut cmd = Command::new("rustfmt")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    cmd.stdin
+        .take()
+        .unwrap()
+        .write_all(code.as_bytes())
+        .unwrap();
+    let output = cmd.wait_with_output().unwrap();
+    assert!(output.status.success());
+    String::from_utf8(output.stdout).unwrap()
 }
 
 /*
