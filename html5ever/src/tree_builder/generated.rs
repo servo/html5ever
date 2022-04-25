@@ -1,3 +1,5 @@
+// This code is @generated. See tests/codegen.rs for more information.
+
 use super::*;
 use crate::tendril::SliceExt;
 use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};

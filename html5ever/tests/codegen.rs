@@ -40,7 +40,7 @@ fn generated_code_is_fresh() {
         .stack_size(stack_size * 1024 * 1024)
         .spawn(move || {
             let generated = expand(&input);
-            let formatted = reformat(&generated);
+            let formatted = reformat(&format!("{}{}", PREAMBLE, generated));
             let current = fs::read_to_string(&output).unwrap_or_default();
 
             if formatted == current {
@@ -74,6 +74,8 @@ fn reformat(code: &str) -> String {
     assert!(output.status.success());
     String::from_utf8(output.stdout).unwrap()
 }
+
+const PREAMBLE: &str = "// This code is @generated. See tests/codegen.rs for more information.\n\n";
 
 /*
 
