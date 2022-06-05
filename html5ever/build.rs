@@ -21,9 +21,15 @@ fn main() {
     let output = Path::new(&env::var("OUT_DIR").unwrap()).join("rules.rs");
     println!("cargo:rerun-if-changed={}", input.display());
 
+    #[cfg(target_os = "haiku")]
+    let stack_size = 16;
+
+    #[cfg(not(target_os = "haiku"))]
+    let stack_size = 128;
+
     // We have stack overflows on Servo's CI.
     let handle = Builder::new()
-        .stack_size(128 * 1024 * 1024)
+        .stack_size(stack_size * 1024 * 1024)
         .spawn(move || {
             match_token::expand(&input, &output);
         })
