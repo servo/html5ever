@@ -58,6 +58,7 @@ use markup5ever::serialize::{Serialize, Serializer};
 use markup5ever::Attribute;
 use markup5ever::ExpandedName;
 use markup5ever::QualName;
+use markup5ever::{expanded_name, local_name, namespace_url, ns};
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -471,6 +472,7 @@ impl Serialize for SerializableHandle {
                     NodeData::Element {
                         ref name,
                         ref attrs,
+                        ref template_contents,
                         ..
                     } => {
                         serializer.start_elem(
@@ -478,10 +480,18 @@ impl Serialize for SerializableHandle {
                             attrs.borrow().iter().map(|at| (&at.name, &at.value[..])),
                         )?;
 
-                        ops.reserve(1 + handle.children.borrow().len());
+                        let template_contents = template_contents.borrow();
+                        let is_template = name.expanded() == expanded_name!(html "template");
+                        let children = if is_template {
+                            template_contents.as_ref().expect("template without contents").children.borrow()
+                        } else {
+                            handle.children.borrow()
+                        };
+
+                        ops.reserve(1 + children.len());
                         ops.push_front(SerializeOp::Close(name.clone()));
 
-                        for child in handle.children.borrow().iter().rev() {
+                        for child in children.iter().rev() {
                             ops.push_front(SerializeOp::Open(child.clone()));
                         }
                     },
