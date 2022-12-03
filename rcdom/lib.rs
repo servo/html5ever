@@ -131,7 +131,11 @@ impl Drop for Node {
         while let Some(node) = nodes.pop() {
             let children = mem::replace(&mut *node.children.borrow_mut(), vec![]);
             nodes.extend(children.into_iter());
-            if let NodeData::Element { ref template_contents, .. } = node.data {
+            if let NodeData::Element {
+                ref template_contents,
+                ..
+            } = node.data
+            {
                 if let Some(template_contents) = template_contents.borrow_mut().take() {
                     nodes.push(template_contents);
                 }
@@ -173,7 +177,7 @@ fn get_parent_and_index(target: &Handle) -> Option<(Handle, usize)> {
             .borrow()
             .iter()
             .enumerate()
-            .find(|&(_, child)| Rc::ptr_eq(&child, &target))
+            .find(|&(_, child)| Rc::ptr_eq(child, target))
         {
             Some((i, _)) => i,
             None => panic!("have parent but couldn't find in parent's children!"),
@@ -235,7 +239,11 @@ impl TreeSink for RcDom {
             ..
         } = target.data
         {
-            template_contents.borrow().as_ref().expect("not a template element!").clone()
+            template_contents
+                .borrow()
+                .as_ref()
+                .expect("not a template element!")
+                .clone()
         } else {
             panic!("not a template element!")
         }
@@ -290,7 +298,7 @@ impl TreeSink for RcDom {
         match child {
             NodeOrText::AppendText(ref text) => match parent.children.borrow().last() {
                 Some(h) => {
-                    if append_to_existing_text(h, &text) {
+                    if append_to_existing_text(h, text) {
                         return;
                     }
                 },
@@ -300,7 +308,7 @@ impl TreeSink for RcDom {
         }
 
         append(
-            &parent,
+            parent,
             match child {
                 NodeOrText::AppendText(text) => Node::new(NodeData::Text {
                     contents: RefCell::new(text),
@@ -311,7 +319,7 @@ impl TreeSink for RcDom {
     }
 
     fn append_before_sibling(&mut self, sibling: &Handle, child: NodeOrText<Handle>) {
-        let (parent, i) = get_parent_and_index(&sibling)
+        let (parent, i) = get_parent_and_index(sibling)
             .expect("append_before_sibling called on node without parent");
 
         let child = match (child, i) {
@@ -397,16 +405,16 @@ impl TreeSink for RcDom {
     }
 
     fn remove_from_parent(&mut self, target: &Handle) {
-        remove_from_parent(&target);
+        remove_from_parent(target);
     }
 
     fn reparent_children(&mut self, node: &Handle, new_parent: &Handle) {
         let mut children = node.children.borrow_mut();
         let mut new_children = new_parent.children.borrow_mut();
         for child in children.iter() {
-            let previous_parent = child.parent.replace(Some(Rc::downgrade(&new_parent)));
+            let previous_parent = child.parent.replace(Some(Rc::downgrade(new_parent)));
             assert!(Rc::ptr_eq(
-                &node,
+                node,
                 &previous_parent.unwrap().upgrade().expect("dangling weak")
             ))
         }
@@ -457,12 +465,13 @@ impl Serialize for SerializableHandle {
         let mut ops = VecDeque::new();
         match traversal_scope {
             IncludeNode => ops.push_back(SerializeOp::Open(self.0.clone())),
-            ChildrenOnly(_) => ops.extend(self
-                .0
-                .children
-                .borrow()
-                .iter()
-                .map(|h| SerializeOp::Open(h.clone())))
+            ChildrenOnly(_) => ops.extend(
+                self.0
+                    .children
+                    .borrow()
+                    .iter()
+                    .map(|h| SerializeOp::Open(h.clone())),
+            ),
         }
 
         while let Some(op) = ops.pop_front() {
@@ -486,13 +495,11 @@ impl Serialize for SerializableHandle {
                         }
                     },
 
-                    NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+                    NodeData::Doctype { ref name, .. } => serializer.write_doctype(name)?,
 
-                    NodeData::Text { ref contents } => {
-                        serializer.write_text(&contents.borrow())?
-                    },
+                    NodeData::Text { ref contents } => serializer.write_text(&contents.borrow())?,
 
-                    NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
+                    NodeData::Comment { ref contents } => serializer.write_comment(contents)?,
 
                     NodeData::ProcessingInstruction {
                         ref target,
