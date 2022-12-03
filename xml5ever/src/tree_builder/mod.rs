@@ -246,10 +246,10 @@ where
     pub fn trace_handles(&self, tracer: &dyn Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
         for e in self.open_elems.iter() {
-            tracer.trace_handle(&e);
+            tracer.trace_handle(e);
         }
         if let Some(h) = self.curr_elem.as_ref() {
-            tracer.trace_handle(&h);
+            tracer.trace_handle(h);
         }
     }
 
@@ -278,7 +278,7 @@ where
     }
 
     fn declare_ns(&mut self, attr: &mut Attribute) {
-        if let Err(msg) = self.current_namespace.insert_ns(&attr) {
+        if let Err(msg) = self.current_namespace.insert_ns(attr) {
             self.sink.parse_error(msg);
         } else {
             attr.name.ns = ns!(xmlns);
@@ -346,17 +346,17 @@ where
     fn process_namespaces(&mut self, tag: &mut Tag) {
         let mut new_attr = vec![];
         // First we extract all namespace declarations
-        for mut attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix == Some(namespace_prefix!("xmlns")) ||
-                attr.name.local == local_name!("xmlns")
+        for attr in tag.attrs.iter_mut().filter(|attr| {
+            attr.name.prefix == Some(namespace_prefix!("xmlns"))
+                || attr.name.local == local_name!("xmlns")
         }) {
-            self.declare_ns(&mut attr);
+            self.declare_ns(attr);
         }
 
         // Then we bind those namespace declarations to attributes
         for attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix != Some(namespace_prefix!("xmlns")) &&
-                attr.name.local != local_name!("xmlns")
+            attr.name.prefix != Some(namespace_prefix!("xmlns"))
+                && attr.name.local != local_name!("xmlns")
         }) {
             if self.bind_attr_qname(&mut attr.name) {
                 new_attr.push(attr.clone());
