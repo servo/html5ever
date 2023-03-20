@@ -24,7 +24,7 @@ criterion = "0.3"
 
 [build-dependencies]
 quote = "1"
-syn = { version = "1", features = ["extra-traits", "full", "fold"] }
+syn = { version = "2", features = ["extra-traits", "full", "fold"] }
 proc-macro2 = "1"
 
 [[bench]]
