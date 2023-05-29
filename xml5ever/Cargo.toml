@@ -24,7 +24,7 @@ markup5ever = {version = "0.11", path = "../markup5ever" }
 rustc-test = "0.3"
 
 [target.'cfg(bench)'.dev-dependencies]
-criterion = "0.3"
+criterion = "0.5"
 
 [[bench]]
 name = "xml5ever"

@@ -20,7 +20,7 @@ markup5ever = { version = "0.11", path = "../markup5ever" }
 typed-arena = "2.0.2"
 
 [target.'cfg(bench)'.dev-dependencies]
-criterion = "0.3"
+criterion = "0.5"
 
 [build-dependencies]
 quote = "1"
