@@ -46,6 +46,7 @@ pub enum ProcessResult<Handle> {
 }
 
 #[must_use]
+#[derive(Debug)]
 pub enum TokenizerResult<Handle> {
     Done,
     Script(Handle),
@@ -564,7 +565,16 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn discard_char(&mut self, input: &mut BufferQueue) {
-        self.get_char(input);
+        // peek() deals in un-processed characters (no newline normalization), while get_char()
+        // does.
+        //
+        // since discard_char is supposed to be used in combination with peek(), discard_char must
+        // discard a single raw input character, not a normalized newline.
+        if self.reconsume {
+            self.reconsume = false;
+        } else {
+            input.next();
+        }
     }
 
     fn emit_error(&mut self, error: Cow<'static, str>) {
@@ -1010,9 +1020,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '\t' | '\n' | '\r' | '\x0C' | ' ' => go!(self: discard_char input),
                     '"' => go!(self: discard_char input; to AttributeValue DoubleQuoted),
                     '\'' => go!(self: discard_char input; to AttributeValue SingleQuoted),
-                    '\0' => {
-                        go!(self: discard_char input; error; push_value '\u{fffd}'; to AttributeValue Unquoted)
-                    },
                     '>' => go!(self: discard_char input; error; emit_tag Data),
                     _ => go!(self: to AttributeValue Unquoted),
                 }
@@ -1486,12 +1493,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::BeforeAttributeName |
             states::AttributeName |
             states::AfterAttributeName |
-            states::BeforeAttributeValue |
             states::AttributeValue(_) |
             states::AfterAttributeValueQuoted |
             states::SelfClosingStartTag |
             states::ScriptDataEscapedDash(_) |
             states::ScriptDataEscapedDashDash(_) => go!(self: error_eof; to Data),
+
+            states::BeforeAttributeValue => go!(self: reconsume AttributeValue Unquoted),
 
             states::TagOpen => go!(self: error_eof; emit '<'; to Data),
 
