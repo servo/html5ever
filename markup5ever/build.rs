@@ -110,7 +110,7 @@ fn named_entities_to_phf(to: &Path) {
         &mut file,
         r#"
 /// A map of entity names to their codepoints. The second codepoint will
-/// be 0 if the entity contains a single codepoint. Entities have their preceeding '&' removed.
+/// be 0 if the entity contains a single codepoint. Entities have their preceding '&' removed.
 ///
 /// # Examples
 ///

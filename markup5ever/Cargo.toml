@@ -1,8 +1,8 @@
 [package]
 name = "markup5ever"
-version = "0.10.1"
+version = "0.11.0"
 authors = [ "The html5ever Project Developers" ]
-license = "MIT / Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "Common code for xml5ever and html5ever"
 documentation = "https://docs.rs/markup5ever"
@@ -15,10 +15,10 @@ path = "lib.rs"
 
 [dependencies]
 string_cache = "0.8"
-phf = "0.9"
+phf = "0.11"
 tendril = "0.4"
 log = "0.4"
 
 [build-dependencies]
 string_cache_codegen = "0.5.1"
-phf_codegen = "0.9"
+phf_codegen = "0.11"

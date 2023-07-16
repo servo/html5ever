@@ -334,7 +334,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                             }
 
                             if wildcard.is_some() {
-                                // Push the delimeter `|` if it's not the first tag.
+                                // Push the delimiter `|` if it's not the first tag.
                                 arms_code.push(quote!( | ))
                             }
                             arms_code.push(make_tag_pattern(&binding, tag));

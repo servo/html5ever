@@ -93,10 +93,7 @@ impl BufferQueue {
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         debug_assert!(
-            self.buffers
-                .iter()
-                .find(|el| el.len32() == 0)
-                .is_none(),
+            self.buffers.iter().find(|el| el.len32() == 0).is_none(),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
         self.buffers.front().map(|b| b.chars().next().unwrap())
@@ -152,7 +149,7 @@ impl BufferQueue {
         let (result, now_empty) = match self.buffers.front_mut() {
             None => (None, false),
             Some(buf) => {
-                let n = set.nonmember_prefix_len(&buf);
+                let n = set.nonmember_prefix_len(buf);
                 if n > 0 {
                     let out;
                     unsafe {

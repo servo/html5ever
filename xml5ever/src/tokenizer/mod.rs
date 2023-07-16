@@ -61,16 +61,16 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     //     a:b
     // Since StrTendril are UTF-8, we know that minimal size in bytes must be
     // three bytes minimum.
-    let split = if (&*tag_name).as_bytes().len() < 3 {
+    let split = if (*tag_name).as_bytes().len() < 3 {
         None
     } else {
-        QualNameTokenizer::new((&*tag_name).as_bytes()).run()
+        QualNameTokenizer::new((*tag_name).as_bytes()).run()
     };
 
     match split {
         None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
-            let len = (&*tag_name).as_bytes().len() as u32;
+            let len = (*tag_name).as_bytes().len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local = tag_name.subtendril(col + 1, len - col - 1);
             let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
@@ -248,8 +248,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
 
         // Exclude forbidden Unicode characters
-        if self.opts.exact_errors &&
-            match c as u32 {
+        if self.opts.exact_errors
+            && match c as u32 {
                 0x01..=0x08 | 0x0B | 0x0E..=0x1F | 0x7F..=0x9F | 0xFDD0..=0xFDEF => true,
                 n if (n & 0xFFFE) == 0xFFFE => true,
                 _ => false,
@@ -1141,11 +1141,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             XmlState::CommentLessThanBangDash => go!(self: reconsume CommentEndDash),
             XmlState::CommentLessThanBangDashDash => go!(self: reconsume CommentEnd),
-            XmlState::CommentStartDash |
-            XmlState::Comment |
-            XmlState::CommentEndDash |
-            XmlState::CommentEnd |
-            XmlState::CommentEndBang => go!(self: error_eof; emit_comment; eof),
+            XmlState::CommentStartDash
+            | XmlState::Comment
+            | XmlState::CommentEndDash
+            | XmlState::CommentEnd
+            | XmlState::CommentEndBang => go!(self: error_eof; emit_comment; eof),
             XmlState::TagState => go!(self: error_eof; emit '<'; to Data),
             XmlState::EndTagState => go!(self: error_eof; emit '<'; emit '/'; to Data),
             XmlState::TagEmpty => go!(self: error_eof; to TagAttrNameBefore),
@@ -1155,25 +1155,25 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::Pi => go!(self: error_eof; to BogusComment),
             XmlState::PiTargetAfter | XmlState::PiAfter => go!(self: reconsume PiData),
             XmlState::MarkupDecl => go!(self: error_eof; to BogusComment),
-            XmlState::TagName |
-            XmlState::TagAttrNameBefore |
-            XmlState::EndTagName |
-            XmlState::TagAttrNameAfter |
-            XmlState::EndTagNameAfter |
-            XmlState::TagAttrValueBefore |
-            XmlState::TagAttrValue(_) => go!(self: error_eof; emit_tag Data),
+            XmlState::TagName
+            | XmlState::TagAttrNameBefore
+            | XmlState::EndTagName
+            | XmlState::TagAttrNameAfter
+            | XmlState::EndTagNameAfter
+            | XmlState::TagAttrValueBefore
+            | XmlState::TagAttrValue(_) => go!(self: error_eof; emit_tag Data),
             XmlState::PiData | XmlState::PiTarget => go!(self: error_eof; emit_pi Data),
             XmlState::TagAttrName => go!(self: error_eof; emit_start_tag Data),
-            XmlState::BeforeDoctypeName |
-            XmlState::Doctype |
-            XmlState::DoctypeName |
-            XmlState::AfterDoctypeName |
-            XmlState::AfterDoctypeKeyword(_) |
-            XmlState::BeforeDoctypeIdentifier(_) |
-            XmlState::AfterDoctypeIdentifier(_) |
-            XmlState::DoctypeIdentifierSingleQuoted(_) |
-            XmlState::DoctypeIdentifierDoubleQuoted(_) |
-            XmlState::BetweenDoctypePublicAndSystemIdentifiers => {
+            XmlState::BeforeDoctypeName
+            | XmlState::Doctype
+            | XmlState::DoctypeName
+            | XmlState::AfterDoctypeName
+            | XmlState::AfterDoctypeKeyword(_)
+            | XmlState::BeforeDoctypeIdentifier(_)
+            | XmlState::AfterDoctypeIdentifier(_)
+            | XmlState::DoctypeIdentifierSingleQuoted(_)
+            | XmlState::DoctypeIdentifierDoubleQuoted(_)
+            | XmlState::BetweenDoctypePublicAndSystemIdentifiers => {
                 go!(self: error_eof; emit_doctype; to Data)
             },
             XmlState::BogusDoctype => go!(self: emit_doctype; to Data),
@@ -1251,8 +1251,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 value: replace(&mut self.current_attr_value, StrTendril::new()),
             };
 
-            if qname.local == local_name!("xmlns") ||
-                qname.prefix == Some(namespace_prefix!("xmlns"))
+            if qname.local == local_name!("xmlns")
+                || qname.prefix == Some(namespace_prefix!("xmlns"))
             {
                 self.current_tag_attrs.insert(0, attr);
             } else {
