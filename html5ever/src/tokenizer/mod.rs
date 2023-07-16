@@ -1141,7 +1141,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ comment-less-than-sign-bang-dash-dash
             states::CommentLessThanSignBangDashDash => loop {
                 match get_char!(self, input) {
-                    '>' => go!(self: to CommentEnd),
+                    '>' => go!(self: reconsume CommentEnd),
                     _ => go!(self: error; reconsume CommentEnd),
                 }
             },
@@ -1520,13 +1520,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CommentStart |
             states::CommentStartDash |
             states::Comment |
-            states::CommentLessThanSign |
-            states::CommentLessThanSignBang |
-            states::CommentLessThanSignBangDash |
-            states::CommentLessThanSignBangDashDash |
             states::CommentEndDash |
             states::CommentEnd |
             states::CommentEndBang => go!(self: error_eof; emit_comment; to Data),
+
+            states::CommentLessThanSign | states::CommentLessThanSignBang => go!(self: reconsume Comment),
+
+            states::CommentLessThanSignBangDash => go!(self: reconsume CommentEndDash),
+
+            states::CommentLessThanSignBangDashDash => go!(self: reconsume CommentEnd),
 
             states::Doctype | states::BeforeDoctypeName => {
                 go!(self: error_eof; create_doctype; force_quirks; emit_doctype; to Data)
