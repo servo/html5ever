@@ -42,7 +42,7 @@ enum State {
     Numeric(u32), // base
     NumericSemicolon,
     Named,
-    AmbiguousAmpersand,
+    BogusName,
 }
 
 pub struct CharRefTokenizer {
@@ -128,7 +128,7 @@ impl CharRefTokenizer {
             Numeric(base) => self.do_numeric(tokenizer, input, base),
             NumericSemicolon => self.do_numeric_semicolon(tokenizer, input),
             Named => self.do_named(tokenizer, input),
-            AmbiguousAmpersand => self.do_ambiguous_ampersand(tokenizer, input),
+            BogusName => self.do_bogus_name(tokenizer, input),
         }
     }
 
@@ -289,7 +289,7 @@ impl CharRefTokenizer {
             },
 
             // Can't continue the match.
-            None => self.finish_named(tokenizer, input),
+            None => self.finish_named(tokenizer, input, Some(c)),
         }
     }
 
@@ -311,11 +311,25 @@ impl CharRefTokenizer {
         &mut self,
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
+        end_char: Option<char>,
     ) -> Status {
         match self.name_match {
             None => {
-                self.state = AmbiguousAmpersand;
-                Progress
+                match end_char {
+                    Some(c) if c.is_ascii_alphanumeric() => {
+                        // Keep looking for a semicolon, to determine whether
+                        // we emit a parse error.
+                        self.state = BogusName;
+                        return Progress;
+                    },
+
+                    // Check length because &; is not a parse error.
+                    Some(';') if self.name_buf().len() > 1 => self.emit_name_error(tokenizer),
+
+                    _ => (),
+                }
+                self.unconsume_name(input);
+                self.finish_none()
             },
 
             Some((c1, c2)) => {
@@ -375,7 +389,7 @@ impl CharRefTokenizer {
         }
     }
 
-    fn do_ambiguous_ampersand<Sink: TokenSink>(
+    fn do_bogus_name<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
@@ -407,9 +421,9 @@ impl CharRefTokenizer {
                     self.finish_numeric(tokenizer);
                 },
 
-                Named => drop(self.finish_named(tokenizer, input)),
+                Named => drop(self.finish_named(tokenizer, input, None)),
 
-                AmbiguousAmpersand => {
+                BogusName => {
                     self.unconsume_name(input);
                     self.finish_none();
                 },
