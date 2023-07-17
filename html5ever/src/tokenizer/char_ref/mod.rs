@@ -138,19 +138,18 @@ impl CharRefTokenizer {
         input: &mut BufferQueue,
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            '\t' | '\n' | '\x0C' | ' ' | '<' | '&' => self.finish_none(),
+            'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                self.state = Named;
+                self.name_buf_opt = Some(StrTendril::new());
+                Progress
+            },
 
             '#' => {
                 tokenizer.discard_char(input);
                 self.state = Octothorpe;
                 Progress
             },
-
-            _ => {
-                self.state = Named;
-                self.name_buf_opt = Some(StrTendril::new());
-                Progress
-            },
+            _ => self.finish_none(),
         }
     }
 
