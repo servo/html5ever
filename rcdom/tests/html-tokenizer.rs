@@ -40,6 +40,9 @@ impl PartialEq for TestError {
     }
 }
 
+// some large testcases hang forever without an upper-bound of splits to generate
+const MAX_SPLITS: usize = 1000;
+
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
 fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
@@ -47,12 +50,8 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
         return vec![vec![s.to_tendril()]];
     }
 
-    let mut points: Vec<usize> = s.char_indices().map(|(n, _)| n).collect();
-    points.push(s.len());
-
-    // do this with iterators?
     let mut out = vec![];
-    for p in points.into_iter() {
+    for p in s.char_indices().map(|(n, _)| n).chain(Some(s.len())) {
         let y = &s[p..];
         for mut x in splits(&s[..p], n - 1).into_iter() {
             x.push(y.to_tendril());
@@ -61,6 +60,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
     }
 
     out.extend(splits(s, n - 1).into_iter());
+    out.truncate(MAX_SPLITS);
     out
 }
 
@@ -293,7 +293,7 @@ fn unescape(s: &str) -> Option<String> {
                 if it.peek() != Some(&'u') {
                     panic!("can't understand escape");
                 }
-                drop(it.next());
+                let _ = it.next();
                 let hex: String = it.by_ref().take(4).collect();
                 match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
@@ -356,11 +356,6 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let mut expect = js.find("output").clone();
     let expect_errors = js.get("errors").map(JsonExt::get_list).map(Vec::as_slice).unwrap_or_default();
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
-
-    if desc.contains("Very long") {
-        // TODO: hang
-        return;
-    }
 
     // "Double-escaped" tests require additional processing of
     // the input and output.
