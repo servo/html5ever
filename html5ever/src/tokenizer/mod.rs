@@ -319,14 +319,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // Check if the next characters are an ASCII case-insensitive match.  See
     // BufferQueue::eat.
     //
-    // NB: this doesn't do input stream preprocessing or set the current input
-    // character.
+    // NB: this doesn't set the current input character.
     fn eat(
         &mut self,
         input: &mut BufferQueue,
         pat: &str,
         eq: fn(&u8, &u8) -> bool,
     ) -> Option<bool> {
+        if self.ignore_lf {
+            self.ignore_lf = false;
+            if self.peek(input) == Some('\n') {
+                self.discard_char(input);
+            }
+        }
+
         input.push_front(replace(&mut self.temp_buf, StrTendril::new()));
         match input.eat(pat, eq) {
             None if self.at_eof => Some(false),
