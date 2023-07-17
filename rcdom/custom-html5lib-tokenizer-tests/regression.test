@@ -1,0 +1,31 @@
+{"tests": [
+
+{"description": "Nested HTML comment",
+"input": "<j 0=\r\n>",
+"output": [
+    ["StartTag", "j", {"0": ""}]
+],
+"errors": [
+    {"code": "missing-attribute-value"}
+]},
+
+{"description": "Windows newline in docstring",
+"input": "<!DOCTYPE0\r\nPUBLIC'",
+
+"output": [
+    ["DOCTYPE", "0", "", null, false]
+],
+"errors": [
+    {"code": "missing-whitespace-before-doctype-name"},
+    {"code": "missing-whitespace-after-doctype-public-keyword"},
+    {"code": "eof-in-doctype"}
+]},
+
+{"description": "abrupt end to charref",
+"input": "<l 0=&\r0='>",
+"output": [],
+"errors": [
+    {"code": "eof-in-tag"}
+]}
+
+]}

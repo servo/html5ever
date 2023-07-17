@@ -21,7 +21,6 @@ pub fn foreach_html5lib_test<Mk>(
     Mk: FnMut(&Path, fs::File),
 {
     let mut test_dir_path = src_dir.to_path_buf();
-    test_dir_path.push("html5lib-tests");
     test_dir_path.push(subdir);
 
     let maybe_test_files = fs::read_dir(&test_dir_path);
