@@ -26,6 +26,14 @@
 "output": [],
 "errors": [
     {"code": "eof-in-tag"}
+]},
+
+{"description": "Windows newline between unquoted attributes",
+"input": "<F\r0=&GT\r0='>",
+"output": [],
+"errors": [
+    {"code": "missing-semicolon-after-character-reference"},
+    {"code": "eof-in-tag"}
 ]}
 
 ]}
