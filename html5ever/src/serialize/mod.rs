@@ -26,7 +26,7 @@ where
 
 #[derive(Clone)]
 pub struct SerializeOpts {
-    /// Is scripting enabled?
+    /// Is scripting enabled? Default: true
     pub scripting_enabled: bool,
 
     /// Serialize the root node? Default: ChildrenOnly
