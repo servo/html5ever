@@ -1400,7 +1400,7 @@ where
                 <dt> <em> <embed> <h1> <h2> <h3> <h4> <h5> <h6> <head> <hr> <i>
                 <img> <li> <listing> <menu> <meta> <nobr> <ol> <p> <pre> <ruby>
                 <s> <small> <span> <strong> <strike> <sub> <sup> <table> <tt>
-                <u> <ul> <var> => self.unexpected_start_tag_in_foreign_content(tag),
+                <u> <ul> <var> </br> </p> => self.unexpected_start_tag_in_foreign_content(tag),
 
             tag @ <font> => {
                 let unexpected = tag.attrs.iter().any(|attr| {
