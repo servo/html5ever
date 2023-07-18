@@ -1630,7 +1630,6 @@ where
             local_name!("xlink:show") => Some(qualname!("xlink" xlink "show")),
             local_name!("xlink:title") => Some(qualname!("xlink" xlink "title")),
             local_name!("xlink:type") => Some(qualname!("xlink" xlink "type")),
-            local_name!("xml:base") => Some(qualname!("xml" xml "base")),
             local_name!("xml:lang") => Some(qualname!("xml" xml "lang")),
             local_name!("xml:space") => Some(qualname!("xml" xml "space")),
             local_name!("xmlns") => Some(qualname!("" xmlns "xmlns")),
