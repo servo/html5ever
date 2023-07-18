@@ -1124,8 +1124,7 @@ where
                     }
                     self.insert_element_for(tag);
                     self.pop();
-                    // TODO: acknowledge self-closing flag
-                    Done
+                    DoneAckSelfClosing
                 }
 
                 </optgroup> => {
