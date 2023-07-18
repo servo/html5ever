@@ -337,7 +337,7 @@ where
 
                 tag @ <address> <article> <aside> <blockquote> <center> <details> <dialog>
                   <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
-                  <hgroup> <main> <nav> <ol> <p> <section> <summary> <ul> => {
+                  <hgroup> <main> <nav> <ol> <p> <search> <section> <summary> <ul> => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     Done
