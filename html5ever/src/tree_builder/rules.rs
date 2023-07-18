@@ -1115,6 +1115,19 @@ where
                     Done
                 }
 
+                tag @ <hr> => {
+                    if self.current_node_named(local_name!("option")) {
+                        self.pop();
+                    }
+                    if self.current_node_named(local_name!("optgroup")) {
+                        self.pop();
+                    }
+                    self.insert_element_for(tag);
+                    self.pop();
+                    // TODO: acknowledge self-closing flag
+                    Done
+                }
+
                 </optgroup> => {
                     if self.open_elems.len() >= 2
                         && self.current_node_named(local_name!("option"))
