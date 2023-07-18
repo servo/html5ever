@@ -34,6 +34,11 @@
 "errors": [
     {"code": "missing-semicolon-after-character-reference"},
     {"code": "eof-in-tag"}
-]}
+]},
+
+{"description": "Windows newline after bogusname",
+"input": "&0\r\n",
+"output": [["Character", "&0\n"]],
+"errors": []}
 
 ]}

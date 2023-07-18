@@ -273,7 +273,10 @@ impl CharRefTokenizer {
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
+        // peek + discard skips over newline normalization, therefore making it easier to
+        // un-consume
+        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
             // We have either a full match or a prefix of one.
@@ -394,7 +397,10 @@ impl CharRefTokenizer {
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
+        // peek + discard skips over newline normalization, therefore making it easier to
+        // un-consume
+        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match c {
             _ if c.is_ascii_alphanumeric() => return Progress,
