@@ -13,8 +13,6 @@ extern crate markup5ever_rcdom as rcdom;
 
 use std::default::Default;
 use std::io;
-use std::iter::repeat;
-use std::string::String;
 
 use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
@@ -24,8 +22,7 @@ use rcdom::{Handle, NodeData, RcDom};
 
 fn walk(indent: usize, handle: &Handle) {
     let node = handle;
-    // FIXME: don't allocate
-    print!("{}", repeat(" ").take(indent).collect::<String>());
+    for _ in 0..indent { print!(" "); }
     match node.data {
         NodeData::Document => println!("#Document"),
 
