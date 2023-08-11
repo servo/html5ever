@@ -337,7 +337,7 @@ where
 
                 tag @ <address> <article> <aside> <blockquote> <center> <details> <dialog>
                   <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
-                  <hgroup> <main> <nav> <ol> <p> <section> <summary> <ul> => {
+                  <hgroup> <main> <nav> <ol> <p> <search> <section> <summary> <ul> => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     Done
@@ -444,7 +444,7 @@ where
                 tag @ </address> </article> </aside> </blockquote> </button> </center>
                   </details> </dialog> </dir> </div> </dl> </fieldset> </figcaption>
                   </figure> </footer> </header> </hgroup> </listing> </main> </menu>
-                  </nav> </ol> </pre> </section> </summary> </ul> => {
+                  </nav> </ol> </pre> </search> </section> </summary> </ul> => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
@@ -1115,6 +1115,18 @@ where
                     Done
                 }
 
+                tag @ <hr> => {
+                    if self.current_node_named(local_name!("option")) {
+                        self.pop();
+                    }
+                    if self.current_node_named(local_name!("optgroup")) {
+                        self.pop();
+                    }
+                    self.insert_element_for(tag);
+                    self.pop();
+                    DoneAckSelfClosing
+                }
+
                 </optgroup> => {
                     if self.open_elems.len() >= 2
                         && self.current_node_named(local_name!("option"))
@@ -1388,7 +1400,7 @@ where
                 <dt> <em> <embed> <h1> <h2> <h3> <h4> <h5> <h6> <head> <hr> <i>
                 <img> <li> <listing> <menu> <meta> <nobr> <ol> <p> <pre> <ruby>
                 <s> <small> <span> <strong> <strike> <sub> <sup> <table> <tt>
-                <u> <ul> <var> => self.unexpected_start_tag_in_foreign_content(tag),
+                <u> <ul> <var> </br> </p> => self.unexpected_start_tag_in_foreign_content(tag),
 
             tag @ <font> => {
                 let unexpected = tag.attrs.iter().any(|attr| {

@@ -1630,7 +1630,6 @@ where
             local_name!("xlink:show") => Some(qualname!("xlink" xlink "show")),
             local_name!("xlink:title") => Some(qualname!("xlink" xlink "title")),
             local_name!("xlink:type") => Some(qualname!("xlink" xlink "type")),
-            local_name!("xml:base") => Some(qualname!("xml" xml "base")),
             local_name!("xml:lang") => Some(qualname!("xml" xml "lang")),
             local_name!("xml:space") => Some(qualname!("xml" xml "space")),
             local_name!("xmlns") => Some(qualname!("" xmlns "xmlns")),
@@ -1662,18 +1661,13 @@ where
 
     fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult<Handle> {
         self.unexpected(&tag);
-        if self.is_fragment() {
-            self.foreign_start_tag(tag)
-        } else {
+        while !self.current_node_in(|n| {
+            *n.ns == ns!(html) ||
+                mathml_text_integration_point(n) ||
+                svg_html_integration_point(n)
+        }) {
             self.pop();
-            while !self.current_node_in(|n| {
-                *n.ns == ns!(html) ||
-                    mathml_text_integration_point(n) ||
-                    svg_html_integration_point(n)
-            }) {
-                self.pop();
-            }
-            ReprocessForeign(TagToken(tag))
         }
+        self.step(self.mode, TagToken(tag))
     }
 }

@@ -266,7 +266,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
 
     foreach_html5lib_test(
         src_dir,
-        "tree-construction",
+        "html5lib-tests/tree-construction",
         OsStr::new("dat"),
         |path, file| {
             let buf = io::BufReader::new(file);

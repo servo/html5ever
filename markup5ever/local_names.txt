@@ -810,6 +810,7 @@ scrolldelay
 scrolling
 sdev
 seamless
+search
 sec
 sech
 section

@@ -11,7 +11,7 @@ mod foreach_html5lib_test;
 
 use foreach_html5lib_test::foreach_html5lib_test;
 use html5ever::tendril::*;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata};
+use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata, ScriptData, CdataSection, Data};
 use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
@@ -20,13 +20,28 @@ use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts}
 use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow;
 use std::default::Default;
 use std::ffi::OsStr;
 use std::io::Read;
+use std::fs::File;
 use std::mem::replace;
 use std::path::Path;
 use std::{char, env};
+
+
+#[derive(Debug)]
+struct TestError(Cow<'static, str>);
+
+impl PartialEq for TestError {
+    fn eq(&self, _: &TestError) -> bool {
+        // TODO: actually match exact error messages
+        true
+    }
+}
+
+// some large testcases hang forever without an upper-bound of splits to generate
+const MAX_SPLITS: usize = 1000;
 
 // Return all ways of splitting the string into at most n
 // possibly-empty pieces.
@@ -35,12 +50,8 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
         return vec![vec![s.to_tendril()]];
     }
 
-    let mut points: Vec<usize> = s.char_indices().map(|(n, _)| n).collect();
-    points.push(s.len());
-
-    // do this with iterators?
     let mut out = vec![];
-    for p in points.into_iter() {
+    for p in s.char_indices().map(|(n, _)| n).chain(Some(s.len())) {
         let y = &s[p..];
         for mut x in splits(&s[..p], n - 1).into_iter() {
             x.push(y.to_tendril());
@@ -49,11 +60,13 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
     }
 
     out.extend(splits(s, n - 1).into_iter());
+    out.truncate(MAX_SPLITS);
     out
 }
 
 struct TokenLogger {
     tokens: Vec<Token>,
+    errors: Vec<TestError>,
     current_str: StrTendril,
     exact_errors: bool,
 }
@@ -62,6 +75,7 @@ impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
             tokens: vec![],
+            errors: vec![],
             current_str: StrTendril::new(),
             exact_errors: exact_errors,
         }
@@ -80,9 +94,9 @@ impl TokenLogger {
         }
     }
 
-    fn get_tokens(mut self) -> Vec<Token> {
+    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>){
         self.finish_str();
-        self.tokens
+        (self.tokens, self.errors)
     }
 }
 
@@ -99,9 +113,9 @@ impl TokenSink for TokenLogger {
                 self.current_str.push_char('\0');
             },
 
-            ParseError(_) => {
+            ParseError(e) => {
                 if self.exact_errors {
-                    self.push(ParseError(Borrowed("")));
+                    self.errors.push(TestError(e));
                 }
             },
 
@@ -127,7 +141,7 @@ impl TokenSink for TokenLogger {
     }
 }
 
-fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<Token> {
+fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
     let mut buffer = BufferQueue::new();
@@ -247,21 +261,24 @@ fn json_to_token(js: &Value) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
+fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<TestError>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
-    for tok in js.get_list().iter() {
+    for tok in js_tokens.get_list().iter() {
         assert_eq!(
-            match *tok {
-                Value::String(ref s) if &s[..] == "ParseError" => {
-                    sink.process_token(ParseError(Borrowed("")), 0)
-                },
-                _ => sink.process_token(json_to_token(tok), 0),
-            },
+            sink.process_token(json_to_token(tok), 0),
             TokenSinkResult::Continue
         );
     }
+
+    for err in js_errors {
+        assert_eq!(
+            sink.process_token(ParseError(err.find("code").get_str().into()), 0),
+            TokenSinkResult::Continue
+        );
+    }
+
     sink.get_tokens()
 }
 
@@ -276,7 +293,7 @@ fn unescape(s: &str) -> Option<String> {
                 if it.peek() != Some(&'u') {
                     panic!("can't understand escape");
                 }
-                drop(it.next());
+                let _ = it.next();
                 let hex: String = it.by_ref().take(4).collect();
                 match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
                     // Some of the tests use lone surrogates, but we have no
@@ -309,7 +326,7 @@ fn unescape_json(js: &Value) -> Value {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Value, opts: TokenizerOpts) -> TestDescAndFn {
+fn mk_test(desc: String, input: String, expect: Value, expect_errors: Vec<Value>, opts: TokenizerOpts) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -321,11 +338,11 @@ fn mk_test(desc: String, input: String, expect: Value, opts: TokenizerOpts) -> T
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
                 let output = tokenize(input.clone(), opts.clone());
-                let expect_toks = json_to_tokens(&expect, opts.exact_errors);
+                let expect_toks = json_to_tokens(&expect, &expect_errors, opts.exact_errors);
                 if output != expect_toks {
                     panic!(
                         "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect
+                        input, output, expect_toks
                     );
                 }
             }
@@ -337,6 +354,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
+    let expect_errors = js.get("errors").map(JsonExt::get_list).map(Vec::as_slice).unwrap_or_default();
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -364,6 +382,9 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                     "PLAINTEXT state" => Plaintext,
                     "RAWTEXT state" => RawData(Rawtext),
                     "RCDATA state" => RawData(Rcdata),
+                    "Script data state" => RawData(ScriptData),
+                    "CDATA section state" => CdataSection,
+                    "Data state" => Data,
                     s => panic!("don't know state {}", s),
                 })
             })
@@ -388,6 +409,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 newdesc,
                 input.clone(),
                 expect.clone(),
+                expect_errors.to_owned(),
                 TokenizerOpts {
                     exact_errors: exact_errors,
                     initial_state: state,
@@ -407,32 +429,41 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
 fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
     let mut tests = vec![];
 
+    let mut add_test = |path: &Path, mut file: File| {
+        let mut s = String::new();
+        file.read_to_string(&mut s)
+            .ok()
+            .expect("file reading error");
+        let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+
+        match js.get_obj().get(&"tests".to_string()) {
+            Some(&Value::Array(ref lst)) => {
+                for test in lst.iter() {
+                    mk_tests(
+                        &mut tests,
+                        path.file_name().unwrap().to_str().unwrap(),
+                        test,
+                    )
+                }
+            },
+
+            // xmlViolation.test doesn't follow this format.
+            _ => (),
+        }
+    };
+
     foreach_html5lib_test(
         src_dir,
-        "tokenizer",
+        "html5lib-tests/tokenizer",
         OsStr::new("test"),
-        |path, mut file| {
-            let mut s = String::new();
-            file.read_to_string(&mut s)
-                .ok()
-                .expect("file reading error");
-            let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+        &mut add_test
+    );
 
-            match js.get_obj().get(&"tests".to_string()) {
-                Some(&Value::Array(ref lst)) => {
-                    for test in lst.iter() {
-                        mk_tests(
-                            &mut tests,
-                            path.file_name().unwrap().to_str().unwrap(),
-                            test,
-                        );
-                    }
-                },
-
-                // xmlViolation.test doesn't follow this format.
-                _ => (),
-            }
-        },
+    foreach_html5lib_test(
+        src_dir,
+        "custom-html5lib-tokenizer-tests",
+        OsStr::new("test"),
+        &mut add_test
     );
 
     tests
