@@ -19,36 +19,35 @@ use std::collections::HashSet;
 use std::io::{self, Read};
 use std::ptr;
 
-fn main() {
-    let mut bytes = Vec::new();
-    io::stdin().read_to_end(&mut bytes).unwrap();
-    let arena = typed_arena::Arena::new();
-    html5ever_parse_slice_into_arena(&bytes, &arena);
-}
-
+/// By using our Sink type, we fill the arena with the parsed HTML.
 fn html5ever_parse_slice_into_arena<'a>(bytes: &[u8], arena: Arena<'a>) -> Ref<'a> {
+    // Create a sink object
     let sink = Sink {
         arena: arena,
         document: arena.alloc(Node::new(NodeData::Document)),
         quirks_mode: QuirksMode::NoQuirks,
     };
+
+    // Parse the input document into the arena (by using the sink)
     parse_document(sink, Default::default())
         .from_utf8()
         .one(bytes)
 }
 
+// Helper types
 type Arena<'arena> = &'arena typed_arena::Arena<Node<'arena>>;
-
 type Ref<'arena> = &'arena Node<'arena>;
-
 type Link<'arena> = Cell<Option<Ref<'arena>>>;
 
+/// Sink struct is responsible for handling how the data that comes out of the HTML parsing
+/// unit (TreeBuilder in our case) is handled.
 struct Sink<'arena> {
     arena: Arena<'arena>,
     document: Ref<'arena>,
     quirks_mode: QuirksMode,
 }
 
+/// Dom node which will be stored in the arena.
 pub struct Node<'arena> {
     parent: Link<'arena>,
     next_sibling: Link<'arena>,
@@ -58,6 +57,7 @@ pub struct Node<'arena> {
     data: NodeData<'arena>,
 }
 
+/// HTML node data which can be an element, a comment, a string, a DOCTYPE, etc...
 pub enum NodeData<'arena> {
     Document,
     Doctype {
@@ -95,6 +95,7 @@ impl<'arena> Node<'arena> {
         }
     }
 
+    /// Detach the current node from the tree.
     fn detach(&self) {
         let parent = self.parent.take();
         let previous_sibling = self.previous_sibling.take();
@@ -113,6 +114,7 @@ impl<'arena> Node<'arena> {
         }
     }
 
+    /// Add a new node as a child to the current node
     fn append(&'arena self, new_child: &'arena Self) {
         new_child.detach();
         new_child.parent.set(Some(self));
@@ -127,6 +129,7 @@ impl<'arena> Node<'arena> {
         self.last_child.set(Some(new_child));
     }
 
+    /// Insert a node as a sibling before the current node.
     fn insert_before(&'arena self, new_sibling: &'arena Self) {
         new_sibling.detach();
         new_sibling.parent.set(self.parent.get());
@@ -147,10 +150,12 @@ impl<'arena> Node<'arena> {
 }
 
 impl<'arena> Sink<'arena> {
+    /// Allocate a new node in the arena
     fn new_node(&self, data: NodeData<'arena>) -> Ref<'arena> {
         self.arena.alloc(Node::new(data))
     }
 
+    /// Append a new node (or text) to the DOM
     fn append_common<P, A>(&self, child: NodeOrText<Ref<'arena>>, previous: P, append: A)
     where
         P: FnOnce() -> Option<Ref<'arena>>,
@@ -178,6 +183,11 @@ impl<'arena> Sink<'arena> {
     }
 }
 
+/// By implementing the TreeSink trait we determine how the data from the tree building step
+/// is processed. In our case, our data is allocated in the arena and added to the Node data
+/// structure.
+///
+/// For deeper understating of each function go to the TreeSink declaration.
 impl<'arena> TreeSink for Sink<'arena> {
     type Handle = Ref<'arena>;
     type Output = Ref<'arena>;
@@ -332,4 +342,22 @@ impl<'arena> TreeSink for Sink<'arena> {
             new_parent.append(child)
         }
     }
+}
+
+/// In this example an "arena" is created and filled with the DOM nodes.
+/// "Arena" is a type of allocation in which a block of memory is allocated
+/// and later filled with data, DOM nodes in this case. When the arena is deallocated
+/// it is destroyed with all of its items.
+///
+/// Further info about arena: https://docs.rs/typed-arena/latest/typed_arena/
+fn main() {
+    // Read HTML from the standard input
+    let mut bytes = Vec::new();
+    io::stdin().read_to_end(&mut bytes).unwrap();
+
+    // Create a new arena
+    let arena = typed_arena::Arena::new();
+
+    // Fill the arena with nodes
+    html5ever_parse_slice_into_arena(&bytes, &arena);
 }
