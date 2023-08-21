@@ -26,6 +26,7 @@ struct Sink {
 }
 
 impl Sink {
+    /// Generate a unique id for
     fn get_id(&mut self) -> usize {
         let id = self.next_id;
         self.next_id += 2;
@@ -33,6 +34,10 @@ impl Sink {
     }
 }
 
+/// By implementing the TreeSink trait we determine how the data from the tree building step
+/// is processed. In this case the DOM elements are written into the "names" hashmap.
+///
+/// For deeper understating of each function go to the TreeSink declaration.
 impl TreeSink for Sink {
     type Handle = usize;
     type Output = Self;
@@ -99,11 +104,16 @@ impl TreeSink for Sink {
     fn mark_script_already_started(&mut self, _node: &usize) {}
 }
 
+/// In this example we implement the TreeSink trait which takes each parsed elements and insert
+/// it to a hashmap, while each element is given a numeric id.
 fn main() {
+    // Create a sink object with first id of 1
     let sink = Sink {
         next_id: 1,
         names: HashMap::new(),
     };
+
+    // Read HTML from the standard input and parse it
     let stdin = io::stdin();
     parse_document(sink, Default::default())
         .from_utf8()
