@@ -26,12 +26,7 @@ impl TokenSink for Sink {
 
     /// Each processed token will be handled by this method
     fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
-        // Push the token into a vector, in order to make sure we are not
-        // optimized entirely.
         self.0.push(token);
-
-
-        // Continue to the next token
         TokenSinkResult::Continue
     }
 }
@@ -43,11 +38,9 @@ fn main() {
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
 
-    // Create a buffer queue for the tokenizer
     let mut input = BufferQueue::new();
     input.push_back(chunk.try_reinterpret().unwrap());
 
-    // Run the tokenizer using our sink
     let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
     let _ = tok.feed(&mut input);
     assert!(input.is_empty());

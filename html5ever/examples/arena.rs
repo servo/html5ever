@@ -19,22 +19,19 @@ use std::collections::HashSet;
 use std::io::{self, Read};
 use std::ptr;
 
-/// By using our Sink type, we fill the arena with the parsed HTML.
+/// By using our Sink type, the arena is filled with parsed HTML.
 fn html5ever_parse_slice_into_arena<'a>(bytes: &[u8], arena: Arena<'a>) -> Ref<'a> {
-    // Create a sink object
     let sink = Sink {
         arena: arena,
         document: arena.alloc(Node::new(NodeData::Document)),
         quirks_mode: QuirksMode::NoQuirks,
     };
 
-    // Parse the input document into the arena (by using the sink)
     parse_document(sink, Default::default())
         .from_utf8()
         .one(bytes)
 }
 
-// Helper types
 type Arena<'arena> = &'arena typed_arena::Arena<Node<'arena>>;
 type Ref<'arena> = &'arena Node<'arena>;
 type Link<'arena> = Cell<Option<Ref<'arena>>>;
@@ -47,7 +44,7 @@ struct Sink<'arena> {
     quirks_mode: QuirksMode,
 }
 
-/// Dom node which will be stored in the arena.
+/// DOM node which contains links to other nodes in the tree.
 pub struct Node<'arena> {
     parent: Link<'arena>,
     next_sibling: Link<'arena>,
@@ -95,7 +92,6 @@ impl<'arena> Node<'arena> {
         }
     }
 
-    /// Detach the current node from the tree.
     fn detach(&self) {
         let parent = self.parent.take();
         let previous_sibling = self.previous_sibling.take();
@@ -114,7 +110,6 @@ impl<'arena> Node<'arena> {
         }
     }
 
-    /// Add a new node as a child to the current node
     fn append(&'arena self, new_child: &'arena Self) {
         new_child.detach();
         new_child.parent.set(Some(self));
@@ -129,7 +124,6 @@ impl<'arena> Node<'arena> {
         self.last_child.set(Some(new_child));
     }
 
-    /// Insert a node as a sibling before the current node.
     fn insert_before(&'arena self, new_sibling: &'arena Self) {
         new_sibling.detach();
         new_sibling.parent.set(self.parent.get());
@@ -150,12 +144,10 @@ impl<'arena> Node<'arena> {
 }
 
 impl<'arena> Sink<'arena> {
-    /// Allocate a new node in the arena
     fn new_node(&self, data: NodeData<'arena>) -> Ref<'arena> {
         self.arena.alloc(Node::new(data))
     }
 
-    /// Append a new node (or text) to the DOM
     fn append_common<P, A>(&self, child: NodeOrText<Ref<'arena>>, previous: P, append: A)
     where
         P: FnOnce() -> Option<Ref<'arena>>,
@@ -355,9 +347,6 @@ fn main() {
     let mut bytes = Vec::new();
     io::stdin().read_to_end(&mut bytes).unwrap();
 
-    // Create a new arena
     let arena = typed_arena::Arena::new();
-
-    // Fill the arena with nodes
     html5ever_parse_slice_into_arena(&bytes, &arena);
 }

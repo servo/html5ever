@@ -26,7 +26,6 @@ struct Sink {
 }
 
 impl Sink {
-    /// Generate a unique id for
     fn get_id(&mut self) -> usize {
         let id = self.next_id;
         self.next_id += 2;
@@ -107,7 +106,6 @@ impl TreeSink for Sink {
 /// In this example we implement the TreeSink trait which takes each parsed elements and insert
 /// it to a hashmap, while each element is given a numeric id.
 fn main() {
-    // Create a sink object with first id of 1
     let sink = Sink {
         next_id: 1,
         names: HashMap::new(),
