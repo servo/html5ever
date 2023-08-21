@@ -17,25 +17,37 @@ use std::io;
 use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
 
+
+/// In our case, our sink only contains a tokens vector
 struct Sink(Vec<Token>);
 
 impl TokenSink for Sink {
     type Handle = ();
 
+    /// Each processed token will be handled by this method
     fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
-        // Don't use the token, but make sure we don't get
-        // optimized out entirely.
+        // Push the token into a vector, in order to make sure we are not
+        // optimized entirely.
         self.0.push(token);
+
+
+        // Continue to the next token
         TokenSinkResult::Continue
     }
 }
 
+/// In this example we implement the TokenSink trait which lets us implement how each
+/// parsed token is treated. In our example we take each token and insert it into a vector.
 fn main() {
+    // Read HTML from standard input
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
+
+    // Create a buffer queue for the tokenizer
     let mut input = BufferQueue::new();
     input.push_back(chunk.try_reinterpret().unwrap());
 
+    // Run the tokenizer using our sink
     let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
     let _ = tok.feed(&mut input);
     assert!(input.is_empty());
