@@ -158,6 +158,9 @@ impl TreeSink for Sink {
     }
 }
 
+/// Same example as the "noop-tree-builder", but this time every function implemented in our
+/// Sink object prints a log, so it's easier to get an understating of when each function is
+/// called.
 fn main() {
     let sink = Sink {
         next_id: 1,
