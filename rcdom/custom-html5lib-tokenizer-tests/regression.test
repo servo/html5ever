@@ -39,6 +39,31 @@
 {"description": "Windows newline after bogusname",
 "input": "&0\r\n",
 "output": [["Character", "&0\n"]],
-"errors": []}
+"errors": []},
+
+{"description": "Bogus comment after end tag with space",
+"initialStates": ["Data state", "RCDATA state", "RAWTEXT state", "Script data state"],
+"lastStartTag": "style",
+"input": "</style ><!a>",
+"output": [
+    ["EndTag", "style"],
+    ["Comment", "a"]
+],
+"errors": [
+    {"code": "incorrectly-opened-comment"}
+]},
+
+{"description": "Bogus comment after end tag with solidus",
+"initialStates": ["Data state", "RCDATA state", "RAWTEXT state", "Script data state"],
+"lastStartTag": "style",
+"input": "</style/><!a>",
+"output": [
+    ["EndTag", "style"],
+    ["Comment", "a"]
+],
+"errors": [
+    {"code": "unexpected-solidus-in-tag"},
+    {"code": "incorrectly-opened-comment"}
+]}
 
 ]}
