@@ -27,7 +27,7 @@ use log::{debug, trace};
 use mac::format_if;
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::default::Default;
 use std::mem::replace;
 
@@ -143,6 +143,9 @@ pub struct Tokenizer<Sink> {
     /// Current tag attributes.
     current_tag_attrs: Vec<Attribute>,
 
+    /// Current tag names hashset
+    current_tag_attrs_names: HashSet<StrTendril>,
+
     /// Current attribute name.
     current_attr_name: StrTendril,
 
@@ -194,6 +197,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_tag_name: StrTendril::new(),
             current_tag_self_closing: false,
             current_tag_attrs: vec![],
+            current_tag_attrs_names: HashSet::new(),
             current_attr_name: StrTendril::new(),
             current_attr_value: StrTendril::new(),
             current_comment: StrTendril::new(),
@@ -480,6 +484,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.current_tag_name.clear();
         self.current_tag_self_closing = false;
         self.current_tag_attrs = vec![];
+        self.current_tag_attrs_names.clear();
     }
 
     fn create_tag(&mut self, kind: TagKind, c: char) {
@@ -509,12 +514,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // Check for a duplicate attribute.
         // FIXME: the spec says we should error as soon as the name is finished.
         // FIXME: linear time search, do we care?
-        let dup = {
-            let name = &*self.current_attr_name;
-            self.current_tag_attrs
-                .iter()
-                .any(|a| &*a.name.local == name)
-        };
+        let dup = self.current_tag_attrs_names.contains(&self.current_attr_name);
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
@@ -522,6 +522,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.current_attr_value.clear();
         } else {
             let name = LocalName::from(&*self.current_attr_name);
+            self.current_tag_attrs_names.insert(self.current_attr_name.clone());
             self.current_attr_name.clear();
             self.current_tag_attrs.push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
