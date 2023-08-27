@@ -508,7 +508,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         // Check for a duplicate attribute.
         // FIXME: the spec says we should error as soon as the name is finished.
-        // FIXME: linear time search, do we care?
         let dup = {
             let name = &*self.current_attr_name;
             self.current_tag_attrs
