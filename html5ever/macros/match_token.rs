@@ -197,7 +197,7 @@ impl Parse for LHS {
             }
             Ok(LHS::Tags(tags))
         } else {
-            let p: syn::Pat = input.parse()?;
+            let p = input.call(syn::Pat::parse_single)?;
             Ok(LHS::Pattern(p))
         }
     }
@@ -423,7 +423,7 @@ impl Fold for MatchTokenParser {
                 if mac.path == parse_quote!(match_token) {
                     return syn::fold::fold_stmt(
                         self,
-                        syn::Stmt::Expr(expand_match_token(&mac.tokens)),
+                        syn::Stmt::Expr(expand_match_token(&mac.tokens), None),
                     );
                 }
             },
