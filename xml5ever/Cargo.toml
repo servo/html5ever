@@ -13,7 +13,7 @@ readme = "README.md"
 keywords = ["xml", "xml5", "parser", "parsing"]
 exclude = ["xml5lib-tests/*"]
 categories = [ "parser-implementations", "web-programming" ]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 log = "0.4"
