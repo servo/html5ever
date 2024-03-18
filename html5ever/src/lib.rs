@@ -11,6 +11,7 @@
 #![crate_type = "dylib"]
 #![cfg_attr(test, deny(warnings))]
 #![allow(unused_parens)]
+#![warn(unreachable_pub)]
 
 pub use driver::{parse_document, parse_fragment, ParseOpts, Parser};
 pub use markup5ever::*;
@@ -21,7 +22,7 @@ pub use serialize::serialize;
 mod macros;
 
 mod util {
-    pub mod str;
+    pub(crate) mod str;
 }
 
 pub mod driver;

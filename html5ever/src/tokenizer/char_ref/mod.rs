@@ -18,18 +18,18 @@ use std::borrow::Cow::Borrowed;
 use std::char::from_u32;
 
 use self::State::*;
-pub use self::Status::*;
+pub(super) use self::Status::*;
 
 //§ tokenizing-character-references
-pub struct CharRef {
+pub(super) struct CharRef {
     /// The resulting character(s)
-    pub chars: [char; 2],
+    pub(super) chars: [char; 2],
 
     /// How many slots in `chars` are valid?
-    pub num_chars: u8,
+    pub(super) num_chars: u8,
 }
 
-pub enum Status {
+pub(super) enum Status {
     Stuck,
     Progress,
     Done,
@@ -45,7 +45,7 @@ enum State {
     BogusName,
 }
 
-pub struct CharRefTokenizer {
+pub(super) struct CharRefTokenizer {
     state: State,
     result: Option<CharRef>,
     is_consumed_in_attribute: bool,
@@ -61,7 +61,7 @@ pub struct CharRefTokenizer {
 }
 
 impl CharRefTokenizer {
-    pub fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
+    pub(super) fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
         CharRefTokenizer {
             is_consumed_in_attribute,
             state: Begin,
@@ -78,7 +78,7 @@ impl CharRefTokenizer {
 
     // A CharRefTokenizer can only tokenize one character reference,
     // so this method consumes the tokenizer.
-    pub fn get_result(self) -> CharRef {
+    pub(super) fn get_result(self) -> CharRef {
         self.result.expect("get_result called before done")
     }
 
@@ -112,7 +112,7 @@ impl CharRefTokenizer {
 }
 
 impl CharRefTokenizer {
-    pub fn step<Sink: TokenSink>(
+    pub(super) fn step<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
@@ -411,7 +411,7 @@ impl CharRefTokenizer {
         self.finish_none()
     }
 
-    pub fn end_of_file<Sink: TokenSink>(
+    pub(super) fn end_of_file<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut Tokenizer<Sink>,
         input: &mut BufferQueue,
