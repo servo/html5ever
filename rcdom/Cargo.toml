@@ -1,6 +1,6 @@
 [package]
 name = "markup5ever_rcdom"
-version = "0.2.0"
+version = "0.3.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -16,9 +16,9 @@ path = "lib.rs"
 
 [dependencies]
 tendril = "0.4"
-html5ever = { version = "0.26", path = "../html5ever" }
-markup5ever = { version = "0.11", path = "../markup5ever" }
-xml5ever = { version = "0.17", path = "../xml5ever" }
+html5ever = { version = "0.27", path = "../html5ever" }
+markup5ever = { version = "0.12", path = "../markup5ever" }
+xml5ever = { version = "0.18", path = "../xml5ever" }
 
 [dev-dependencies]
 serde_json = "1.0"
