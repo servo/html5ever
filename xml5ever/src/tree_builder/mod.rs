@@ -18,7 +18,6 @@ use std::collections::btree_map::Iter;
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
-use std::result::Result;
 
 pub use self::interface::{NextParserState, NodeOrText, Tracer, TreeSink};
 use self::types::*;
