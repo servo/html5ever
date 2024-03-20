@@ -12,7 +12,6 @@
 extern crate markup5ever;
 extern crate xml5ever;
 
-use std::default::Default;
 use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;

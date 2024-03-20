@@ -28,7 +28,6 @@ use mac::format_if;
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
-use std::default::Default;
 use std::mem::replace;
 
 pub use crate::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
