@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
+pub(crate) fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
     // FIXME: don't allocate twice
     let string = format!("{:?}", x);
     string.chars().flat_map(|c| c.escape_default()).collect()
@@ -17,7 +17,7 @@ pub fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
 
 /// If `c` is an ASCII letter, return the corresponding lowercase
 /// letter, otherwise None.
-pub fn lower_ascii_letter(c: char) -> Option<char> {
+pub(crate) fn lower_ascii_letter(c: char) -> Option<char> {
     match c {
         'a'..='z' => Some(c),
         'A'..='Z' => Some((c as u8 - b'A' + b'a') as char),
