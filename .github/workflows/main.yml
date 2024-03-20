@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [1.60.0, stable, beta, nightly]
+        version: [stable, beta, nightly]
     steps:
       - uses: actions/checkout@v3
 
@@ -43,6 +43,19 @@ jobs:
       - name: Cargo doc
         if: matrix.version == 'nightly'
         run: cargo doc
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        run: |
+          rustup set profile minimal
+          rustup override set 1.60.0
+
+      - run: cargo check --lib --all-features
 
   build_result:
     name: Result
