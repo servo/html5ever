@@ -69,4 +69,4 @@ jobs:
         if: success()
       - name: Mark the job as unsuccessful
         run: exit 1
-        if: "!success()"
+        if: ${{ !success() }}
