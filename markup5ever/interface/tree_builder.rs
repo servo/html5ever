@@ -89,9 +89,9 @@ where
         expanded_name!(html "template") => flags.template = true,
         expanded_name!(mathml "annotation-xml") => {
             flags.mathml_annotation_xml_integration_point = attrs.iter().any(|attr| {
-                attr.name.expanded() == expanded_name!("", "encoding") &&
-                    (attr.value.eq_ignore_ascii_case("text/html") ||
-                        attr.value.eq_ignore_ascii_case("application/xhtml+xml"))
+                attr.name.expanded() == expanded_name!("", "encoding")
+                    && (attr.value.eq_ignore_ascii_case("text/html")
+                        || attr.value.eq_ignore_ascii_case("application/xhtml+xml"))
             })
         },
         _ => {},

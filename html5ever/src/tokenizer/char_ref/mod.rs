@@ -361,7 +361,8 @@ impl CharRefTokenizer {
                 // then, for historical reasons, flush code points consumed as a character
                 // reference and switch to the return state.
 
-                let unconsume_all = match (self.is_consumed_in_attribute, last_matched, next_after) {
+                let unconsume_all = match (self.is_consumed_in_attribute, last_matched, next_after)
+                {
                     (_, ';', _) => false,
                     (true, _, Some('=')) => true,
                     (true, _, Some(c)) if c.is_ascii_alphanumeric() => true,

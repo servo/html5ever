@@ -11,7 +11,9 @@ mod foreach_html5lib_test;
 
 use foreach_html5lib_test::foreach_html5lib_test;
 use html5ever::tendril::*;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata, ScriptData, CdataSection, Data};
+use html5ever::tokenizer::states::{
+    CdataSection, Data, Plaintext, RawData, Rawtext, Rcdata, ScriptData,
+};
 use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
@@ -22,12 +24,11 @@ use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 use std::mem::replace;
 use std::path::Path;
 use std::{char, env};
-
 
 #[derive(Debug)]
 struct TestError(Cow<'static, str>);
@@ -93,7 +94,7 @@ impl TokenLogger {
         }
     }
 
-    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>){
+    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>) {
         self.finish_str();
         (self.tokens, self.errors)
     }
@@ -260,7 +261,11 @@ fn json_to_token(js: &Value) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<TestError>) {
+fn json_to_tokens(
+    js_tokens: &Value,
+    js_errors: &[Value],
+    exact_errors: bool,
+) -> (Vec<Token>, Vec<TestError>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
@@ -325,7 +330,13 @@ fn unescape_json(js: &Value) -> Value {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Value, expect_errors: Vec<Value>, opts: TokenizerOpts) -> TestDescAndFn {
+fn mk_test(
+    desc: String,
+    input: String,
+    expect: Value,
+    expect_errors: Vec<Value>,
+    opts: TokenizerOpts,
+) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -353,7 +364,11 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
-    let expect_errors = js.get("errors").map(JsonExt::get_list).map(Vec::as_slice).unwrap_or_default();
+    let expect_errors = js
+        .get("errors")
+        .map(JsonExt::get_list)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -455,14 +470,14 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         src_dir,
         "html5lib-tests/tokenizer",
         OsStr::new("test"),
-        &mut add_test
+        &mut add_test,
     );
 
     foreach_html5lib_test(
         src_dir,
         "custom-html5lib-tokenizer-tests",
         OsStr::new("test"),
-        &mut add_test
+        &mut add_test,
     );
 
     tests

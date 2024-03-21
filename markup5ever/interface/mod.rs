@@ -303,11 +303,7 @@ impl QualName {
     ///
     #[inline]
     pub fn new(prefix: Option<Prefix>, ns: Namespace, local: LocalName) -> QualName {
-        QualName {
-            prefix,
-            ns,
-            local,
-        }
+        QualName { prefix, ns, local }
     }
 
     /// Take a reference of `self` as an `ExpandedName`, dropping the unresolved prefix.

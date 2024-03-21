@@ -236,11 +236,11 @@ where
         match *name {
             local_name!("title") | local_name!("textarea") => tok_state::RawData(tok_state::Rcdata),
 
-            local_name!("style") |
-            local_name!("xmp") |
-            local_name!("iframe") |
-            local_name!("noembed") |
-            local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
+            local_name!("style")
+            | local_name!("xmp")
+            | local_name!("iframe")
+            | local_name!("noembed")
+            | local_name!("noframes") => tok_state::RawData(tok_state::Rawtext),
 
             local_name!("script") => tok_state::RawData(tok_state::ScriptData),
 
@@ -529,8 +529,8 @@ where
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
-        !self.open_elems.is_empty() &&
-            self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
+        !self.open_elems.is_empty()
+            && self.sink.elem_name(self.adjusted_current_node()).ns != &ns!(html)
     }
 }
 
@@ -850,8 +850,8 @@ where
                 Bookmark::InsertAfter(previous) => {
                     let index = self
                         .position_in_active_formatting(&previous)
-                        .expect("bookmark not found in active formatting elements") +
-                        1;
+                        .expect("bookmark not found in active formatting elements")
+                        + 1;
                     self.active_formatting.insert(index, new_entry);
                     let old_index = self
                         .position_in_active_formatting(&fmt_elem)
@@ -1299,11 +1299,11 @@ where
         };
 
         // Step 12.
-        if form_associatable(qname.expanded()) &&
-            self.form_elem.is_some() &&
-            !self.in_html_elem_named(local_name!("template")) &&
-            !(listed(qname.expanded()) &&
-                attrs
+        if form_associatable(qname.expanded())
+            && self.form_elem.is_some()
+            && !self.in_html_elem_named(local_name!("template"))
+            && !(listed(qname.expanded())
+                && attrs
                     .iter()
                     .any(|a| a.name.expanded() == expanded_name!("", "form")))
         {
@@ -1661,9 +1661,7 @@ where
     fn unexpected_start_tag_in_foreign_content(&mut self, tag: Tag) -> ProcessResult<Handle> {
         self.unexpected(&tag);
         while !self.current_node_in(|n| {
-            *n.ns == ns!(html) ||
-                mathml_text_integration_point(n) ||
-                svg_html_integration_point(n)
+            *n.ns == ns!(html) || mathml_text_integration_point(n) || svg_html_integration_point(n)
         }) {
             self.pop();
         }
