@@ -11,8 +11,6 @@
 extern crate markup5ever_rcdom as rcdom;
 extern crate xml5ever;
 
-use std::default::Default;
-
 use rcdom::{NodeData, RcDom};
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;

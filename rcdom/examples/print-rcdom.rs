@@ -11,7 +11,6 @@
 extern crate html5ever;
 extern crate markup5ever_rcdom as rcdom;
 
-use std::default::Default;
 use std::io;
 
 use html5ever::parse_document;

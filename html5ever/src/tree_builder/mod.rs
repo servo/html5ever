@@ -26,7 +26,6 @@ use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResul
 
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
-use std::default::Default;
 use std::iter::{Enumerate, Rev};
 use std::mem::replace;
 use std::{fmt, slice};

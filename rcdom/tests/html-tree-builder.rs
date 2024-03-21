@@ -16,7 +16,6 @@ mod foreach_html5lib_test;
 use foreach_html5lib_test::foreach_html5lib_test;
 
 use std::collections::{HashMap, HashSet};
-use std::default::Default;
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::iter::repeat;

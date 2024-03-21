@@ -11,9 +11,7 @@
 extern crate markup5ever_rcdom as rcdom;
 extern crate xml5ever;
 
-use std::default::Default;
 use std::io;
-use std::string::String;
 
 use rcdom::{Handle, NodeData, RcDom};
 use xml5ever::driver::parse_document;
