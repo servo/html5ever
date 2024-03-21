@@ -9,7 +9,6 @@
 
 extern crate html5ever;
 
-use std::default::Default;
 use std::io;
 
 use html5ever::tendril::*;

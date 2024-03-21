@@ -21,7 +21,6 @@ use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
 use std::borrow::Cow;
-use std::default::Default;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::fs::File;

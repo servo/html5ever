@@ -42,7 +42,6 @@ extern crate tendril;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashSet, VecDeque};
-use std::default::Default;
 use std::fmt;
 use std::io;
 use std::mem;

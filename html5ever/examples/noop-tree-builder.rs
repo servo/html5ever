@@ -12,7 +12,6 @@ extern crate html5ever;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::default::Default;
 use std::io;
 
 use html5ever::parse_document;
