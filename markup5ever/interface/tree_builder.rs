@@ -54,6 +54,7 @@ pub enum NextParserState {
 
 /// Special properties of an element, useful for tagging elements with this information.
 #[derive(Default)]
+#[non_exhaustive]
 pub struct ElementFlags {
     /// A document fragment should be created, associated with the element,
     /// and returned in TreeSink::get_template_contents.
@@ -70,9 +71,6 @@ pub struct ElementFlags {
     ///
     /// [whatwg integration-point]: https://html.spec.whatwg.org/multipage/#html-integration-point
     pub mathml_annotation_xml_integration_point: bool,
-
-    // Prevent construction from outside module
-    _private: (),
 }
 
 /// A constructor for an element.

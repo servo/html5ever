@@ -27,12 +27,11 @@ fn run_bench(c: &mut Criterion, name: &str) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("data/bench/");
     path.push(name);
-    let mut file = fs::File::open(&path).ok().expect("can't open file");
+    let mut file = fs::File::open(&path).expect("can't open file");
 
     // Read the file and treat it as an infinitely repeating sequence of characters.
     let mut file_input = ByteTendril::new();
     file.read_to_tendril(&mut file_input)
-        .ok()
         .expect("can't read file");
     let file_input: StrTendril = file_input.try_reinterpret().unwrap();
     let size = file_input.len();
@@ -55,7 +54,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
     c.bench_function(&test_name, move |b| {
         b.iter(|| {
             let mut tok = Tokenizer::new(Sink, Default::default());
-            let mut buffer = BufferQueue::new();
+            let mut buffer = BufferQueue::default();
             // We are doing clone inside the bench function, this is not ideal, but possibly
             // necessary since our iterator consumes the underlying buffer.
             for buf in input.clone().into_iter() {

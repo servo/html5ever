@@ -70,16 +70,14 @@ impl SmallCharSet {
 
 #[cfg(test)]
 mod test {
-    use std::iter::repeat;
-
     #[test]
     fn nonmember_prefix() {
         for &c in ['&', '\0'].iter() {
             for x in 0..48u32 {
                 for y in 0..48u32 {
-                    let mut s = repeat("x").take(x as usize).collect::<String>();
+                    let mut s = "x".repeat(x as usize);
                     s.push(c);
-                    s.push_str(&repeat("x").take(y as usize).collect::<String>());
+                    s.push_str(&"x".repeat(y as usize));
                     let set = small_char_set!('&' '\0');
 
                     assert_eq!(x, set.nonmember_prefix_len(&s));

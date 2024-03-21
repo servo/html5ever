@@ -25,21 +25,13 @@ fn main() {
     let doc = &dom.document;
 
     let hello_node = &doc.children.borrow()[0];
-    let hello_tag = &*dom.elem_name(hello_node).local;
+    let hello_tag = dom.elem_name(hello_node).local;
     let text_node = &hello_node.children.borrow()[0];
 
-    let xml = {
-        let mut xml = String::new();
-
-        match &text_node.data {
-            &NodeData::Text { ref contents } => {
-                xml.push_str(&contents.borrow());
-            },
-            _ => {},
-        };
-
-        xml
-    };
+    let mut xml = String::new();
+    if let NodeData::Text { contents } = &text_node.data {
+        xml.push_str(&contents.borrow());
+    }
 
     println!("{:?} {:?}!", hello_tag, xml);
 }

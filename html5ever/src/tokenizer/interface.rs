@@ -19,23 +19,12 @@ pub use self::Token::{EOFToken, NullCharacterToken, ParseError};
 
 /// A `DOCTYPE` token.
 // FIXME: already exists in Servo DOM
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct Doctype {
     pub name: Option<StrTendril>,
     pub public_id: Option<StrTendril>,
     pub system_id: Option<StrTendril>,
     pub force_quirks: bool,
-}
-
-impl Doctype {
-    pub fn new() -> Doctype {
-        Doctype {
-            name: None,
-            public_id: None,
-            system_id: None,
-            force_quirks: false,
-        }
-    }
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]

@@ -43,10 +43,7 @@ fn main() {
     // The validator.nu HTML2HTML always prints a doctype at the very beginning.
     io::stdout()
         .write_all(b"<!DOCTYPE html>\n")
-        .ok()
         .expect("writing DOCTYPE failed");
     let document: SerializableHandle = dom.document.clone().into();
-    serialize(&mut io::stdout(), &document, Default::default())
-        .ok()
-        .expect("serialization failed");
+    serialize(&mut io::stdout(), &document, Default::default()).expect("serialization failed");
 }

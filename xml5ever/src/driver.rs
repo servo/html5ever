@@ -42,7 +42,7 @@ where
     let tok = XmlTokenizer::new(tb, opts.tokenizer);
     XmlParser {
         tokenizer: tok,
-        input_buffer: BufferQueue::new(),
+        input_buffer: BufferQueue::default(),
     }
 }
 

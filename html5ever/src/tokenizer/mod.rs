@@ -28,7 +28,7 @@ use mac::format_if;
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
 use std::collections::BTreeMap;
-use std::mem::replace;
+use std::mem;
 
 pub use crate::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
 use crate::tendril::StrTendril;
@@ -196,7 +196,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_attr_name: StrTendril::new(),
             current_attr_value: StrTendril::new(),
             current_comment: StrTendril::new(),
-            current_doctype: Doctype::new(),
+            current_doctype: Doctype::default(),
             last_start_tag_name: start_tag_name,
             temp_buf: StrTendril::new(),
             state_profile: BTreeMap::new(),
@@ -332,13 +332,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             }
         }
 
-        input.push_front(replace(&mut self.temp_buf, StrTendril::new()));
+        input.push_front(mem::take(&mut self.temp_buf));
         match input.eat(pat, eq) {
             None if self.at_eof => Some(false),
             None => {
-                while let Some(c) = input.next() {
-                    self.temp_buf.push_char(c);
-                }
+                self.temp_buf.extend(input);
                 None
             },
             Some(matched) => Some(matched),
@@ -439,7 +437,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             kind: self.current_tag_kind,
             name,
             self_closing: self.current_tag_self_closing,
-            attrs: replace(&mut self.current_tag_attrs, vec![]),
+            attrs: std::mem::take(&mut self.current_tag_attrs),
         });
 
         match self.process_token(token) {
@@ -461,7 +459,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn emit_temp_buf(&mut self) {
         // FIXME: Make sure that clearing on emit is spec-compatible.
-        let buf = replace(&mut self.temp_buf, StrTendril::new());
+        let buf = mem::take(&mut self.temp_buf);
         self.emit_chars(buf);
     }
 
@@ -471,7 +469,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_current_comment(&mut self) {
-        let comment = replace(&mut self.current_comment, StrTendril::new());
+        let comment = mem::take(&mut self.current_comment);
         self.process_token_and_continue(CommentToken(comment));
     }
 
@@ -525,13 +523,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
                 name: QualName::new(None, ns!(), name),
-                value: replace(&mut self.current_attr_value, StrTendril::new()),
+                value: mem::take(&mut self.current_attr_value),
             });
         }
     }
 
     fn emit_current_doctype(&mut self) {
-        let doctype = replace(&mut self.current_doctype, Doctype::new());
+        let doctype = mem::take(&mut self.current_doctype);
         self.process_token_and_continue(DoctypeToken(doctype));
     }
 
@@ -606,7 +604,7 @@ macro_rules! shorthand (
     ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c)                  );
     ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment()                          );
     ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear()                         );
-    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::new()                );
+    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::default()            );
     ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c)      );
     ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c)                 );
     ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k)                            );
@@ -1349,10 +1347,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     if self
                         .sink
                         .adjusted_current_node_present_but_not_in_html_namespace()
+                        && eat_exact!(self, input, "[CDATA[")
                     {
-                        if eat_exact!(self, input, "[CDATA[") {
-                            go!(self: clear_temp; to CdataSection);
-                        }
+                        go!(self: clear_temp; to CdataSection);
                     }
                     go!(self: error; clear_comment; to BogusComment);
                 }
@@ -1435,7 +1432,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
-        let mut input = BufferQueue::new();
+        let mut input = BufferQueue::default();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
@@ -1588,7 +1585,7 @@ mod test {
     use super::interface::{TagToken, Token};
 
     use markup5ever::buffer_queue::BufferQueue;
-    use std::mem::replace;
+    use std::mem;
 
     use crate::LocalName;
 
@@ -1617,7 +1614,7 @@ mod test {
 
         fn finish_str(&mut self) {
             if self.current_str.len() > 0 {
-                let s = replace(&mut self.current_str, StrTendril::new());
+                let s = mem::take(&mut self.current_str);
                 self.tokens.push(CharacterTokens(s));
             }
         }
@@ -1671,7 +1668,7 @@ mod test {
     fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<(Token, u64)> {
         let sink = LinesMatch::new();
         let mut tok = Tokenizer::new(sink, opts);
-        let mut buffer = BufferQueue::new();
+        let mut buffer = BufferQueue::default();
         for chunk in input.into_iter() {
             buffer.push_back(chunk);
             let _ = tok.feed(&mut buffer);
@@ -1683,13 +1680,13 @@ mod test {
     // Create a tag token
     fn create_tag(token: StrTendril, tagkind: TagKind) -> Token {
         let name = LocalName::from(&*token);
-        let token = TagToken(Tag {
+
+        TagToken(Tag {
             kind: tagkind,
             name,
             self_closing: false,
             attrs: vec![],
-        });
-        token
+        })
     }
 
     #[test]

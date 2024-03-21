@@ -34,9 +34,9 @@ impl Serialize for Tokens {
         S: Serializer,
     {
         for t in self.0.iter() {
-            match t {
+            match &t {
                 // TODO: check whether this is an IE conditional comment or a spec comment
-                &Token::TagToken(ref tag) => {
+                Token::TagToken(tag) => {
                     let name = QualName::new(
                         None,
                         "http://www.w3.org/1999/xhtml".into(),
@@ -50,14 +50,15 @@ impl Serialize for Tokens {
                         TagKind::EndTag => serializer.end_elem(name)?,
                     }
                 },
-                &Token::DoctypeToken(ref dt) => match dt.name {
-                    Some(ref name) => serializer.write_doctype(&name)?,
-                    None => {},
+                Token::DoctypeToken(dt) => {
+                    if let Some(name) = &dt.name {
+                        serializer.write_doctype(name)?
+                    }
                 },
-                &Token::CommentToken(ref chars) => serializer.write_comment(&chars)?,
-                &Token::CharacterTokens(ref chars) => serializer.write_text(&chars)?,
-                &Token::NullCharacterToken | &Token::EOFToken => {},
-                &Token::ParseError(ref e) => println!("parse error: {:#?}", e),
+                Token::CommentToken(chars) => serializer.write_comment(chars)?,
+                Token::CharacterTokens(chars) => serializer.write_text(chars)?,
+                Token::NullCharacterToken | &Token::EOFToken => {},
+                Token::ParseError(e) => println!("parse error: {e:#?}"),
             }
         }
         Ok(())
@@ -66,8 +67,8 @@ impl Serialize for Tokens {
 
 fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
     let mut input = {
-        let mut q = ::html5ever::tokenizer::BufferQueue::new();
-        q.push_front(input.into());
+        let mut q = ::html5ever::tokenizer::BufferQueue::default();
+        q.push_front(input);
         q
     };
     let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
@@ -251,7 +252,7 @@ fn deep_tree() {
         QualName::new(None, ns!(html), local_name!("div")),
         vec![],
     );
-    let src = String::from("<b>".repeat(60_000));
+    let src = "<b>".repeat(60_000);
     let dom = parser.one(src);
     let opts = SerializeOpts::default();
     let mut ret_val = Vec::new();

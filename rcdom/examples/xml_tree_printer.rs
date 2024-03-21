@@ -44,10 +44,7 @@ fn walk(prefix: &str, handle: &Handle) {
         .children
         .borrow()
         .iter()
-        .filter(|child| match child.data {
-            NodeData::Text { .. } | NodeData::Element { .. } => true,
-            _ => false,
-        })
+        .filter(|child| matches!(child.data, NodeData::Text { .. } | NodeData::Element { .. }))
     {
         walk(&new_indent, child);
     }

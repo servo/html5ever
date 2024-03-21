@@ -126,9 +126,9 @@ impl Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        let mut nodes = mem::replace(&mut *self.children.borrow_mut(), vec![]);
+        let mut nodes = mem::take(&mut *self.children.borrow_mut());
         while let Some(node) = nodes.pop() {
-            let children = mem::replace(&mut *node.children.borrow_mut(), vec![]);
+            let children = mem::take(&mut *node.children.borrow_mut());
             nodes.extend(children.into_iter());
             if let NodeData::Element {
                 ref template_contents,
@@ -294,16 +294,12 @@ impl TreeSink for RcDom {
 
     fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
         // Append to an existing Text node if we have one.
-        match child {
-            NodeOrText::AppendText(ref text) => match parent.children.borrow().last() {
-                Some(h) => {
-                    if append_to_existing_text(h, text) {
-                        return;
-                    }
-                },
-                _ => (),
-            },
-            _ => (),
+        if let NodeOrText::AppendText(text) = &child {
+            if let Some(h) = parent.children.borrow().last() {
+                if append_to_existing_text(h, text) {
+                    return;
+                }
+            }
         }
 
         append(
@@ -417,7 +413,7 @@ impl TreeSink for RcDom {
                 &previous_parent.unwrap().upgrade().expect("dangling weak")
             ))
         }
-        new_children.extend(mem::replace(&mut *children, Vec::new()));
+        new_children.extend(mem::take(&mut *children));
     }
 
     fn is_mathml_annotation_xml_integration_point(&self, target: &Handle) -> bool {

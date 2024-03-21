@@ -27,7 +27,7 @@ use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResul
 use std::borrow::Cow::Borrowed;
 use std::collections::VecDeque;
 use std::iter::{Enumerate, Rev};
-use std::mem::replace;
+use std::mem;
 use std::{fmt, slice};
 
 use crate::tokenizer::states::{RawData, RawKind};
@@ -455,7 +455,7 @@ where
         if line_number != self.current_line {
             self.sink.set_current_line(line_number);
         }
-        let ignore_lf = replace(&mut self.ignore_lf, false);
+        let ignore_lf = mem::take(&mut self.ignore_lf);
 
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {

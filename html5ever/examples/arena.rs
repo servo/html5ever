@@ -28,7 +28,7 @@ fn main() {
 
 fn html5ever_parse_slice_into_arena<'a>(bytes: &[u8], arena: Arena<'a>) -> Ref<'a> {
     let sink = Sink {
-        arena: arena,
+        arena,
         document: arena.alloc(Node::new(NodeData::Document)),
         quirks_mode: QuirksMode::NoQuirks,
     };
@@ -91,7 +91,7 @@ impl<'arena> Node<'arena> {
             next_sibling: Cell::new(None),
             first_child: Cell::new(None),
             last_child: Cell::new(None),
-            data: data,
+            data,
         }
     }
 
@@ -209,7 +209,7 @@ impl<'arena> TreeSink for Sink<'arena> {
 
     fn get_template_contents(&mut self, target: &Ref<'arena>) -> Ref<'arena> {
         if let NodeData::Element {
-            template_contents: Some(ref contents),
+            template_contents: Some(contents),
             ..
         } = target.data
         {
@@ -255,7 +255,7 @@ impl<'arena> TreeSink for Sink<'arena> {
 
     fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Ref<'arena> {
         self.new_node(NodeData::ProcessingInstruction {
-            target: target,
+            target,
             contents: data,
         })
     }
