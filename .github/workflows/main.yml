@@ -70,3 +70,25 @@ jobs:
       - name: Mark the job as unsuccessful
         run: exit 1
         if: ${{ !success() }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        run: |
+          rustup set profile minimal
+          rustup override set stable
+
+      - name: Install clippy
+        run: |
+          rustup component add clippy
+          rustup component add rustfmt
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
