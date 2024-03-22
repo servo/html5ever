@@ -40,11 +40,7 @@ struct NamespaceMapStack(Vec<NamespaceMap>);
 
 impl NamespaceMapStack {
     fn new() -> NamespaceMapStack {
-        NamespaceMapStack({
-            let mut vec = Vec::new();
-            vec.push(NamespaceMap::default());
-            vec
-        })
+        NamespaceMapStack(vec![NamespaceMap::default()])
     }
 
     fn push(&mut self, map: NamespaceMap) {
@@ -112,11 +108,7 @@ impl NamespaceMap {
 
     #[doc(hidden)]
     pub fn insert(&mut self, name: &QualName) {
-        let prefix = if let Some(ref p) = name.prefix {
-            Some(p.clone())
-        } else {
-            None
-        };
+        let prefix = name.prefix.as_ref().cloned();
         let namespace = Some(Namespace::from(&*name.ns));
         self.scope.insert(prefix, namespace);
     }
@@ -175,14 +167,8 @@ impl NamespaceMap {
 }
 
 /// Tree builder options, with an impl for Default.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct XmlTreeBuilderOpts {}
-
-impl Default for XmlTreeBuilderOpts {
-    fn default() -> XmlTreeBuilderOpts {
-        XmlTreeBuilderOpts {}
-    }
-}
 
 /// The XML tree builder.
 pub struct XmlTreeBuilder<Handle, Sink> {
@@ -236,7 +222,7 @@ where
             namespace_stack: NamespaceMapStack::new(),
             current_namespace: NamespaceMap::empty(),
             present_attrs: HashSet::new(),
-            phase: StartPhase,
+            phase: Start,
         }
     }
 
@@ -413,13 +399,13 @@ where
                 return;
             },
 
-            tokenizer::DoctypeToken(d) => DoctypeToken(d),
-            tokenizer::PIToken(x) => PIToken(x),
-            tokenizer::TagToken(x) => TagToken(x),
-            tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::NullCharacterToken => NullCharacterToken,
-            tokenizer::EOFToken => EOFToken,
-            tokenizer::CharacterTokens(x) => CharacterTokens(x),
+            tokenizer::DoctypeToken(d) => Doctype(d),
+            tokenizer::PIToken(x) => Pi(x),
+            tokenizer::TagToken(x) => Tag(x),
+            tokenizer::CommentToken(x) => Comment(x),
+            tokenizer::NullCharacterToken => NullCharacter,
+            tokenizer::EOFToken => Eof,
+            tokenizer::CharacterTokens(x) => Characters(x),
         };
 
         self.process_to_completion(token);
@@ -541,7 +527,7 @@ where
         P: Fn(ExpandedName) -> bool,
     {
         loop {
-            if self.current_node_in(|x| pred(x)) {
+            if self.current_node_in(&pred) {
                 break;
             }
             self.pop();
@@ -617,8 +603,8 @@ where
         self.debug_step(mode, &token);
 
         match mode {
-            StartPhase => match token {
-                TagToken(Tag {
+            Start => match token {
+                Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -632,11 +618,11 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase = MainPhase;
+                    self.phase = Main;
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
                 },
-                TagToken(Tag {
+                Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -650,20 +636,20 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase = EndPhase;
+                    self.phase = End;
                     let handle = self.append_tag_to_doc(tag);
                     self.sink.pop(&handle);
                     Done
                 },
-                CommentToken(comment) => self.append_comment_to_doc(comment),
-                PIToken(pi) => self.append_pi_to_doc(pi),
-                CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
-                EOFToken => {
+                Comment(comment) => self.append_comment_to_doc(comment),
+                Pi(pi) => self.append_pi_to_doc(pi),
+                Characters(ref chars) if !any_not_whitespace(chars) => Done,
+                Eof => {
                     self.sink
                         .parse_error(Borrowed("Unexpected EOF in start phase"));
-                    Reprocess(EndPhase, EOFToken)
+                    Reprocess(End, Eof)
                 },
-                DoctypeToken(d) => {
+                Doctype(d) => {
                     self.append_doctype_to_doc(d);
                     Done
                 },
@@ -673,9 +659,9 @@ where
                     Done
                 },
             },
-            MainPhase => match token {
-                CharacterTokens(chs) => self.append_text(chs),
-                TagToken(Tag {
+            Main => match token {
+                Characters(chs) => self.append_text(chs),
+                Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -691,7 +677,7 @@ where
                     };
                     self.insert_tag(tag)
                 },
-                TagToken(Tag {
+                Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -713,7 +699,7 @@ where
                         self.append_tag(tag)
                     }
                 },
-                TagToken(Tag {
+                Tag(Tag {
                     kind: EndTag,
                     name,
                     attrs,
@@ -732,31 +718,31 @@ where
                     }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
-                        self.phase = EndPhase;
+                        self.phase = End;
                     }
                     retval
                 },
-                TagToken(Tag { kind: ShortTag, .. }) => {
+                Tag(Tag { kind: ShortTag, .. }) => {
                     self.pop();
                     if self.no_open_elems() {
-                        self.phase = EndPhase;
+                        self.phase = End;
                     }
                     Done
                 },
-                CommentToken(comment) => self.append_comment_to_tag(comment),
-                PIToken(pi) => self.append_pi_to_tag(pi),
-                EOFToken | NullCharacterToken => Reprocess(EndPhase, EOFToken),
-                DoctypeToken(_) => {
+                Comment(comment) => self.append_comment_to_tag(comment),
+                Pi(pi) => self.append_pi_to_tag(pi),
+                Eof | NullCharacter => Reprocess(End, Eof),
+                Doctype(_) => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in main phase"));
                     Done
                 },
             },
-            EndPhase => match token {
-                CommentToken(comment) => self.append_comment_to_doc(comment),
-                PIToken(pi) => self.append_pi_to_doc(pi),
-                CharacterTokens(ref chars) if !any_not_whitespace(chars) => Done,
-                EOFToken => self.stop_parsing(),
+            End => match token {
+                Comment(comment) => self.append_comment_to_doc(comment),
+                Pi(pi) => self.append_pi_to_doc(pi),
+                Characters(ref chars) if !any_not_whitespace(chars) => Done,
+                Eof => self.stop_parsing(),
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in end phase"));

@@ -45,7 +45,7 @@ where
     let tok = Tokenizer::new(tb, opts.tokenizer);
     Parser {
         tokenizer: tok,
-        input_buffer: BufferQueue::new(),
+        input_buffer: BufferQueue::default(),
     }
 }
 
@@ -88,7 +88,7 @@ where
     let tok = Tokenizer::new(tb, tok_opts);
     Parser {
         tokenizer: tok,
-        input_buffer: BufferQueue::new(),
+        input_buffer: BufferQueue::default(),
     }
 }
 

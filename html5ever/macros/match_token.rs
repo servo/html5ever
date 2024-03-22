@@ -141,16 +141,16 @@ struct MatchToken {
 
 struct MatchTokenArm {
     binding: Option<syn::Ident>,
-    lhs: LHS,
-    rhs: RHS,
+    lhs: Lhs,
+    rhs: Rhs,
 }
 
-enum LHS {
+enum Lhs {
     Tags(Vec<Tag>),
     Pattern(syn::Pat),
 }
 
-enum RHS {
+enum Rhs {
     Expression(syn::Expr),
     Else,
 }
@@ -188,17 +188,17 @@ impl Parse for Tag {
     }
 }
 
-impl Parse for LHS {
+impl Parse for Lhs {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![<]) {
             let mut tags = Vec::new();
             while !input.peek(Token![=>]) {
                 tags.push(input.parse()?);
             }
-            Ok(LHS::Tags(tags))
+            Ok(Lhs::Tags(tags))
         } else {
             let p = input.call(syn::Pat::parse_single)?;
-            Ok(LHS::Pattern(p))
+            Ok(Lhs::Pattern(p))
         }
     }
 }
@@ -212,7 +212,7 @@ impl Parse for MatchTokenArm {
         } else {
             None
         };
-        let lhs = input.parse::<LHS>()?;
+        let lhs = input.parse::<Lhs>()?;
         input.parse::<Token![=>]>()?;
         let rhs = if input.peek(syn::token::Brace) {
             let block = input.parse::<syn::Block>().unwrap();
@@ -222,15 +222,15 @@ impl Parse for MatchTokenArm {
                 block,
             };
             input.parse::<Option<Token![,]>>()?;
-            RHS::Expression(syn::Expr::Block(block))
+            Rhs::Expression(syn::Expr::Block(block))
         } else if input.peek(Token![else]) {
             input.parse::<Token![else]>()?;
             input.parse::<Token![,]>()?;
-            RHS::Else
+            Rhs::Else
         } else {
             let expr = input.parse::<syn::Expr>().unwrap();
             input.parse::<Option<Token![,]>>()?;
-            RHS::Expression(expr)
+            Rhs::Expression(expr)
         };
 
         Ok(MatchTokenArm { binding, lhs, rhs })
@@ -283,12 +283,12 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
         };
 
         match (lhs, rhs) {
-            (LHS::Pattern(_), RHS::Else) => {
+            (Lhs::Pattern(_), Rhs::Else) => {
                 panic!("'else' may not appear with an ordinary pattern")
             },
 
             // ordinary pattern => expression
-            (LHS::Pattern(pat), RHS::Expression(expr)) => {
+            (Lhs::Pattern(pat), Rhs::Expression(expr)) => {
                 if !wildcards_patterns.is_empty() {
                     panic!(
                         "ordinary patterns may not appear after wildcard tags {:?} {:?}",
@@ -299,7 +299,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
             },
 
             // <tag> <tag> ... => else
-            (LHS::Tags(tags), RHS::Else) => {
+            (Lhs::Tags(tags), Rhs::Else) => {
                 for tag in tags {
                     if !seen_tags.insert(tag.clone()) {
                         panic!("duplicate tag");
@@ -313,7 +313,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
 
             // <_> => expression
             // <tag> <tag> ... => expression
-            (LHS::Tags(tags), RHS::Expression(expr)) => {
+            (Lhs::Tags(tags), Rhs::Expression(expr)) => {
                 // Is this arm a tag wildcard?
                 // `None` if we haven't processed the first tag yet.
                 let mut wildcard = None;
@@ -388,9 +388,9 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
 
     let (last_pat, last_expr) = match (binding, lhs, rhs) {
         (Some(_), _, _) => panic!("the last arm cannot have an @-binding"),
-        (None, LHS::Tags(_), _) => panic!("the last arm cannot have tag patterns"),
-        (None, _, RHS::Else) => panic!("the last arm cannot use 'else'"),
-        (None, LHS::Pattern(p), RHS::Expression(e)) => (p, e),
+        (None, Lhs::Tags(_), _) => panic!("the last arm cannot have tag patterns"),
+        (None, _, Rhs::Else) => panic!("the last arm cannot use 'else'"),
+        (None, Lhs::Pattern(p), Rhs::Expression(e)) => (p, e),
     };
 
     quote! {
@@ -418,29 +418,23 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
 
 impl Fold for MatchTokenParser {
     fn fold_stmt(&mut self, stmt: syn::Stmt) -> syn::Stmt {
-        match stmt {
-            syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) => {
-                if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_stmt(
-                        self,
-                        syn::Stmt::Expr(expand_match_token(&mac.tokens), None),
-                    );
-                }
-            },
-            _ => {},
+        if let syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) = stmt {
+            if mac.path == parse_quote!(match_token) {
+                return syn::fold::fold_stmt(
+                    self,
+                    syn::Stmt::Expr(expand_match_token(&mac.tokens), None),
+                );
+            }
         }
 
         syn::fold::fold_stmt(self, stmt)
     }
 
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
-        match expr {
-            syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) => {
-                if mac.path == parse_quote!(match_token) {
-                    return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
-                }
-            },
-            _ => {},
+        if let syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) = expr {
+            if mac.path == parse_quote!(match_token) {
+                return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
+            }
         }
 
         syn::fold::fold_expr(self, expr)

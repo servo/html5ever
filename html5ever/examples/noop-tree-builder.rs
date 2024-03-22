@@ -44,7 +44,7 @@ impl TreeSink for Sink {
     }
 
     fn get_template_contents(&mut self, target: &usize) -> usize {
-        if let Some(expanded_name!(html "template")) = self.names.get(&target).map(|n| n.expanded())
+        if let Some(expanded_name!(html "template")) = self.names.get(target).map(|n| n.expanded())
         {
             target + 1
         } else {
@@ -91,7 +91,7 @@ impl TreeSink for Sink {
 
     fn append_doctype_to_document(&mut self, _: StrTendril, _: StrTendril, _: StrTendril) {}
     fn add_attrs_if_missing(&mut self, target: &usize, _attrs: Vec<Attribute>) {
-        assert!(self.names.contains_key(&target), "not an element");
+        assert!(self.names.contains_key(target), "not an element");
     }
     fn remove_from_parent(&mut self, _target: &usize) {}
     fn reparent_children(&mut self, _node: &usize, _new_parent: &usize) {}

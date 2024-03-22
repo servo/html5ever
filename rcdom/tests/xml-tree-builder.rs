@@ -13,10 +13,8 @@ use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
-use std::iter::repeat;
-use std::mem::replace;
 use std::path::Path;
-use std::{env, fs, io};
+use std::{env, fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;
@@ -35,14 +33,14 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match key.take() {
             None => (),
             Some(key) => {
-                assert!(test.insert(key, replace(&mut val, String::new())).is_none());
+                assert!(test.insert(key, mem::take(&mut val)).is_none());
             }
         }
     ));
 
     macro_rules! finish_test ( () => (
         if !test.is_empty() {
-            tests.push(replace(&mut test, HashMap::new()));
+            tests.push(mem::take(&mut test));
         }
     ));
 
@@ -50,12 +48,12 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match lines.next() {
             None => break,
             Some(line) => {
-                if line.starts_with("#") {
+                if let Some(rest) = line.strip_prefix('#') {
                     finish_val!();
                     if line == "#data" {
                         finish_test!();
                     }
-                    key = Some(line[1..].to_string());
+                    key = Some(rest.to_string());
                 } else {
                     val.push_str(&line);
                     val.push('\n');
@@ -70,68 +68,61 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 }
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
-    buf.push_str("|");
-    buf.push_str(&repeat(" ").take(indent).collect::<String>());
+    buf.push('|');
+    buf.extend(iter::repeat(" ").take(indent));
 
     let node = handle;
-    match node.data {
+    match &node.data {
         NodeData::Document => panic!("should not reach Document"),
 
         NodeData::Doctype {
-            ref name,
-            ref public_id,
-            ref system_id,
+            name,
+            public_id,
+            system_id,
         } => {
             buf.push_str("<!DOCTYPE ");
-            buf.push_str(&name);
+            buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
                 buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
             buf.push_str(">\n");
         },
 
-        NodeData::Text { ref contents } => {
-            buf.push_str("\"");
+        NodeData::Text { contents } => {
+            buf.push('"');
             buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         },
 
-        NodeData::ProcessingInstruction {
-            ref target,
-            ref contents,
-        } => {
+        NodeData::ProcessingInstruction { target, contents } => {
             buf.push_str("<?");
-            buf.push_str(&target);
-            buf.push_str(" ");
-            buf.push_str(&contents);
+            buf.push_str(target);
+            buf.push(' ');
+            buf.push_str(contents);
             buf.push_str("?>\n");
         },
 
-        NodeData::Comment { ref contents } => {
+        NodeData::Comment { contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&contents);
+            buf.push_str(contents);
             buf.push_str(" -->\n");
         },
 
-        NodeData::Element {
-            ref name,
-            ref attrs,
-            ..
-        } => {
-            buf.push_str("<");
+        NodeData::Element { name, attrs, .. } => {
+            buf.push('<');
 
             if name.ns != ns!() {
-                buf.push_str("{");
-                buf.push_str(&*name.ns);
-                buf.push_str("}");
+                buf.push('{');
+                buf.push_str(&name.ns);
+                buf.push('}');
             };
 
-            if let Some(ref prefix) = name.prefix {
-                buf.push_str(&*prefix);
-                buf.push_str(":");
+            if let Some(prefix) = &name.prefix {
+                buf.push_str(prefix);
+                buf.push(':');
             }
 
-            buf.push_str(&*name.local);
+            buf.push_str(&name.local);
             buf.push_str(">\n");
 
             let mut attrs = attrs.borrow().clone();
@@ -139,18 +130,18 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             // FIXME: sort by UTF-16 code unit
 
             for attr in attrs.into_iter() {
-                buf.push_str("|");
-                buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+                buf.push('|');
+                buf.extend(iter::repeat(" ").take(indent + 2));
 
-                if &*attr.name.ns != "" {
-                    buf.push_str("{");
-                    buf.push_str(&*attr.name.ns);
-                    buf.push_str("}");
+                if !attr.name.ns.is_empty() {
+                    buf.push('{');
+                    buf.push_str(&attr.name.ns);
+                    buf.push('}');
                 }
 
                 if let Some(attr_prefix) = attr.name.prefix {
-                    buf.push_str(&*attr_prefix);
-                    buf.push_str(":");
+                    buf.push_str(&attr_prefix);
+                    buf.push(':');
                 }
 
                 buf.push_str(&format!("{}=\"{}\"\n", attr.name.local, attr.value));
@@ -164,7 +155,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 }
 
 // Ignore tests containing these strings; we don't support these features yet.
-static IGNORE_SUBSTRS: &'static [&'static str] = &["<template"];
+static IGNORE_SUBSTRS: &[&str] = &["<template"];
 
 fn make_xml_test(
     tests: &mut Vec<TestDescAndFn>,
@@ -185,7 +176,7 @@ fn make_xml_test(
 
     tests.push(TestDescAndFn {
         desc: TestDesc {
-            ignore: ignore,
+            ignore,
             ..TestDesc::new(DynTestName(name))
         },
         testfn: DynTestFn(Box::new(move || {
@@ -218,7 +209,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
         OsStr::new("dat"),
         |path, file| {
             let buf = io::BufReader::new(file);
-            let lines = buf.lines().map(|res| res.ok().expect("couldn't read"));
+            let lines = buf.lines().map(|res| res.expect("couldn't read"));
             let data = parse_tests(lines);
 
             for (i, test) in data.into_iter().enumerate() {
@@ -240,7 +231,7 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
-    if let Ok(f) = fs::File::open(&src_dir.join("data/test/ignore")) {
+    if let Ok(f) = fs::File::open(src_dir.join("data/test/ignore")) {
         let r = io::BufReader::new(f);
         for ln in r.lines() {
             ignores.insert(ln.unwrap().trim_end().to_string());

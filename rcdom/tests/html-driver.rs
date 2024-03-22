@@ -12,7 +12,7 @@ fn from_utf8() {
     let document: SerializableHandle = dom.document.clone().into();
     serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
     assert_eq!(
-        String::from_utf8(serialized).unwrap().replace(" ", ""),
+        String::from_utf8(serialized).unwrap().replace(' ', ""),
         "<html><head><title>Test</title></head><body></body></html>"
     );
 }

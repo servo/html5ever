@@ -18,10 +18,8 @@ use foreach_html5lib_test::foreach_html5lib_test;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
-use std::iter::repeat;
-use std::mem::replace;
 use std::path::Path;
-use std::{env, fs, io};
+use std::{env, fs, io, iter, mem};
 use test::{DynTestName, TestDesc, TestDescAndFn, TestFn};
 
 use html5ever::tendril::{StrTendril, TendrilSink};
@@ -39,14 +37,14 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match key.take() {
             None => (),
             Some(key) => {
-                assert!(test.insert(key, replace(&mut val, String::new())).is_none());
+                assert!(test.insert(key, mem::take(&mut val)).is_none());
             }
         }
     ));
 
     macro_rules! finish_test ( () => (
         if !test.is_empty() {
-            tests.push(replace(&mut test, HashMap::new()));
+            tests.push(mem::take(&mut test));
         }
     ));
 
@@ -54,12 +52,12 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
         match lines.next() {
             None => break,
             Some(line) => {
-                if line.starts_with("#") {
+                if let Some(rest) = line.strip_prefix('#') {
                     finish_val!();
                     if line == "#data" {
                         finish_test!();
                     }
-                    key = Some(line[1..].to_string());
+                    key = Some(rest.to_owned());
                 } else {
                     val.push_str(&line);
                     val.push('\n');
@@ -74,8 +72,8 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 }
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
-    buf.push_str("|");
-    buf.push_str(&repeat(" ").take(indent).collect::<String>());
+    buf.push('|');
+    buf.extend(iter::repeat(" ").take(indent));
 
     let node = handle;
     match node.data {
@@ -87,7 +85,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             ref system_id,
         } => {
             buf.push_str("<!DOCTYPE ");
-            buf.push_str(&name);
+            buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
                 buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
             }
@@ -95,14 +93,14 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         },
 
         NodeData::Text { ref contents } => {
-            buf.push_str("\"");
+            buf.push('"');
             buf.push_str(&contents.borrow());
             buf.push_str("\"\n");
         },
 
         NodeData::Comment { ref contents } => {
             buf.push_str("<!-- ");
-            buf.push_str(&contents);
+            buf.push_str(contents);
             buf.push_str(" -->\n");
         },
 
@@ -111,13 +109,13 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             ref attrs,
             ..
         } => {
-            buf.push_str("<");
+            buf.push('<');
             match name.ns {
                 ns!(svg) => buf.push_str("svg "),
                 ns!(mathml) => buf.push_str("math "),
                 _ => (),
             }
-            buf.push_str(&*name.local);
+            buf.push_str(&name.local);
             buf.push_str(">\n");
 
             let mut attrs = attrs.borrow().clone();
@@ -125,8 +123,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             // FIXME: sort by UTF-16 code unit
 
             for attr in attrs.into_iter() {
-                buf.push_str("|");
-                buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+                buf.push('|');
+                buf.extend(iter::repeat(" ").take(indent + 2));
                 match attr.name.ns {
                     ns!(xlink) => buf.push_str("xlink "),
                     ns!(xml) => buf.push_str("xml "),
@@ -150,8 +148,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     } = node.data
     {
         if let Some(ref content) = &*template_contents.borrow() {
-            buf.push_str("|");
-            buf.push_str(&repeat(" ").take(indent + 2).collect::<String>());
+            buf.push('|');
+            buf.extend(iter::repeat(" ").take(indent + 2));
             buf.push_str("content\n");
             for child in content.children.borrow().iter() {
                 serialize(buf, indent + 4, child.clone());
@@ -211,7 +209,7 @@ fn make_test_desc_with_scripting_flag(
 
     TestDescAndFn {
         desc: TestDesc {
-            ignore: ignore,
+            ignore,
             ..TestDesc::new(DynTestName(name))
         },
         testfn: TestFn::dyn_test_fn(move || {
@@ -251,10 +249,10 @@ fn make_test_desc_with_scripting_flag(
 }
 
 fn context_name(context: &str) -> QualName {
-    if context.starts_with("svg ") {
-        QualName::new(None, ns!(svg), LocalName::from(&context[4..]))
-    } else if context.starts_with("math ") {
-        QualName::new(None, ns!(mathml), LocalName::from(&context[5..]))
+    if let Some(cx) = context.strip_prefix("svg ") {
+        QualName::new(None, ns!(svg), LocalName::from(cx))
+    } else if let Some(cx) = context.strip_prefix("math ") {
+        QualName::new(None, ns!(mathml), LocalName::from(cx))
     } else {
         QualName::new(None, ns!(html), LocalName::from(context))
     }
@@ -269,7 +267,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
         OsStr::new("dat"),
         |path, file| {
             let buf = io::BufReader::new(file);
-            let lines = buf.lines().map(|res| res.ok().expect("couldn't read"));
+            let lines = buf.lines().map(|res| res.expect("couldn't read"));
             let data = parse_tests(lines);
 
             for (i, test) in data.into_iter().enumerate() {
@@ -292,7 +290,7 @@ fn main() {
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     {
-        let f = fs::File::open(&src_dir.join("data/test/ignore")).unwrap();
+        let f = fs::File::open(src_dir.join("data/test/ignore")).unwrap();
         let r = io::BufReader::new(f);
         for ln in r.lines() {
             ignores.insert(ln.unwrap().trim_end().to_string());

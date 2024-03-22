@@ -85,7 +85,7 @@ fn main() {
     let mut sink = TokenPrinter { in_char_run: false };
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
-    let mut input = BufferQueue::new();
+    let mut input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
     let mut tok = Tokenizer::new(

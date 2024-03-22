@@ -21,7 +21,9 @@ use rcdom::{Handle, NodeData, RcDom};
 
 fn walk(indent: usize, handle: &Handle) {
     let node = handle;
-    for _ in 0..indent { print!(" "); }
+    for _ in 0..indent {
+        print!(" ");
+    }
     match node.data {
         NodeData::Document => println!("#Document"),
 

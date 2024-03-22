@@ -9,11 +9,10 @@
 
 use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
-use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
-use std::mem::replace;
 use std::path::Path;
+use std::{env, mem};
 
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use util::find_tests::foreach_xml5lib_test;
@@ -51,7 +50,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
         }
     }
 
-    out.extend(splits(s, n - 1).into_iter());
+    out.extend(splits(s, n - 1));
     out
 }
 
@@ -66,7 +65,7 @@ impl TokenLogger {
         TokenLogger {
             tokens: vec![],
             current_str: StrTendril::new(),
-            exact_errors: exact_errors,
+            exact_errors,
         }
     }
 
@@ -78,7 +77,7 @@ impl TokenLogger {
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, StrTendril::new());
+            let s = mem::take(&mut self.current_str);
             self.tokens.push(CharacterTokens(s));
         }
     }
@@ -129,13 +128,13 @@ impl TokenSink for TokenLogger {
 fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = XmlTokenizer::new(sink, opts);
-    let mut buf = BufferQueue::new();
+    let mut buf = BufferQueue::default();
 
     for chunk in input.into_iter() {
         buf.push_back(chunk);
-        let _ = tok.feed(&mut buf);
+        tok.feed(&mut buf);
     }
-    let _ = tok.feed(&mut buf);
+    tok.feed(&mut buf);
     tok.end();
     tok.sink.get_tokens()
 }
@@ -145,9 +144,9 @@ trait JsonExt: Sized {
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Self>;
-    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
-    fn find<'t>(&'t self, key: &str) -> &'t Self;
+    fn get_obj(&self) -> &Map<String, Self>;
+    fn get_list(&self) -> &Vec<Self>;
+    fn find(&self, key: &str) -> &Self;
 }
 
 impl JsonExt for Value {
@@ -180,21 +179,21 @@ impl JsonExt for Value {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Value> {
-        match *self {
-            Value::Object(ref m) => &*m,
+    fn get_obj(&self) -> &Map<String, Value> {
+        match self {
+            Value::Object(m) => m,
             _ => panic!("Value::get_obj: not an Object"),
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t Vec<Value> {
-        match *self {
-            Value::Array(ref m) => m,
+    fn get_list(&self) -> &Vec<Value> {
+        match self {
+            Value::Array(m) => m,
             _ => panic!("Value::get_list: not an Array"),
         }
     }
 
-    fn find<'t>(&'t self, key: &str) -> &'t Value {
+    fn find(&self, key: &str) -> &Value {
         self.get_obj().get(&key.to_string()).unwrap()
     }
 }
@@ -296,7 +295,7 @@ fn mk_xml_test(
                 // Also clone opts.  If we don't, we get the wrong
                 // result but the compiler doesn't catch it!
                 // Possibly mozilla/rust#12223.
-                let output = tokenize_xml(input.clone(), opts.clone());
+                let output = tokenize_xml(input.clone(), opts);
                 let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
                     panic!(
@@ -321,9 +320,8 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     for state in state_overrides.into_iter() {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
-            match state {
-                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
-                None => (),
+            if let Some(s) = state {
+                newdesc = format!("{} (in state {:?})", newdesc, s)
             };
             if exact_errors {
                 newdesc = format!("{} (exact errors)", newdesc);
@@ -334,7 +332,7 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 String::from(input),
                 expect.clone(),
                 XmlTokenizerOpts {
-                    exact_errors: exact_errors,
+                    exact_errors,
                     initial_state: state,
 
                     // Not discarding a BOM is what the test suite expects; see
@@ -356,23 +354,17 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         OsStr::new("test"),
         |path, mut file| {
             let mut s = String::new();
-            file.read_to_string(&mut s)
-                .ok()
-                .expect("file reading error");
-            let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+            file.read_to_string(&mut s).expect("file reading error");
+            let js: Value = serde_json::from_str(&s).expect("json parse error");
 
-            match js["tests"] {
-                Value::Array(ref lst) => {
-                    for test in lst.iter() {
-                        mk_xml_tests(
-                            &mut tests,
-                            path.file_name().unwrap().to_str().unwrap(),
-                            test,
-                        );
-                    }
-                },
-
-                _ => (),
+            if let Value::Array(ref lst) = js["tests"] {
+                for test in lst.iter() {
+                    mk_xml_tests(
+                        &mut tests,
+                        path.file_name().unwrap().to_str().unwrap(),
+                        test,
+                    );
+                }
             }
         },
     );

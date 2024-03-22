@@ -59,9 +59,9 @@ declare_tag_set!(pub html_default_scope =
 
 #[inline(always)]
 pub fn default_scope(name: ExpandedName) -> bool {
-    html_default_scope(name) ||
-        mathml_text_integration_point(name) ||
-        svg_html_integration_point(name)
+    html_default_scope(name)
+        || mathml_text_integration_point(name)
+        || svg_html_integration_point(name)
 }
 
 declare_tag_set!(pub list_item_scope = [default_scope] + "ol" "ul");
@@ -95,11 +95,11 @@ declare_tag_set!(pub special_tag =
 pub fn mathml_text_integration_point(p: ExpandedName) -> bool {
     matches!(
         p,
-        expanded_name!(mathml "mi") |
-            expanded_name!(mathml "mo") |
-            expanded_name!(mathml "mn") |
-            expanded_name!(mathml "ms") |
-            expanded_name!(mathml "mtext")
+        expanded_name!(mathml "mi")
+            | expanded_name!(mathml "mo")
+            | expanded_name!(mathml "mn")
+            | expanded_name!(mathml "ms")
+            | expanded_name!(mathml "mtext")
     )
 }
 
@@ -108,8 +108,8 @@ pub fn svg_html_integration_point(p: ExpandedName) -> bool {
     // annotation-xml are handle in another place
     matches!(
         p,
-        expanded_name!(svg "foreignObject") |
-            expanded_name!(svg "desc") |
-            expanded_name!(svg "title")
+        expanded_name!(svg "foreignObject")
+            | expanded_name!(svg "desc")
+            | expanded_name!(svg "title")
     )
 }

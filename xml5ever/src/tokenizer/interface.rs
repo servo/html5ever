@@ -64,7 +64,7 @@ impl Tag {
 /// Doctype token in XML5 is rather limited for reasons, such as:
 /// security and simplicity. XML5 only supports declaring DTD with
 /// name, public identifier and system identifier
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct Doctype {
     /// Name of DOCTYPE declared
     pub name: Option<StrTendril>,
@@ -72,17 +72,6 @@ pub struct Doctype {
     pub public_id: Option<StrTendril>,
     /// System identifier of this DOCTYPE.
     pub system_id: Option<StrTendril>,
-}
-
-impl Doctype {
-    /// Constructs an empty DOCTYPE, with all fields set to None.
-    pub fn new() -> Doctype {
-        Doctype {
-            name: None,
-            public_id: None,
-            system_id: None,
-        }
-    }
 }
 
 /// A ProcessingInstruction token.

@@ -16,22 +16,22 @@ use crate::tokenizer::{Doctype, Pi, Tag};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum XmlPhase {
-    StartPhase,
-    MainPhase,
-    EndPhase,
+    Start,
+    Main,
+    End,
 }
 
 /// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {
-    TagToken(Tag),
-    DoctypeToken(Doctype),
-    CommentToken(StrTendril),
-    CharacterTokens(StrTendril),
-    PIToken(Pi),
-    NullCharacterToken,
-    EOFToken,
+    Tag(Tag),
+    Doctype(Doctype),
+    Comment(StrTendril),
+    Characters(StrTendril),
+    Pi(Pi),
+    NullCharacter,
+    Eof,
 }
 
 pub enum XmlProcessResult {

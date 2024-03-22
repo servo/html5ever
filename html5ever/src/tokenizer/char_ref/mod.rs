@@ -224,9 +224,8 @@ impl CharRefTokenizer {
         input: &mut BufferQueue,
     ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
-        match self.hex_marker {
-            Some(c) => unconsume.push_char(c),
-            None => (),
+        if let Some(c) = self.hex_marker {
+            unconsume.push_char(c)
         }
 
         input.push_front(unconsume);
@@ -361,7 +360,8 @@ impl CharRefTokenizer {
                 // then, for historical reasons, flush code points consumed as a character
                 // reference and switch to the return state.
 
-                let unconsume_all = match (self.is_consumed_in_attribute, last_matched, next_after) {
+                let unconsume_all = match (self.is_consumed_in_attribute, last_matched, next_after)
+                {
                     (_, ';', _) => false,
                     (true, _, Some('=')) => true,
                     (true, _, Some(c)) if c.is_ascii_alphanumeric() => true,

@@ -859,7 +859,7 @@ where
                 }
 
                 token => {
-                    let pending = replace(&mut self.pending_table_text, vec!());
+                    let pending = ::std::mem::take(&mut self.pending_table_text);
                     let contains_nonspace = pending.iter().any(|&(split, ref text)| {
                         match split {
                             Whitespace => false,

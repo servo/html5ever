@@ -227,9 +227,8 @@ impl CharRefTokenizer {
         input: &mut BufferQueue,
     ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
-        match self.hex_marker {
-            Some(c) => unconsume.push_char(c),
-            None => (),
+        if let Some(c) = self.hex_marker {
+            unconsume.push_char(c);
         }
 
         tokenizer.unconsume(input, unconsume);

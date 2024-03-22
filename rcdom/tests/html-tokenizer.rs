@@ -11,7 +11,9 @@ mod foreach_html5lib_test;
 
 use foreach_html5lib_test::foreach_html5lib_test;
 use html5ever::tendril::*;
-use html5ever::tokenizer::states::{Plaintext, RawData, Rawtext, Rcdata, ScriptData, CdataSection, Data};
+use html5ever::tokenizer::states::{
+    CdataSection, Data, Plaintext, RawData, Rawtext, Rcdata, ScriptData,
+};
 use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
@@ -20,17 +22,14 @@ use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts}
 use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
-use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::io::Read;
 use std::fs::File;
-use std::mem::replace;
+use std::io::Read;
 use std::path::Path;
-use std::{char, env};
-
+use std::{char, env, mem};
 
 #[derive(Debug)]
-struct TestError(Cow<'static, str>);
+struct TestError;
 
 impl PartialEq for TestError {
     fn eq(&self, _: &TestError) -> bool {
@@ -58,7 +57,7 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
         }
     }
 
-    out.extend(splits(s, n - 1).into_iter());
+    out.extend(splits(s, n - 1));
     out.truncate(MAX_SPLITS);
     out
 }
@@ -76,7 +75,7 @@ impl TokenLogger {
             tokens: vec![],
             errors: vec![],
             current_str: StrTendril::new(),
-            exact_errors: exact_errors,
+            exact_errors,
         }
     }
 
@@ -88,12 +87,12 @@ impl TokenLogger {
 
     fn finish_str(&mut self) {
         if self.current_str.len() > 0 {
-            let s = replace(&mut self.current_str, StrTendril::new());
+            let s = mem::take(&mut self.current_str);
             self.tokens.push(CharacterTokens(s));
         }
     }
 
-    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>){
+    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>) {
         self.finish_str();
         (self.tokens, self.errors)
     }
@@ -112,9 +111,9 @@ impl TokenSink for TokenLogger {
                 self.current_str.push_char('\0');
             },
 
-            ParseError(e) => {
+            ParseError(_) => {
                 if self.exact_errors {
-                    self.errors.push(TestError(e));
+                    self.errors.push(TestError);
                 }
             },
 
@@ -143,7 +142,7 @@ impl TokenSink for TokenLogger {
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
-    let mut buffer = BufferQueue::new();
+    let mut buffer = BufferQueue::default();
     for chunk in input.into_iter() {
         buffer.push_back(chunk);
         let _ = tok.feed(&mut buffer);
@@ -158,9 +157,9 @@ trait JsonExt: Sized {
     fn get_tendril(&self) -> StrTendril;
     fn get_nullable_tendril(&self) -> Option<StrTendril>;
     fn get_bool(&self) -> bool;
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Self>;
-    fn get_list<'t>(&'t self) -> &'t Vec<Self>;
-    fn find<'t>(&'t self, key: &str) -> &'t Self;
+    fn get_obj(&self) -> &Map<String, Self>;
+    fn get_list(&self) -> &Vec<Self>;
+    fn find(&self, key: &str) -> &Self;
 }
 
 impl JsonExt for Value {
@@ -193,22 +192,22 @@ impl JsonExt for Value {
         }
     }
 
-    fn get_obj<'t>(&'t self) -> &'t Map<String, Value> {
-        match *self {
-            Value::Object(ref m) => &*m,
+    fn get_obj(&self) -> &Map<String, Value> {
+        match self {
+            Value::Object(m) => m,
             _ => panic!("Value::get_obj: not an Object"),
         }
     }
 
-    fn get_list<'t>(&'t self) -> &'t Vec<Value> {
-        match *self {
-            Value::Array(ref m) => m,
+    fn get_list(&self) -> &Vec<Value> {
+        match self {
+            Value::Array(m) => m,
             _ => panic!("Value::get_list: not an Array"),
         }
     }
 
-    fn find<'t>(&'t self, key: &str) -> &'t Value {
-        self.get_obj().get(&key.to_string()).unwrap()
+    fn find(&self, key: &str) -> &Value {
+        self.get_obj().get(key).unwrap()
     }
 }
 
@@ -260,7 +259,11 @@ fn json_to_token(js: &Value) -> Token {
 }
 
 // Parse the "output" field of the test case into a vector of tokens.
-fn json_to_tokens(js_tokens: &Value, js_errors: &[Value], exact_errors: bool) -> (Vec<Token>, Vec<TestError>) {
+fn json_to_tokens(
+    js_tokens: &Value,
+    js_errors: &[Value],
+    exact_errors: bool,
+) -> (Vec<Token>, Vec<TestError>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
     let mut sink = TokenLogger::new(exact_errors);
@@ -309,12 +312,12 @@ fn unescape(s: &str) -> Option<String> {
 }
 
 fn unescape_json(js: &Value) -> Value {
-    match *js {
+    match js {
         // unwrap is OK here because the spec'd *output* of the tokenizer never
         // contains a lone surrogate.
-        Value::String(ref s) => Value::String(unescape(&s).unwrap()),
-        Value::Array(ref xs) => Value::Array(xs.iter().map(unescape_json).collect()),
-        Value::Object(ref obj) => {
+        Value::String(s) => Value::String(unescape(s).unwrap()),
+        Value::Array(xs) => Value::Array(xs.iter().map(unescape_json).collect()),
+        Value::Object(obj) => {
             let mut new_obj = Map::new();
             for (k, v) in obj.iter() {
                 new_obj.insert(k.clone(), unescape_json(v));
@@ -325,7 +328,13 @@ fn unescape_json(js: &Value) -> Value {
     }
 }
 
-fn mk_test(desc: String, input: String, expect: Value, expect_errors: Vec<Value>, opts: TokenizerOpts) -> TestDescAndFn {
+fn mk_test(
+    desc: String,
+    input: String,
+    expect: Value,
+    expect_errors: Vec<Value>,
+    opts: TokenizerOpts,
+) -> TestDescAndFn {
     TestDescAndFn {
         desc: TestDesc::new(DynTestName(desc)),
         testfn: DynTestFn(Box::new(move || {
@@ -353,7 +362,11 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
-    let expect_errors = js.get("errors").map(JsonExt::get_list).map(Vec::as_slice).unwrap_or_default();
+    let expect_errors = js
+        .get("errors")
+        .map(JsonExt::get_list)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
 
     // "Double-escaped" tests require additional processing of
@@ -374,7 +387,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
 
     // Some tests want to start in a state other than Data.
     let state_overrides = match obj.get(&"initialStates".to_string()) {
-        Some(&Value::Array(ref xs)) => xs
+        Some(Value::Array(xs)) => xs
             .iter()
             .map(|s| {
                 Some(match &s.get_str()[..] {
@@ -396,9 +409,8 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     for state in state_overrides.into_iter() {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
-            match state {
-                Some(s) => newdesc = format!("{} (in state {:?})", newdesc, s),
-                None => (),
+            if let Some(s) = state {
+                newdesc = format!("{} (in state {:?})", newdesc, s)
             };
             if exact_errors {
                 newdesc = format!("{} (exact errors)", newdesc);
@@ -410,7 +422,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
                 expect.clone(),
                 expect_errors.to_owned(),
                 TokenizerOpts {
-                    exact_errors: exact_errors,
+                    exact_errors,
                     initial_state: state,
                     last_start_tag_name: start_tag.clone(),
 
@@ -430,24 +442,17 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 
     let mut add_test = |path: &Path, mut file: File| {
         let mut s = String::new();
-        file.read_to_string(&mut s)
-            .ok()
-            .expect("file reading error");
-        let js: Value = serde_json::from_str(&s).ok().expect("json parse error");
+        file.read_to_string(&mut s).expect("file reading error");
+        let js: Value = serde_json::from_str(&s).expect("json parse error");
 
-        match js.get_obj().get(&"tests".to_string()) {
-            Some(&Value::Array(ref lst)) => {
-                for test in lst.iter() {
-                    mk_tests(
-                        &mut tests,
-                        path.file_name().unwrap().to_str().unwrap(),
-                        test,
-                    )
-                }
-            },
-
-            // xmlViolation.test doesn't follow this format.
-            _ => (),
+        if let Some(Value::Array(lst)) = js.get_obj().get("tests") {
+            for test in lst.iter() {
+                mk_tests(
+                    &mut tests,
+                    path.file_name().unwrap().to_str().unwrap(),
+                    test,
+                )
+            }
         }
     };
 
@@ -455,14 +460,14 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
         src_dir,
         "html5lib-tests/tokenizer",
         OsStr::new("test"),
-        &mut add_test
+        &mut add_test,
     );
 
     foreach_html5lib_test(
         src_dir,
         "custom-html5lib-tokenizer-tests",
         OsStr::new("test"),
-        &mut add_test
+        &mut add_test,
     );
 
     tests

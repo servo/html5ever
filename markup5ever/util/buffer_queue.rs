@@ -49,15 +49,17 @@ pub struct BufferQueue {
     buffers: VecDeque<StrTendril>,
 }
 
-impl BufferQueue {
+impl Default for BufferQueue {
     /// Create an empty BufferQueue.
     #[inline]
-    pub fn new() -> BufferQueue {
-        BufferQueue {
+    fn default() -> Self {
+        Self {
             buffers: VecDeque::with_capacity(16),
         }
     }
+}
 
+impl BufferQueue {
     /// Returns whether the queue is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -93,29 +95,10 @@ impl BufferQueue {
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         debug_assert!(
-            self.buffers.iter().find(|el| el.len32() == 0).is_none(),
+            !self.buffers.iter().any(|el| el.len32() == 0),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
         self.buffers.front().map(|b| b.chars().next().unwrap())
-    }
-
-    /// Get the next character if one is available, removing it from the queue.
-    ///
-    /// This function manages the buffers, removing them as they become empty.
-    pub fn next(&mut self) -> Option<char> {
-        let (result, now_empty) = match self.buffers.front_mut() {
-            None => (None, false),
-            Some(buf) => {
-                let c = buf.pop_front_char().expect("empty buffer in queue");
-                (Some(c), buf.is_empty())
-            },
-        };
-
-        if now_empty {
-            self.buffers.pop_front();
-        }
-
-        result
     }
 
     /// Pops and returns either a single character from the given set, or
@@ -129,7 +112,7 @@ impl BufferQueue {
     /// # fn main() {
     /// use markup5ever::buffer_queue::{BufferQueue, SetResult};
     ///
-    /// let mut queue = BufferQueue::new();
+    /// let mut queue = BufferQueue::default();
     /// queue.push_back(format_tendril!(r#"<some_tag attr="text">SomeText</some_tag>"#));
     /// let set = small_char_set!(b'<' b'>' b' ' b'=' b'"' b'/');
     /// let tag = format_tendril!("some_tag");
@@ -185,9 +168,9 @@ impl BufferQueue {
     /// # extern crate markup5ever;
     /// # #[macro_use] extern crate tendril;
     /// # fn main() {
-    /// use markup5ever::buffer_queue::{BufferQueue};
+    /// use markup5ever::buffer_queue::BufferQueue;
     ///
-    /// let mut queue = BufferQueue::new();
+    /// let mut queue = BufferQueue::default();
     /// queue.push_back(format_tendril!("testtext"));
     /// let test_str = "test";
     /// assert_eq!(queue.eat("test", |&a, &b| a == b), Some(true));
@@ -232,6 +215,29 @@ impl BufferQueue {
     }
 }
 
+impl Iterator for BufferQueue {
+    type Item = char;
+
+    /// Get the next character if one is available, removing it from the queue.
+    ///
+    /// This function manages the buffers, removing them as they become empty.
+    fn next(&mut self) -> Option<char> {
+        let (result, now_empty) = match self.buffers.front_mut() {
+            None => (None, false),
+            Some(buf) => {
+                let c = buf.pop_front_char().expect("empty buffer in queue");
+                (Some(c), buf.is_empty())
+            },
+        };
+
+        if now_empty {
+            self.buffers.pop_front();
+        }
+
+        result
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
@@ -242,7 +248,7 @@ mod test {
 
     #[test]
     fn smoke_test() {
-        let mut bq = BufferQueue::new();
+        let mut bq = BufferQueue::default();
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
@@ -260,7 +266,7 @@ mod test {
 
     #[test]
     fn can_unconsume() {
-        let mut bq = BufferQueue::new();
+        let mut bq = BufferQueue::default();
         bq.push_back("abc".to_tendril());
         assert_eq!(bq.next(), Some('a'));
 
@@ -274,7 +280,7 @@ mod test {
 
     #[test]
     fn can_pop_except_set() {
-        let mut bq = BufferQueue::new();
+        let mut bq = BufferQueue::default();
         bq.push_back("abc&def".to_tendril());
         let mut pop = || bq.pop_except_from(small_char_set!('&'));
         assert_eq!(pop(), Some(NotFromSet("abc".to_tendril())));
@@ -288,7 +294,7 @@ mod test {
         // This is not very comprehensive.  We rely on the tokenizer
         // integration tests for more thorough testing with many
         // different input buffer splits.
-        let mut bq = BufferQueue::new();
+        let mut bq = BufferQueue::default();
         bq.push_back("a".to_tendril());
         bq.push_back("bc".to_tendril());
         assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
