@@ -7,7 +7,6 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
 description = "High-performance browser-grade HTML5 parser"
 documentation = "https://docs.rs/html5ever"
-build = "build.rs"
 categories = [ "parser-implementations", "web-programming" ]
 edition = "2021"
 
@@ -18,12 +17,10 @@ markup5ever = { version = "0.12", path = "../markup5ever" }
 
 [dev-dependencies]
 criterion = "0.3"
-typed-arena = "2.0.2"
-
-[build-dependencies]
+proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["extra-traits", "full", "fold"] }
-proc-macro2 = "1"
+typed-arena = "2.0.2"
 
 [[bench]]
 name = "html5ever"
