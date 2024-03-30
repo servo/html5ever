@@ -26,7 +26,6 @@ jobs:
         run: git submodule update --init
 
       - name: Cargo bench
-        if: matrix.version != '1.41.0'
         run: cargo bench --all
         env:
           RUSTFLAGS: --cfg bench
