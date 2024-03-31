@@ -1,22 +1,13 @@
-// Copyright 2014-2017 The html5ever Project Developers. See the
-// COPYRIGHT file at the top-level directory of this distribution.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
-extern crate phf_codegen;
-extern crate string_cache_codegen;
-
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 mod entities;
+
+use crate::project_root;
+
+use super::{ensure_file_contents, format_code, PREAMBLE};
 
 static NAMESPACES: &[(&str, &str)] = &[
     ("", ""),
@@ -29,61 +20,61 @@ static NAMESPACES: &[(&str, &str)] = &[
     ("mathml", "http://www.w3.org/1998/Math/MathML"),
 ];
 
-fn main() {
-    let generated = Path::new(&env::var("OUT_DIR").unwrap()).join("generated.rs");
-    let mut generated = BufWriter::new(File::create(generated).unwrap());
+pub fn generate(check: bool) -> anyhow::Result<()> {
+    let mut contents = Vec::new();
 
-    named_entities_to_phf(&Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
+    writeln!(&mut contents, "{PREAMBLE}")?;
 
     // Create a string cache for local names
-    let local_names = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("local_names.txt");
+    let local_names = project_root().join("markup5ever/local_names.txt");
     let mut local_names_atom = string_cache_codegen::AtomType::new("LocalName", "local_name!");
-    for line in BufReader::new(File::open(local_names).unwrap()).lines() {
-        let local_name = line.unwrap();
+    for line in BufReader::new(File::open(local_names)?).lines() {
+        let local_name = line?;
         local_names_atom.atom(&local_name);
         local_names_atom.atom(&local_name.to_ascii_lowercase());
     }
     local_names_atom
         .with_macro_doc("Takes a local name as a string and returns its key in the string cache.")
-        .write_to(&mut generated)
-        .unwrap();
+        .write_to(&mut contents)?;
 
     // Create a string cache for namespace prefixes
     string_cache_codegen::AtomType::new("Prefix", "namespace_prefix!")
         .with_macro_doc("Takes a namespace prefix string and returns its key in a string cache.")
         .atoms(NAMESPACES.iter().map(|&(prefix, _url)| prefix))
-        .write_to(&mut generated)
-        .unwrap();
+        .write_to(&mut contents)?;
 
     // Create a string cache for namespace urls
     string_cache_codegen::AtomType::new("Namespace", "namespace_url!")
         .with_macro_doc("Takes a namespace url string and returns its key in a string cache.")
         .atoms(NAMESPACES.iter().map(|&(_prefix, url)| url))
-        .write_to(&mut generated)
-        .unwrap();
+        .write_to(&mut contents)?;
 
     writeln!(
-        generated,
+        contents,
         r#"
-        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to
         /// the output of [`namespace_url!`](macro.namespace_url.html).
         ///
         #[macro_export] macro_rules! ns {{
         "#
-    )
-    .unwrap();
+    )?;
     for &(prefix, url) in NAMESPACES {
-        writeln!(
-            generated,
-            "({}) => {{ namespace_url!({:?}) }};",
-            prefix, url
-        )
-        .unwrap();
+        writeln!(contents, "({prefix}) => {{ namespace_url!({url:?}) }};")?;
     }
-    writeln!(generated, "}}").unwrap();
+    writeln!(contents, "}}")?;
+
+    let generated_file = project_root().join("markup5ever/generated.rs");
+    let contents = String::from_utf8(contents)?;
+    let contents = format_code(&contents)?;
+    ensure_file_contents(&generated_file, &contents, check)?;
+
+    let named_entities = project_root().join("markup5ever/data/named_entities.rs");
+    named_entities_to_phf(&named_entities, check)?;
+
+    Ok(())
 }
 
-fn named_entities_to_phf(to: &Path) {
+fn named_entities_to_phf(file: &Path, check: bool) -> anyhow::Result<()> {
     let mut entities: HashMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
         .iter()
         .map(|(name, cp1, cp2)| {
@@ -102,12 +93,14 @@ fn named_entities_to_phf(to: &Path) {
 
     let mut phf_map = phf_codegen::Map::new();
     for (key, value) in entities {
-        phf_map.entry(key, &format!("{:?}", value));
+        phf_map.entry(key, &format!("{value:?}"));
     }
 
-    let mut file = File::create(to).unwrap();
+    let mut contents = Vec::new();
+
+    write!(&mut contents, "{PREAMBLE}")?;
     writeln!(
-        &mut file,
+        &mut contents,
         r#"
 /// A map of entity names to their codepoints. The second codepoint will
 /// be 0 if the entity contains a single codepoint. Entities have their preceding '&' removed.
@@ -120,12 +113,16 @@ fn named_entities_to_phf(to: &Path) {
 /// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
 /// ```
 "#
-    )
-    .unwrap();
+    )?;
     writeln!(
-        &mut file,
-        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = {};",
+        &mut contents,
+        "pub static NAMED_ENTITIES: phf::Map<&'static str, (u32, u32)> = {};",
         phf_map.build(),
-    )
-    .unwrap();
+    )?;
+
+    let contents = String::from_utf8(contents)?;
+    let contents = format_code(&contents)?;
+    ensure_file_contents(file, &contents, check)?;
+
+    Ok(())
 }

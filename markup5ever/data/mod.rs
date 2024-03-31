@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 //! Data that is known at compile-time and hard-coded into the binary.
-use phf::Map;
 
 /// The spec replaces most characters in the ISO-2022 C1 control code range
 /// (U+0080 through U+009F) with these characters, based on Windows 8-bit
@@ -47,4 +46,5 @@ pub static C1_REPLACEMENTS: [Option<char>; 32] = [
     Some('\u{0178}'),
 ];
 
-include!(concat!(env!("OUT_DIR"), "/named_entities.rs"));
+mod named_entities;
+pub use named_entities::NAMED_ENTITIES;

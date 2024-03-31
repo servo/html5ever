@@ -30,7 +30,9 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
     }
 ));
 
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+#[macro_use]
+mod generated;
+pub use generated::*;
 
 pub mod data;
 #[macro_use]
