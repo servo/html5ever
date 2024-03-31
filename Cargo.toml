@@ -3,6 +3,7 @@ members = [
     "markup5ever",
     "html5ever",
     "rcdom",
-    "xml5ever"
+    "xml5ever",
+    "xtask",
 ]
 resolver = "2"
