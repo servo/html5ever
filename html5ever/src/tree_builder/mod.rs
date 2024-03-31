@@ -36,6 +36,7 @@ use crate::tree_builder::types::*;
 use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
 use mac::{_tt_as_expr_hack, format_if};
+use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
 
 pub use self::PushFlag::*;
 
@@ -43,9 +44,10 @@ pub use self::PushFlag::*;
 mod tag_sets;
 
 mod data;
+mod generated;
 mod types;
 
-include!(concat!(env!("OUT_DIR"), "/rules.rs"));
+use generated::*;
 
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]

@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 
 use crate::{flags, project_root};
 
+mod html5ever;
 mod markup5ever;
 
 const PREAMBLE: &str =
@@ -15,8 +16,10 @@ impl flags::Codegen {
         match self.codegen_type.unwrap_or_default() {
             flags::CodegenType::All => {
                 markup5ever::generate(self.check)?;
+                html5ever::generate(self.check)?;
             },
             flags::CodegenType::Markup5ever => markup5ever::generate(self.check)?,
+            flags::CodegenType::Html5ever => html5ever::generate(self.check)?,
         }
         Ok(())
     }

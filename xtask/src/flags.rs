@@ -8,7 +8,7 @@ xflags::xflags! {
 
         /// Generate code
         cmd codegen {
-            /// values: [all, markup5ever]
+            /// values: [all, markup5ever, html5ever]
             optional codegen_type: CodegenType
             optional --check
         }
@@ -58,6 +58,7 @@ pub enum CodegenType {
     #[default]
     All,
     Markup5ever,
+    Html5ever,
 }
 
 impl FromStr for CodegenType {
@@ -67,6 +68,7 @@ impl FromStr for CodegenType {
         match s {
             "all" => Ok(Self::All),
             "markup5ever" => Ok(Self::Markup5ever),
+            "html5ever" => Ok(Self::Html5ever),
             _ => Err("Invalid option".to_owned()),
         }
     }

@@ -99,37 +99,23 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
-use quote::quote;
-use syn::{braced, parse_quote, Token};
+use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
-use quote::ToTokens;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
+use quote::{quote, ToTokens};
 use syn::ext::IdentExt;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
+use syn::{braced, parse_quote, Token};
 
-pub fn expand(from: &Path, to: &Path) {
-    let mut source = String::new();
-    File::open(from)
-        .unwrap()
-        .read_to_string(&mut source)
-        .unwrap();
-    let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
+pub fn expand(source: &str) -> String {
+    let ast = syn::parse_file(source).expect("Parsing rules.rs module");
     let mut m = MatchTokenParser {};
     let ast = m.fold_file(ast);
-    let code = ast
-        .into_token_stream()
+    ast.into_token_stream()
         .to_string()
         .replace("{ ", "{\n")
-        .replace(" }", "\n}");
-    File::create(to)
-        .unwrap()
-        .write_all(code.as_bytes())
-        .unwrap();
+        .replace(" }", "\n}")
 }
 
 struct MatchTokenParser {}
