@@ -21,9 +21,13 @@ jobs:
         run: |
           rustup set profile minimal
           rustup override set ${{ matrix.version }}
+          rustup component add rustfmt
 
       - name: Init submodules
         run: git submodule update --init
+
+      - name: Codegen checks
+        run: cargo xtask codegen --check
 
       - name: Cargo bench
         run: cargo bench --all
