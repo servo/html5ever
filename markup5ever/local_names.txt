@@ -303,6 +303,7 @@ feTile
 feTurbulence
 fence
 fetch
+fetchpriority
 fieldset
 figcaption
 figure
@@ -465,6 +466,7 @@ list
 listener
 listing
 ln
+loading
 local
 log
 logbase
