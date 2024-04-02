@@ -22,7 +22,6 @@ markup5ever = {version = "0.12", path = "../markup5ever" }
 
 [dev-dependencies]
 criterion = "0.3"
-rustc-test = "0.3"
 
 [[bench]]
 name = "xml5ever"
