@@ -20,13 +20,18 @@ use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
-use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use serde_json::{Map, Value};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::{char, env, mem};
+
+use util::runner::Test;
+
+mod util {
+    pub mod runner;
+}
 
 #[derive(Debug)]
 struct TestError;
@@ -334,10 +339,11 @@ fn mk_test(
     expect: Value,
     expect_errors: Vec<Value>,
     opts: TokenizerOpts,
-) -> TestDescAndFn {
-    TestDescAndFn {
-        desc: TestDesc::new(DynTestName(desc)),
-        testfn: DynTestFn(Box::new(move || {
+) -> Test {
+    Test {
+        name: desc,
+        skip: false,
+        test: Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
             for input in insplits.into_iter() {
@@ -354,11 +360,11 @@ fn mk_test(
                     );
                 }
             }
-        })),
+        }),
     }
 }
 
-fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
+fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
     let obj = js.get_obj();
     let mut input = js.find("input").get_str();
     let mut expect = js.find("output").clone();
@@ -437,7 +443,7 @@ fn mk_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     }
 }
 
-fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path) -> Vec<Test> {
     let mut tests = vec![];
 
     let mut add_test = |path: &Path, mut file: File| {
@@ -474,6 +480,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
-    rustc_test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    for test in tests(Path::new(env!("CARGO_MANIFEST_DIR"))) {
+        test.run();
+    }
 }

@@ -14,8 +14,8 @@ use std::io::Read;
 use std::path::Path;
 use std::{env, mem};
 
-use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use util::find_tests::foreach_xml5lib_test;
+use util::runner::Test;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{SliceExt, StrTendril};
@@ -28,6 +28,7 @@ use xml5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 
 mod util {
     pub mod find_tests;
+    pub mod runner;
 }
 
 // Return all ways of splitting the string into at most n
@@ -279,15 +280,11 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     sink.get_tokens()
 }
 
-fn mk_xml_test(
-    desc: String,
-    input: String,
-    expect: Value,
-    opts: XmlTokenizerOpts,
-) -> TestDescAndFn {
-    TestDescAndFn {
-        desc: TestDesc::new(DynTestName(desc)),
-        testfn: DynTestFn(Box::new(move || {
+fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpts) -> Test {
+    Test {
+        name,
+        skip: false,
+        test: Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
             for input in insplits.into_iter() {
@@ -304,11 +301,11 @@ fn mk_xml_test(
                     );
                 }
             }
-        })),
+        }),
     }
 }
 
-fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
+fn mk_xml_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
     let input: &str = &js.find("input").get_str();
     let expect = js.find("output");
     let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
@@ -346,7 +343,7 @@ fn mk_xml_tests(tests: &mut Vec<TestDescAndFn>, filename: &str, js: &Value) {
     }
 }
 
-fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path) -> Vec<Test> {
     let mut tests = vec![];
     foreach_xml5lib_test(
         src_dir,
@@ -373,6 +370,7 @@ fn tests(src_dir: &Path) -> Vec<TestDescAndFn> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
-    rustc_test::test_main(&args, tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    for test in tests(Path::new(env!("CARGO_MANIFEST_DIR"))) {
+        test.run();
+    }
 }

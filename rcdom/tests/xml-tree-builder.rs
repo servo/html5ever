@@ -9,18 +9,19 @@
 
 use markup5ever::{namespace_url, ns};
 use markup5ever_rcdom::*;
-use rustc_test::{DynTestFn, DynTestName, TestDesc, TestDescAndFn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::path::Path;
 use std::{env, fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
+use util::runner::Test;
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;
 
 mod util {
     pub mod find_tests;
+    pub mod runner;
 }
 
 fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String, String>> {
@@ -158,7 +159,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &[&str] = &["<template"];
 
 fn make_xml_test(
-    tests: &mut Vec<TestDescAndFn>,
+    tests: &mut Vec<Test>,
     ignores: &HashSet<String>,
     filename: &str,
     idx: usize,
@@ -172,14 +173,12 @@ fn make_xml_test(
     let data = get_field("data");
     let expected = get_field("document");
     let name = format!("tb: {}-{}", filename, idx);
-    let ignore = ignores.contains(&name) || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
+    let skip = ignores.contains(&name) || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
 
-    tests.push(TestDescAndFn {
-        desc: TestDesc {
-            ignore,
-            ..TestDesc::new(DynTestName(name))
-        },
-        testfn: DynTestFn(Box::new(move || {
+    tests.push(Test {
+        name,
+        skip,
+        test: Box::new(move || {
             let mut result = String::new();
 
             let dom = parse_document(RcDom::default(), Default::default()).one(data.clone());
@@ -196,11 +195,11 @@ fn make_xml_test(
                     data, result, expected
                 );
             }
-        })),
+        }),
     });
 }
 
-fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
     let mut tests = vec![];
 
     foreach_xml5lib_test(
@@ -228,7 +227,6 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     if let Ok(f) = fs::File::open(src_dir.join("data/test/ignore")) {
@@ -238,5 +236,7 @@ fn main() {
         }
     }
 
-    rustc_test::test_main(&args, tests(src_dir, &ignores));
+    for test in tests(src_dir, &ignores) {
+        test.run();
+    }
 }
