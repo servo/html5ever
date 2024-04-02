@@ -8,7 +8,6 @@
 // except according to those terms.
 
 extern crate markup5ever_rcdom as rcdom;
-extern crate rustc_test as test;
 #[macro_use]
 extern crate html5ever;
 
@@ -20,12 +19,16 @@ use std::ffi::OsStr;
 use std::io::BufRead;
 use std::path::Path;
 use std::{env, fs, io, iter, mem};
-use test::{DynTestName, TestDesc, TestDescAndFn, TestFn};
 
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{parse_document, parse_fragment, ParseOpts};
 use html5ever::{LocalName, QualName};
 use rcdom::{Handle, NodeData, RcDom};
+use util::runner::Test;
+
+mod util {
+    pub mod runner;
+}
 
 fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String, String>> {
     let mut tests = vec![];
@@ -159,7 +162,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 }
 
 fn make_test(
-    tests: &mut Vec<TestDescAndFn>,
+    tests: &mut Vec<Test>,
     ignores: &HashSet<String>,
     filename: &str,
     idx: usize,
@@ -185,7 +188,7 @@ fn make_test_desc_with_scripting_flag(
     name: &str,
     fields: &HashMap<String, String>,
     scripting_enabled: bool,
-) -> TestDescAndFn {
+) -> Test {
     let get_field = |key| {
         let field = fields.get(key).expect("missing field");
         field.trim_end_matches('\n').to_string()
@@ -197,24 +200,22 @@ fn make_test_desc_with_scripting_flag(
     let context = fields
         .get("document-fragment")
         .map(|field| context_name(field.trim_end_matches('\n')));
-    let ignore = ignores.contains(name);
+    let skip = ignores.contains(name);
     let mut name = name.to_owned();
     if scripting_enabled {
         name.push_str(" (scripting enabled)");
     } else {
         name.push_str(" (scripting disabled)");
     };
-    let mut opts: ParseOpts = Default::default();
-    opts.tree_builder.scripting_enabled = scripting_enabled;
 
-    TestDescAndFn {
-        desc: TestDesc {
-            ignore,
-            ..TestDesc::new(DynTestName(name))
-        },
-        testfn: TestFn::dyn_test_fn(move || {
+    Test {
+        name,
+        skip,
+        test: Box::new(move || {
             // Do this here because Tendril isn't Send.
             let data = StrTendril::from_slice(&data);
+            let mut opts: ParseOpts = Default::default();
+            opts.tree_builder.scripting_enabled = scripting_enabled;
             let mut result = String::new();
             match context {
                 None => {
@@ -258,7 +259,7 @@ fn context_name(context: &str) -> QualName {
     }
 }
 
-fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
+fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
     let mut tests = vec![];
 
     foreach_html5lib_test(
@@ -286,7 +287,6 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<TestDescAndFn> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut ignores = HashSet::new();
     {
@@ -297,5 +297,7 @@ fn main() {
         }
     }
 
-    test::test_main(&args, tests(src_dir, &ignores));
+    for test in tests(src_dir, &ignores) {
+        test.run();
+    }
 }

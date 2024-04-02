@@ -15,29 +15,13 @@ use std::io::BufRead;
 use std::path::Path;
 use std::{env, fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
+use util::runner::Test;
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;
 
 mod util {
     pub mod find_tests;
-
-    pub struct Test {
-        pub name: String,
-        pub skip: bool,
-        pub test: Box<dyn Fn()>,
-    }
-
-    impl Test {
-        pub fn run(&self) {
-            print!("test {} ...", self.name);
-            if self.skip {
-                println!(" SKIPPED");
-            } else {
-                (self.test)();
-                println!(" ok");
-            }
-        }
-    }
+    pub mod runner;
 }
 
 fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String, String>> {
@@ -175,7 +159,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 static IGNORE_SUBSTRS: &[&str] = &["<template"];
 
 fn make_xml_test(
-    tests: &mut Vec<util::Test>,
+    tests: &mut Vec<Test>,
     ignores: &HashSet<String>,
     filename: &str,
     idx: usize,
@@ -191,10 +175,10 @@ fn make_xml_test(
     let name = format!("tb: {}-{}", filename, idx);
     let skip = ignores.contains(&name) || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
 
-    tests.push(util::Test {
+    tests.push(Test {
         name,
         skip,
-        test : Box::new(move || {
+        test: Box::new(move || {
             let mut result = String::new();
 
             let dom = parse_document(RcDom::default(), Default::default()).one(data.clone());
@@ -215,7 +199,7 @@ fn make_xml_test(
     });
 }
 
-fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<util::Test> {
+fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
     let mut tests = vec![];
 
     foreach_xml5lib_test(
