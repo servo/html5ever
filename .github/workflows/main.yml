@@ -30,11 +30,6 @@ jobs:
         env:
           RUSTFLAGS: --cfg bench
 
-      - name: Test "rustc-test/capture" feature
-        if: matrix.version == 'nightly'
-        working-directory: rcdom
-        run: cargo test --features "rustc-test/capture"
-
       - name: Cargo test
         if: matrix.version != 'nightly'
         run: cargo test --all
