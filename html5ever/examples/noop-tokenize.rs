@@ -16,7 +16,6 @@ use std::io;
 use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
 
-
 /// In our case, our sink only contains a tokens vector
 struct Sink(Vec<Token>);
 
@@ -36,7 +35,7 @@ fn main() {
     // Read HTML from standard input
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
-  
+
     let mut input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
