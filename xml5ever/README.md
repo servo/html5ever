@@ -4,7 +4,7 @@
 [![Docs.rs](https://docs.rs/xml5ever/badge.svg)](https://docs.rs/xml5ever)
 [![](https://img.shields.io/crates/v/xml5ever.svg)](https://crates.io/crates/xml5ever)
 
-[API documentation](https://Ygg01.github.io/docs/xml5ever/xml5ever/index.html)
+[API documentation](https://docs.rs/xml5ever)
 
 **Warning:** This library is alpha quality, so no guarantees are given.
 
@@ -75,7 +75,7 @@ To build examples and tests you need to do something along the lines of:
 ```
 
 This will fetch tests from outside repository and it will invoke cargo to
-build and test the crate. If you need docs checkout either [API docs](https://ygg01.github.io/docs/xml5ever/xml5ever/index.html) or run `cargo docs`
+build and test the crate. If you need docs checkout either [API docs](https://docs.rs/xml5ever) or run `cargo docs`
 to generate documentation.
 
 ## Easy first tasks
