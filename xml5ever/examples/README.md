@@ -22,7 +22,7 @@ First let's define our dependencies:
 ```
 
 With dependencies declared, we can now make a simple tokenizer sink. First step is to
-define a [`TokenSink`](https://ygg01.github.io/docs/xml5ever/xml5ever/tokenizer/trait.TokenSink.html). [`TokenSink`](https://ygg01.github.io/docs/xml5ever/xml5ever/tokenizer/trait.TokenSink.html) are traits that received stream of [`Tokens`](https://ygg01.github.io/docs/xml5ever/xml5ever/tokenizer/enum.Token.html).
+define a [`TokenSink`](https://docs.rs/xml5ever/latest/xml5ever/tokenizer/trait.TokenSink.html). [`TokenSink`](https://docs.rs/xml5ever/latest/xml5ever/tokenizer/trait.TokenSink.html) are traits that received stream of [`Tokens`](https://docs.rs/xml5ever/latest/xml5ever/tokenizer/enum.Token.html).
 
 In our case we'll define a unit struct (i.e. a struct  without any fields).
 
@@ -30,7 +30,7 @@ In our case we'll define a unit struct (i.e. a struct  without any fields).
     struct SimpleTokenPrinter;
 ```
 
-To make `SimpleTokenPrinter` a [`TokenSink`](https://ygg01.github.io/docs/xml5ever/xml5ever/tokenizer/trait.TokenSink.html), we need to implement [process_token](https://ygg01.github.io/docs/xml5ever/xml5ever/tokenizer/trait.TokenSink.html#tymethod.process_token) method.
+To make `SimpleTokenPrinter` a [`TokenSink`](https://docs.rs/xml5ever/latest/xml5ever/tokenizer/trait.TokenSink.html), we need to implement [process_token](https://docs.rs/xml5ever/latest/xml5ever/tokenizer/trait.TokenSink.html#tymethod.process_token) method.
 
 ```rust
     impl TokenSink for SimpleTokenPrinter {
@@ -64,7 +64,7 @@ To make `SimpleTokenPrinter` a [`TokenSink`](https://ygg01.github.io/docs/xml5ev
 ```
 
 Now, we need some input to process. For input we'll use `stdin`. However, xml5ever `tokenize_to` method only takes `StrTendril`. So we need to construct a
-[`ByteTendril`](https://doc.servo.org/tendril/type.ByteTendril.html) using `ByteTendril::new()`, then read the `stdin` using [`read_to_tendril`](https://doc.servo.org/tendril/trait.ReadExt.html#tymethod.read_to_tendril) extension.
+[`ByteTendril`](https://docs.rs/tendril/latest/tendril/type.ByteTendril.html) using `ByteTendril::new()`, then read the `stdin` using [`read_to_tendril`](https://docs.rs/tendril/latest/tendril/trait.ReadExt.html#tymethod.read_to_tendril) extension.
 
 Once that is set, to make `SimpleTokenPrinter` parse the input, call,
 `tokenize_to` with it as the first parameter, input wrapped in Option for second parameter and XmlToke.
@@ -96,7 +96,7 @@ Once that is set, to make `SimpleTokenPrinter` parse the input, call,
 
 NOTE: `unwrap` causes panic, it's only OK to use in simple examples.
 
-For full source code check out: [`examples/simple_xml_tokenizer.rs`](https://github.com/Ygg01/xml5ever/blob/master/examples/simple_xml_tokenizer.rs)
+For full source code check out: [`examples/simple_xml_tokenizer.rs`](https://github.com/servo/html5ever/blob/main/xml5ever/examples/simple_xml_tokenizer.rs)
 
 Once we have successfully compiled the example we run the example with inline
 xml
@@ -105,7 +105,7 @@ xml
     cargo script simple_xml_tokenizer.rs <<< "<xml>Text with <b>bold words</b>!</xml>"
 ```
 
-or by sending an [`examples/example.xml`](https://github.com/Ygg01/xml5ever/blob/master/examples/simple_xml_tokenizer.rs) located in same folder as examples.
+or by sending an [`examples/example.xml`](https://github.com/servo/html5ever/blob/main/xml5ever/examples/example.xml) located in same folder as examples.
 
 ```bash
     cargo script simple_xml_tokenizer.rs < example.xml
@@ -153,8 +153,8 @@ First part is similar to making SimpleTokenPrinter:
     let input = input.try_reinterpret().unwrap();
 ```
 
-This time, we need an implementation of [`TreeSink`](https://ygg01.github.io/docs/xml5ever/xml5ever/tree_builder/interface/trait.TreeSink.html). xml5ever comes with a
-built-in `TreeSink` implementation called [`RcDom`](https://ygg01.github.io/docs/xml5ever/xml5ever/rcdom/struct.RcDom.html). To process input into
+This time, we need an implementation of [`TreeSink`](https://docs.rs/xml5ever/latest/xml5ever/tree_builder/trait.TreeSink.html). xml5ever comes with a
+built-in `TreeSink` implementation called [`RcDom`](https://docs.rs/markup5ever_rcdom/latest/markup5ever_rcdom/struct.RcDom.html). To process input into
 a `TreeSink` we use the following line:
 
 ```rust
@@ -220,4 +220,4 @@ kind of function that will help us traverse it. We shall call that function `wal
     }
 ```
 
-For full source code check out: [`examples/xml_tree_printer.rs`](https://github.com/Ygg01/xml5ever/blob/master/examples/xml_tree_printer.rs)
+For full source code check out: [`examples/xml_tree_printer.rs`](https://github.com/servo/html5ever/blob/main/rcdom/examples/xml_tree_printer.rs)
