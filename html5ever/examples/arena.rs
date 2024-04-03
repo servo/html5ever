@@ -19,36 +19,32 @@ use std::collections::HashSet;
 use std::io::{self, Read};
 use std::ptr;
 
-fn main() {
-    let mut bytes = Vec::new();
-    io::stdin().read_to_end(&mut bytes).unwrap();
-    let arena = typed_arena::Arena::new();
-    html5ever_parse_slice_into_arena(&bytes, &arena);
-}
-
+/// By using our Sink type, the arena is filled with parsed HTML.
 fn html5ever_parse_slice_into_arena<'a>(bytes: &[u8], arena: Arena<'a>) -> Ref<'a> {
     let sink = Sink {
         arena,
         document: arena.alloc(Node::new(NodeData::Document)),
         quirks_mode: QuirksMode::NoQuirks,
     };
+
     parse_document(sink, Default::default())
         .from_utf8()
         .one(bytes)
 }
 
 type Arena<'arena> = &'arena typed_arena::Arena<Node<'arena>>;
-
 type Ref<'arena> = &'arena Node<'arena>;
-
 type Link<'arena> = Cell<Option<Ref<'arena>>>;
 
+/// Sink struct is responsible for handling how the data that comes out of the HTML parsing
+/// unit (TreeBuilder in our case) is handled.
 struct Sink<'arena> {
     arena: Arena<'arena>,
     document: Ref<'arena>,
     quirks_mode: QuirksMode,
 }
 
+/// DOM node which contains links to other nodes in the tree.
 pub struct Node<'arena> {
     parent: Link<'arena>,
     next_sibling: Link<'arena>,
@@ -58,6 +54,7 @@ pub struct Node<'arena> {
     data: NodeData<'arena>,
 }
 
+/// HTML node data which can be an element, a comment, a string, a DOCTYPE, etc...
 pub enum NodeData<'arena> {
     Document,
     Doctype {
@@ -178,6 +175,11 @@ impl<'arena> Sink<'arena> {
     }
 }
 
+/// By implementing the TreeSink trait we determine how the data from the tree building step
+/// is processed. In our case, our data is allocated in the arena and added to the Node data
+/// structure.
+///
+/// For deeper understating of each function go to the TreeSink declaration.
 impl<'arena> TreeSink for Sink<'arena> {
     type Handle = Ref<'arena>;
     type Output = Ref<'arena>;
@@ -332,4 +334,19 @@ impl<'arena> TreeSink for Sink<'arena> {
             new_parent.append(child)
         }
     }
+}
+
+/// In this example an "arena" is created and filled with the DOM nodes.
+/// "Arena" is a type of allocation in which a block of memory is allocated
+/// and later filled with data, DOM nodes in this case. When the arena is deallocated
+/// it is destroyed with all of its items.
+///
+/// Further info about arena: https://docs.rs/typed-arena/latest/typed_arena/
+fn main() {
+    // Read HTML from the standard input
+    let mut bytes = Vec::new();
+    io::stdin().read_to_end(&mut bytes).unwrap();
+
+    let arena = typed_arena::Arena::new();
+    html5ever_parse_slice_into_arena(&bytes, &arena);
 }

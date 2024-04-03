@@ -81,10 +81,15 @@ impl TokenSink for TokenPrinter {
     }
 }
 
+/// In this example we implement the TokenSink trait in such a way that each token is printed.
+/// If a there's an error while processing a token it is printed as well.
 fn main() {
     let mut sink = TokenPrinter { in_char_run: false };
+
+    // Read HTML from standard input
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
+
     let mut input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
@@ -96,6 +101,7 @@ fn main() {
         },
     );
     let _ = tok.feed(&mut input);
+
     assert!(input.is_empty());
     tok.end();
     sink.is_char(false);
