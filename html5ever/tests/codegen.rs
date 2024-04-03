@@ -1,4 +1,4 @@
-// Copyright 2014-2017 The html5ever Project Developers. See the
+// Copyright 2014-2017  The html5ever Project Developers. See the
 // COPYRIGHT file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,7 +7,77 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-/*!
+use std::collections::HashSet;
+use std::env;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::thread::Builder;
+
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
+use syn::ext::IdentExt;
+use syn::fold::Fold;
+use syn::parse::{Parse, ParseStream, Result};
+use syn::{braced, parse_quote, Token};
+
+#[test]
+fn generated_code_is_fresh() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    let input = Path::new(&manifest_dir).join("src/tree_builder/rules.rs");
+    let output = Path::new(&manifest_dir).join("src/tree_builder/generated.rs");
+
+    #[cfg(target_os = "haiku")]
+    let stack_size = 16;
+
+    #[cfg(not(target_os = "haiku"))]
+    let stack_size = 128;
+
+    // We have stack overflows on Servo's CI.
+    let handle = Builder::new()
+        .stack_size(stack_size * 1024 * 1024)
+        .spawn(move || {
+            let generated = expand(&input);
+            let formatted = reformat(&format!("{}{}", PREAMBLE, generated));
+            let current = fs::read_to_string(&output).unwrap_or_default();
+
+            if formatted == current {
+                return;
+            }
+
+            File::create(output)
+                .unwrap()
+                .write_all(formatted.as_bytes())
+                .unwrap();
+            panic!("generated code is stale, updating...");
+        })
+        .unwrap();
+
+    handle.join().unwrap();
+}
+
+fn reformat(code: &str) -> String {
+    let mut cmd = Command::new("rustfmt")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    cmd.stdin
+        .take()
+        .unwrap()
+        .write_all(code.as_bytes())
+        .unwrap();
+    let output = cmd.wait_with_output().unwrap();
+    assert!(output.status.success());
+    String::from_utf8(output.stdout).unwrap()
+}
+
+const PREAMBLE: &str = "// This code is @generated. See tests/codegen.rs for more information.\n\n";
+
+/*
 
 Implements the `match_token!()` macro for use by the HTML tree builder
 in `src/tree_builder/rules.rs`.
@@ -99,20 +169,7 @@ matching, by enforcing the following restrictions on its input:
     is common in the HTML5 syntax.
 */
 
-use quote::quote;
-use syn::{braced, parse_quote, Token};
-
-use proc_macro2::TokenStream;
-use quote::ToTokens;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
-use syn::ext::IdentExt;
-use syn::fold::Fold;
-use syn::parse::{Parse, ParseStream, Result};
-
-pub fn expand(from: &Path, to: &Path) {
+fn expand(from: &Path) -> String {
     let mut source = String::new();
     File::open(from)
         .unwrap()
@@ -121,15 +178,10 @@ pub fn expand(from: &Path, to: &Path) {
     let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
     let mut m = MatchTokenParser {};
     let ast = m.fold_file(ast);
-    let code = ast
-        .into_token_stream()
+    ast.into_token_stream()
         .to_string()
         .replace("{ ", "{\n")
-        .replace(" }", "\n}");
-    File::create(to)
-        .unwrap()
-        .write_all(code.as_bytes())
-        .unwrap();
+        .replace(" }", "\n}")
 }
 
 struct MatchTokenParser {}
@@ -163,7 +215,7 @@ enum TagKind {
 
 // Option is None if wildcard
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Tag {
+struct Tag {
     kind: TagKind,
     name: Option<syn::Ident>,
 }
@@ -250,7 +302,7 @@ impl Parse for MatchToken {
     }
 }
 
-pub fn expand_match_token(body: &TokenStream) -> syn::Expr {
+fn expand_match_token(body: &TokenStream) -> syn::Expr {
     let match_token = syn::parse2::<MatchToken>(body.clone());
     let ast = expand_match_token_macro(match_token.unwrap());
     syn::parse2(ast).unwrap()
