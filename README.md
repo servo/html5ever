@@ -52,7 +52,7 @@ The code is cross-referenced with the WHATWG syntax spec, and eventually we will
 
 html5ever builds against the official stable releases of Rust, though some optimizations are only supported on nightly releases.
 
-[API documentation]: https://doc.servo.org/html5ever/index.html
+[API documentation]: https://docs.rs/html5ever
 [Servo]: https://github.com/servo/servo
 [Rust]: https://www.rust-lang.org/
 [in the bug tracker]: https://github.com/servo/html5ever/issues?q=is%3Aopen+is%3Aissue+label%3Aweb-compat
