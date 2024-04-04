@@ -23,7 +23,7 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
   - You aren't interested in well-formed documents.
   - You need to get some info from your data even if it has errors (although not all possible errors are handled).
-  - You want to features like character references or xml namespaces.
+  - You want to features like character references or XML namespaces.
 
 ## When you shouldn't use it
 
@@ -34,17 +34,11 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
 # Installation
 
-Add xml5ever as a dependency in your project manifest.
+Add xml5ever as a dependency in your project manifest:
 
 ```toml
     [dependencies]
-    xml5ever = "0.1.3"
-```
-
-And add crate declaration in your lib.rs
-
-```rust
-    extern crate xml5ever
+    xml5ever = "0.18"
 ```
 
 # Getting started
@@ -77,9 +71,3 @@ To build examples and tests you need to do something along the lines of:
 This will fetch tests from outside repository and it will invoke cargo to
 build and test the crate. If you need docs checkout either [API docs](https://docs.rs/xml5ever) or run `cargo docs`
 to generate documentation.
-
-## Easy first tasks
-
-What I generally recommend is to look at Clippy Linting badge results and create
-a PR for fixing the said lints. Other than that try to look for any tasks labeled
-easy or just update docs/examples.
