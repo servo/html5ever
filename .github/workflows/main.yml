@@ -51,20 +51,6 @@ jobs:
 
       - run: cargo check --lib --all-features
 
-  build_result:
-    name: Result
-    runs-on: ubuntu-latest
-    needs:
-      - "ci"
-
-    steps:
-      - name: Mark the job as successful
-        run: exit 0
-        if: success()
-      - name: Mark the job as unsuccessful
-        run: exit 1
-        if: ${{ !success() }}
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -86,3 +72,20 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --all-features --all-targets -- -D warnings
+
+  build_result:
+    name: Result
+    runs-on: ubuntu-latest
+    needs:
+      - ci
+      - lint
+      - msrv
+
+    steps:
+      - name: Success
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        run: exit 0
+      - name: Failure
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+
