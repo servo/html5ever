@@ -618,7 +618,7 @@ macro_rules! shorthand (
 // so it's behind a cfg flag.
 #[cfg(feature = "trace_tokenizer")]
 macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ({
-    trace!("  {:s}", stringify!($($cmds)*));
+    trace!("  {:?}", stringify!($($cmds)*));
     shorthand!($me:expr : $($cmds)*);
 }));
 
