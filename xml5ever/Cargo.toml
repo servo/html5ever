@@ -13,6 +13,9 @@ exclude = ["xml5lib-tests/*"]
 categories = ["parser-implementations", "web-programming"]
 edition = "2021"
 
+[features]
+trace_tokenizer = []
+
 [dependencies]
 log = "0.4"
 mac = "0.1"
