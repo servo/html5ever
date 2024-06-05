@@ -196,9 +196,6 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     /// Current namespace identifier
     current_namespace: NamespaceMap,
 
-    /// List of already present namespace local name attribute pairs.
-    present_attrs: HashSet<(Namespace, LocalName)>,
-
     /// Current tree builder phase.
     phase: XmlPhase,
 }
@@ -221,7 +218,6 @@ where
             curr_elem: None,
             namespace_stack: NamespaceMapStack::new(),
             current_namespace: NamespaceMap::empty(),
-            present_attrs: HashSet::new(),
             phase: Start,
         }
     }
@@ -307,28 +303,38 @@ where
     // existing namespace context.
     //
     // Returns false if the attribute is a duplicate, returns true otherwise.
-    fn bind_attr_qname(&mut self, name: &mut QualName) -> bool {
+    fn bind_attr_qname(
+        &mut self,
+        present_attrs: &mut HashSet<(Namespace, LocalName)>,
+        name: &mut QualName,
+    ) -> bool {
         // Attributes don't have default namespace
         let mut not_duplicate = true;
 
         if name.prefix.is_some() {
             self.bind_qname(name);
-            not_duplicate = self.check_duplicate_attr(name);
+            not_duplicate = Self::check_duplicate_attr(present_attrs, name);
         }
         not_duplicate
     }
 
-    fn check_duplicate_attr(&mut self, name: &QualName) -> bool {
+    fn check_duplicate_attr(
+        present_attrs: &mut HashSet<(Namespace, LocalName)>,
+        name: &QualName,
+    ) -> bool {
         let pair = (name.ns.clone(), name.local.clone());
 
-        if self.present_attrs.contains(&pair) {
+        if present_attrs.contains(&pair) {
             return false;
         }
-        self.present_attrs.insert(pair);
+        present_attrs.insert(pair);
         true
     }
 
     fn process_namespaces(&mut self, tag: &mut Tag) {
+        // List of already present namespace local name attribute pairs.
+        let mut present_attrs: HashSet<(Namespace, LocalName)> = Default::default();
+
         let mut new_attr = vec![];
         // First we extract all namespace declarations
         for attr in tag.attrs.iter_mut().filter(|attr| {
@@ -343,7 +349,7 @@ where
             attr.name.prefix != Some(namespace_prefix!("xmlns"))
                 && attr.name.local != local_name!("xmlns")
         }) {
-            if self.bind_attr_qname(&mut attr.name) {
+            if self.bind_attr_qname(&mut present_attrs, &mut attr.name) {
                 new_attr.push(attr.clone());
             }
         }
