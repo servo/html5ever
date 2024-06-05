@@ -616,13 +616,13 @@ macro_rules! shorthand (
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
 // so it's behind a cfg flag.
-#[cfg(trace_tokenizer)]
+#[cfg(feature = "trace_tokenizer")]
 macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ({
-    trace!("  {:s}", stringify!($($cmds)*));
-    shorthand!($me:expr : $($cmds)*);
+    trace!("  {:?}", stringify!($($cmds)*));
+    shorthand!($me : $($cmds)*);
 }));
 
-#[cfg(not(trace_tokenizer))]
+#[cfg(not(feature = "trace_tokenizer"))]
 macro_rules! sh_trace ( ( $me:ident : $($cmds:tt)* ) => ( shorthand!($me: $($cmds)*) ) );
 
 // A little DSL for sequencing shorthand actions.

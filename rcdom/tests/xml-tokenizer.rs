@@ -140,6 +140,7 @@ fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
     tok.sink.get_tokens()
 }
 
+#[allow(dead_code)]
 trait JsonExt: Sized {
     fn get_str(&self) -> String;
     fn get_tendril(&self) -> StrTendril;
