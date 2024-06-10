@@ -18,7 +18,7 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-use std::collections::VecDeque;
+use std::{cell::RefCell, collections::VecDeque};
 
 use tendril::StrTendril;
 
@@ -46,7 +46,7 @@ pub enum SetResult {
 #[derive(Debug)]
 pub struct BufferQueue {
     /// Buffers to process.
-    buffers: VecDeque<StrTendril>,
+    buffers: RefCell<VecDeque<StrTendril>>,
 }
 
 impl Default for BufferQueue {
@@ -54,7 +54,7 @@ impl Default for BufferQueue {
     #[inline]
     fn default() -> Self {
         Self {
-            buffers: VecDeque::with_capacity(16),
+            buffers: RefCell::new(VecDeque::with_capacity(16)),
         }
     }
 }
@@ -63,42 +63,45 @@ impl BufferQueue {
     /// Returns whether the queue is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.buffers.is_empty()
+        self.buffers.borrow().is_empty()
     }
 
     /// Get the buffer at the beginning of the queue.
     #[inline]
-    pub fn pop_front(&mut self) -> Option<StrTendril> {
-        self.buffers.pop_front()
+    pub fn pop_front(&self) -> Option<StrTendril> {
+        self.buffers.borrow_mut().pop_front()
     }
 
     /// Add a buffer to the beginning of the queue.
     ///
     /// If the buffer is empty, it will be skipped.
-    pub fn push_front(&mut self, buf: StrTendril) {
+    pub fn push_front(&self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
         }
-        self.buffers.push_front(buf);
+        self.buffers.borrow_mut().push_front(buf);
     }
 
     /// Add a buffer to the end of the queue.
     ///
     /// If the buffer is empty, it will be skipped.
-    pub fn push_back(&mut self, buf: StrTendril) {
+    pub fn push_back(&self, buf: StrTendril) {
         if buf.len32() == 0 {
             return;
         }
-        self.buffers.push_back(buf);
+        self.buffers.borrow_mut().push_back(buf);
     }
 
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         debug_assert!(
-            !self.buffers.iter().any(|el| el.len32() == 0),
+            !self.buffers.borrow().iter().any(|el| el.len32() == 0),
             "invariant \"all buffers in the queue are non-empty\" failed"
         );
-        self.buffers.front().map(|b| b.chars().next().unwrap())
+        self.buffers
+            .borrow()
+            .front()
+            .map(|b| b.chars().next().unwrap())
     }
 
     /// Pops and returns either a single character from the given set, or
@@ -128,8 +131,8 @@ impl BufferQueue {
     /// // ...
     /// # }
     /// ```
-    pub fn pop_except_from(&mut self, set: SmallCharSet) -> Option<SetResult> {
-        let (result, now_empty) = match self.buffers.front_mut() {
+    pub fn pop_except_from(&self, set: SmallCharSet) -> Option<SetResult> {
+        let (result, now_empty) = match self.buffers.borrow_mut().front_mut() {
             None => (None, false),
             Some(buf) => {
                 let n = set.nonmember_prefix_len(buf);
@@ -149,7 +152,7 @@ impl BufferQueue {
 
         // Unborrow self for this part.
         if now_empty {
-            self.buffers.pop_front();
+            self.buffers.borrow_mut().pop_front();
         }
 
         result
@@ -178,17 +181,17 @@ impl BufferQueue {
     /// assert!(queue.is_empty());
     /// # }
     /// ```
-    pub fn eat<F: Fn(&u8, &u8) -> bool>(&mut self, pat: &str, eq: F) -> Option<bool> {
+    pub fn eat<F: Fn(&u8, &u8) -> bool>(&self, pat: &str, eq: F) -> Option<bool> {
         let mut buffers_exhausted = 0;
         let mut consumed_from_last = 0;
 
-        self.buffers.front()?;
+        self.buffers.borrow().front()?;
 
         for pattern_byte in pat.bytes() {
-            if buffers_exhausted >= self.buffers.len() {
+            if buffers_exhausted >= self.buffers.borrow().len() {
                 return None;
             }
-            let buf = &self.buffers[buffers_exhausted];
+            let buf = &self.buffers.borrow()[buffers_exhausted];
 
             if !eq(&buf.as_bytes()[consumed_from_last], &pattern_byte) {
                 return Some(false);
@@ -203,10 +206,10 @@ impl BufferQueue {
 
         // We have a match. Commit changes to the BufferQueue.
         for _ in 0..buffers_exhausted {
-            self.buffers.pop_front();
+            self.buffers.borrow_mut().pop_front();
         }
 
-        match self.buffers.front_mut() {
+        match self.buffers.borrow_mut().front_mut() {
             None => assert_eq!(consumed_from_last, 0),
             Some(ref mut buf) => buf.pop_front(consumed_from_last as u32),
         }
@@ -222,7 +225,7 @@ impl Iterator for BufferQueue {
     ///
     /// This function manages the buffers, removing them as they become empty.
     fn next(&mut self) -> Option<char> {
-        let (result, now_empty) = match self.buffers.front_mut() {
+        let (result, now_empty) = match self.buffers.borrow_mut().front_mut() {
             None => (None, false),
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
@@ -231,7 +234,7 @@ impl Iterator for BufferQueue {
         };
 
         if now_empty {
-            self.buffers.pop_front();
+            self.buffers.borrow_mut().pop_front();
         }
 
         result
@@ -280,9 +283,9 @@ mod test {
 
     #[test]
     fn can_pop_except_set() {
-        let mut bq = BufferQueue::default();
+        let bq = BufferQueue::default();
         bq.push_back("abc&def".to_tendril());
-        let mut pop = || bq.pop_except_from(small_char_set!('&'));
+        let pop = || bq.pop_except_from(small_char_set!('&'));
         assert_eq!(pop(), Some(NotFromSet("abc".to_tendril())));
         assert_eq!(pop(), Some(FromSet('&')));
         assert_eq!(pop(), Some(NotFromSet("def".to_tendril())));
