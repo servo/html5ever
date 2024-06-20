@@ -115,6 +115,7 @@ aria-valuemin
 aria-valuenow
 aria-valuetext
 article
+as
 ascent
 aside
 async
