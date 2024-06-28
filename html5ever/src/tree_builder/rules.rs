@@ -9,10 +9,8 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use super::*;
 use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
-use crate::tree_builder::tag_sets::*;
-use crate::tree_builder::types::*;
 
 use std::borrow::ToOwned;
 
@@ -33,7 +31,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
+    pub(crate) fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
@@ -1380,7 +1378,7 @@ where
         }
     }
 
-    fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle> {
+    pub(crate) fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle> {
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
