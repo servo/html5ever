@@ -21,11 +21,12 @@ use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
 use serde_json::{Map, Value};
+use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::{char, env, mem};
+use std::{char, env};
 
 use util::runner::Test;
 
@@ -68,57 +69,57 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
 }
 
 struct TokenLogger {
-    tokens: Vec<Token>,
-    errors: Vec<TestError>,
-    current_str: StrTendril,
+    tokens: RefCell<Vec<Token>>,
+    errors: RefCell<Vec<TestError>>,
+    current_str: RefCell<StrTendril>,
     exact_errors: bool,
 }
 
 impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
-            tokens: vec![],
-            errors: vec![],
-            current_str: StrTendril::new(),
+            tokens: RefCell::new(vec![]),
+            errors: RefCell::new(vec![]),
+            current_str: RefCell::new(StrTendril::new()),
             exact_errors,
         }
     }
 
     // Push anything other than character tokens
-    fn push(&mut self, token: Token) {
+    fn push(&self, token: Token) {
         self.finish_str();
-        self.tokens.push(token);
+        self.tokens.borrow_mut().push(token);
     }
 
-    fn finish_str(&mut self) {
-        if self.current_str.len() > 0 {
-            let s = mem::take(&mut self.current_str);
-            self.tokens.push(CharacterTokens(s));
+    fn finish_str(&self) {
+        if self.current_str.borrow().len() > 0 {
+            let s = self.current_str.take();
+            self.tokens.borrow_mut().push(CharacterTokens(s));
         }
     }
 
-    fn get_tokens(mut self) -> (Vec<Token>, Vec<TestError>) {
+    fn get_tokens(self) -> (Vec<Token>, Vec<TestError>) {
         self.finish_str();
-        (self.tokens, self.errors)
+        (self.tokens.take(), self.errors.take())
     }
 }
 
 impl TokenSink for TokenLogger {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
-                self.current_str.push_slice(&b);
+                self.current_str.borrow_mut().push_slice(&b);
             },
 
             NullCharacterToken => {
-                self.current_str.push_char('\0');
+                self.current_str.borrow_mut().push_char('\0');
             },
 
             ParseError(_) => {
                 if self.exact_errors {
-                    self.errors.push(TestError);
+                    self.errors.borrow_mut().push(TestError);
                 }
             },
 
@@ -146,7 +147,7 @@ impl TokenSink for TokenLogger {
 
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
-    let mut tok = Tokenizer::new(sink, opts);
+    let tok = Tokenizer::new(sink, opts);
     let buffer = BufferQueue::default();
     for chunk in input.into_iter() {
         buffer.push_back(chunk);
@@ -271,7 +272,7 @@ fn json_to_tokens(
 ) -> (Vec<Token>, Vec<TestError>) {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
-    let mut sink = TokenLogger::new(exact_errors);
+    let sink = TokenLogger::new(exact_errors);
     for tok in js_tokens.get_list().iter() {
         assert_eq!(
             sink.process_token(json_to_token(tok), 0),

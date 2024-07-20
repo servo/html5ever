@@ -9,10 +9,11 @@
 
 use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
+use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
-use std::{env, mem};
+use std::env;
 
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::Test;
@@ -56,48 +57,48 @@ fn splits(s: &str, n: usize) -> Vec<Vec<StrTendril>> {
 }
 
 struct TokenLogger {
-    tokens: Vec<Token>,
-    current_str: StrTendril,
+    tokens: RefCell<Vec<Token>>,
+    current_str: RefCell<StrTendril>,
     exact_errors: bool,
 }
 
 impl TokenLogger {
     fn new(exact_errors: bool) -> TokenLogger {
         TokenLogger {
-            tokens: vec![],
-            current_str: StrTendril::new(),
+            tokens: RefCell::new(vec![]),
+            current_str: RefCell::new(StrTendril::new()),
             exact_errors,
         }
     }
 
     // Push anything other than character tokens
-    fn push(&mut self, token: Token) {
+    fn push(&self, token: Token) {
         self.finish_str();
-        self.tokens.push(token);
+        self.tokens.borrow_mut().push(token);
     }
 
-    fn finish_str(&mut self) {
-        if self.current_str.len() > 0 {
-            let s = mem::take(&mut self.current_str);
-            self.tokens.push(CharacterTokens(s));
+    fn finish_str(&self) {
+        if self.current_str.borrow().len() > 0 {
+            let s = self.current_str.take();
+            self.tokens.borrow_mut().push(CharacterTokens(s));
         }
     }
 
-    fn get_tokens(mut self) -> Vec<Token> {
+    fn get_tokens(self) -> Vec<Token> {
         self.finish_str();
-        self.tokens
+        self.tokens.take()
     }
 }
 
 impl TokenSink for TokenLogger {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&self, token: Token) {
         match token {
             CharacterTokens(b) => {
-                self.current_str.push_slice(&b);
+                self.current_str.borrow_mut().push_slice(&b);
             },
 
             NullCharacterToken => {
-                self.current_str.push_char('\0');
+                self.current_str.borrow_mut().push_char('\0');
             },
 
             ParseError(_) => {
@@ -128,7 +129,7 @@ impl TokenSink for TokenLogger {
 
 fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
-    let mut tok = XmlTokenizer::new(sink, opts);
+    let tok = XmlTokenizer::new(sink, opts);
     let buf = BufferQueue::default();
 
     for chunk in input.into_iter() {
@@ -269,7 +270,7 @@ fn json_to_token(js: &Value) -> Token {
 fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     // Use a TokenLogger so that we combine character tokens separated
     // by an ignored error.
-    let mut sink = TokenLogger::new(exact_errors);
+    let sink = TokenLogger::new(exact_errors);
     for tok in js.as_array().unwrap().iter() {
         match *tok {
             Value::String(ref s) if &s[..] == "ParseError" => {

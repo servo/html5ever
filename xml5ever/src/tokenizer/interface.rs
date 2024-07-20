@@ -109,15 +109,15 @@ pub enum Token {
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
     /// Process a token.
-    fn process_token(&mut self, token: Token);
+    fn process_token(&self, token: Token);
 
     /// Signal to the sink that parsing has ended.
-    fn end(&mut self) {}
+    fn end(&self) {}
 
     /// The tokenizer will call this after emitting any start tag.
     /// This allows the tree builder to change the tokenizer's state.
     /// By default no state changes occur.
-    fn query_state_change(&mut self) -> Option<states::XmlState> {
+    fn query_state_change(&self) -> Option<states::XmlState> {
         None
     }
 }

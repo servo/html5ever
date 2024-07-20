@@ -9,9 +9,9 @@
 
 macro_rules! unwrap_or_else {
     ($opt:expr, $else_block:block) => {
-        match $opt {
-            None => $else_block,
-            Some(x) => x,
+        {
+            let Some(x) = $opt else { $else_block };
+            x
         }
     };
 }

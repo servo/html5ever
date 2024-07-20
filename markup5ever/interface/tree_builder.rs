@@ -78,7 +78,7 @@ pub struct ElementFlags {
 /// # Examples
 ///
 /// Create an element like `<div class="test-class-name"></div>`:
-pub fn create_element<Sink>(sink: &mut Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
+pub fn create_element<Sink>(sink: &Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
 where
     Sink: TreeSink,
 {
@@ -121,10 +121,10 @@ pub trait TreeSink {
     fn finish(self) -> Self::Output;
 
     /// Signal a parse error.
-    fn parse_error(&mut self, msg: Cow<'static, str>);
+    fn parse_error(&self, msg: Cow<'static, str>);
 
     /// Get a handle to the `Document` node.
-    fn get_document(&mut self) -> Self::Handle;
+    fn get_document(&self) -> Self::Handle;
 
     /// What is the name of this element?
     ///
@@ -142,30 +142,30 @@ pub trait TreeSink {
     ///
     /// [whatwg template]: https://html.spec.whatwg.org/multipage/#the-template-element
     fn create_element(
-        &mut self,
+        &self,
         name: QualName,
         attrs: Vec<Attribute>,
         flags: ElementFlags,
     ) -> Self::Handle;
 
     /// Create a comment node.
-    fn create_comment(&mut self, text: StrTendril) -> Self::Handle;
+    fn create_comment(&self, text: StrTendril) -> Self::Handle;
 
     /// Create a Processing Instruction node.
-    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Self::Handle;
+    fn create_pi(&self, target: StrTendril, data: StrTendril) -> Self::Handle;
 
     /// Append a node as the last child of the given node.  If this would
     /// produce adjacent sibling text nodes, it should concatenate the text
     /// instead.
     ///
     /// The child node will not already have a parent.
-    fn append(&mut self, parent: &Self::Handle, child: NodeOrText<Self::Handle>);
+    fn append(&self, parent: &Self::Handle, child: NodeOrText<Self::Handle>);
 
     /// When the insertion point is decided by the existence of a parent node of the
     /// element, we consider both possibilities and send the element which will be used
     /// if a parent node exists, along with the element to be used if there isn't one.
     fn append_based_on_parent_node(
-        &mut self,
+        &self,
         element: &Self::Handle,
         prev_element: &Self::Handle,
         child: NodeOrText<Self::Handle>,
@@ -173,28 +173,28 @@ pub trait TreeSink {
 
     /// Append a `DOCTYPE` element to the `Document` node.
     fn append_doctype_to_document(
-        &mut self,
+        &self,
         name: StrTendril,
         public_id: StrTendril,
         system_id: StrTendril,
     );
 
     /// Mark a HTML `<script>` as "already started".
-    fn mark_script_already_started(&mut self, _node: &Self::Handle) {}
+    fn mark_script_already_started(&self, _node: &Self::Handle) {}
 
     /// Indicate that a node was popped off the stack of open elements.
-    fn pop(&mut self, _node: &Self::Handle) {}
+    fn pop(&self, _node: &Self::Handle) {}
 
     /// Get a handle to a template's template contents. The tree builder
     /// promises this will never be called with something else than
     /// a template element.
-    fn get_template_contents(&mut self, target: &Self::Handle) -> Self::Handle;
+    fn get_template_contents(&self, target: &Self::Handle) -> Self::Handle;
 
     /// Do two handles refer to the same node?
     fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool;
 
     /// Set the document's quirks mode.
-    fn set_quirks_mode(&mut self, mode: QuirksMode);
+    fn set_quirks_mode(&self, mode: QuirksMode);
 
     /// Append a node as the sibling immediately before the given node.
     ///
@@ -204,16 +204,16 @@ pub trait TreeSink {
     /// be merged, as in the behavior of `append`.
     ///
     /// NB: `new_node` may have an old parent, from which it should be removed.
-    fn append_before_sibling(&mut self, sibling: &Self::Handle, new_node: NodeOrText<Self::Handle>);
+    fn append_before_sibling(&self, sibling: &Self::Handle, new_node: NodeOrText<Self::Handle>);
 
     /// Add each attribute to the given element, if no attribute with that name
     /// already exists. The tree builder promises this will never be called
     /// with something else than an element.
-    fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<Attribute>);
+    fn add_attrs_if_missing(&self, target: &Self::Handle, attrs: Vec<Attribute>);
 
     /// Associate the given form-associatable element with the form element
     fn associate_with_form(
-        &mut self,
+        &self,
         _target: &Self::Handle,
         _form: &Self::Handle,
         _nodes: (&Self::Handle, Option<&Self::Handle>),
@@ -221,10 +221,10 @@ pub trait TreeSink {
     }
 
     /// Detach the given node from its parent.
-    fn remove_from_parent(&mut self, target: &Self::Handle);
+    fn remove_from_parent(&self, target: &Self::Handle);
 
     /// Remove all the children from node and append them to new_parent.
-    fn reparent_children(&mut self, node: &Self::Handle, new_parent: &Self::Handle);
+    fn reparent_children(&self, node: &Self::Handle, new_parent: &Self::Handle);
 
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
@@ -233,10 +233,10 @@ pub trait TreeSink {
     }
 
     /// Called whenever the line number changes.
-    fn set_current_line(&mut self, _line_number: u64) {}
+    fn set_current_line(&self, _line_number: u64) {}
 
     /// Indicate that a `script` element is complete.
-    fn complete_script(&mut self, _node: &Self::Handle) -> NextParserState {
+    fn complete_script(&self, _node: &Self::Handle) -> NextParserState {
         NextParserState::Continue
     }
 }

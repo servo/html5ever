@@ -9,6 +9,7 @@
 
 extern crate html5ever;
 
+use std::cell::Cell;
 use std::io;
 
 use html5ever::tendril::*;
@@ -18,22 +19,22 @@ use html5ever::tokenizer::{
     ParseError, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 struct TokenPrinter {
-    in_char_run: bool,
+    in_char_run: Cell<bool>,
 }
 
 impl TokenPrinter {
-    fn is_char(&mut self, is_char: bool) {
-        match (self.in_char_run, is_char) {
+    fn is_char(&self, is_char: bool) {
+        match (self.in_char_run.get(), is_char) {
             (false, true) => print!("CHAR : \""),
             (true, false) => println!("\""),
             _ => (),
         }
-        self.in_char_run = is_char;
+        self.in_char_run.set(is_char);
     }
 
-    fn do_char(&mut self, c: char) {
+    fn do_char(&self, c: char) {
         self.is_char(true);
         print!("{}", c.escape_default().collect::<String>());
     }
@@ -42,7 +43,7 @@ impl TokenPrinter {
 impl TokenSink for TokenPrinter {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
@@ -84,7 +85,7 @@ impl TokenSink for TokenPrinter {
 /// In this example we implement the TokenSink trait in such a way that each token is printed.
 /// If a there's an error while processing a token it is printed as well.
 fn main() {
-    let mut sink = TokenPrinter { in_char_run: false };
+    let sink = TokenPrinter { in_char_run: Cell::new(false) };
 
     // Read HTML from standard input
     let mut chunk = ByteTendril::new();
@@ -93,7 +94,7 @@ fn main() {
     let input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
-    let mut tok = Tokenizer::new(
+    let tok = Tokenizer::new(
         sink,
         TokenizerOpts {
             profile: true,
@@ -104,5 +105,5 @@ fn main() {
 
     assert!(input.is_empty());
     tok.end();
-    sink.is_char(false);
+    tok.sink.is_char(false);
 }

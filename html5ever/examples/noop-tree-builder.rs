@@ -11,6 +11,7 @@
 extern crate html5ever;
 
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::io;
 
@@ -19,15 +20,15 @@ use html5ever::tendril::*;
 use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
 use html5ever::{Attribute, ExpandedName, QualName};
 
-struct Sink {
-    next_id: usize,
-    names: HashMap<usize, QualName>,
+struct Sink<'a> {
+    next_id: Cell<usize>,
+    names: &'a mut HashMap<usize, QualName>,
 }
 
-impl Sink {
-    fn get_id(&mut self) -> usize {
-        let id = self.next_id;
-        self.next_id += 2;
+impl <'a> Sink<'a> {
+    fn get_id(&self) -> usize {
+        let id = self.next_id.get();
+        self.next_id.set(id + 2);
         id
     }
 }
@@ -36,18 +37,18 @@ impl Sink {
 /// is processed. In this case the DOM elements are written into the "names" hashmap.
 ///
 /// For deeper understating of each function go to the TreeSink declaration.
-impl TreeSink for Sink {
+impl <'a> TreeSink for Sink<'a> {
     type Handle = usize;
     type Output = Self;
     fn finish(self) -> Self {
         self
     }
 
-    fn get_document(&mut self) -> usize {
+    fn get_document(&self) -> usize {
         0
     }
 
-    fn get_template_contents(&mut self, target: &usize) -> usize {
+    fn get_template_contents(&self, target: &usize) -> usize {
         if let Some(expanded_name!(html "template")) = self.names.get(target).map(|n| n.expanded())
         {
             target + 1
@@ -60,54 +61,59 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: &usize) -> ExpandedName {
-        self.names.get(target).expect("not an element").expanded()
+    fn elem_name(&self, _target: &usize) -> ExpandedName {
+        //XXX(jdm)
+        //let names = self.names.borrow();
+        //Ref::map(names, |names| names.get(target).expect("not an element").expanded())
+        //self.names.get(target).expect("not an element").expanded()
+        todo!()
     }
 
-    fn create_element(&mut self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
+    fn create_element(&self, _name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
         let id = self.get_id();
-        self.names.insert(id, name);
+        //self.names.insert(id, name);
         id
     }
 
-    fn create_comment(&mut self, _text: StrTendril) -> usize {
+    fn create_comment(&self, _text: StrTendril) -> usize {
         self.get_id()
     }
 
     #[allow(unused_variables)]
-    fn create_pi(&mut self, target: StrTendril, value: StrTendril) -> usize {
+    fn create_pi(&self, target: StrTendril, value: StrTendril) -> usize {
         unimplemented!()
     }
 
-    fn append_before_sibling(&mut self, _sibling: &usize, _new_node: NodeOrText<usize>) {}
+    fn append_before_sibling(&self, _sibling: &usize, _new_node: NodeOrText<usize>) {}
 
     fn append_based_on_parent_node(
-        &mut self,
+        &self,
         _element: &usize,
         _prev_element: &usize,
         _new_node: NodeOrText<usize>,
     ) {
     }
 
-    fn parse_error(&mut self, _msg: Cow<'static, str>) {}
-    fn set_quirks_mode(&mut self, _mode: QuirksMode) {}
-    fn append(&mut self, _parent: &usize, _child: NodeOrText<usize>) {}
+    fn parse_error(&self, _msg: Cow<'static, str>) {}
+    fn set_quirks_mode(&self, _mode: QuirksMode) {}
+    fn append(&self, _parent: &usize, _child: NodeOrText<usize>) {}
 
-    fn append_doctype_to_document(&mut self, _: StrTendril, _: StrTendril, _: StrTendril) {}
-    fn add_attrs_if_missing(&mut self, target: &usize, _attrs: Vec<Attribute>) {
+    fn append_doctype_to_document(&self, _: StrTendril, _: StrTendril, _: StrTendril) {}
+    fn add_attrs_if_missing(&self, target: &usize, _attrs: Vec<Attribute>) {
         assert!(self.names.contains_key(target), "not an element");
     }
-    fn remove_from_parent(&mut self, _target: &usize) {}
-    fn reparent_children(&mut self, _node: &usize, _new_parent: &usize) {}
-    fn mark_script_already_started(&mut self, _node: &usize) {}
+    fn remove_from_parent(&self, _target: &usize) {}
+    fn reparent_children(&self, _node: &usize, _new_parent: &usize) {}
+    fn mark_script_already_started(&self, _node: &usize) {}
 }
 
 /// In this example we implement the TreeSink trait which takes each parsed elements and insert
 /// it to a hashmap, while each element is given a numeric id.
 fn main() {
+    let mut names = HashMap::new();
     let sink = Sink {
-        next_id: 1,
-        names: HashMap::new(),
+        next_id: Cell::new(1),
+        names: &mut names,
     };
 
     // Read HTML from the standard input and parse it

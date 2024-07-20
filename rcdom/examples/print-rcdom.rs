@@ -69,9 +69,9 @@ fn main() {
         .unwrap();
     walk(0, &dom.document);
 
-    if !dom.errors.is_empty() {
+    if !dom.errors.borrow().is_empty() {
         println!("\nParse errors:");
-        for err in dom.errors.iter() {
+        for err in dom.errors.borrow().iter() {
             println!("    {}", err);
         }
     }

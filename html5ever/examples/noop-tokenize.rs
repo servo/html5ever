@@ -11,20 +11,21 @@
 
 extern crate html5ever;
 
+use std::cell::RefCell;
 use std::io;
 
 use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
 
 /// In our case, our sink only contains a tokens vector
-struct Sink(Vec<Token>);
+struct Sink(RefCell<Vec<Token>>);
 
 impl TokenSink for Sink {
     type Handle = ();
 
     /// Each processed token will be handled by this method
-    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
-        self.0.push(token);
+    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+        self.0.borrow_mut().push(token);
         TokenSinkResult::Continue
     }
 }
@@ -39,7 +40,7 @@ fn main() {
     let input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
-    let mut tok = Tokenizer::new(Sink(Vec::new()), Default::default());
+    let tok = Tokenizer::new(Sink(RefCell::new(Vec::new())), Default::default());
     let _ = tok.feed(&input);
     assert!(input.is_empty());
     tok.end();

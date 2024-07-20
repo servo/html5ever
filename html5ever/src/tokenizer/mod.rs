@@ -27,6 +27,7 @@ use log::{debug, trace};
 use mac::format_if;
 use markup5ever::{namespace_url, ns, small_char_set};
 use std::borrow::Cow::{self, Borrowed};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::mem;
 
@@ -106,68 +107,68 @@ pub struct Tokenizer<Sink> {
     pub sink: Sink,
 
     /// The abstract machine state as described in the spec.
-    state: states::State,
+    state: Cell<states::State>,
 
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
-    at_eof: bool,
+    at_eof: Cell<bool>,
 
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
-    char_ref_tokenizer: Option<Box<CharRefTokenizer>>,
+    char_ref_tokenizer: RefCell<Option<Box<CharRefTokenizer>>>,
 
     /// Current input character.  Just consumed, may reconsume.
-    current_char: char,
+    current_char: Cell<char>,
 
     /// Should we reconsume the current input character?
-    reconsume: bool,
+    reconsume: Cell<bool>,
 
     /// Did we just consume \r, translating it to \n?  In that case we need
     /// to ignore the next character if it's \n.
-    ignore_lf: bool,
+    ignore_lf: Cell<bool>,
 
     /// Discard a U+FEFF BYTE ORDER MARK if we see one?  Only done at the
     /// beginning of the stream.
-    discard_bom: bool,
+    discard_bom: Cell<bool>,
 
     /// Current tag kind.
-    current_tag_kind: TagKind,
+    current_tag_kind: Cell<TagKind>,
 
     /// Current tag name.
-    current_tag_name: StrTendril,
+    current_tag_name: RefCell<StrTendril>,
 
     /// Current tag is self-closing?
-    current_tag_self_closing: bool,
+    current_tag_self_closing: Cell<bool>,
 
     /// Current tag attributes.
-    current_tag_attrs: Vec<Attribute>,
+    current_tag_attrs: RefCell<Vec<Attribute>>,
 
     /// Current attribute name.
-    current_attr_name: StrTendril,
+    current_attr_name: RefCell<StrTendril>,
 
     /// Current attribute value.
-    current_attr_value: StrTendril,
+    current_attr_value: RefCell<StrTendril>,
 
     /// Current comment.
-    current_comment: StrTendril,
+    current_comment: RefCell<StrTendril>,
 
     /// Current doctype token.
-    current_doctype: Doctype,
+    current_doctype: RefCell<Doctype>,
 
     /// Last start tag name, for use in checking "appropriate end tag".
-    last_start_tag_name: Option<LocalName>,
+    last_start_tag_name: RefCell<Option<LocalName>>,
 
     /// The "temporary buffer" mentioned in the spec.
-    temp_buf: StrTendril,
+    temp_buf: RefCell<StrTendril>,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
-    state_profile: BTreeMap<states::State, u64>,
+    state_profile: RefCell<BTreeMap<states::State, u64>>,
 
     /// Record of how many ns we spent in the token sink.
-    time_in_sink: u64,
+    time_in_sink: Cell<u64>,
 
     /// Track current line
-    current_line: u64,
+    current_line: Cell<u64>,
 }
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
@@ -182,36 +183,36 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         Tokenizer {
             opts,
             sink,
-            state,
-            char_ref_tokenizer: None,
-            at_eof: false,
-            current_char: '\0',
-            reconsume: false,
-            ignore_lf: false,
-            discard_bom,
-            current_tag_kind: StartTag,
-            current_tag_name: StrTendril::new(),
-            current_tag_self_closing: false,
-            current_tag_attrs: vec![],
-            current_attr_name: StrTendril::new(),
-            current_attr_value: StrTendril::new(),
-            current_comment: StrTendril::new(),
-            current_doctype: Doctype::default(),
-            last_start_tag_name: start_tag_name,
-            temp_buf: StrTendril::new(),
-            state_profile: BTreeMap::new(),
-            time_in_sink: 0,
-            current_line: 1,
+            state: Cell::new(state),
+            char_ref_tokenizer: RefCell::new(None),
+            at_eof: Cell::new(false),
+            current_char: Cell::new('\0'),
+            reconsume: Cell::new(false),
+            ignore_lf: Cell::new(false),
+            discard_bom: Cell::new(discard_bom),
+            current_tag_kind: Cell::new(StartTag),
+            current_tag_name: RefCell::new(StrTendril::new()),
+            current_tag_self_closing: Cell::new(false),
+            current_tag_attrs: RefCell::new(vec![]),
+            current_attr_name: RefCell::new(StrTendril::new()),
+            current_attr_value: RefCell::new(StrTendril::new()),
+            current_comment: RefCell::new(StrTendril::new()),
+            current_doctype: RefCell::new(Doctype::default()),
+            last_start_tag_name: RefCell::new(start_tag_name),
+            temp_buf: RefCell::new(StrTendril::new()),
+            state_profile: RefCell::new(BTreeMap::new()),
+            time_in_sink: Cell::new(0),
+            current_line: Cell::new(1),
         }
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
+    pub fn feed(&self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if input.is_empty() {
             return TokenizerResult::Done;
         }
 
-        if self.discard_bom {
+        if self.discard_bom.get() {
             if let Some(c) = input.peek() {
                 if c == '\u{feff}' {
                     input.next();
@@ -224,21 +225,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.run(input)
     }
 
-    pub fn set_plaintext_state(&mut self) {
-        self.state = states::Plaintext;
+    pub fn set_plaintext_state(&self) {
+        self.state.set(states::Plaintext);
     }
 
-    fn process_token(&mut self, token: Token) -> TokenSinkResult<Sink::Handle> {
+    fn process_token(&self, token: Token) -> TokenSinkResult<Sink::Handle> {
         if self.opts.profile {
-            let (ret, dt) = time!(self.sink.process_token(token, self.current_line));
-            self.time_in_sink += dt;
+            let (ret, dt) = time!(self.sink.process_token(token, self.current_line.get()));
+            self.time_in_sink.set(self.time_in_sink.get() + dt);
             ret
         } else {
-            self.sink.process_token(token, self.current_line)
+            self.sink.process_token(token, self.current_line.get())
         }
     }
 
-    fn process_token_and_continue(&mut self, token: Token) {
+    fn process_token_and_continue(&self, token: Token) {
         assert!(matches!(
             self.process_token(token),
             TokenSinkResult::Continue
@@ -248,21 +249,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //§ preprocessing-the-input-stream
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char, input: &BufferQueue) -> Option<char> {
-        if self.ignore_lf {
-            self.ignore_lf = false;
+    fn get_preprocessed_char(&self, mut c: char, input: &BufferQueue) -> Option<char> {
+        if self.ignore_lf.get() {
+            self.ignore_lf.set(false);
             if c == '\n' {
                 c = unwrap_or_return!(input.next(), None);
             }
         }
 
         if c == '\r' {
-            self.ignore_lf = true;
+            self.ignore_lf.set(true);
             c = '\n';
         }
 
         if c == '\n' {
-            self.current_line += 1;
+            self.current_line.set(self.current_line.get() + 1);
         }
 
         if self.opts.exact_errors
@@ -277,16 +278,17 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         trace!("got character {}", c);
-        self.current_char = c;
+        self.current_char.set(c);
         Some(c)
     }
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self, input: &BufferQueue) -> Option<char> {
-        if self.reconsume {
-            self.reconsume = false;
-            Some(self.current_char)
+    fn get_char(&self, input: &BufferQueue) -> Option<char> {
+        if self.reconsume.get() {
+            self.reconsume.set(false);
+            Some(self.current_char.get())
+
         } else {
             input
                 .next()
@@ -294,12 +296,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn pop_except_from(&mut self, input: &BufferQueue, set: SmallCharSet) -> Option<SetResult> {
+    fn pop_except_from(&self, input: &BufferQueue, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
         // always do the same thing as the `NotFromSet` case.
-        if self.opts.exact_errors || self.reconsume || self.ignore_lf {
+        if self.opts.exact_errors || self.reconsume.get() || self.ignore_lf.get() {
             return self.get_char(input).map(FromSet);
         }
 
@@ -319,20 +321,25 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // BufferQueue::eat.
     //
     // NB: this doesn't set the current input character.
-    fn eat(&mut self, input: &BufferQueue, pat: &str, eq: fn(&u8, &u8) -> bool) -> Option<bool> {
-        if self.ignore_lf {
-            self.ignore_lf = false;
+    fn eat(
+        &self,
+        input: &BufferQueue,
+        pat: &str,
+        eq: fn(&u8, &u8) -> bool,
+    ) -> Option<bool> {
+        if self.ignore_lf.get() {
+            self.ignore_lf.set(false);
             if self.peek(input) == Some('\n') {
                 self.discard_char(input);
             }
         }
 
-        input.push_front(mem::take(&mut self.temp_buf));
+        input.push_front(mem::take(&mut self.temp_buf.borrow_mut()));
         match input.eat(pat, eq) {
-            None if self.at_eof => Some(false),
+            None if self.at_eof.get() => Some(false),
             None => {
                 while let Some(data) = input.next() {
-                    self.temp_buf.push_char(data);
+                    self.temp_buf.borrow_mut().push_char(data);
                 }
                 None
             },
@@ -341,14 +348,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Run the state machine for as long as we can.
-    fn run(&mut self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
+    fn run(&self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if self.opts.profile {
             loop {
-                let state = self.state;
-                let old_sink = self.time_in_sink;
+                let state = self.state.get();
+                let old_sink = self.time_in_sink.get();
                 let (run, mut dt) = time!(self.step(input));
-                dt -= (self.time_in_sink - old_sink);
-                let new = match self.state_profile.get_mut(&state) {
+                dt -= (self.time_in_sink.get() - old_sink);
+                let new = match self.state_profile.borrow_mut().get_mut(&state) {
                     Some(x) => {
                         *x += dt;
                         false
@@ -357,7 +364,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 };
                 if new {
                     // do this here because of borrow shenanigans
-                    self.state_profile.insert(state, dt);
+                    self.state_profile.borrow_mut().insert(state, dt);
                 }
                 match run {
                     ProcessResult::Continue => (),
@@ -377,28 +384,28 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         TokenizerResult::Done
     }
 
-    fn bad_char_error(&mut self) {
+    fn bad_char_error(&self) {
         let msg = format_if!(
             self.opts.exact_errors,
             "Bad character",
             "Saw {} in state {:?}",
-            self.current_char,
-            self.state
+            self.current_char.get(),
+            self.state.get()
         );
         self.emit_error(msg);
     }
 
-    fn bad_eof_error(&mut self) {
+    fn bad_eof_error(&self) {
         let msg = format_if!(
             self.opts.exact_errors,
             "Unexpected EOF",
             "Saw EOF in state {:?}",
-            self.state
+            self.state.get()
         );
         self.emit_error(msg);
     }
 
-    fn emit_char(&mut self, c: char) {
+    fn emit_char(&self, c: char) {
         self.process_token_and_continue(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
@@ -406,178 +413,180 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     // The string must not contain '\0'!
-    fn emit_chars(&mut self, b: StrTendril) {
+    fn emit_chars(&self, b: StrTendril) {
         self.process_token_and_continue(CharacterTokens(b));
     }
 
-    fn emit_current_tag(&mut self) -> ProcessResult<Sink::Handle> {
+    fn emit_current_tag(&self) -> ProcessResult<Sink::Handle> {
         self.finish_attribute();
 
-        let name = LocalName::from(&*self.current_tag_name);
-        self.current_tag_name.clear();
+        let name = LocalName::from(&**self.current_tag_name.borrow());
+        self.current_tag_name.borrow_mut().clear();
 
-        match self.current_tag_kind {
+        match self.current_tag_kind.get() {
             StartTag => {
-                self.last_start_tag_name = Some(name.clone());
+                *self.last_start_tag_name.borrow_mut() = Some(name.clone());
             },
             EndTag => {
-                if !self.current_tag_attrs.is_empty() {
+                if !self.current_tag_attrs.borrow().is_empty() {
                     self.emit_error(Borrowed("Attributes on an end tag"));
                 }
-                if self.current_tag_self_closing {
+                if self.current_tag_self_closing.get() {
                     self.emit_error(Borrowed("Self-closing end tag"));
                 }
             },
         }
 
         let token = TagToken(Tag {
-            kind: self.current_tag_kind,
+            kind: self.current_tag_kind.get(),
             name,
-            self_closing: self.current_tag_self_closing,
-            attrs: std::mem::take(&mut self.current_tag_attrs),
+            self_closing: self.current_tag_self_closing.get(),
+            attrs: std::mem::take(&mut self.current_tag_attrs.borrow_mut()),
         });
 
         match self.process_token(token) {
             TokenSinkResult::Continue => ProcessResult::Continue,
             TokenSinkResult::Plaintext => {
-                self.state = states::Plaintext;
+                self.state.set(states::Plaintext);
                 ProcessResult::Continue
             },
             TokenSinkResult::Script(node) => {
-                self.state = states::Data;
+                self.state.set(states::Data);
                 ProcessResult::Script(node)
             },
             TokenSinkResult::RawData(kind) => {
-                self.state = states::RawData(kind);
+                self.state.set(states::RawData(kind));
                 ProcessResult::Continue
             },
         }
     }
 
-    fn emit_temp_buf(&mut self) {
+    fn emit_temp_buf(&self) {
         // FIXME: Make sure that clearing on emit is spec-compatible.
-        let buf = mem::take(&mut self.temp_buf);
+        let buf = mem::take(&mut *self.temp_buf.borrow_mut());
         self.emit_chars(buf);
     }
 
-    fn clear_temp_buf(&mut self) {
+    fn clear_temp_buf(&self) {
         // Do this without a new allocation.
-        self.temp_buf.clear();
+        self.temp_buf.borrow_mut().clear();
     }
 
-    fn emit_current_comment(&mut self) {
-        let comment = mem::take(&mut self.current_comment);
+    fn emit_current_comment(&self) {
+        let comment = mem::take(&mut *self.current_comment.borrow_mut());
         self.process_token_and_continue(CommentToken(comment));
     }
 
-    fn discard_tag(&mut self) {
-        self.current_tag_name.clear();
-        self.current_tag_self_closing = false;
-        self.current_tag_attrs = vec![];
+    fn discard_tag(&self) {
+        self.current_tag_name.borrow_mut().clear();
+        self.current_tag_self_closing.set(false);
+        *self.current_tag_attrs.borrow_mut() = vec![];
     }
 
-    fn create_tag(&mut self, kind: TagKind, c: char) {
+    fn create_tag(&self, kind: TagKind, c: char) {
         self.discard_tag();
-        self.current_tag_name.push_char(c);
-        self.current_tag_kind = kind;
+        self.current_tag_name.borrow_mut().push_char(c);
+        self.current_tag_kind.set(kind);
     }
 
     fn have_appropriate_end_tag(&self) -> bool {
-        match self.last_start_tag_name.as_ref() {
-            Some(last) => (self.current_tag_kind == EndTag) && (*self.current_tag_name == **last),
+        match self.last_start_tag_name.borrow().as_ref() {
+            Some(last) => (self.current_tag_kind.get() == EndTag) && (**self.current_tag_name.borrow() == **last),
             None => false,
         }
     }
 
-    fn create_attribute(&mut self, c: char) {
+    fn create_attribute(&self, c: char) {
         self.finish_attribute();
 
-        self.current_attr_name.push_char(c);
+        self.current_attr_name.borrow_mut().push_char(c);
     }
 
-    fn finish_attribute(&mut self) {
-        if self.current_attr_name.is_empty() {
+    fn finish_attribute(&self) {
+        if self.current_attr_name.borrow().is_empty() {
             return;
         }
 
         // Check for a duplicate attribute.
         // FIXME: the spec says we should error as soon as the name is finished.
         let dup = {
-            let name = &*self.current_attr_name;
+            let name = &*self.current_attr_name.borrow();
             self.current_tag_attrs
+                .borrow()
                 .iter()
-                .any(|a| &*a.name.local == name)
+                .any(|a| *a.name.local == **name)
         };
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
-            self.current_attr_name.clear();
-            self.current_attr_value.clear();
+            self.current_attr_name.borrow_mut().clear();
+            self.current_attr_value.borrow_mut().clear();
         } else {
-            let name = LocalName::from(&*self.current_attr_name);
-            self.current_attr_name.clear();
-            self.current_tag_attrs.push(Attribute {
+            let name = LocalName::from(&**self.current_attr_name.borrow());
+            self.current_attr_name.borrow_mut().clear();
+            self.current_tag_attrs.borrow_mut().push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
                 name: QualName::new(None, ns!(), name),
-                value: mem::take(&mut self.current_attr_value),
+                value: mem::take(&mut self.current_attr_value.borrow_mut()),
             });
         }
     }
 
-    fn emit_current_doctype(&mut self) {
-        let doctype = mem::take(&mut self.current_doctype);
+    fn emit_current_doctype(&self) {
+        let doctype = self.current_doctype.take();
         self.process_token_and_continue(DoctypeToken(doctype));
     }
 
-    fn doctype_id(&mut self, kind: DoctypeIdKind) -> &mut Option<StrTendril> {
+    fn doctype_id(&self, kind: DoctypeIdKind) -> RefMut<Option<StrTendril>> {
+        let current_doctype = self.current_doctype.borrow_mut();
         match kind {
-            Public => &mut self.current_doctype.public_id,
-            System => &mut self.current_doctype.system_id,
+            Public => RefMut::map(current_doctype, |d| &mut d.public_id),
+            System => RefMut::map(current_doctype, |d| &mut d.system_id),
         }
     }
 
-    fn clear_doctype_id(&mut self, kind: DoctypeIdKind) {
-        let id = self.doctype_id(kind);
+    fn clear_doctype_id(&self, kind: DoctypeIdKind) {
+        let mut id = self.doctype_id(kind);
         match *id {
             Some(ref mut s) => s.clear(),
             None => *id = Some(StrTendril::new()),
         }
     }
 
-    fn consume_char_ref(&mut self) {
-        self.char_ref_tokenizer = Some(Box::new(CharRefTokenizer::new(matches!(
-            self.state,
+    fn consume_char_ref(&self) {
+        *self.char_ref_tokenizer.borrow_mut() = Some(Box::new(CharRefTokenizer::new(matches!(
+            self.state.get(),
             states::AttributeValue(_)
         ))));
     }
 
-    fn emit_eof(&mut self) {
+    fn emit_eof(&self) {
         self.process_token_and_continue(EOFToken);
     }
 
-    fn peek(&mut self, input: &BufferQueue) -> Option<char> {
-        if self.reconsume {
-            Some(self.current_char)
+    fn peek(&self, input: &BufferQueue) -> Option<char> {
+        if self.reconsume.get() {
+            Some(self.current_char.get())
         } else {
             input.peek()
         }
     }
 
-    fn discard_char(&mut self, input: &BufferQueue) {
+    fn discard_char(&self, input: &BufferQueue) {
         // peek() deals in un-processed characters (no newline normalization), while get_char()
         // does.
         //
         // since discard_char is supposed to be used in combination with peek(), discard_char must
         // discard a single raw input character, not a normalized newline.
-        if self.reconsume {
-            self.reconsume = false;
+        if self.reconsume.get() {
+            self.reconsume.set(false);
         } else {
             input.next();
         }
     }
 
-    fn emit_error(&mut self, error: Cow<'static, str>) {
+    fn emit_error(&self, error: Cow<'static, str>) {
         self.process_token_and_continue(ParseError(error));
     }
 }
@@ -587,25 +596,25 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 macro_rules! shorthand (
     ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c)                                   );
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c)                           );
-    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.push_char($c)                  );
+    ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.borrow_mut().push_char($c)     );
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag()                                   );
     ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input)                            );
-    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.push_char($c)                          );
+    ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.borrow_mut().push_char($c)             );
     ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf()                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf()                                );
     ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c)                            );
-    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.push_char($c)                 );
-    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.push_char($c)                );
-    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.push_tendril($c)             );
-    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.push_char($c)                   );
-    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.push_slice($c)                  );
+    ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.borrow_mut().push_char($c)    );
+    ( $me:ident : push_value $c:expr               ) => ( $me.current_attr_value.borrow_mut().push_char($c)   );
+    ( $me:ident : append_value $c:expr             ) => ( $me.current_attr_value.borrow_mut().push_tendril($c));
+    ( $me:ident : push_comment $c:expr             ) => ( $me.current_comment.borrow_mut().push_char($c)      );
+    ( $me:ident : append_comment $c:expr           ) => ( $me.current_comment.borrow_mut().push_slice($c)     );
     ( $me:ident : emit_comment                     ) => ( $me.emit_current_comment()                          );
-    ( $me:ident : clear_comment                    ) => ( $me.current_comment.clear()                         );
-    ( $me:ident : create_doctype                   ) => ( $me.current_doctype = Doctype::default()            );
-    ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.name, $c)      );
-    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push($me.doctype_id($k), $c)                 );
+    ( $me:ident : clear_comment                    ) => ( $me.current_comment.borrow_mut().clear()            );
+    ( $me:ident : create_doctype                   ) => ( *$me.current_doctype.borrow_mut() = Doctype::default() );
+    ( $me:ident : push_doctype_name $c:expr        ) => ( option_push(&mut $me.current_doctype.borrow_mut().name, $c) );
+    ( $me:ident : push_doctype_id $k:ident $c:expr ) => ( option_push(&mut $me.doctype_id($k), $c)            );
     ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k)                            );
-    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.force_quirks = true             );
+    ( $me:ident : force_quirks                     ) => ( $me.current_doctype.borrow_mut().force_quirks = true);
     ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype()                          );
     ( $me:ident : error                            ) => ( $me.bad_char_error()                                );
     ( $me:ident : error_eof                        ) => ( $me.bad_eof_error()                                 );
@@ -634,19 +643,19 @@ macro_rules! go (
 
     // These can only come at the end.
 
-    ( $me:ident : to $s:ident                    ) => ({ $me.state = states::$s; return ProcessResult::Continue;           });
-    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state = states::$s($k1); return ProcessResult::Continue;      });
-    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state = states::$s($k1($k2)); return ProcessResult::Continue; });
+    ( $me:ident : to $s:ident                    ) => ({ $me.state.set(states::$s); return ProcessResult::Continue;           });
+    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state.set(states::$s($k1)); return ProcessResult::Continue;      });
+    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state.set(states::$s($k1($k2))); return ProcessResult::Continue; });
 
-    ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume = true; go!($me: to $s);         });
-    ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume = true; go!($me: to $s $k1);     });
-    ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume = true; go!($me: to $s $k1 $k2); });
+    ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume.set(true); go!($me: to $s);         });
+    ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume.set(true); go!($me: to $s $k1);     });
+    ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume.set(true); go!($me: to $s $k1 $k2); });
 
     ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(); return ProcessResult::Continue;         });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
-        $me.state = states::$s;
+        $me.state.set(states::$s);
         return $me.emit_current_tag();
     });
 
@@ -693,13 +702,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
     #[allow(clippy::never_loop)]
-    fn step(&mut self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
-        if self.char_ref_tokenizer.is_some() {
+    fn step(&self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
+        if self.char_ref_tokenizer.borrow().is_some() {
             return self.step_char_ref_tokenizer(input);
         }
 
         trace!("processing in state {:?}", self.state);
-        match self.state {
+        match self.state.get() {
             //§ data-state
             states::Data => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
@@ -876,7 +885,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self, input);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if &*self.temp_buf == "script" {
+                        let esc = if &**self.temp_buf.borrow() == "script" {
                             DoubleEscaped
                         } else {
                             Escaped
@@ -942,7 +951,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self, input);
                 match c {
                     '\t' | '\n' | '\x0C' | ' ' | '/' | '>' => {
-                        let esc = if &*self.temp_buf == "script" {
+                        let esc = if &**self.temp_buf.borrow() == "script" {
                             Escaped
                         } else {
                             DoubleEscaped
@@ -1083,7 +1092,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::SelfClosingStartTag => loop {
                 match get_char!(self, input) {
                     '>' => {
-                        self.current_tag_self_closing = true;
+                        self.current_tag_self_closing.set(true);
                         go!(self: emit_tag Data);
                     },
                     _ => go!(self: error; reconsume BeforeAttributeName),
@@ -1379,7 +1388,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
+    fn step_char_ref_tokenizer(&self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
         // FIXME HACK: Take and replace the tokenizer so we don't
         // double-mut-borrow self.  This is why it's boxed.
         let mut tok = self.char_ref_tokenizer.take().unwrap();
@@ -1395,11 +1404,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             char_ref::Progress => ProcessResult::Continue,
         };
 
-        self.char_ref_tokenizer = Some(tok);
+        *self.char_ref_tokenizer.borrow_mut() = Some(tok);
         progress
     }
 
-    fn process_char_ref(&mut self, char_ref: CharRef) {
+    fn process_char_ref(&self, char_ref: CharRef) {
         let CharRef {
             mut chars,
             mut num_chars,
@@ -1412,21 +1421,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         for i in 0..num_chars {
             let c = chars[i as usize];
-            match self.state {
+            match self.state.get() {
                 states::Data | states::RawData(states::Rcdata) => go!(self: emit c),
 
                 states::AttributeValue(_) => go!(self: push_value c),
 
                 _ => panic!(
                     "state {:?} should not be reachable in process_char_ref",
-                    self.state
+                    self.state.get()
                 ),
             }
         }
     }
 
     /// Indicate that we have reached the end of the input.
-    pub fn end(&mut self) {
+    pub fn end(&self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
         let input = BufferQueue::default();
@@ -1440,7 +1449,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
-        self.at_eof = true;
+        self.at_eof.set(true);
         assert!(matches!(self.run(&input), TokenizerResult::Done));
         assert!(input.is_empty());
 
@@ -1461,7 +1470,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn dump_profile(&self) {
         let mut results: Vec<(states::State, u64)> =
-            self.state_profile.iter().map(|(s, t)| (*s, *t)).collect();
+            self.state_profile.borrow().iter().map(|(s, t)| (*s, *t)).collect();
         results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total: u64 = results
@@ -1469,7 +1478,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             .map(|&(_, t)| t)
             .fold(0, ::std::ops::Add::add);
         println!("\nTokenizer profile, in nanoseconds");
-        println!("\n{:12}         total in token sink", self.time_in_sink);
+        println!("\n{:12}         total in token sink", self.time_in_sink.get());
         println!("\n{:12}         total in tokenizer", total);
 
         for (k, v) in results.into_iter() {
@@ -1478,9 +1487,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn eof_step(&mut self) -> ProcessResult<Sink::Handle> {
-        debug!("processing EOF in state {:?}", self.state);
-        match self.state {
+    fn eof_step(&self) -> ProcessResult<Sink::Handle> {
+        debug!("processing EOF in state {:?}", self.state.get());
+        match self.state.get() {
             states::Data
             | states::RawData(Rcdata)
             | states::RawData(Rawtext)
@@ -1582,7 +1591,7 @@ mod test {
     use super::interface::{TagToken, Token};
 
     use markup5ever::buffer_queue::BufferQueue;
-    use std::mem;
+    use std::cell::RefCell;
 
     use crate::LocalName;
 
@@ -1590,29 +1599,29 @@ mod test {
     // if current_line is being updated when process_token is called. The lines
     // vector is a collection of the line numbers that each token is on.
     struct LinesMatch {
-        tokens: Vec<Token>,
-        current_str: StrTendril,
-        lines: Vec<(Token, u64)>,
+        tokens: RefCell<Vec<Token>>,
+        current_str: RefCell<StrTendril>,
+        lines: RefCell<Vec<(Token, u64)>>,
     }
 
     impl LinesMatch {
         fn new() -> LinesMatch {
             LinesMatch {
-                tokens: vec![],
-                current_str: StrTendril::new(),
-                lines: vec![],
+                tokens: RefCell::new(vec![]),
+                current_str: RefCell::new(StrTendril::new()),
+                lines: RefCell::new(vec![]),
             }
         }
 
-        fn push(&mut self, token: Token, line_number: u64) {
+        fn push(&self, token: Token, line_number: u64) {
             self.finish_str();
-            self.lines.push((token, line_number));
+            self.lines.borrow_mut().push((token, line_number));
         }
 
-        fn finish_str(&mut self) {
-            if self.current_str.len() > 0 {
-                let s = mem::take(&mut self.current_str);
-                self.tokens.push(CharacterTokens(s));
+        fn finish_str(&self) {
+            if self.current_str.borrow().len() > 0 {
+                let s = self.current_str.take();
+                self.tokens.borrow_mut().push(CharacterTokens(s));
             }
         }
     }
@@ -1621,17 +1630,17 @@ mod test {
         type Handle = ();
 
         fn process_token(
-            &mut self,
+            &self,
             token: Token,
             line_number: u64,
         ) -> TokenSinkResult<Self::Handle> {
             match token {
                 CharacterTokens(b) => {
-                    self.current_str.push_slice(&b);
+                    self.current_str.borrow_mut().push_slice(&b);
                 },
 
                 NullCharacterToken => {
-                    self.current_str.push_char('\0');
+                    self.current_str.borrow_mut().push_char('\0');
                 },
 
                 ParseError(_) => {
@@ -1664,14 +1673,14 @@ mod test {
     // numbers that each token is on
     fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<(Token, u64)> {
         let sink = LinesMatch::new();
-        let mut tok = Tokenizer::new(sink, opts);
+        let tok = Tokenizer::new(sink, opts);
         let buffer = BufferQueue::default();
         for chunk in input.into_iter() {
             buffer.push_back(chunk);
             let _ = tok.feed(&buffer);
         }
         tok.end();
-        tok.sink.lines
+        tok.sink.lines.take()
     }
 
     // Create a tag token

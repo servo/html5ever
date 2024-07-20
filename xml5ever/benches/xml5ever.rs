@@ -15,7 +15,7 @@ use xml5ever::tokenizer::{Token, TokenSink, XmlTokenizer};
 struct Sink;
 
 impl TokenSink for Sink {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&self, token: Token) {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         black_box(token);
@@ -52,7 +52,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
 
     c.bench_function(&test_name, move |b| {
         b.iter(|| {
-            let mut tok = XmlTokenizer::new(Sink, Default::default());
+            let tok = XmlTokenizer::new(Sink, Default::default());
             let buffer = BufferQueue::default();
             // We are doing clone inside the bench function, this is not ideal, but possibly
             // necessary since our iterator consumes the underlying buffer.

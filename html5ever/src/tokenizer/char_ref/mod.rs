@@ -114,7 +114,7 @@ impl CharRefTokenizer {
 impl CharRefTokenizer {
     pub(super) fn step<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         if self.result.is_some() {
@@ -134,7 +134,7 @@ impl CharRefTokenizer {
 
     fn do_begin<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
@@ -155,7 +155,7 @@ impl CharRefTokenizer {
 
     fn do_octothorpe<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
@@ -176,7 +176,7 @@ impl CharRefTokenizer {
 
     fn do_numeric<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
         base: u32,
     ) -> Status {
@@ -206,7 +206,7 @@ impl CharRefTokenizer {
 
     fn do_numeric_semicolon<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
@@ -220,7 +220,7 @@ impl CharRefTokenizer {
 
     fn unconsume_numeric<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
@@ -233,7 +233,7 @@ impl CharRefTokenizer {
         self.finish_none()
     }
 
-    fn finish_numeric<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) -> Status {
+    fn finish_numeric<Sink: TokenSink>(&mut self, tokenizer: &Tokenizer<Sink>) -> Status {
         fn conv(n: u32) -> char {
             from_u32(n).expect("invalid char missed by error handling cases")
         }
@@ -269,7 +269,7 @@ impl CharRefTokenizer {
 
     fn do_named<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         // peek + discard skips over newline normalization, therefore making it easier to
@@ -294,7 +294,7 @@ impl CharRefTokenizer {
         }
     }
 
-    fn emit_name_error<Sink: TokenSink>(&mut self, tokenizer: &mut Tokenizer<Sink>) {
+    fn emit_name_error<Sink: TokenSink>(&mut self, tokenizer: &Tokenizer<Sink>) {
         let msg = format_if!(
             tokenizer.opts.exact_errors,
             "Invalid character reference",
@@ -310,7 +310,7 @@ impl CharRefTokenizer {
 
     fn finish_named<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
         end_char: Option<char>,
     ) -> Status {
@@ -381,7 +381,7 @@ impl CharRefTokenizer {
                     self.finish_none()
                 } else {
                     input.push_front(StrTendril::from_slice(&self.name_buf()[name_len..]));
-                    tokenizer.ignore_lf = false;
+                    tokenizer.ignore_lf.set(false);
                     self.result = Some(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
@@ -394,7 +394,7 @@ impl CharRefTokenizer {
 
     fn do_bogus_name<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
         // peek + discard skips over newline normalization, therefore making it easier to
@@ -413,7 +413,7 @@ impl CharRefTokenizer {
 
     pub(super) fn end_of_file<Sink: TokenSink>(
         &mut self,
-        tokenizer: &mut Tokenizer<Sink>,
+        tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) {
         while self.result.is_none() {

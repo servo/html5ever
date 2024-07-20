@@ -24,7 +24,7 @@ use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
 struct SimpleTokenPrinter;
 
 impl TokenSink for SimpleTokenPrinter {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&self, token: Token) {
         match token {
             CharacterTokens(b) => {
                 println!("TEXT: {}", &*b);
@@ -75,7 +75,7 @@ fn main() {
     let input_buffer = BufferQueue::default();
     input_buffer.push_back(input.try_reinterpret().unwrap());
     // Here we create and run tokenizer
-    let mut tok = XmlTokenizer::new(sink, Default::default());
+    let tok = XmlTokenizer::new(sink, Default::default());
     tok.feed(&input_buffer);
     tok.end();
 }
