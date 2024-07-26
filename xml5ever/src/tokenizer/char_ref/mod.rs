@@ -116,7 +116,7 @@ impl CharRefTokenizer {
     pub fn step<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         if self.result.is_some() {
             return Done;
@@ -136,7 +136,7 @@ impl CharRefTokenizer {
     fn do_begin<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
             '\t' | '\n' | '\x0C' | ' ' | '<' | '&' => self.finish_none(),
@@ -159,7 +159,7 @@ impl CharRefTokenizer {
     fn do_octothorpe<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
         match c {
@@ -181,7 +181,7 @@ impl CharRefTokenizer {
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
         base: u32,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
         match c.to_digit(base) {
@@ -210,7 +210,7 @@ impl CharRefTokenizer {
     fn do_numeric_semicolon<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         match unwrap_or_return!(tokenizer.peek(input), Stuck) {
             ';' => tokenizer.discard_char(input),
@@ -224,7 +224,7 @@ impl CharRefTokenizer {
     fn unconsume_numeric<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         let mut unconsume = StrTendril::from_char('#');
         if let Some(c) = self.hex_marker {
@@ -273,7 +273,7 @@ impl CharRefTokenizer {
     fn do_named<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
         self.name_buf_mut().push_char(c);
@@ -307,7 +307,7 @@ impl CharRefTokenizer {
     fn unconsume_name<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) {
         tokenizer.unconsume(input, self.name_buf_opt.take().unwrap());
     }
@@ -316,7 +316,7 @@ impl CharRefTokenizer {
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
         end_char: Option<char>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         match self.name_match {
             None => {
@@ -404,7 +404,7 @@ impl CharRefTokenizer {
     fn do_bogus_name<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) -> Status {
         let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
         self.name_buf_mut().push_char(c);
@@ -420,7 +420,7 @@ impl CharRefTokenizer {
     pub fn end_of_file<Sink: TokenSink>(
         &mut self,
         tokenizer: &mut XmlTokenizer<Sink>,
-        input: &mut BufferQueue,
+        input: & BufferQueue,
     ) {
         while self.result.is_none() {
             match self.state {

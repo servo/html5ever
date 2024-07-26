@@ -216,15 +216,11 @@ impl BufferQueue {
 
         Some(true)
     }
-}
-
-impl Iterator for BufferQueue {
-    type Item = char;
 
     /// Get the next character if one is available, removing it from the queue.
     ///
     /// This function manages the buffers, removing them as they become empty.
-    fn next(&mut self) -> Option<char> {
+    pub fn next(&self) -> Option<char> {
         let (result, now_empty) = match self.buffers.borrow_mut().front_mut() {
             None => (None, false),
             Some(buf) => {
@@ -251,7 +247,7 @@ mod test {
 
     #[test]
     fn smoke_test() {
-        let mut bq = BufferQueue::default();
+        let bq = BufferQueue::default();
         assert_eq!(bq.peek(), None);
         assert_eq!(bq.next(), None);
 
@@ -269,7 +265,7 @@ mod test {
 
     #[test]
     fn can_unconsume() {
-        let mut bq = BufferQueue::default();
+        let bq = BufferQueue::default();
         bq.push_back("abc".to_tendril());
         assert_eq!(bq.next(), Some('a'));
 
@@ -297,7 +293,7 @@ mod test {
         // This is not very comprehensive.  We rely on the tokenizer
         // integration tests for more thorough testing with many
         // different input buffer splits.
-        let mut bq = BufferQueue::default();
+        let bq = BufferQueue::default();
         bq.push_back("a".to_tendril());
         bq.push_back("bc".to_tendril());
         assert_eq!(bq.eat("abcd", u8::eq_ignore_ascii_case), None);
