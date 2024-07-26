@@ -206,7 +206,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: & BufferQueue) -> TokenizerResult<Sink::Handle> {
+    pub fn feed(&mut self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if input.is_empty() {
             return TokenizerResult::Done;
         }
@@ -248,7 +248,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     //§ preprocessing-the-input-stream
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char, input: & BufferQueue) -> Option<char> {
+    fn get_preprocessed_char(&mut self, mut c: char, input: &BufferQueue) -> Option<char> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
@@ -283,7 +283,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self, input: & BufferQueue) -> Option<char> {
+    fn get_char(&mut self, input: &BufferQueue) -> Option<char> {
         if self.reconsume {
             self.reconsume = false;
             Some(self.current_char)
@@ -294,7 +294,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn pop_except_from(&mut self, input: & BufferQueue, set: SmallCharSet) -> Option<SetResult> {
+    fn pop_except_from(&mut self, input: &BufferQueue, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
@@ -319,12 +319,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // BufferQueue::eat.
     //
     // NB: this doesn't set the current input character.
-    fn eat(
-        &mut self,
-        input: & BufferQueue,
-        pat: &str,
-        eq: fn(&u8, &u8) -> bool,
-    ) -> Option<bool> {
+    fn eat(&mut self, input: &BufferQueue, pat: &str, eq: fn(&u8, &u8) -> bool) -> Option<bool> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if self.peek(input) == Some('\n') {
@@ -346,7 +341,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     /// Run the state machine for as long as we can.
-    fn run(&mut self, input: & BufferQueue) -> TokenizerResult<Sink::Handle> {
+    fn run(&mut self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if self.opts.profile {
             loop {
                 let state = self.state;
@@ -569,7 +564,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn discard_char(&mut self, input: & BufferQueue) {
+    fn discard_char(&mut self, input: &BufferQueue) {
         // peek() deals in un-processed characters (no newline normalization), while get_char()
         // does.
         //
@@ -698,7 +693,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
     #[allow(clippy::never_loop)]
-    fn step(&mut self, input: & BufferQueue) -> ProcessResult<Sink::Handle> {
+    fn step(&mut self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer(input);
         }
@@ -1384,7 +1379,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self, input: & BufferQueue) -> ProcessResult<Sink::Handle> {
+    fn step_char_ref_tokenizer(&mut self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
         // FIXME HACK: Take and replace the tokenizer so we don't
         // double-mut-borrow self.  This is why it's boxed.
         let mut tok = self.char_ref_tokenizer.take().unwrap();
