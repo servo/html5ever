@@ -1081,11 +1081,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
-        let mut input = BufferQueue::default();
+        let input = BufferQueue::default();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
-                tok.end_of_file(self, &mut input);
+                tok.end_of_file(self, &input);
                 self.process_char_ref(tok.get_result());
             },
         }
@@ -1093,7 +1093,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run(&mut input);
+        self.run(&input);
 
         while self.eof_step() {
             // loop

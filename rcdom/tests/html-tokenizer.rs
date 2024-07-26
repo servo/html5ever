@@ -147,12 +147,12 @@ impl TokenSink for TokenLogger {
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = Tokenizer::new(sink, opts);
-    let mut buffer = BufferQueue::default();
+    let buffer = BufferQueue::default();
     for chunk in input.into_iter() {
         buffer.push_back(chunk);
-        let _ = tok.feed(&mut buffer);
+        let _ = tok.feed(&buffer);
     }
-    let _ = tok.feed(&mut buffer);
+    let _ = tok.feed(&buffer);
     tok.end();
     tok.sink.get_tokens()
 }

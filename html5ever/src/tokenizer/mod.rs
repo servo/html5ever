@@ -1429,11 +1429,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
-        let mut input = BufferQueue::default();
+        let input = BufferQueue::default();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
-                tok.end_of_file(self, &mut input);
+                tok.end_of_file(self, &input);
                 self.process_char_ref(tok.get_result());
             },
         }
@@ -1441,7 +1441,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        assert!(matches!(self.run(&mut input), TokenizerResult::Done));
+        assert!(matches!(self.run(&input), TokenizerResult::Done));
         assert!(input.is_empty());
 
         loop {
@@ -1665,10 +1665,10 @@ mod test {
     fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> Vec<(Token, u64)> {
         let sink = LinesMatch::new();
         let mut tok = Tokenizer::new(sink, opts);
-        let mut buffer = BufferQueue::default();
+        let buffer = BufferQueue::default();
         for chunk in input.into_iter() {
             buffer.push_back(chunk);
-            let _ = tok.feed(&mut buffer);
+            let _ = tok.feed(&buffer);
         }
         tok.end();
         tok.sink.lines

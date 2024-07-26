@@ -129,13 +129,13 @@ impl TokenSink for TokenLogger {
 fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
     let sink = TokenLogger::new(opts.exact_errors);
     let mut tok = XmlTokenizer::new(sink, opts);
-    let mut buf = BufferQueue::default();
+    let buf = BufferQueue::default();
 
     for chunk in input.into_iter() {
         buf.push_back(chunk);
-        tok.feed(&mut buf);
+        tok.feed(&buf);
     }
-    tok.feed(&mut buf);
+    tok.feed(&buf);
     tok.end();
     tok.sink.get_tokens()
 }
