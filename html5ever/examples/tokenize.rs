@@ -90,7 +90,7 @@ fn main() {
     let mut chunk = ByteTendril::new();
     io::stdin().read_to_tendril(&mut chunk).unwrap();
 
-    let mut input = BufferQueue::default();
+    let input = BufferQueue::default();
     input.push_back(chunk.try_reinterpret().unwrap());
 
     let mut tok = Tokenizer::new(
@@ -100,7 +100,7 @@ fn main() {
             ..Default::default()
         },
     );
-    let _ = tok.feed(&mut input);
+    let _ = tok.feed(&input);
 
     assert!(input.is_empty());
     tok.end();

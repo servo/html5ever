@@ -91,7 +91,7 @@ fn main() {
     let mut sink = TokenPrinter { in_char_run: false };
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
-    let mut input_buffer = BufferQueue::default();
+    let input_buffer = BufferQueue::default();
     input_buffer.push_back(input.try_reinterpret().unwrap());
 
     let mut tok = XmlTokenizer::new(
@@ -102,7 +102,7 @@ fn main() {
             ..Default::default()
         },
     );
-    tok.feed(&mut input_buffer);
+    tok.feed(&input_buffer);
     tok.end();
     sink.is_char(false);
 }

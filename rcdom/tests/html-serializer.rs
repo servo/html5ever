@@ -66,13 +66,13 @@ impl Serialize for Tokens {
 }
 
 fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
-    let mut input = {
-        let mut q = ::html5ever::tokenizer::BufferQueue::default();
+    let input = {
+        let q = ::html5ever::tokenizer::BufferQueue::default();
         q.push_front(input);
         q
     };
     let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
-    let _ = tokenizer.feed(&mut input);
+    let _ = tokenizer.feed(&input);
     tokenizer.end();
     let mut output = ::std::io::Cursor::new(vec![]);
     serialize(

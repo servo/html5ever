@@ -200,7 +200,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&mut self, input: &mut BufferQueue) {
+    pub fn feed(&mut self, input: &BufferQueue) {
         if input.is_empty() {
             return;
         }
@@ -229,7 +229,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     // Get the next input character, which might be the character
     // 'c' that we already consumed from the buffers.
-    fn get_preprocessed_char(&mut self, mut c: char, input: &mut BufferQueue) -> Option<char> {
+    fn get_preprocessed_char(&mut self, mut c: char, input: &BufferQueue) -> Option<char> {
         if self.ignore_lf {
             self.ignore_lf = false;
             if c == '\n' {
@@ -274,7 +274,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         self.emit_error(msg);
     }
 
-    fn pop_except_from(&mut self, input: &mut BufferQueue, set: SmallCharSet) -> Option<SetResult> {
+    fn pop_except_from(&mut self, input: &BufferQueue, set: SmallCharSet) -> Option<SetResult> {
         // Bail to the slow path for various corner cases.
         // This means that `FromSet` can contain characters not in the set!
         // It shouldn't matter because the fallback `FromSet` case should
@@ -300,12 +300,14 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     //
     // NB: this doesn't do input stream preprocessing or set the current input
     // character.
-    fn eat(&mut self, input: &mut BufferQueue, pat: &str) -> Option<bool> {
+    fn eat(&mut self, input: &BufferQueue, pat: &str) -> Option<bool> {
         input.push_front(replace(&mut self.temp_buf, StrTendril::new()));
         match input.eat(pat, u8::eq_ignore_ascii_case) {
             None if self.at_eof => Some(false),
             None => {
-                self.temp_buf.extend(input);
+                while let Some(data) = input.next() {
+                    self.temp_buf.push_char(data);
+                }
                 None
             },
             Some(matched) => Some(matched),
@@ -313,7 +315,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Run the state machine for as long as we can.
-    pub fn run(&mut self, input: &mut BufferQueue) {
+    pub fn run(&mut self, input: &BufferQueue) {
         if self.opts.profile {
             loop {
                 let state = self.state;
@@ -342,7 +344,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     //§ tokenization
     // Get the next input character, if one is available.
-    fn get_char(&mut self, input: &mut BufferQueue) -> Option<char> {
+    fn get_char(&mut self, input: &BufferQueue) -> Option<char> {
         if self.reconsume {
             self.reconsume = false;
             Some(self.current_char)
@@ -495,7 +497,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn peek(&mut self, input: &mut BufferQueue) -> Option<char> {
+    fn peek(&mut self, input: &BufferQueue) -> Option<char> {
         if self.reconsume {
             Some(self.current_char)
         } else {
@@ -503,12 +505,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn discard_char(&mut self, input: &mut BufferQueue) {
+    fn discard_char(&mut self, input: &BufferQueue) {
         let c = self.get_char(input);
         assert!(c.is_some());
     }
 
-    fn unconsume(&mut self, input: &mut BufferQueue, buf: StrTendril) {
+    fn unconsume(&mut self, input: &BufferQueue, buf: StrTendril) {
         input.push_front(buf);
     }
 }
@@ -638,7 +640,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     // Return true if we should be immediately re-invoked
     // (this just simplifies control flow vs. break / continue).
     #[allow(clippy::never_loop)]
-    fn step(&mut self, input: &mut BufferQueue) -> bool {
+    fn step(&mut self, input: &BufferQueue) -> bool {
         if self.char_ref_tokenizer.is_some() {
             return self.step_char_ref_tokenizer(input);
         }
@@ -1079,11 +1081,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     pub fn end(&mut self) {
         // Handle EOF in the char ref sub-tokenizer, if there is one.
         // Do this first because it might un-consume stuff.
-        let mut input = BufferQueue::default();
+        let input = BufferQueue::default();
         match self.char_ref_tokenizer.take() {
             None => (),
             Some(mut tok) => {
-                tok.end_of_file(self, &mut input);
+                tok.end_of_file(self, &input);
                 self.process_char_ref(tok.get_result());
             },
         }
@@ -1091,7 +1093,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof = true;
-        self.run(&mut input);
+        self.run(&input);
 
         while self.eof_step() {
             // loop
@@ -1204,7 +1206,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&mut self, input: &mut BufferQueue) -> bool {
+    fn step_char_ref_tokenizer(&mut self, input: &BufferQueue) -> bool {
         let mut tok = self.char_ref_tokenizer.take().unwrap();
         let outcome = tok.step(self, input);
 

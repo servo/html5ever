@@ -72,10 +72,10 @@ fn main() {
     // into StrTendril.
 
     // Load input into BufferQueue
-    let mut input_buffer = BufferQueue::default();
+    let input_buffer = BufferQueue::default();
     input_buffer.push_back(input.try_reinterpret().unwrap());
     // Here we create and run tokenizer
     let mut tok = XmlTokenizer::new(sink, Default::default());
-    tok.feed(&mut input_buffer);
+    tok.feed(&input_buffer);
     tok.end();
 }

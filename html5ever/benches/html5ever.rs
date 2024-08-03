@@ -54,14 +54,14 @@ fn run_bench(c: &mut Criterion, name: &str) {
     c.bench_function(&test_name, move |b| {
         b.iter(|| {
             let mut tok = Tokenizer::new(Sink, Default::default());
-            let mut buffer = BufferQueue::default();
+            let buffer = BufferQueue::default();
             // We are doing clone inside the bench function, this is not ideal, but possibly
             // necessary since our iterator consumes the underlying buffer.
             for buf in input.clone().into_iter() {
                 buffer.push_back(buf);
-                let _ = tok.feed(&mut buffer);
+                let _ = tok.feed(&buffer);
             }
-            let _ = tok.feed(&mut buffer);
+            let _ = tok.feed(&buffer);
             tok.end();
         })
     });
