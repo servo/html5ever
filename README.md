@@ -41,6 +41,17 @@ git submodule update --init
 
 Run `cargo doc` in the repository root to build local documentation under `target/doc/`.
 
+### Code generation
+
+Some of the components of this repository are generated through automatic
+processes. `cargo xtask codegen` runs all generation tasks. Generate code is
+commited to the git repository.
+
+In particular, `cargo xtask codegen` generates:
+
+1. `markup5ever/generated.rs` and `markup5ever/data/named_entities.rs`.
+
+2. `html5ever/src/generated.rs`
 
 ## Details
 
