@@ -288,7 +288,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         if self.reconsume.get() {
             self.reconsume.set(false);
             Some(self.current_char.get())
-
         } else {
             input
                 .next()
@@ -321,12 +320,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     // BufferQueue::eat.
     //
     // NB: this doesn't set the current input character.
-    fn eat(
-        &self,
-        input: &BufferQueue,
-        pat: &str,
-        eq: fn(&u8, &u8) -> bool,
-    ) -> Option<bool> {
+    fn eat(&self, input: &BufferQueue, pat: &str, eq: fn(&u8, &u8) -> bool) -> Option<bool> {
         if self.ignore_lf.get() {
             self.ignore_lf.set(false);
             if self.peek(input) == Some('\n') {
@@ -491,7 +485,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     fn have_appropriate_end_tag(&self) -> bool {
         match self.last_start_tag_name.borrow().as_ref() {
-            Some(last) => (self.current_tag_kind.get() == EndTag) && (**self.current_tag_name.borrow() == **last),
+            Some(last) => {
+                (self.current_tag_kind.get() == EndTag)
+                    && (**self.current_tag_name.borrow() == **last)
+            },
             None => false,
         }
     }
@@ -1469,8 +1466,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn dump_profile(&self) {
-        let mut results: Vec<(states::State, u64)> =
-            self.state_profile.borrow().iter().map(|(s, t)| (*s, *t)).collect();
+        let mut results: Vec<(states::State, u64)> = self
+            .state_profile
+            .borrow()
+            .iter()
+            .map(|(s, t)| (*s, *t))
+            .collect();
         results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total: u64 = results
@@ -1478,7 +1479,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             .map(|&(_, t)| t)
             .fold(0, ::std::ops::Add::add);
         println!("\nTokenizer profile, in nanoseconds");
-        println!("\n{:12}         total in token sink", self.time_in_sink.get());
+        println!(
+            "\n{:12}         total in token sink",
+            self.time_in_sink.get()
+        );
         println!("\n{:12}         total in tokenizer", total);
 
         for (k, v) in results.into_iter() {
@@ -1629,11 +1633,7 @@ mod test {
     impl TokenSink for LinesMatch {
         type Handle = ();
 
-        fn process_token(
-            &self,
-            token: Token,
-            line_number: u64,
-        ) -> TokenSinkResult<Self::Handle> {
+        fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle> {
             match token {
                 CharacterTokens(b) => {
                     self.current_str.borrow_mut().push_slice(&b);

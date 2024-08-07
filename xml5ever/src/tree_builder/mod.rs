@@ -14,7 +14,7 @@ use mac::unwrap_or_return;
 use markup5ever::{local_name, namespace_prefix, namespace_url, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
-use std::cell::{Cell, RefCell, Ref};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::btree_map::Iter;
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
@@ -362,7 +362,10 @@ where
         self.bind_qname(&mut tag.name);
 
         // Finally, we dump current namespace if its unneeded.
-        let x = mem::replace(&mut *self.current_namespace.borrow_mut(), NamespaceMap::empty());
+        let x = mem::replace(
+            &mut *self.current_namespace.borrow_mut(),
+            NamespaceMap::empty(),
+        );
 
         // Only start tag doesn't dump current namespace. However, <script /> is treated
         // differently than every other empty tag, so it needs to retain the current
@@ -442,7 +445,9 @@ where
     Sink: TreeSink<Handle = Handle>,
 {
     fn current_node(&self) -> Ref<Handle> {
-        Ref::map(self.open_elems.borrow(), |elems| elems.last().expect("no current element"))
+        Ref::map(self.open_elems.borrow(), |elems| {
+            elems.last().expect("no current element")
+        })
     }
 
     fn insert_appropriately(&self, child: NodeOrText<Handle>) {
@@ -583,7 +588,11 @@ where
 
     fn pop(&self) -> Handle {
         self.namespace_stack.borrow_mut().pop();
-        let node = self.open_elems.borrow_mut().pop().expect("no current element");
+        let node = self
+            .open_elems
+            .borrow_mut()
+            .pop()
+            .expect("no current element");
         self.sink.pop(&node);
         node
     }

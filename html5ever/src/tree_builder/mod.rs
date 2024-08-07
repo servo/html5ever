@@ -25,7 +25,7 @@ use crate::tokenizer::states as tok_state;
 use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
 use std::borrow::Cow::Borrowed;
-use std::cell::{Cell, RefCell, Ref, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::VecDeque;
 use std::iter::{Enumerate, Rev};
 use std::mem;
@@ -274,9 +274,18 @@ where
                 _ => (),
             }
         }
-        self.head_elem.borrow().as_ref().map(|h| tracer.trace_handle(h));
-        self.form_elem.borrow().as_ref().map(|h| tracer.trace_handle(h));
-        self.context_elem.borrow().as_ref().map(|h| tracer.trace_handle(h));
+        self.head_elem
+            .borrow()
+            .as_ref()
+            .map(|h| tracer.trace_handle(h));
+        self.form_elem
+            .borrow()
+            .as_ref()
+            .map(|h| tracer.trace_handle(h));
+        self.context_elem
+            .borrow()
+            .as_ref()
+            .map(|h| tracer.trace_handle(h));
     }
 
     #[allow(dead_code)]
@@ -451,11 +460,7 @@ where
 {
     type Handle = Handle;
 
-    fn process_token(
-        &self,
-        token: tokenizer::Token,
-        line_number: u64,
-    ) -> TokenSinkResult<Handle> {
+    fn process_token(&self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
         if line_number != self.current_line.get() {
             self.sink.set_current_line(line_number);
         }
@@ -546,10 +551,10 @@ struct ActiveFormattingView<'a, Handle: 'a> {
     data: Ref<'a, Vec<FormatEntry<Handle>>>,
 }
 
-impl <'a, Handle: 'a> ActiveFormattingView<'a, Handle> {
+impl<'a, Handle: 'a> ActiveFormattingView<'a, Handle> {
     fn iter(&'a self) -> impl Iterator<Item = (usize, &'a Handle, &'a Tag)> + 'a {
         ActiveFormattingIter {
-            iter: self.data.iter().enumerate().rev()
+            iter: self.data.iter().enumerate().rev(),
         }
     }
 }
@@ -625,10 +630,13 @@ where
     }
 
     fn position_in_active_formatting(&self, element: &Handle) -> Option<usize> {
-        self.active_formatting.borrow().iter().position(|n| match n {
-            &Marker => false,
-            &Element(ref handle, _) => self.sink.same_node(handle, element),
-        })
+        self.active_formatting
+            .borrow()
+            .iter()
+            .position(|n| match n {
+                &Marker => false,
+                &Element(ref handle, _) => self.sink.same_node(handle, element),
+            })
     }
 
     fn set_quirks_mode(&self, mode: QuirksMode) {
@@ -659,7 +667,9 @@ where
     //§ END
 
     fn current_node(&self) -> Ref<Handle> {
-        Ref::map(self.open_elems.borrow(), |elems| elems.last().expect("no current element"))
+        Ref::map(self.open_elems.borrow(), |elems| {
+            elems.last().expect("no current element")
+        })
     }
 
     fn adjusted_current_node(&self) -> Ref<Handle> {
@@ -819,7 +829,8 @@ where
                     tag.attrs.clone(),
                 );
                 self.open_elems.borrow_mut()[node_index] = new_element.clone();
-                self.active_formatting.borrow_mut()[node_formatting_index] = Element(new_element.clone(), tag);
+                self.active_formatting.borrow_mut()[node_formatting_index] =
+                    Element(new_element.clone(), tag);
                 node = new_element;
 
                 // 13.8.
@@ -902,7 +913,11 @@ where
     }
 
     fn pop(&self) -> Handle {
-        let elem = self.open_elems.borrow_mut().pop().expect("no current element");
+        let elem = self
+            .open_elems
+            .borrow_mut()
+            .pop()
+            .expect("no current element");
         self.sink.pop(&elem);
         elem
     }
@@ -1386,7 +1401,9 @@ where
         }
 
         let elem = self.insert_element(Push, ns!(html), tag.name.clone(), tag.attrs.clone());
-        self.active_formatting.borrow_mut().push(Element(elem.clone(), tag));
+        self.active_formatting
+            .borrow_mut()
+            .push(Element(elem.clone(), tag));
         elem
     }
 
@@ -1671,7 +1688,11 @@ where
     }
 
     fn foreign_start_tag(&self, mut tag: Tag) -> ProcessResult<Handle> {
-        let current_ns = self.sink.elem_name(&self.adjusted_current_node()).ns.clone();
+        let current_ns = self
+            .sink
+            .elem_name(&self.adjusted_current_node())
+            .ns
+            .clone();
         match current_ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),
             ns!(svg) => {

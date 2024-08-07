@@ -89,7 +89,9 @@ impl TokenSink for TokenPrinter {
 }
 
 fn main() {
-    let sink = TokenPrinter { in_char_run: Cell::new(false) };
+    let sink = TokenPrinter {
+        in_char_run: Cell::new(false),
+    };
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input_buffer = BufferQueue::default();

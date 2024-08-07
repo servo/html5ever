@@ -241,7 +241,10 @@ impl BufferQueue {
     }
 
     pub fn swap_with(&self, other: &BufferQueue) {
-        mem::swap(&mut *self.buffers.borrow_mut(), &mut *other.buffers.borrow_mut());
+        mem::swap(
+            &mut *self.buffers.borrow_mut(),
+            &mut *other.buffers.borrow_mut(),
+        );
     }
 }
 

@@ -85,7 +85,9 @@ impl TokenSink for TokenPrinter {
 /// In this example we implement the TokenSink trait in such a way that each token is printed.
 /// If a there's an error while processing a token it is printed as well.
 fn main() {
-    let sink = TokenPrinter { in_char_run: Cell::new(false) };
+    let sink = TokenPrinter {
+        in_char_run: Cell::new(false),
+    };
 
     // Read HTML from standard input
     let mut chunk = ByteTendril::new();

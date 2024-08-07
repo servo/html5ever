@@ -10,10 +10,10 @@
 use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
 use std::cell::RefCell;
+use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
-use std::env;
 
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::Test;

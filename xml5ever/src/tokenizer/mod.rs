@@ -417,7 +417,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     fn emit_current_tag(&self) {
         self.finish_attribute();
 
-        let qname = process_qname(replace(&mut *self.current_tag_name.borrow_mut(), StrTendril::new()));
+        let qname = process_qname(replace(
+            &mut *self.current_tag_name.borrow_mut(),
+            StrTendril::new(),
+        ));
 
         match self.current_tag_kind.get() {
             StartTag | EmptyTag => {},
@@ -463,7 +466,8 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     fn consume_char_ref(&self, addnl_allowed: Option<char>) {
         // NB: The char ref tokenizer assumes we have an additional allowed
         // character iff we're tokenizing in an attribute value.
-        *self.char_ref_tokenizer.borrow_mut() = Some(Box::new(CharRefTokenizer::new(addnl_allowed)));
+        *self.char_ref_tokenizer.borrow_mut() =
+            Some(Box::new(CharRefTokenizer::new(addnl_allowed)));
     }
 
     fn emit_eof(&self) {
@@ -1116,8 +1120,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     #[cfg(not(for_c))]
     fn dump_profile(&self) {
-        let mut results: Vec<(states::XmlState, u64)> =
-            self.state_profile.borrow().iter().map(|(s, t)| (*s, *t)).collect();
+        let mut results: Vec<(states::XmlState, u64)> = self
+            .state_profile
+            .borrow()
+            .iter()
+            .map(|(s, t)| (*s, *t))
+            .collect();
         results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
 
         let total: u64 = results
@@ -1125,7 +1133,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             .map(|&(_, t)| t)
             .fold(0, ::std::ops::Add::add);
         debug!("\nTokenizer profile, in nanoseconds");
-        debug!("\n{:12}         total in token sink", self.time_in_sink.get());
+        debug!(
+            "\n{:12}         total in token sink",
+            self.time_in_sink.get()
+        );
         debug!("\n{:12}         total in tokenizer", total);
 
         for (k, v) in results.into_iter() {
@@ -1249,7 +1260,10 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.current_attr_name.borrow_mut().clear();
             self.current_attr_value.borrow_mut().clear();
         } else {
-            let qname = process_qname(replace(&mut self.current_attr_name.borrow_mut(), StrTendril::new()));
+            let qname = process_qname(replace(
+                &mut self.current_attr_name.borrow_mut(),
+                StrTendril::new(),
+            ));
             let attr = Attribute {
                 name: qname.clone(),
                 value: replace(&mut self.current_attr_value.borrow_mut(), StrTendril::new()),

@@ -51,7 +51,8 @@ impl TreeSink for Sink {
     }
 
     fn get_template_contents(&self, target: &usize) -> usize {
-        if let Some(expanded_name!(html "template")) = self.names.borrow().get(target).map(|n| n.expanded())
+        if let Some(expanded_name!(html "template")) =
+            self.names.borrow().get(target).map(|n| n.expanded())
         {
             target + 1
         } else {
@@ -68,7 +69,12 @@ impl TreeSink for Sink {
     }
 
     fn elem_name(&self, target: &usize) -> ExpandedName {
-        self.names.borrow().get(target).cloned().expect("not an element").expanded()
+        self.names
+            .borrow()
+            .get(target)
+            .cloned()
+            .expect("not an element")
+            .expanded()
     }
 
     fn create_element(&self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
@@ -78,7 +84,9 @@ impl TreeSink for Sink {
         //      of this example code. A real implementation would either want to use a real
         //      real DOM tree implentation, or else use an arena as the backing store for
         //      memory used by the parser.
-        self.names.borrow_mut().insert(id, Box::leak(Box::new(name)));
+        self.names
+            .borrow_mut()
+            .insert(id, Box::leak(Box::new(name)));
         id
     }
 

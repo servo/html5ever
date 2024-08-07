@@ -48,13 +48,10 @@ impl TreeSink for LineCountingDOM {
         self.rcdom.elem_name(target)
     }
 
-    fn create_element(
-        &self,
-        name: QualName,
-        attrs: Vec<Attribute>,
-        flags: ElementFlags,
-    ) -> Handle {
-        self.line_vec.borrow_mut().push((name.clone(), self.current_line.get()));
+    fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
+        self.line_vec
+            .borrow_mut()
+            .push((name.clone(), self.current_line.get()));
         self.rcdom.create_element(name, attrs, flags)
     }
 
