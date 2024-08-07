@@ -57,7 +57,7 @@ where
 ///
 /// If your input is bytes, use `Parser::from_utf8`.
 pub fn parse_fragment<Sink>(
-    mut sink: Sink,
+    sink: Sink,
     opts: ParseOpts,
     context_name: QualName,
     context_attrs: Vec<Attribute>,
@@ -65,7 +65,7 @@ pub fn parse_fragment<Sink>(
 where
     Sink: TreeSink,
 {
-    let context_elem = create_element(&mut sink, context_name, context_attrs);
+    let context_elem = create_element(&sink, context_name, context_attrs);
     parse_fragment_for_element(sink, opts, context_elem, None)
 }
 
