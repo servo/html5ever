@@ -12,6 +12,7 @@
 extern crate markup5ever;
 extern crate xml5ever;
 
+use std::cell::Cell;
 use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
@@ -21,29 +22,29 @@ use xml5ever::tokenizer::{EmptyTag, EndTag, ShortTag, StartTag};
 use xml5ever::tokenizer::{PIToken, Pi};
 use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer, XmlTokenizerOpts};
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 struct TokenPrinter {
-    in_char_run: bool,
+    in_char_run: Cell<bool>,
 }
 
 impl TokenPrinter {
-    fn is_char(&mut self, is_char: bool) {
-        match (self.in_char_run, is_char) {
+    fn is_char(&self, is_char: bool) {
+        match (self.in_char_run.get(), is_char) {
             (false, true) => print!("CHAR : \""),
             (true, false) => println!("\""),
             _ => (),
         }
-        self.in_char_run = is_char;
+        self.in_char_run.set(is_char);
     }
 
-    fn do_char(&mut self, c: char) {
+    fn do_char(&self, c: char) {
         self.is_char(true);
         print!("{}", c.escape_default().collect::<String>());
     }
 }
 
 impl TokenSink for TokenPrinter {
-    fn process_token(&mut self, token: Token) {
+    fn process_token(&self, token: Token) {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
@@ -88,13 +89,15 @@ impl TokenSink for TokenPrinter {
 }
 
 fn main() {
-    let mut sink = TokenPrinter { in_char_run: false };
+    let sink = TokenPrinter {
+        in_char_run: Cell::new(false),
+    };
     let mut input = ByteTendril::new();
     io::stdin().read_to_tendril(&mut input).unwrap();
     let input_buffer = BufferQueue::default();
     input_buffer.push_back(input.try_reinterpret().unwrap());
 
-    let mut tok = XmlTokenizer::new(
+    let tok = XmlTokenizer::new(
         sink,
         XmlTokenizerOpts {
             profile: true,
@@ -104,5 +107,5 @@ fn main() {
     );
     tok.feed(&input_buffer);
     tok.end();
-    sink.is_char(false);
+    tok.sink.is_char(false);
 }

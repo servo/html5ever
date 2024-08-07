@@ -24,7 +24,7 @@ fn html5ever_parse_slice_into_arena<'a>(bytes: &[u8], arena: Arena<'a>) -> Ref<'
     let sink = Sink {
         arena,
         document: arena.alloc(Node::new(NodeData::Document)),
-        quirks_mode: QuirksMode::NoQuirks,
+        quirks_mode: Cell::new(QuirksMode::NoQuirks),
     };
 
     parse_document(sink, Default::default())
@@ -41,7 +41,7 @@ type Link<'arena> = Cell<Option<Ref<'arena>>>;
 struct Sink<'arena> {
     arena: Arena<'arena>,
     document: Ref<'arena>,
-    quirks_mode: QuirksMode,
+    quirks_mode: Cell<QuirksMode>,
 }
 
 /// DOM node which contains links to other nodes in the tree.
@@ -188,14 +188,14 @@ impl<'arena> TreeSink for Sink<'arena> {
         self.document
     }
 
-    fn parse_error(&mut self, _: Cow<'static, str>) {}
+    fn parse_error(&self, _: Cow<'static, str>) {}
 
-    fn get_document(&mut self) -> Ref<'arena> {
+    fn get_document(&self) -> Ref<'arena> {
         self.document
     }
 
-    fn set_quirks_mode(&mut self, mode: QuirksMode) {
-        self.quirks_mode = mode;
+    fn set_quirks_mode(&self, mode: QuirksMode) {
+        self.quirks_mode.set(mode);
     }
 
     fn same_node(&self, x: &Ref<'arena>, y: &Ref<'arena>) -> bool {
@@ -209,7 +209,7 @@ impl<'arena> TreeSink for Sink<'arena> {
         }
     }
 
-    fn get_template_contents(&mut self, target: &Ref<'arena>) -> Ref<'arena> {
+    fn get_template_contents(&self, target: &Ref<'arena>) -> Ref<'arena> {
         if let NodeData::Element {
             template_contents: Some(contents),
             ..
@@ -234,7 +234,7 @@ impl<'arena> TreeSink for Sink<'arena> {
     }
 
     fn create_element(
-        &mut self,
+        &self,
         name: QualName,
         attrs: Vec<Attribute>,
         flags: ElementFlags,
@@ -251,18 +251,18 @@ impl<'arena> TreeSink for Sink<'arena> {
         })
     }
 
-    fn create_comment(&mut self, text: StrTendril) -> Ref<'arena> {
+    fn create_comment(&self, text: StrTendril) -> Ref<'arena> {
         self.new_node(NodeData::Comment { contents: text })
     }
 
-    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Ref<'arena> {
+    fn create_pi(&self, target: StrTendril, data: StrTendril) -> Ref<'arena> {
         self.new_node(NodeData::ProcessingInstruction {
             target,
             contents: data,
         })
     }
 
-    fn append(&mut self, parent: &Ref<'arena>, child: NodeOrText<Ref<'arena>>) {
+    fn append(&self, parent: &Ref<'arena>, child: NodeOrText<Ref<'arena>>) {
         self.append_common(
             child,
             || parent.last_child.get(),
@@ -270,7 +270,7 @@ impl<'arena> TreeSink for Sink<'arena> {
         )
     }
 
-    fn append_before_sibling(&mut self, sibling: &Ref<'arena>, child: NodeOrText<Ref<'arena>>) {
+    fn append_before_sibling(&self, sibling: &Ref<'arena>, child: NodeOrText<Ref<'arena>>) {
         self.append_common(
             child,
             || sibling.previous_sibling.get(),
@@ -279,7 +279,7 @@ impl<'arena> TreeSink for Sink<'arena> {
     }
 
     fn append_based_on_parent_node(
-        &mut self,
+        &self,
         element: &Ref<'arena>,
         prev_element: &Ref<'arena>,
         child: NodeOrText<Ref<'arena>>,
@@ -292,7 +292,7 @@ impl<'arena> TreeSink for Sink<'arena> {
     }
 
     fn append_doctype_to_document(
-        &mut self,
+        &self,
         name: StrTendril,
         public_id: StrTendril,
         system_id: StrTendril,
@@ -304,7 +304,7 @@ impl<'arena> TreeSink for Sink<'arena> {
         }))
     }
 
-    fn add_attrs_if_missing(&mut self, target: &Ref<'arena>, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&self, target: &Ref<'arena>, attrs: Vec<Attribute>) {
         let mut existing = if let NodeData::Element { ref attrs, .. } = target.data {
             attrs.borrow_mut()
         } else {
@@ -322,11 +322,11 @@ impl<'arena> TreeSink for Sink<'arena> {
         );
     }
 
-    fn remove_from_parent(&mut self, target: &Ref<'arena>) {
+    fn remove_from_parent(&self, target: &Ref<'arena>) {
         target.detach()
     }
 
-    fn reparent_children(&mut self, node: &Ref<'arena>, new_parent: &Ref<'arena>) {
+    fn reparent_children(&self, node: &Ref<'arena>, new_parent: &Ref<'arena>) {
         let mut next_child = node.first_child.get();
         while let Some(child) = next_child {
             debug_assert!(ptr::eq::<Node>(child.parent.get().unwrap(), *node));

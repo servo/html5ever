@@ -7,10 +7,11 @@ use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
 use markup5ever::{local_name, namespace_url, ns, Attribute};
 use markup5ever_rcdom::{Handle, RcDom};
 use std::borrow::Cow;
+use std::cell::{Cell, RefCell};
 
 pub struct LineCountingDOM {
-    pub line_vec: Vec<(QualName, u64)>,
-    pub current_line: u64,
+    pub line_vec: RefCell<Vec<(QualName, u64)>>,
+    pub current_line: Cell<u64>,
     pub rcdom: RcDom,
 }
 
@@ -23,19 +24,19 @@ impl TreeSink for LineCountingDOM {
 
     type Handle = Handle;
 
-    fn parse_error(&mut self, msg: Cow<'static, str>) {
+    fn parse_error(&self, msg: Cow<'static, str>) {
         self.rcdom.parse_error(msg);
     }
 
-    fn get_document(&mut self) -> Handle {
+    fn get_document(&self) -> Handle {
         self.rcdom.get_document()
     }
 
-    fn get_template_contents(&mut self, target: &Handle) -> Handle {
+    fn get_template_contents(&self, target: &Handle) -> Handle {
         self.rcdom.get_template_contents(target)
     }
 
-    fn set_quirks_mode(&mut self, mode: QuirksMode) {
+    fn set_quirks_mode(&self, mode: QuirksMode) {
         self.rcdom.set_quirks_mode(mode)
     }
 
@@ -47,34 +48,31 @@ impl TreeSink for LineCountingDOM {
         self.rcdom.elem_name(target)
     }
 
-    fn create_element(
-        &mut self,
-        name: QualName,
-        attrs: Vec<Attribute>,
-        flags: ElementFlags,
-    ) -> Handle {
-        self.line_vec.push((name.clone(), self.current_line));
+    fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
+        self.line_vec
+            .borrow_mut()
+            .push((name.clone(), self.current_line.get()));
         self.rcdom.create_element(name, attrs, flags)
     }
 
-    fn create_comment(&mut self, text: StrTendril) -> Handle {
+    fn create_comment(&self, text: StrTendril) -> Handle {
         self.rcdom.create_comment(text)
     }
 
-    fn create_pi(&mut self, target: StrTendril, content: StrTendril) -> Handle {
+    fn create_pi(&self, target: StrTendril, content: StrTendril) -> Handle {
         self.rcdom.create_pi(target, content)
     }
 
-    fn append(&mut self, parent: &Handle, child: NodeOrText<Handle>) {
+    fn append(&self, parent: &Handle, child: NodeOrText<Handle>) {
         self.rcdom.append(parent, child)
     }
 
-    fn append_before_sibling(&mut self, sibling: &Handle, child: NodeOrText<Handle>) {
+    fn append_before_sibling(&self, sibling: &Handle, child: NodeOrText<Handle>) {
         self.rcdom.append_before_sibling(sibling, child)
     }
 
     fn append_based_on_parent_node(
-        &mut self,
+        &self,
         element: &Handle,
         prev_element: &Handle,
         child: NodeOrText<Handle>,
@@ -84,7 +82,7 @@ impl TreeSink for LineCountingDOM {
     }
 
     fn append_doctype_to_document(
-        &mut self,
+        &self,
         name: StrTendril,
         public_id: StrTendril,
         system_id: StrTendril,
@@ -93,24 +91,24 @@ impl TreeSink for LineCountingDOM {
             .append_doctype_to_document(name, public_id, system_id);
     }
 
-    fn add_attrs_if_missing(&mut self, target: &Handle, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&self, target: &Handle, attrs: Vec<Attribute>) {
         self.rcdom.add_attrs_if_missing(target, attrs);
     }
 
-    fn remove_from_parent(&mut self, target: &Handle) {
+    fn remove_from_parent(&self, target: &Handle) {
         self.rcdom.remove_from_parent(target);
     }
 
-    fn reparent_children(&mut self, node: &Handle, new_parent: &Handle) {
+    fn reparent_children(&self, node: &Handle, new_parent: &Handle) {
         self.rcdom.reparent_children(node, new_parent);
     }
 
-    fn mark_script_already_started(&mut self, target: &Handle) {
+    fn mark_script_already_started(&self, target: &Handle) {
         self.rcdom.mark_script_already_started(target);
     }
 
-    fn set_current_line(&mut self, line_number: u64) {
-        self.current_line = line_number;
+    fn set_current_line(&self, line_number: u64) {
+        self.current_line.set(line_number);
     }
 }
 
@@ -118,8 +116,8 @@ impl TreeSink for LineCountingDOM {
 fn check_four_lines() {
     // Input
     let sink = LineCountingDOM {
-        line_vec: vec![],
-        current_line: 1,
+        line_vec: RefCell::new(vec![]),
+        current_line: Cell::new(1),
         rcdom: RcDom::default(),
     };
     let mut result_tok = driver::parse_document(sink, Default::default());
@@ -138,5 +136,5 @@ fn check_four_lines() {
         (QualName::new(None, ns!(html), local_name!("b")), 3),
     ];
     // Assertion
-    assert_eq!(actual.line_vec, expected);
+    assert_eq!(*actual.line_vec.borrow(), expected);
 }

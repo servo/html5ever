@@ -15,15 +15,16 @@ use html5ever::{parse_document, parse_fragment, serialize, QualName};
 use markup5ever::{local_name, namespace_url, ns};
 use markup5ever_rcdom::{RcDom, SerializableHandle};
 
+use std::cell::RefCell;
 use std::io;
 
-struct Tokens(Vec<Token>);
+struct Tokens(RefCell<Vec<Token>>);
 
 impl TokenSink for Tokens {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token, _: u64) -> TokenSinkResult<()> {
-        self.0.push(token);
+    fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+        self.0.borrow_mut().push(token);
         TokenSinkResult::Continue
     }
 }
@@ -33,7 +34,7 @@ impl Serialize for Tokens {
     where
         S: Serializer,
     {
-        for t in self.0.iter() {
+        for t in self.0.borrow().iter() {
             match &t {
                 // TODO: check whether this is an IE conditional comment or a spec comment
                 Token::TagToken(tag) => {
@@ -71,7 +72,7 @@ fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
         q.push_front(input);
         q
     };
-    let mut tokenizer = Tokenizer::new(Tokens(vec![]), Default::default());
+    let tokenizer = Tokenizer::new(Tokens(RefCell::new(vec![])), Default::default());
     let _ = tokenizer.feed(&input);
     tokenizer.end();
     let mut output = ::std::io::Cursor::new(vec![]);

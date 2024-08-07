@@ -11,6 +11,7 @@
 extern crate html5ever;
 
 use std::borrow::Cow;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::io;
 
@@ -22,14 +23,14 @@ use html5ever::tree_builder::{
 use html5ever::{Attribute, ExpandedName, QualName};
 
 struct Sink {
-    next_id: usize,
-    names: HashMap<usize, QualName>,
+    next_id: Cell<usize>,
+    names: RefCell<HashMap<usize, &'static QualName>>,
 }
 
 impl Sink {
-    fn get_id(&mut self) -> usize {
-        let id = self.next_id;
-        self.next_id += 2;
+    fn get_id(&self) -> usize {
+        let id = self.next_id.get();
+        self.next_id.set(id + 2);
         id
     }
 }
@@ -41,16 +42,17 @@ impl TreeSink for Sink {
         self
     }
 
-    fn parse_error(&mut self, msg: Cow<'static, str>) {
+    fn parse_error(&self, msg: Cow<'static, str>) {
         println!("Parse error: {}", msg);
     }
 
-    fn get_document(&mut self) -> usize {
+    fn get_document(&self) -> usize {
         0
     }
 
-    fn get_template_contents(&mut self, target: &usize) -> usize {
-        if let Some(expanded_name!(html "template")) = self.names.get(target).map(|n| n.expanded())
+    fn get_template_contents(&self, target: &usize) -> usize {
+        if let Some(expanded_name!(html "template")) =
+            self.names.borrow().get(target).map(|n| n.expanded())
         {
             target + 1
         } else {
@@ -58,7 +60,7 @@ impl TreeSink for Sink {
         }
     }
 
-    fn set_quirks_mode(&mut self, mode: QuirksMode) {
+    fn set_quirks_mode(&self, mode: QuirksMode) {
         println!("Set quirks mode to {:?}", mode);
     }
 
@@ -67,35 +69,46 @@ impl TreeSink for Sink {
     }
 
     fn elem_name(&self, target: &usize) -> ExpandedName {
-        self.names.get(target).expect("not an element").expanded()
+        self.names
+            .borrow()
+            .get(target)
+            .cloned()
+            .expect("not an element")
+            .expanded()
     }
 
-    fn create_element(&mut self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
+    fn create_element(&self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
         let id = self.get_id();
         println!("Created {:?} as {}", name, id);
-        self.names.insert(id, name);
+        // N.B. We intentionally leak memory here to minimize the implementation complexity
+        //      of this example code. A real implementation would either want to use a real
+        //      real DOM tree implentation, or else use an arena as the backing store for
+        //      memory used by the parser.
+        self.names
+            .borrow_mut()
+            .insert(id, Box::leak(Box::new(name)));
         id
     }
 
-    fn create_comment(&mut self, text: StrTendril) -> usize {
+    fn create_comment(&self, text: StrTendril) -> usize {
         let id = self.get_id();
         println!("Created comment \"{}\" as {}", text.escape_default(), id);
         id
     }
 
     #[allow(unused_variables)]
-    fn create_pi(&mut self, target: StrTendril, value: StrTendril) -> usize {
+    fn create_pi(&self, target: StrTendril, value: StrTendril) -> usize {
         unimplemented!()
     }
 
-    fn append(&mut self, parent: &usize, child: NodeOrText<usize>) {
+    fn append(&self, parent: &usize, child: NodeOrText<usize>) {
         match child {
             AppendNode(n) => println!("Append node {} to {}", n, parent),
             AppendText(t) => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
         }
     }
 
-    fn append_before_sibling(&mut self, sibling: &usize, new_node: NodeOrText<usize>) {
+    fn append_before_sibling(&self, sibling: &usize, new_node: NodeOrText<usize>) {
         match new_node {
             AppendNode(n) => println!("Append node {} before {}", n, sibling),
             AppendText(t) => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
@@ -103,7 +116,7 @@ impl TreeSink for Sink {
     }
 
     fn append_based_on_parent_node(
-        &mut self,
+        &self,
         element: &Self::Handle,
         _prev_element: &Self::Handle,
         child: NodeOrText<Self::Handle>,
@@ -112,7 +125,7 @@ impl TreeSink for Sink {
     }
 
     fn append_doctype_to_document(
-        &mut self,
+        &self,
         name: StrTendril,
         public_id: StrTendril,
         system_id: StrTendril,
@@ -120,8 +133,8 @@ impl TreeSink for Sink {
         println!("Append doctype: {} {} {}", name, public_id, system_id);
     }
 
-    fn add_attrs_if_missing(&mut self, target: &usize, attrs: Vec<Attribute>) {
-        assert!(self.names.contains_key(target), "not an element");
+    fn add_attrs_if_missing(&self, target: &usize, attrs: Vec<Attribute>) {
+        assert!(self.names.borrow().contains_key(target), "not an element");
         println!("Add missing attributes to {}:", target);
         for attr in attrs.into_iter() {
             println!("    {:?} = {}", attr.name, attr.value);
@@ -129,7 +142,7 @@ impl TreeSink for Sink {
     }
 
     fn associate_with_form(
-        &mut self,
+        &self,
         _target: &usize,
         _form: &usize,
         _nodes: (&usize, Option<&usize>),
@@ -137,23 +150,23 @@ impl TreeSink for Sink {
         // No form owner support.
     }
 
-    fn remove_from_parent(&mut self, target: &usize) {
+    fn remove_from_parent(&self, target: &usize) {
         println!("Remove {} from parent", target);
     }
 
-    fn reparent_children(&mut self, node: &usize, new_parent: &usize) {
+    fn reparent_children(&self, node: &usize, new_parent: &usize) {
         println!("Move children from {} to {}", node, new_parent);
     }
 
-    fn mark_script_already_started(&mut self, node: &usize) {
+    fn mark_script_already_started(&self, node: &usize) {
         println!("Mark script {} as already started", node);
     }
 
-    fn set_current_line(&mut self, line_number: u64) {
+    fn set_current_line(&self, line_number: u64) {
         println!("Set current line to {}", line_number);
     }
 
-    fn pop(&mut self, elem: &usize) {
+    fn pop(&self, elem: &usize) {
         println!("Popped element {}", elem);
     }
 }
@@ -163,8 +176,8 @@ impl TreeSink for Sink {
 /// called.
 fn main() {
     let sink = Sink {
-        next_id: 1,
-        names: HashMap::new(),
+        next_id: Cell::new(1),
+        names: RefCell::new(HashMap::new()),
     };
     let stdin = io::stdin();
     parse_document(sink, Default::default())

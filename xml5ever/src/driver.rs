@@ -71,7 +71,7 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
         self.tokenizer.sink.sink.parse_error(desc)
     }
 
-    fn finish(mut self) -> Self::Output {
+    fn finish(self) -> Self::Output {
         self.tokenizer.end();
         self.tokenizer.sink.sink.finish()
     }

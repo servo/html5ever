@@ -15,7 +15,7 @@ struct Sink;
 impl TokenSink for Sink {
     type Handle = ();
 
-    fn process_token(&mut self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         black_box(token);
@@ -53,7 +53,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
 
     c.bench_function(&test_name, move |b| {
         b.iter(|| {
-            let mut tok = Tokenizer::new(Sink, Default::default());
+            let tok = Tokenizer::new(Sink, Default::default());
             let buffer = BufferQueue::default();
             // We are doing clone inside the bench function, this is not ideal, but possibly
             // necessary since our iterator consumes the underlying buffer.

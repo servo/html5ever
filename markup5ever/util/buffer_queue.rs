@@ -18,7 +18,7 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-use std::{cell::RefCell, collections::VecDeque};
+use std::{cell::RefCell, collections::VecDeque, mem};
 
 use tendril::StrTendril;
 
@@ -234,6 +234,17 @@ impl BufferQueue {
         }
 
         result
+    }
+
+    pub fn replace_with(&self, other: BufferQueue) {
+        let _ = mem::replace(&mut *self.buffers.borrow_mut(), other.buffers.take());
+    }
+
+    pub fn swap_with(&self, other: &BufferQueue) {
+        mem::swap(
+            &mut *self.buffers.borrow_mut(),
+            &mut *other.buffers.borrow_mut(),
+        );
     }
 }
 

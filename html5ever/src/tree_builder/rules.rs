@@ -33,7 +33,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&mut self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
+    fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
@@ -59,7 +59,7 @@ where
 
                 tag @ <html> => {
                     self.create_root(tag.attrs);
-                    self.mode = BeforeHead;
+                    self.mode.set(BeforeHead);
                     Done
                 }
 
@@ -82,8 +82,8 @@ where
                 <html> => self.step(InBody, token),
 
                 tag @ <head> => {
-                    self.head_elem = Some(self.insert_element_for(tag));
-                    self.mode = InHead;
+                    *self.head_elem.borrow_mut() = Some(self.insert_element_for(tag));
+                    self.mode.set(InHead);
                     Done
                 }
 
@@ -92,7 +92,7 @@ where
                 tag @ </_> => self.unexpected(&tag),
 
                 token => {
-                    self.head_elem = Some(self.insert_phantom(local_name!("head")));
+                    *self.head_elem.borrow_mut() = Some(self.insert_phantom(local_name!("head")));
                     Reprocess(InHead, token)
                 }
             }),
@@ -118,7 +118,7 @@ where
                 tag @ <noframes> <style> <noscript> => {
                     if (!self.opts.scripting_enabled) && (tag.name == local_name!("noscript")) {
                         self.insert_element_for(tag);
-                        self.mode = InHeadNoscript;
+                        self.mode.set(InHeadNoscript);
                         Done
                     } else {
                         self.parse_raw_data(tag, Rawtext)
@@ -127,19 +127,19 @@ where
 
                 tag @ <script> => {
                     let elem = create_element(
-                        &mut self.sink, QualName::new(None, ns!(html), local_name!("script")),
+                        &self.sink, QualName::new(None, ns!(html), local_name!("script")),
                         tag.attrs);
                     if self.is_fragment() {
                         self.sink.mark_script_already_started(&elem);
                     }
                     self.insert_appropriately(AppendNode(elem.clone()), None);
-                    self.open_elems.push(elem);
+                    self.open_elems.borrow_mut().push(elem);
                     self.to_raw_text_mode(ScriptData)
                 }
 
                 </head> => {
                     self.pop();
-                    self.mode = AfterHead;
+                    self.mode.set(AfterHead);
                     Done
                 }
 
@@ -147,10 +147,10 @@ where
 
                 tag @ <template> => {
                     self.insert_element_for(tag);
-                    self.active_formatting.push(Marker);
-                    self.frameset_ok = false;
-                    self.mode = InTemplate;
-                    self.template_modes.push(InTemplate);
+                    self.active_formatting.borrow_mut().push(Marker);
+                    self.frameset_ok.set(false);
+                    self.mode.set(InTemplate);
+                    self.template_modes.borrow_mut().push(InTemplate);
                     Done
                 }
 
@@ -161,8 +161,8 @@ where
                         self.generate_implied_end(thorough_implied_end);
                         self.expect_to_close(local_name!("template"));
                         self.clear_active_formatting_to_marker();
-                        self.template_modes.pop();
-                        self.mode = self.reset_insertion_mode();
+                        self.template_modes.borrow_mut().pop();
+                        self.mode.set(self.reset_insertion_mode());
                     }
                     Done
                 }
@@ -182,7 +182,7 @@ where
 
                 </noscript> => {
                     self.pop();
-                    self.mode = InHead;
+                    self.mode.set(InHead);
                     Done
                 },
 
@@ -216,21 +216,21 @@ where
 
                 tag @ <body> => {
                     self.insert_element_for(tag);
-                    self.frameset_ok = false;
-                    self.mode = InBody;
+                    self.frameset_ok.set(false);
+                    self.mode.set(InBody);
                     Done
                 }
 
                 tag @ <frameset> => {
                     self.insert_element_for(tag);
-                    self.mode = InFrameset;
+                    self.mode.set(InFrameset);
                     Done
                 }
 
                 <base> <basefont> <bgsound> <link> <meta>
                       <noframes> <script> <style> <template> <title> => {
                     self.unexpected(&token);
-                    let head = self.head_elem.as_ref().expect("no head element").clone();
+                    let head = self.head_elem.borrow().as_ref().expect("no head element").clone();
                     self.push(&head);
                     let result = self.step(InHead, token);
                     self.remove_from_stack(&head);
@@ -257,7 +257,7 @@ where
                 CharacterTokens(_, text) => {
                     self.reconstruct_formatting();
                     if any_not_whitespace(&text) {
-                        self.frameset_ok = false;
+                        self.frameset_ok.set(false);
                     }
                     self.append_text(text)
                 }
@@ -267,7 +267,8 @@ where
                 tag @ <html> => {
                     self.unexpected(&tag);
                     if !self.in_html_elem_named(local_name!("template")) {
-                        let top = html_elem(&self.open_elems);
+                        let open_elems = self.open_elems.borrow();
+                        let top = html_elem(&open_elems);
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
                     Done
@@ -280,10 +281,11 @@ where
 
                 tag @ <body> => {
                     self.unexpected(&tag);
-                    match self.body_elem().cloned() {
-                        Some(ref node) if self.open_elems.len() != 1 &&
+                    let body_elem = self.body_elem().as_deref().cloned();
+                    match body_elem {
+                        Some(ref node) if self.open_elems.borrow().len() != 1 &&
                                           !self.in_html_elem_named(local_name!("template")) => {
-                            self.frameset_ok = false;
+                            self.frameset_ok.set(false);
                             self.sink.add_attrs_if_missing(node, tag.attrs)
                         },
                         _ => {}
@@ -293,21 +295,21 @@ where
 
                 tag @ <frameset> => {
                     self.unexpected(&tag);
-                    if !self.frameset_ok { return Done; }
+                    if !self.frameset_ok.get() { return Done; }
 
                     let body = unwrap_or_return!(self.body_elem(), Done).clone();
                     self.sink.remove_from_parent(&body);
 
                     // FIXME: can we get here in the fragment case?
                     // What to do with the first element then?
-                    self.open_elems.truncate(1);
+                    self.open_elems.borrow_mut().truncate(1);
                     self.insert_element_for(tag);
-                    self.mode = InFrameset;
+                    self.mode.set(InFrameset);
                     Done
                 }
 
                 EOFToken => {
-                    if !self.template_modes.is_empty() {
+                    if !self.template_modes.borrow().is_empty() {
                         self.step(InTemplate, token)
                     } else {
                         self.check_body_end();
@@ -318,7 +320,7 @@ where
                 </body> => {
                     if self.in_scope_named(default_scope, local_name!("body")) {
                         self.check_body_end();
-                        self.mode = AfterBody;
+                        self.mode.set(AfterBody);
                     } else {
                         self.sink.parse_error(Borrowed("</body> with no <body> in scope"));
                     }
@@ -362,20 +364,20 @@ where
                 tag @ <pre> <listing> => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    self.ignore_lf = true;
-                    self.frameset_ok = false;
+                    self.ignore_lf.set(true);
+                    self.frameset_ok.set(false);
                     Done
                 }
 
                 tag @ <form> => {
-                    if self.form_elem.is_some() &&
+                    if self.form_elem.borrow().is_some() &&
                        !self.in_html_elem_named(local_name!("template")) {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
                         let elem = self.insert_element_for(tag);
                         if !self.in_html_elem_named(local_name!("template")) {
-                            self.form_elem = Some(elem);
+                            *self.form_elem.borrow_mut() = Some(elem);
                         }
                     }
                     Done
@@ -391,10 +393,10 @@ where
                         _ => unreachable!(),
                     };
 
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
 
                     let mut to_close = None;
-                    for node in self.open_elems.iter().rev() {
+                    for node in self.open_elems.borrow().iter().rev() {
                         let name = self.sink.elem_name(node);
                         let can_close = if list {
                             close_list(name)
@@ -437,7 +439,7 @@ where
                     }
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                     Done
                 }
 
@@ -558,8 +560,8 @@ where
                 tag @ <applet> <marquee> <object> => {
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
-                    self.active_formatting.push(Marker);
-                    self.frameset_ok = false;
+                    self.active_formatting.borrow_mut().push(Marker);
+                    self.frameset_ok.set(false);
                     Done
                 }
 
@@ -575,12 +577,12 @@ where
                 }
 
                 tag @ <table> => {
-                    if self.quirks_mode != Quirks {
+                    if self.quirks_mode.get() != Quirks {
                         self.close_p_element_in_button_scope();
                     }
                     self.insert_element_for(tag);
-                    self.frameset_ok = false;
-                    self.mode = InTable;
+                    self.frameset_ok.set(false);
+                    self.mode.set(InTable);
                     Done
                 }
 
@@ -601,7 +603,7 @@ where
                     self.reconstruct_formatting();
                     self.insert_and_pop_element_for(tag);
                     if !keep_frameset_ok {
-                        self.frameset_ok = false;
+                        self.frameset_ok.set(false);
                     }
                     DoneAckSelfClosing
                 }
@@ -614,7 +616,7 @@ where
                 tag @ <hr> => {
                     self.close_p_element_in_button_scope();
                     self.insert_and_pop_element_for(tag);
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                     DoneAckSelfClosing
                 }
 
@@ -627,20 +629,20 @@ where
                 }
 
                 tag @ <textarea> => {
-                    self.ignore_lf = true;
-                    self.frameset_ok = false;
+                    self.ignore_lf.set(true);
+                    self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rcdata)
                 }
 
                 tag @ <xmp> => {
                     self.close_p_element_in_button_scope();
                     self.reconstruct_formatting();
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rawtext)
                 }
 
                 tag @ <iframe> => {
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rawtext)
                 }
 
@@ -653,14 +655,14 @@ where
                 tag @ <select> => {
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                     // NB: mode == InBody but possibly self.mode != mode, if
                     // we're processing "as in the rules for InBody".
-                    self.mode = match self.mode {
+                    self.mode.set(match self.mode.get() {
                         InTable | InCaption | InTableBody
                             | InRow | InCell => InSelectInTable,
                         _ => InSelect,
-                    };
+                    });
                     Done
                 }
 
@@ -732,7 +734,8 @@ where
                 EOFToken => {
                     self.unexpected(&token);
                     if self.current_node_named(local_name!("script")) {
-                        let current = current_node(&self.open_elems);
+                        let open_elems = self.open_elems.borrow();
+                        let current = current_node(&open_elems);
                         self.sink.mark_script_already_started(current);
                     }
                     self.pop();
@@ -741,7 +744,7 @@ where
 
                 tag @ </_> => {
                     let node = self.pop();
-                    self.mode = self.orig_mode.take().unwrap();
+                    self.mode.set(self.orig_mode.take().unwrap());
                     if tag.name == local_name!("script") {
                         return Script(node);
                     }
@@ -764,16 +767,16 @@ where
 
                 tag @ <caption> => {
                     self.pop_until_current(table_scope);
-                    self.active_formatting.push(Marker);
+                    self.active_formatting.borrow_mut().push(Marker);
                     self.insert_element_for(tag);
-                    self.mode = InCaption;
+                    self.mode.set(InCaption);
                     Done
                 }
 
                 tag @ <colgroup> => {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
-                    self.mode = InColumnGroup;
+                    self.mode.set(InColumnGroup);
                     Done
                 }
 
@@ -786,7 +789,7 @@ where
                 tag @ <tbody> <tfoot> <thead> => {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
-                    self.mode = InTableBody;
+                    self.mode.set(InTableBody);
                     Done
                 }
 
@@ -809,7 +812,7 @@ where
                 </table> => {
                     if self.in_scope_named(table_scope, local_name!("table")) {
                         self.pop_until_named(local_name!("table"));
-                        self.mode = self.reset_insertion_mode();
+                        self.mode.set(self.reset_insertion_mode());
                     } else {
                         self.unexpected(&token);
                     }
@@ -835,8 +838,8 @@ where
 
                 tag @ <form> => {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(local_name!("template")) && self.form_elem.is_none() {
-                        self.form_elem = Some(self.insert_and_pop_element_for(tag));
+                    if !self.in_html_elem_named(local_name!("template")) && self.form_elem.borrow().is_none() {
+                        *self.form_elem.borrow_mut() = Some(self.insert_and_pop_element_for(tag));
                     }
                     Done
                 }
@@ -854,12 +857,12 @@ where
                 NullCharacterToken => self.unexpected(&token),
 
                 CharacterTokens(split, text) => {
-                    self.pending_table_text.push((split, text));
+                    self.pending_table_text.borrow_mut().push((split, text));
                     Done
                 }
 
                 token => {
-                    let pending = ::std::mem::take(&mut self.pending_table_text);
+                    let pending = self.pending_table_text.take();
                     let contains_nonspace = pending.iter().any(|&(split, ref text)| {
                         match split {
                             Whitespace => false,
@@ -896,7 +899,7 @@ where
                         self.clear_active_formatting_to_marker();
                         match tag {
                             Tag { kind: EndTag, name: local_name!("caption"), .. } => {
-                                self.mode = InTable;
+                                self.mode.set(InTable);
                                 Done
                             }
                             _ => Reprocess(InTable, TagToken(tag))
@@ -929,7 +932,7 @@ where
                 </colgroup> => {
                     if self.current_node_named(local_name!("colgroup")) {
                         self.pop();
-                        self.mode = InTable;
+                        self.mode.set(InTable);
                     } else {
                         self.unexpected(&token);
                     }
@@ -957,7 +960,7 @@ where
                 tag @ <tr> => {
                     self.pop_until_current(table_body_context);
                     self.insert_element_for(tag);
-                    self.mode = InRow;
+                    self.mode.set(InRow);
                     Done
                 }
 
@@ -972,7 +975,7 @@ where
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
                         self.pop();
-                        self.mode = InTable;
+                        self.mode.set(InTable);
                     } else {
                         self.unexpected(&tag);
                     }
@@ -1001,8 +1004,8 @@ where
                 tag @ <th> <td> => {
                     self.pop_until_current(table_row_context);
                     self.insert_element_for(tag);
-                    self.mode = InCell;
-                    self.active_formatting.push(Marker);
+                    self.mode.set(InCell);
+                    self.active_formatting.borrow_mut().push(Marker);
                     Done
                 }
 
@@ -1011,7 +1014,7 @@ where
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
                         self.assert_named(&node, local_name!("tr"));
-                        self.mode = InTableBody;
+                        self.mode.set(InTableBody);
                     } else {
                         self.unexpected(&token);
                     }
@@ -1057,7 +1060,7 @@ where
                         self.generate_implied_end(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
-                        self.mode = InRow;
+                        self.mode.set(InRow);
                     } else {
                         self.unexpected(&tag);
                     }
@@ -1128,9 +1131,9 @@ where
                 }
 
                 </optgroup> => {
-                    if self.open_elems.len() >= 2
+                    if self.open_elems.borrow().len() >= 2
                         && self.current_node_named(local_name!("option"))
-                        && self.html_elem_named(&self.open_elems[self.open_elems.len() - 2],
+                        && self.html_elem_named(&self.open_elems.borrow()[self.open_elems.borrow().len() - 2],
                             local_name!("optgroup")) {
                         self.pop();
                     }
@@ -1160,7 +1163,7 @@ where
 
                     if in_scope {
                         self.pop_until_named(local_name!("select"));
-                        self.mode = self.reset_insertion_mode();
+                        self.mode.set(self.reset_insertion_mode());
                     }
                     Done
                 }
@@ -1214,26 +1217,26 @@ where
                 }
 
                 <caption> <colgroup> <tbody> <tfoot> <thead> => {
-                    self.template_modes.pop();
-                    self.template_modes.push(InTable);
+                    self.template_modes.borrow_mut().pop();
+                    self.template_modes.borrow_mut().push(InTable);
                     Reprocess(InTable, token)
                 }
 
                 <col> => {
-                    self.template_modes.pop();
-                    self.template_modes.push(InColumnGroup);
+                    self.template_modes.borrow_mut().pop();
+                    self.template_modes.borrow_mut().push(InColumnGroup);
                     Reprocess(InColumnGroup, token)
                 }
 
                 <tr> => {
-                    self.template_modes.pop();
-                    self.template_modes.push(InTableBody);
+                    self.template_modes.borrow_mut().pop();
+                    self.template_modes.borrow_mut().push(InTableBody);
                     Reprocess(InTableBody, token)
                 }
 
                 <td> <th> => {
-                    self.template_modes.pop();
-                    self.template_modes.push(InRow);
+                    self.template_modes.borrow_mut().pop();
+                    self.template_modes.borrow_mut().push(InRow);
                     Reprocess(InRow, token)
                 }
 
@@ -1244,15 +1247,15 @@ where
                         self.unexpected(&token);
                         self.pop_until_named(local_name!("template"));
                         self.clear_active_formatting_to_marker();
-                        self.template_modes.pop();
-                        self.mode = self.reset_insertion_mode();
+                        self.template_modes.borrow_mut().pop();
+                        self.mode.set(self.reset_insertion_mode());
                         Reprocess(self.reset_insertion_mode(), token)
                     }
                 }
 
                 tag @ <_> => {
-                    self.template_modes.pop();
-                    self.template_modes.push(InBody);
+                    self.template_modes.borrow_mut().pop();
+                    self.template_modes.borrow_mut().push(InBody);
                     Reprocess(InBody, TagToken(tag))
                 }
 
@@ -1271,7 +1274,7 @@ where
                     if self.is_fragment() {
                         self.unexpected(&token);
                     } else {
-                        self.mode = AfterAfterBody;
+                        self.mode.set(AfterAfterBody);
                     }
                     Done
                 }
@@ -1298,12 +1301,12 @@ where
                 }
 
                 </frameset> => {
-                    if self.open_elems.len() == 1 {
+                    if self.open_elems.borrow().len() == 1 {
                         self.unexpected(&token);
                     } else {
                         self.pop();
                         if !self.is_fragment() && !self.current_node_named(local_name!("frameset")) {
-                            self.mode = AfterFrameset;
+                            self.mode.set(AfterFrameset);
                         }
                     }
                     Done
@@ -1317,7 +1320,7 @@ where
                 <noframes> => self.step(InHead, token),
 
                 EOFToken => {
-                    if self.open_elems.len() != 1 {
+                    if self.open_elems.borrow().len() != 1 {
                         self.unexpected(&token);
                     }
                     self.stop_parsing()
@@ -1335,7 +1338,7 @@ where
                 <html> => self.step(InBody, token),
 
                 </html> => {
-                    self.mode = AfterAfterFrameset;
+                    self.mode.set(AfterAfterFrameset);
                     Done
                 }
 
@@ -1380,7 +1383,7 @@ where
         }
     }
 
-    fn step_foreign(&mut self, token: Token) -> ProcessResult<Handle> {
+    fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
@@ -1389,7 +1392,7 @@ where
 
             CharacterTokens(_, text) => {
                 if any_not_whitespace(&text) {
-                    self.frameset_ok = false;
+                    self.frameset_ok.set(false);
                 }
                 self.append_text(text)
             }
@@ -1422,7 +1425,7 @@ where
 
             tag @ </_> => {
                 let mut first = true;
-                let mut stack_idx = self.open_elems.len() - 1;
+                let mut stack_idx = self.open_elems.borrow().len() - 1;
                 loop {
                     if stack_idx == 0 {
                         return Done;
@@ -1431,17 +1434,18 @@ where
                     let html;
                     let eq;
                     {
-                        let node_name = self.sink.elem_name(&self.open_elems[stack_idx]);
+                        let open_elems = self.open_elems.borrow();
+                        let node_name = self.sink.elem_name(&open_elems[stack_idx]);
                         html = *node_name.ns == ns!(html);
                         eq = node_name.local.eq_ignore_ascii_case(&tag.name);
                     }
                     if !first && html {
-                        let mode = self.mode;
+                        let mode = self.mode.get();
                         return self.step(mode, TagToken(tag));
                     }
 
                     if eq {
-                        self.open_elems.truncate(stack_idx);
+                        self.open_elems.borrow_mut().truncate(stack_idx);
                         return Done;
                     }
 
