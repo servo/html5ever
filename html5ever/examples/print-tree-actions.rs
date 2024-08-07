@@ -24,7 +24,7 @@ use html5ever::{Attribute, ExpandedName, QualName};
 
 struct Sink {
     next_id: Cell<usize>,
-    names: RefCell<HashMap<usize, QualName>>,
+    names: RefCell<HashMap<usize, &'static QualName>>,
 }
 
 impl Sink {
@@ -67,16 +67,18 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, _target: &usize) -> ExpandedName {
-        //XXX(jdm)
-        //self.names.borrow().get(target).cloned().expect("not an element").expanded()
-        todo!()
+    fn elem_name(&self, target: &usize) -> ExpandedName {
+        self.names.borrow().get(target).cloned().expect("not an element").expanded()
     }
 
     fn create_element(&self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
         let id = self.get_id();
         println!("Created {:?} as {}", name, id);
-        //self.names.borrow_mut().insert(id, name);
+        // N.B. We intentionally leak memory here to minimize the implementation complexity
+        //      of this example code. A real implementation would either want to use a real
+        //      real DOM tree implentation, or else use an arena as the backing store for
+        //      memory used by the parser.
+        self.names.borrow_mut().insert(id, Box::leak(Box::new(name)));
         id
     }
 
