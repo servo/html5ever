@@ -19,16 +19,10 @@ use super::{LocalName, Namespace, Prefix};
 /// An [expanded name], containing the tag and the namespace.
 ///
 /// [expanded name]: https://www.w3.org/TR/REC-xml-names/#dt-expname
-#[derive(Copy, Clone, Eq, Hash)]
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct ExpandedName<'a> {
     pub ns: &'a Namespace,
     pub local: &'a LocalName,
-}
-
-impl<'a, 'b> PartialEq<ExpandedName<'a>> for ExpandedName<'b> {
-    fn eq(&self, other: &ExpandedName<'a>) -> bool {
-        self.ns == other.ns && self.local == other.local
-    }
 }
 
 impl<'a> fmt::Debug for ExpandedName<'a> {
