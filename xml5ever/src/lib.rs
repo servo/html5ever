@@ -30,6 +30,7 @@
 
 #![crate_name = "xml5ever"]
 #![crate_type = "dylib"]
+#![allow(unexpected_cfgs)]
 #![deny(missing_docs)]
 
 pub use markup5ever::*;

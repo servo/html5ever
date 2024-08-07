@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(unexpected_cfgs)]
+
 pub use tendril;
 
 /// Create a [`SmallCharSet`], with each space-separated number stored in the set.
