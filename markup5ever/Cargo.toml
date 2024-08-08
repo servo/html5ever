@@ -1,6 +1,6 @@
 [package]
 name = "markup5ever"
-version = "0.12.2"
+version = "0.13.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"

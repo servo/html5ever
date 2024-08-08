@@ -1,6 +1,6 @@
 [package]
 name = "xml5ever"
-version = "0.18.1"
+version = "0.19.0"
 authors = ["The xml5ever project developers"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
