@@ -712,8 +712,7 @@ where
                 // We clone the Handle and Tag so they don't cause an immutable borrow of self.
                 self.active_formatting_end_to_marker()
                     .iter()
-                    .filter(|&(_, _, tag)| tag.name == subject)
-                    .next()
+                    .find(|&(_, _, tag)| tag.name == subject)
                     .map(|(i, h, t)| (i, h.clone(), t.clone())),
                 {
                     self.process_end_tag_in_body(Tag {
@@ -757,8 +756,7 @@ where
                     .iter()
                     .enumerate()
                     .skip(fmt_elem_stack_index)
-                    .filter(|&(_, open_element)| self.elem_in(open_element, special_tag))
-                    .next()
+                    .find(|&(_, open_element)| self.elem_in(open_element, special_tag))
                     .map(|(i, h)| (i, h.clone())),
                 // 10.
                 {
@@ -1453,8 +1451,7 @@ where
         let node = unwrap_or_return!(
             self.active_formatting_end_to_marker()
                 .iter()
-                .filter(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
-                .next()
+                .find(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
                 .map(|(_, n, _)| n.clone()),
             ()
         );
