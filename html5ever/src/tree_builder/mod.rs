@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(warnings)]
 
 //! The HTML5 tree builder.
 
@@ -270,7 +269,7 @@ where
         }
         for e in &*self.active_formatting.borrow() {
             match e {
-                &Element(ref h, _) => tracer.trace_handle(h),
+                FormatEntry::Element(ref h, _) => tracer.trace_handle(h),
                 _ => (),
             }
         }
@@ -304,7 +303,7 @@ where
         for entry in self.active_formatting.borrow().iter() {
             match entry {
                 &Marker => print!(" Marker"),
-                &Element(ref h, _) => {
+                Element(h, _) => {
                     let name = self.sink.elem_name(h);
                     match *name.ns {
                         ns!(html) => print!(" {}", name.local),
@@ -425,10 +424,10 @@ where
         let open_elems = self.open_elems.borrow();
         let mut iter = open_elems.iter().rev().peekable();
         while let Some(elem) = iter.next() {
-            if self.html_elem_named(&elem, local_name!("template")) {
-                let contents = self.sink.get_template_contents(&elem);
+            if self.html_elem_named(elem, local_name!("template")) {
+                let contents = self.sink.get_template_contents(elem);
                 return LastChild(contents);
-            } else if self.html_elem_named(&elem, local_name!("table")) {
+            } else if self.html_elem_named(elem, local_name!("table")) {
                 return TableFosterParenting {
                     element: elem.clone(),
                     prev_element: (*iter.peek().unwrap()).clone(),
@@ -568,7 +567,7 @@ impl<'a, Handle> Iterator for ActiveFormattingIter<'a, Handle> {
     fn next(&mut self) -> Option<(usize, &'a Handle, &'a Tag)> {
         match self.iter.next() {
             None | Some((_, &Marker)) => None,
-            Some((i, &Element(ref h, ref t))) => Some((i, h, t)),
+            Some((i, Element(h, t))) => Some((i, h, t)),
         }
     }
 }
@@ -618,14 +617,14 @@ where
     }
 
     fn assert_named(&self, node: &Handle, name: LocalName) {
-        assert!(self.html_elem_named(&node, name));
+        assert!(self.html_elem_named(node, name));
     }
 
     /// Iterate over the active formatting elements (with index in the list) from the end
     /// to the last marker, or the beginning if there are no markers.
     fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingView<'a, Handle> {
         ActiveFormattingView {
-            data: Ref::map(self.active_formatting.borrow(), |a| &*a),
+            data: self.active_formatting.borrow(),
         }
     }
 
@@ -634,8 +633,8 @@ where
             .borrow()
             .iter()
             .position(|n| match n {
-                &Marker => false,
-                &Element(ref handle, _) => self.sink.same_node(handle, element),
+                FormatEntry::Marker => false,
+                FormatEntry::Element(ref handle, _) => self.sink.same_node(handle, element),
             })
     }
 
@@ -927,7 +926,7 @@ where
             .open_elems
             .borrow()
             .iter()
-            .rposition(|x| self.sink.same_node(elem, &x));
+            .rposition(|x| self.sink.same_node(elem, x));
         if let Some(position) = position {
             self.open_elems.borrow_mut().remove(position);
             self.sink.pop(elem);
@@ -942,7 +941,7 @@ where
                 .borrow()
                 .iter()
                 .rev()
-                .any(|n| self.sink.same_node(&n, &node)),
+                .any(|n| self.sink.same_node(n, node)),
         }
     }
 
@@ -1182,7 +1181,7 @@ where
             .find(|&at| at.name.expanded() == expanded_name!("", "type"))
         {
             None => false,
-            Some(at) => (&*at.value).eq_ignore_ascii_case("hidden"),
+            Some(at) => at.value.eq_ignore_ascii_case("hidden"),
         }
     }
 
@@ -1298,7 +1297,7 @@ where
 
     fn append_comment_to_html(&self, text: StrTendril) -> ProcessResult<Handle> {
         let open_elems = self.open_elems.borrow();
-        let target = html_elem(&*open_elems);
+        let target = html_elem(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
         Done
