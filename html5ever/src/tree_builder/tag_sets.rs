@@ -32,7 +32,7 @@ macro_rules! declare_tag_set_body (
 
 macro_rules! declare_tag_set (
     (pub $name:ident = $($toks:tt)+) => (
-        pub fn $name(p: crate::ExpandedName) -> bool {
+        pub(crate) fn $name(p: crate::ExpandedName) -> bool {
             declare_tag_set_body!(p = $($toks)+)
         }
     );
@@ -45,11 +45,11 @@ macro_rules! declare_tag_set (
 );
 
 #[inline(always)]
-pub fn empty_set(_: ExpandedName) -> bool {
+pub(crate) fn empty_set(_: ExpandedName) -> bool {
     false
 }
 #[inline(always)]
-pub fn full_set(_: ExpandedName) -> bool {
+pub(crate) fn full_set(_: ExpandedName) -> bool {
     true
 }
 
@@ -57,7 +57,7 @@ declare_tag_set!(pub html_default_scope =
     "applet" "caption" "html" "table" "td" "th" "marquee" "object" "template");
 
 #[inline(always)]
-pub fn default_scope(name: ExpandedName) -> bool {
+pub(crate) fn default_scope(name: ExpandedName) -> bool {
     html_default_scope(name)
         || mathml_text_integration_point(name)
         || svg_html_integration_point(name)
@@ -91,7 +91,7 @@ declare_tag_set!(pub special_tag =
     "ul" "wbr" "xmp");
 //§ END
 
-pub fn mathml_text_integration_point(p: ExpandedName) -> bool {
+pub(crate) fn mathml_text_integration_point(p: ExpandedName) -> bool {
     matches!(
         p,
         expanded_name!(mathml "mi")
@@ -103,7 +103,7 @@ pub fn mathml_text_integration_point(p: ExpandedName) -> bool {
 }
 
 /// https://html.spec.whatwg.org/multipage/#html-integration-point
-pub fn svg_html_integration_point(p: ExpandedName) -> bool {
+pub(crate) fn svg_html_integration_point(p: ExpandedName) -> bool {
     // annotation-xml are handle in another place
     matches!(
         p,

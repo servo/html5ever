@@ -14,15 +14,15 @@ use crate::tokenizer::Tag;
 
 use crate::tendril::StrTendril;
 
-pub use self::FormatEntry::*;
-pub use self::InsertionMode::*;
-pub use self::InsertionPoint::*;
-pub use self::ProcessResult::*;
-pub use self::SplitStatus::*;
-pub use self::Token::*;
+pub(crate) use self::FormatEntry::*;
+pub(crate) use self::InsertionMode::*;
+pub(crate) use self::InsertionPoint::*;
+pub(crate) use self::ProcessResult::*;
+pub(crate) use self::SplitStatus::*;
+pub(crate) use self::Token::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum InsertionMode {
+pub(crate) enum InsertionMode {
     Initial,
     BeforeHtml,
     BeforeHead,
@@ -49,7 +49,7 @@ pub enum InsertionMode {
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum SplitStatus {
+pub(crate) enum SplitStatus {
     NotSplit,
     Whitespace,
     NotWhitespace,
@@ -58,7 +58,7 @@ pub enum SplitStatus {
 /// A subset/refinement of `tokenizer::Token`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum Token {
+pub(crate) enum Token {
     TagToken(Tag),
     CommentToken(StrTendril),
     CharacterTokens(SplitStatus, StrTendril),
@@ -66,7 +66,7 @@ pub enum Token {
     EOFToken,
 }
 
-pub enum ProcessResult<Handle> {
+pub(crate) enum ProcessResult<Handle> {
     Done,
     DoneAckSelfClosing,
     SplitWhitespace(StrTendril),
@@ -77,12 +77,12 @@ pub enum ProcessResult<Handle> {
     ToRawData(RawKind),
 }
 
-pub enum FormatEntry<Handle> {
+pub(crate) enum FormatEntry<Handle> {
     Element(Handle, Tag),
     Marker,
 }
 
-pub enum InsertionPoint<Handle> {
+pub(crate) enum InsertionPoint<Handle> {
     /// Insert as last child in this parent.
     LastChild(Handle),
     /// Insert before this following sibling.

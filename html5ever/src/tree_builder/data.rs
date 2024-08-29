@@ -88,7 +88,10 @@ static HTML4_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//w3c//dtd html 4.01 transitional//",
 ];
 
-pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool, QuirksMode) {
+pub(crate) fn doctype_error_and_quirks(
+    doctype: &Doctype,
+    iframe_srcdoc: bool,
+) -> (bool, QuirksMode) {
     fn opt_string_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
         x.as_ref().map(|y| &y[..])
     }
