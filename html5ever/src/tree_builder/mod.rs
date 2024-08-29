@@ -150,7 +150,7 @@ where
     /// Create a new tree builder which sends tree modifications to a particular `TreeSink`.
     ///
     /// The tree builder is also a `TokenSink`.
-    pub fn new(mut sink: Sink, opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
+    pub fn new(sink: Sink, opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         TreeBuilder {
             opts: opts,
@@ -178,14 +178,14 @@ where
     ///
     /// The tree builder is also a `TokenSink`.
     pub fn new_for_fragment(
-        mut sink: Sink,
+        sink: Sink,
         context_elem: Handle,
         form_elem: Option<Handle>,
         opts: TreeBuilderOpts,
     ) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template = sink.elem_name(&context_elem) == expanded_name!(html "template");
-        let mut tb = TreeBuilder {
+        let tb = TreeBuilder {
             opts: opts,
             sink: sink,
             mode: Cell::new(Initial),
