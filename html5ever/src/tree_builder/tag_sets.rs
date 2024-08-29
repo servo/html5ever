@@ -10,8 +10,7 @@
 //! Various sets of HTML tag names, and macros for declaring them.
 
 use crate::ExpandedName;
-use mac::_tt_as_expr_hack;
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{expanded_name, local_name, namespace_url, ns};
 
 macro_rules! declare_tag_set_impl ( ($param:ident, $b:ident, $supr:ident, $($tag:tt)+) => (
     match $param {
