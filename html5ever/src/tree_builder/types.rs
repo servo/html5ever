@@ -71,6 +71,7 @@ pub(crate) enum ProcessResult<Handle> {
     DoneAckSelfClosing,
     SplitWhitespace(StrTendril),
     Reprocess(InsertionMode, Token),
+    #[allow(dead_code)] // FIXME
     ReprocessForeign(Token),
     Script(Handle),
     ToPlaintext,
@@ -85,6 +86,7 @@ pub(crate) enum FormatEntry<Handle> {
 pub(crate) enum InsertionPoint<Handle> {
     /// Insert as last child in this parent.
     LastChild(Handle),
+    #[allow(dead_code)] // FIXME
     /// Insert before this following sibling.
     BeforeSibling(Handle),
     /// Insertion point is decided based on existence of element's parent node.
