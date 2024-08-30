@@ -948,7 +948,7 @@ where
     fn reconstruct_formatting(&self) {
         {
             let active_formatting = self.active_formatting.borrow();
-            let last = unwrap_or_return!(active_formatting.last(), ());
+            let last = unwrap_or_return!(active_formatting.last());
             if self.is_marker_or_open(last) {
                 return;
             }
@@ -1088,7 +1088,7 @@ where
         loop {
             {
                 let open_elems = self.open_elems.borrow();
-                let elem = unwrap_or_return!(open_elems.last(), ());
+                let elem = unwrap_or_return!(open_elems.last());
                 let nsname = self.sink.elem_name(elem);
                 if !set(nsname) {
                     return;
@@ -1448,13 +1448,11 @@ where
     }
 
     fn handle_misnested_a_tags(&self, tag: &Tag) {
-        let node = unwrap_or_return!(
-            self.active_formatting_end_to_marker()
-                .iter()
-                .find(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
-                .map(|(_, n, _)| n.clone()),
-            ()
-        );
+        let node = unwrap_or_return!(self
+            .active_formatting_end_to_marker()
+            .iter()
+            .find(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
+            .map(|(_, n, _)| n.clone()));
 
         self.unexpected(tag);
         self.adoption_agency(local_name!("a"));

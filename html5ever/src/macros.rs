@@ -15,6 +15,11 @@ macro_rules! unwrap_or_else {
 }
 
 macro_rules! unwrap_or_return {
+    ($opt:expr) => {
+        unwrap_or_else!($opt, {
+            return;
+        })
+    };
     ($opt:expr, $retval:expr) => {
         unwrap_or_else!($opt, { return $retval })
     };
