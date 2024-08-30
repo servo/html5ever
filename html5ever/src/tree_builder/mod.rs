@@ -271,18 +271,18 @@ where
                 _ => (),
             }
         }
-        self.head_elem
-            .borrow()
-            .as_ref()
-            .map(|h| tracer.trace_handle(h));
-        self.form_elem
-            .borrow()
-            .as_ref()
-            .map(|h| tracer.trace_handle(h));
-        self.context_elem
-            .borrow()
-            .as_ref()
-            .map(|h| tracer.trace_handle(h));
+
+        if let Some(head_elem) = self.head_elem.borrow().as_ref() {
+            tracer.trace_handle(head_elem);
+        }
+
+        if let Some(form_elem) = self.form_elem.borrow().as_ref() {
+            tracer.trace_handle(form_elem);
+        }
+
+        if let Some(context_elem) = self.context_elem.borrow().as_ref() {
+            tracer.trace_handle(context_elem);
+        }
     }
 
     #[allow(dead_code)]
