@@ -265,10 +265,10 @@ where
         for e in &*self.open_elems.borrow() {
             tracer.trace_handle(e);
         }
+
         for e in &*self.active_formatting.borrow() {
-            match e {
-                FormatEntry::Element(ref h, _) => tracer.trace_handle(h),
-                _ => (),
+            if let FormatEntry::Element(handle, _) = e {
+                tracer.trace_handle(handle);
             }
         }
 
@@ -695,14 +695,13 @@ where
 
     fn adoption_agency(&self, subject: LocalName) {
         // 1.
-        if self.current_node_named(subject.clone()) {
-            if self
+        if self.current_node_named(subject.clone())
+            && self
                 .position_in_active_formatting(&self.current_node())
                 .is_none()
-            {
-                self.pop();
-                return;
-            }
+        {
+            self.pop();
+            return;
         }
 
         // 2. 3. 4.

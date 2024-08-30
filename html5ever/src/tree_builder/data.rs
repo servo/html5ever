@@ -111,34 +111,33 @@ pub(crate) fn doctype_error_and_quirks(
     let public = opt_tendril_as_slice(&doctype.public_id);
     let system = opt_tendril_as_slice(&doctype.system_id);
 
-    let err = match (name, public, system) {
+    let err = !matches!(
+        (name, public, system),
         (Some("html"), None, None)
-        | (Some("html"), None, Some("about:legacy-compat"))
-        | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None)
-        | (
-            Some("html"),
-            Some("-//W3C//DTD HTML 4.0//EN"),
-            Some("http://www.w3.org/TR/REC-html40/strict.dtd"),
-        )
-        | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None)
-        | (
-            Some("html"),
-            Some("-//W3C//DTD HTML 4.01//EN"),
-            Some("http://www.w3.org/TR/html4/strict.dtd"),
-        )
-        | (
-            Some("html"),
-            Some("-//W3C//DTD XHTML 1.0 Strict//EN"),
-            Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"),
-        )
-        | (
-            Some("html"),
-            Some("-//W3C//DTD XHTML 1.1//EN"),
-            Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"),
-        ) => false,
-
-        _ => true,
-    };
+            | (Some("html"), None, Some("about:legacy-compat"))
+            | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None)
+            | (
+                Some("html"),
+                Some("-//W3C//DTD HTML 4.0//EN"),
+                Some("http://www.w3.org/TR/REC-html40/strict.dtd"),
+            )
+            | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None)
+            | (
+                Some("html"),
+                Some("-//W3C//DTD HTML 4.01//EN"),
+                Some("http://www.w3.org/TR/html4/strict.dtd"),
+            )
+            | (
+                Some("html"),
+                Some("-//W3C//DTD XHTML 1.0 Strict//EN"),
+                Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"),
+            )
+            | (
+                Some("html"),
+                Some("-//W3C//DTD XHTML 1.1//EN"),
+                Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"),
+            )
+    );
 
     // FIXME: We could do something asymptotically faster here.
     // But there aren't many strings, and this happens at most once per parse.
