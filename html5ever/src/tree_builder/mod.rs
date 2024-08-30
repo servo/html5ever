@@ -1112,14 +1112,11 @@ where
     //§ END
 
     // Pop elements until the current element is in the set.
-    fn pop_until_current<TagSet>(&self, pred: TagSet)
+    fn pop_until_current<TagSet>(&self, tag_set: TagSet)
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        loop {
-            if self.current_node_in(|x| pred(x)) {
-                break;
-            }
+        while !self.current_node_in(&tag_set) {
             self.open_elems.borrow_mut().pop();
         }
     }
