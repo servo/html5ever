@@ -93,14 +93,11 @@ pub(crate) fn doctype_error_and_quirks(
     iframe_srcdoc: bool,
 ) -> (bool, QuirksMode) {
     fn opt_string_as_slice(x: &Option<String>) -> Option<&str> {
-        x.as_ref().map(|y| &y[..])
+        x.as_deref()
     }
 
     fn opt_tendril_as_slice(x: &Option<StrTendril>) -> Option<&str> {
-        match *x {
-            Some(ref t) => Some(t),
-            None => None,
-        }
+        x.as_deref()
     }
 
     fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {

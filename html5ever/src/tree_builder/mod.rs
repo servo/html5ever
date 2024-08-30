@@ -1351,11 +1351,8 @@ where
                     .any(|a| a.name.expanded() == expanded_name!("", "form")))
         {
             let form = self.form_elem.borrow().as_ref().unwrap().clone();
-            let node2 = match node2 {
-                Some(ref n) => Some(n),
-                None => None,
-            };
-            self.sink.associate_with_form(&elem, &form, (&node1, node2));
+            self.sink
+                .associate_with_form(&elem, &form, (&node1, node2.as_ref()));
         }
 
         self.insert_at(insertion_point, AppendNode(elem.clone()));
