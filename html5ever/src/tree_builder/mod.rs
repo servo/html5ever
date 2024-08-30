@@ -300,7 +300,7 @@ where
                 _ => panic!(),
             }
         }
-        println!("");
+        println!();
         print!("    active_formatting:");
         for entry in self.active_formatting.borrow().iter() {
             match entry {
@@ -314,7 +314,7 @@ where
                 },
             }
         }
-        println!("");
+        println!();
     }
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
