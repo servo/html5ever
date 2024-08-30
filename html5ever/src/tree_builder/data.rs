@@ -12,7 +12,7 @@ use crate::tendril::StrTendril;
 use crate::tokenizer::Doctype;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
-static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_PREFIXES: &[&str] = &[
     "-//advasoft ltd//dtd html 3.0 aswedit + extensions//",
     "-//as//dtd html 3.0 aswedit + extensions//",
     "-//ietf//dtd html 2.0 level 1//",
@@ -69,21 +69,21 @@ static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//webtechs//dtd mozilla html//",
 ];
 
-static QUIRKY_PUBLIC_MATCHES: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_MATCHES: &[&str] = &[
     "-//w3o//dtd w3 html strict 3.0//en//",
     "-/w3c/dtd html 4.0 transitional/en",
     "html",
 ];
 
-static QUIRKY_SYSTEM_MATCHES: &'static [&'static str] =
+static QUIRKY_SYSTEM_MATCHES: &[&str] =
     &["http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd"];
 
-static LIMITED_QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static LIMITED_QUIRKY_PUBLIC_PREFIXES: &[&str] = &[
     "-//w3c//dtd xhtml 1.0 frameset//",
     "-//w3c//dtd xhtml 1.0 transitional//",
 ];
 
-static HTML4_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static HTML4_PUBLIC_PREFIXES: &[&str] = &[
     "-//w3c//dtd html 4.01 frameset//",
     "-//w3c//dtd html 4.01 transitional//",
 ];
@@ -92,11 +92,11 @@ pub(crate) fn doctype_error_and_quirks(
     doctype: &Doctype,
     iframe_srcdoc: bool,
 ) -> (bool, QuirksMode) {
-    fn opt_string_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
+    fn opt_string_as_slice(x: &Option<String>) -> Option<&str> {
         x.as_ref().map(|y| &y[..])
     }
 
-    fn opt_tendril_as_slice<'t>(x: &'t Option<StrTendril>) -> Option<&'t str> {
+    fn opt_tendril_as_slice(x: &Option<StrTendril>) -> Option<&str> {
         match *x {
             Some(ref t) => Some(t),
             None => None,

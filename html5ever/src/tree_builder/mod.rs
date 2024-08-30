@@ -624,7 +624,7 @@ where
 
     /// Iterate over the active formatting elements (with index in the list) from the end
     /// to the last marker, or the beginning if there are no markers.
-    fn active_formatting_end_to_marker<'a>(&'a self) -> ActiveFormattingView<'a, Handle> {
+    fn active_formatting_end_to_marker(&self) -> ActiveFormattingView<'_, Handle> {
         ActiveFormattingView {
             data: self.active_formatting.borrow(),
         }
