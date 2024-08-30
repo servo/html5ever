@@ -157,14 +157,14 @@ where
     pub fn new(sink: Sink, opts: TreeBuilderOpts) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         TreeBuilder {
-            opts: opts,
-            sink: sink,
+            opts,
+            sink,
             mode: Cell::new(Initial),
             orig_mode: Cell::new(None),
             template_modes: Default::default(),
             pending_table_text: Default::default(),
             quirks_mode: Cell::new(opts.quirks_mode),
-            doc_handle: doc_handle,
+            doc_handle,
             open_elems: Default::default(),
             active_formatting: Default::default(),
             head_elem: Default::default(),
@@ -189,19 +189,21 @@ where
     ) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
         let context_is_template = sink.elem_name(&context_elem) == expanded_name!(html "template");
+        let template_modes = if context_is_template {
+            RefCell::new(vec![InTemplate])
+        } else {
+            RefCell::new(vec![])
+        };
+
         let tb = TreeBuilder {
-            opts: opts,
-            sink: sink,
+            opts,
+            sink,
             mode: Cell::new(Initial),
             orig_mode: Cell::new(None),
-            template_modes: RefCell::new(if context_is_template {
-                vec![InTemplate]
-            } else {
-                vec![]
-            }),
+            template_modes,
             pending_table_text: Default::default(),
             quirks_mode: Cell::new(opts.quirks_mode),
-            doc_handle: doc_handle,
+            doc_handle,
             open_elems: Default::default(),
             active_formatting: Default::default(),
             head_elem: Default::default(),
