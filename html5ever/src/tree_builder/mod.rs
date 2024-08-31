@@ -7,7 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 //! The HTML5 tree builder.
 
 pub use crate::interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
