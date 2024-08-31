@@ -12,7 +12,7 @@ use crate::tendril::StrTendril;
 use crate::tokenizer::Doctype;
 
 // These should all be lowercase, for ASCII-case-insensitive matching.
-static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_PREFIXES: &[&str] = &[
     "-//advasoft ltd//dtd html 3.0 aswedit + extensions//",
     "-//as//dtd html 3.0 aswedit + extensions//",
     "-//ietf//dtd html 2.0 level 1//",
@@ -69,35 +69,35 @@ static QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
     "-//webtechs//dtd mozilla html//",
 ];
 
-static QUIRKY_PUBLIC_MATCHES: &'static [&'static str] = &[
+static QUIRKY_PUBLIC_MATCHES: &[&str] = &[
     "-//w3o//dtd w3 html strict 3.0//en//",
     "-/w3c/dtd html 4.0 transitional/en",
     "html",
 ];
 
-static QUIRKY_SYSTEM_MATCHES: &'static [&'static str] =
+static QUIRKY_SYSTEM_MATCHES: &[&str] =
     &["http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd"];
 
-static LIMITED_QUIRKY_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static LIMITED_QUIRKY_PUBLIC_PREFIXES: &[&str] = &[
     "-//w3c//dtd xhtml 1.0 frameset//",
     "-//w3c//dtd xhtml 1.0 transitional//",
 ];
 
-static HTML4_PUBLIC_PREFIXES: &'static [&'static str] = &[
+static HTML4_PUBLIC_PREFIXES: &[&str] = &[
     "-//w3c//dtd html 4.01 frameset//",
     "-//w3c//dtd html 4.01 transitional//",
 ];
 
-pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool, QuirksMode) {
-    fn opt_string_as_slice<'t>(x: &'t Option<String>) -> Option<&'t str> {
-        x.as_ref().map(|y| &y[..])
+pub(crate) fn doctype_error_and_quirks(
+    doctype: &Doctype,
+    iframe_srcdoc: bool,
+) -> (bool, QuirksMode) {
+    fn opt_string_as_slice(x: &Option<String>) -> Option<&str> {
+        x.as_deref()
     }
 
-    fn opt_tendril_as_slice<'t>(x: &'t Option<StrTendril>) -> Option<&'t str> {
-        match *x {
-            Some(ref t) => Some(t),
-            None => None,
-        }
+    fn opt_tendril_as_slice(x: &Option<StrTendril>) -> Option<&str> {
+        x.as_deref()
     }
 
     fn opt_to_ascii_lower(x: Option<&str>) -> Option<String> {
@@ -108,34 +108,33 @@ pub fn doctype_error_and_quirks(doctype: &Doctype, iframe_srcdoc: bool) -> (bool
     let public = opt_tendril_as_slice(&doctype.public_id);
     let system = opt_tendril_as_slice(&doctype.system_id);
 
-    let err = match (name, public, system) {
+    let err = !matches!(
+        (name, public, system),
         (Some("html"), None, None)
-        | (Some("html"), None, Some("about:legacy-compat"))
-        | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None)
-        | (
-            Some("html"),
-            Some("-//W3C//DTD HTML 4.0//EN"),
-            Some("http://www.w3.org/TR/REC-html40/strict.dtd"),
-        )
-        | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None)
-        | (
-            Some("html"),
-            Some("-//W3C//DTD HTML 4.01//EN"),
-            Some("http://www.w3.org/TR/html4/strict.dtd"),
-        )
-        | (
-            Some("html"),
-            Some("-//W3C//DTD XHTML 1.0 Strict//EN"),
-            Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"),
-        )
-        | (
-            Some("html"),
-            Some("-//W3C//DTD XHTML 1.1//EN"),
-            Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"),
-        ) => false,
-
-        _ => true,
-    };
+            | (Some("html"), None, Some("about:legacy-compat"))
+            | (Some("html"), Some("-//W3C//DTD HTML 4.0//EN"), None)
+            | (
+                Some("html"),
+                Some("-//W3C//DTD HTML 4.0//EN"),
+                Some("http://www.w3.org/TR/REC-html40/strict.dtd"),
+            )
+            | (Some("html"), Some("-//W3C//DTD HTML 4.01//EN"), None)
+            | (
+                Some("html"),
+                Some("-//W3C//DTD HTML 4.01//EN"),
+                Some("http://www.w3.org/TR/html4/strict.dtd"),
+            )
+            | (
+                Some("html"),
+                Some("-//W3C//DTD XHTML 1.0 Strict//EN"),
+                Some("http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"),
+            )
+            | (
+                Some("html"),
+                Some("-//W3C//DTD XHTML 1.1//EN"),
+                Some("http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"),
+            )
+    );
 
     // FIXME: We could do something asymptotically faster here.
     // But there aren't many strings, and this happens at most once per parse.

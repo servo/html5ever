@@ -13,6 +13,11 @@ use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns
 use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
+use crate::QualName;
+use crate::tree_builder::{create_element, html_elem, TreeSink, Tag, NodeOrText::AppendNode, StrTendril, TreeBuilder};
+use crate::tokenizer::TagKind::{StartTag, EndTag};
+use std::borrow::Cow::Borrowed;
+use crate::interface::Quirks;
 
 use std::borrow::ToOwned;
 
@@ -33,7 +38,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
+    pub(crate) fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
@@ -1383,7 +1388,7 @@ where
         }
     }
 
-    fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
+    pub(crate) fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
