@@ -9,15 +9,18 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use crate::interface::Quirks;
 use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
+use crate::tokenizer::TagKind::{EndTag, StartTag};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
+use crate::tree_builder::{
+    create_element, html_elem, ElemName, NodeOrText::AppendNode, StrTendril, Tag, TreeBuilder,
+    TreeSink,
+};
 use crate::QualName;
-use crate::tree_builder::{create_element, html_elem, TreeSink, Tag, NodeOrText::AppendNode, StrTendril, TreeBuilder};
-use crate::tokenizer::TagKind::{StartTag, EndTag};
+use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
 use std::borrow::Cow::Borrowed;
-use crate::interface::Quirks;
 
 use std::borrow::ToOwned;
 
@@ -402,7 +405,8 @@ where
 
                     let mut to_close = None;
                     for node in self.open_elems.borrow().iter().rev() {
-                        let name = self.sink.elem_name(node);
+                        let elem_name = self.sink.elem_name(node);
+                        let name = elem_name.expanded();
                         let can_close = if list {
                             close_list(name)
                         } else {
@@ -1441,8 +1445,8 @@ where
                     {
                         let open_elems = self.open_elems.borrow();
                         let node_name = self.sink.elem_name(&open_elems[stack_idx]);
-                        html = *node_name.ns == ns!(html);
-                        eq = node_name.local.eq_ignore_ascii_case(&tag.name);
+                        html = *node_name.ns() == ns!(html);
+                        eq = node_name.local_name().eq_ignore_ascii_case(&tag.name);
                     }
                     if !first && html {
                         let mode = self.mode.get();

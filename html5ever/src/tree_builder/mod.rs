@@ -9,7 +9,9 @@
 
 //! The HTML5 tree builder.
 
-pub use crate::interface::{create_element, ElementFlags, NextParserState, Tracer, TreeSink};
+pub use crate::interface::{
+    create_element, ElemName, ElementFlags, NextParserState, Tracer, TreeSink,
+};
 pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
 pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
@@ -187,7 +189,8 @@ where
         opts: TreeBuilderOpts,
     ) -> TreeBuilder<Handle, Sink> {
         let doc_handle = sink.get_document();
-        let context_is_template = sink.elem_name(&context_elem) == expanded_name!(html "template");
+        let context_is_template =
+            sink.elem_name(&context_elem).expanded() == expanded_name!(html "template");
         let template_modes = if context_is_template {
             RefCell::new(vec![InTemplate])
         } else {
@@ -231,7 +234,8 @@ where
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
         let context_elem = self.context_elem.borrow();
         let elem = context_elem.as_ref().expect("no context element");
-        let name = match self.sink.elem_name(elem) {
+        let elem_name = self.sink.elem_name(elem);
+        let name = match elem_name.expanded() {
             ExpandedName {
                 ns: &ns!(html),
                 local,
@@ -296,8 +300,8 @@ where
         print!("    open_elems:");
         for node in self.open_elems.borrow().iter() {
             let name = self.sink.elem_name(node);
-            match *name.ns {
-                ns!(html) => print!(" {}", name.local),
+            match *name.ns() {
+                ns!(html) => print!(" {}", name.local_name()),
                 _ => panic!(),
             }
         }
@@ -308,8 +312,8 @@ where
                 &Marker => print!(" Marker"),
                 Element(h, _) => {
                     let name = self.sink.elem_name(h);
-                    match *name.ns {
-                        ns!(html) => print!(" {}", name.local),
+                    match *name.ns() {
+                        ns!(html) => print!(" {}", name.local_name()),
                         _ => panic!(),
                     }
                 },
@@ -541,7 +545,7 @@ where
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
         !self.open_elems.borrow().is_empty()
-            && self.sink.elem_name(&self.adjusted_current_node()).ns != &ns!(html)
+            && *self.sink.elem_name(&self.adjusted_current_node()).ns() != ns!(html)
     }
 }
 
@@ -689,7 +693,7 @@ where
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        set(self.sink.elem_name(&self.current_node()))
+        set(self.sink.elem_name(&self.current_node()).expanded())
     }
 
     // Insert at the "appropriate place for inserting a node".
@@ -1014,7 +1018,8 @@ where
         for elem in self.open_elems.borrow().iter() {
             let error;
             {
-                let name = self.sink.elem_name(elem);
+                let elem_name = self.sink.elem_name(elem);
+                let name = elem_name.expanded();
                 if body_end_ok(name) {
                     continue;
                 }
@@ -1041,7 +1046,7 @@ where
             if pred(node.clone()) {
                 return true;
             }
-            if scope(self.sink.elem_name(node)) {
+            if scope(self.sink.elem_name(node).expanded()) {
                 return false;
             }
         }
@@ -1055,12 +1060,12 @@ where
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
-        set(self.sink.elem_name(elem))
+        set(self.sink.elem_name(elem).expanded())
     }
 
     fn html_elem_named(&self, elem: &Handle, name: LocalName) -> bool {
-        let expanded = self.sink.elem_name(elem);
-        *expanded.ns == ns!(html) && *expanded.local == name
+        let elem_name = self.sink.elem_name(elem);
+        *elem_name.ns() == ns!(html) && *elem_name.local_name() == name
     }
 
     fn in_html_elem_named(&self, name: LocalName) -> bool {
@@ -1090,8 +1095,8 @@ where
             {
                 let open_elems = self.open_elems.borrow();
                 let elem = unwrap_or_return!(open_elems.last());
-                let nsname = self.sink.elem_name(elem);
-                if !set(nsname) {
+                let elem_name = self.sink.elem_name(elem);
+                if !set(elem_name.expanded()) {
                     return;
                 }
             }
@@ -1132,7 +1137,7 @@ where
             match self.open_elems.borrow_mut().pop() {
                 None => break,
                 Some(elem) => {
-                    if pred(self.sink.elem_name(&elem)) {
+                    if pred(self.sink.elem_name(&elem).expanded()) {
                         break;
                     }
                 },
@@ -1217,7 +1222,8 @@ where
             if let (true, Some(ctx)) = (last, context_elem.as_ref()) {
                 node = ctx;
             }
-            let name = match self.sink.elem_name(node) {
+            let elem_name = self.sink.elem_name(node);
+            let name = match elem_name.expanded() {
                 ExpandedName {
                     ns: &ns!(html),
                     local,
@@ -1470,7 +1476,8 @@ where
         }
 
         let current = self.adjusted_current_node();
-        let name = self.sink.elem_name(&current);
+        let elem_name = self.sink.elem_name(&current);
+        let name = elem_name.expanded();
         if let ns!(html) = *name.ns {
             return false;
         }
@@ -1681,7 +1688,7 @@ where
         let current_ns = self
             .sink
             .elem_name(&self.adjusted_current_node())
-            .ns
+            .ns()
             .clone();
         match current_ns {
             ns!(mathml) => self.adjust_mathml_attributes(&mut tag),

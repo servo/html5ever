@@ -8,12 +8,13 @@
 // except according to those terms.
 //! Types for tag and attribute names, and tree-builder functionality.
 
+use std::cell::Ref;
 use std::fmt;
 use tendril::StrTendril;
 
 pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
+pub use self::tree_builder::{ElemName, NextParserState, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
-pub use self::tree_builder::{NextParserState, Tracer, TreeSink};
 use super::{LocalName, Namespace, Prefix};
 
 /// An [expanded name], containing the tag and the namespace.
@@ -23,6 +24,30 @@ use super::{LocalName, Namespace, Prefix};
 pub struct ExpandedName<'a> {
     pub ns: &'a Namespace,
     pub local: &'a LocalName,
+}
+
+impl<'a> ElemName for ExpandedName<'a> {
+    #[inline(always)]
+    fn ns(&self) -> &Namespace {
+        self.ns
+    }
+
+    #[inline(always)]
+    fn local_name(&self) -> &LocalName {
+        self.local
+    }
+}
+
+impl<'a> ElemName for Ref<'a, ExpandedName<'a>> {
+    #[inline(always)]
+    fn ns(&self) -> &Namespace {
+        self.ns
+    }
+
+    #[inline(always)]
+    fn local_name(&self) -> &LocalName {
+        self.local
+    }
 }
 
 impl<'a> fmt::Debug for ExpandedName<'a> {
@@ -239,6 +264,30 @@ pub struct QualName {
     ///
     /// ```
     pub local: LocalName,
+}
+
+impl<'a> ElemName for Ref<'a, QualName> {
+    #[inline(always)]
+    fn ns(&self) -> &Namespace {
+        &self.ns
+    }
+
+    #[inline(always)]
+    fn local_name(&self) -> &LocalName {
+        &self.local
+    }
+}
+
+impl<'a> ElemName for &'a QualName {
+    #[inline(always)]
+    fn ns(&self) -> &Namespace {
+        &self.ns
+    }
+
+    #[inline(always)]
+    fn local_name(&self) -> &LocalName {
+        &self.local
+    }
 }
 
 impl QualName {

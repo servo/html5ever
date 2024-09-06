@@ -11,7 +11,7 @@
 extern crate html5ever;
 
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
 use std::io;
 
@@ -20,7 +20,7 @@ use html5ever::tendril::*;
 use html5ever::tree_builder::{
     AppendNode, AppendText, ElementFlags, NodeOrText, QuirksMode, TreeSink,
 };
-use html5ever::{Attribute, ExpandedName, QualName};
+use html5ever::{Attribute, QualName};
 
 struct Sink {
     next_id: Cell<usize>,
@@ -38,6 +38,7 @@ impl Sink {
 impl TreeSink for Sink {
     type Handle = usize;
     type Output = Self;
+    type ElemName<'a> = Ref<'a, QualName>;
     fn finish(self) -> Self {
         self
     }
@@ -68,13 +69,10 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: &usize) -> ExpandedName {
-        self.names
-            .borrow()
-            .get(target)
-            .cloned()
-            .expect("not an element")
-            .expanded()
+    fn elem_name(&self, target: &usize) -> Self::ElemName<'_> {
+        Ref::map(self.names.borrow(), |map| {
+            *map.get(target).expect("not an element")
+        })
     }
 
     fn create_element(&self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {

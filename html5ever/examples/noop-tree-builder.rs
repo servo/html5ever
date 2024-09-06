@@ -40,6 +40,7 @@ impl Sink {
 impl TreeSink for Sink {
     type Handle = usize;
     type Output = Self;
+    type ElemName<'a> = ExpandedName<'a>;
     fn finish(self) -> Self {
         self
     }

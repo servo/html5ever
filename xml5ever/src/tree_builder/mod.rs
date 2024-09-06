@@ -20,7 +20,7 @@ use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
 
-pub use self::interface::{NextParserState, NodeOrText, Tracer, TreeSink};
+pub use self::interface::{ElemName, NextParserState, NodeOrText, Tracer, TreeSink};
 use self::types::*;
 use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
 use crate::interface::{AppendText, ExpandedName};
@@ -535,7 +535,7 @@ where
         self.open_elems
             .borrow()
             .iter()
-            .any(|a| self.sink.elem_name(a) == tag.name.expanded())
+            .any(|a| self.sink.elem_name(a).expanded() == tag.name.expanded())
     }
 
     // Pop elements until an element from the set has been popped.  Returns the
@@ -557,7 +557,7 @@ where
         TagSet: Fn(ExpandedName) -> bool,
     {
         // FIXME: take namespace into consideration:
-        set(self.sink.elem_name(&self.current_node()))
+        set(self.sink.elem_name(&self.current_node()).expanded())
     }
 
     fn close_tag(&self, tag: Tag) -> XmlProcessResult {
@@ -567,7 +567,7 @@ where
             &tag.name
         );
 
-        if *self.sink.elem_name(&self.current_node()).local != tag.name.local {
+        if *self.sink.elem_name(&self.current_node()).local_name() != tag.name.local {
             self.sink
                 .parse_error(Borrowed("Current node doesn't match tag"));
         }
