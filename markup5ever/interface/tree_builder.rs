@@ -12,7 +12,9 @@
 //! It can be used by a parser to create the DOM graph structure in memory.
 
 use crate::interface::{Attribute, ExpandedName, QualName};
+use crate::{LocalName, Namespace};
 use std::borrow::Cow;
+use std::fmt::Debug;
 use tendril::StrTendril;
 
 pub use self::NodeOrText::{AppendNode, AppendText};
@@ -97,6 +99,20 @@ where
     sink.create_element(name, attrs, flags)
 }
 
+/// An abstraction over any type that can represent an element's local name and namespace.
+pub trait ElemName: Debug {
+    fn ns(&self) -> &Namespace;
+    fn local_name(&self) -> &LocalName;
+
+    #[inline(always)]
+    fn expanded(&self) -> ExpandedName {
+        ExpandedName {
+            ns: self.ns(),
+            local: self.local_name(),
+        }
+    }
+}
+
 /// Methods a parser can use to create the DOM. The DOM provider implements this trait.
 ///
 /// Having this as a trait potentially allows multiple implementations of the DOM to be used with
@@ -112,6 +128,11 @@ pub trait TreeSink {
     /// This should default to Self, but default associated types are not stable yet.
     /// [rust-lang/rust#29661](https://github.com/rust-lang/rust/issues/29661)
     type Output;
+
+    //
+    type ElemName<'a>: ElemName
+    where
+        Self: 'a;
 
     /// Consume this sink and return the overall result of parsing.
     ///
@@ -130,7 +151,7 @@ pub trait TreeSink {
     ///
     /// Should never be called on a non-element node;
     /// feel free to `panic!`.
-    fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> ExpandedName<'a>;
+    fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> Self::ElemName<'a>;
 
     /// Create an element.
     ///

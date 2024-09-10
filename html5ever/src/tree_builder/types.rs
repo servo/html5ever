@@ -58,6 +58,7 @@ pub(crate) enum SplitStatus {
 /// A subset/refinement of `tokenizer::Token`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum Token {
     TagToken(Tag),
     CommentToken(StrTendril),

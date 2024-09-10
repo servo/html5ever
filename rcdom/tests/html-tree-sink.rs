@@ -17,6 +17,7 @@ pub struct LineCountingDOM {
 
 impl TreeSink for LineCountingDOM {
     type Output = Self;
+    type ElemName<'a> = ExpandedName<'a>;
 
     fn finish(self) -> Self {
         self

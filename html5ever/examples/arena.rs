@@ -12,7 +12,7 @@ extern crate typed_arena;
 
 use html5ever::interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
 use html5ever::tendril::{StrTendril, TendrilSink};
-use html5ever::{parse_document, Attribute, ExpandedName, QualName};
+use html5ever::{parse_document, Attribute, QualName};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
@@ -183,6 +183,7 @@ impl<'arena> Sink<'arena> {
 impl<'arena> TreeSink for Sink<'arena> {
     type Handle = Ref<'arena>;
     type Output = Ref<'arena>;
+    type ElemName<'a> = &'a QualName where Self : 'a;
 
     fn finish(self) -> Ref<'arena> {
         self.document
@@ -202,9 +203,9 @@ impl<'arena> TreeSink for Sink<'arena> {
         ptr::eq::<Node>(*x, *y)
     }
 
-    fn elem_name<'a>(&self, target: &'a Ref<'arena>) -> ExpandedName<'a> {
+    fn elem_name(&self, target: &Ref<'arena>) -> Self::ElemName<'_> {
         match target.data {
-            NodeData::Element { ref name, .. } => name.expanded(),
+            NodeData::Element { ref name, .. } => name,
             _ => panic!("not an element!"),
         }
     }
