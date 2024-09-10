@@ -6,7 +6,9 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-//! Traits for serializing elements. The serializer expects the data to be xml-like (with a name,
+//! Traits for serializing elements.
+//!
+//! The serializer expects the data to be xml-like (with a name,
 //! and optional children, attrs, text, comments, doctypes, and [processing instructions]). It uses
 //! the visitor pattern, where the serializer and the serializable objects are decoupled and
 //! implement their own traits.
