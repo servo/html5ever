@@ -1,0 +1,27 @@
+
+[package]
+name = "xml5ever-fuzz"
+version = "0.0.0"
+authors = ["David Korczynski <david@adalogics.com>"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.0"
+
+[dependencies.xml5ever]
+path = ".."
+
+[dependencies.markup5ever_rcdom]
+path = "../../rcdom/"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_document_parse"
+path = "fuzz_targets/fuzz_document_parse.rs"
