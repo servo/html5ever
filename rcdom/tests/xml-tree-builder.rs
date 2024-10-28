@@ -15,7 +15,7 @@ use std::io::BufRead;
 use std::path::Path;
 use std::{env, fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
-use util::runner::Test;
+use util::runner::{run_all, Test};
 use xml5ever::driver::parse_document;
 use xml5ever::tendril::TendrilSink;
 
@@ -236,7 +236,5 @@ fn main() {
         }
     }
 
-    for test in tests(src_dir, &ignores) {
-        test.run();
-    }
+    run_all(tests(src_dir, &ignores));
 }

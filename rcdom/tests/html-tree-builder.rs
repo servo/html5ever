@@ -24,7 +24,7 @@ use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{parse_document, parse_fragment, ParseOpts};
 use html5ever::{LocalName, QualName};
 use rcdom::{Handle, NodeData, RcDom};
-use util::runner::Test;
+use util::runner::{run_all, Test};
 
 mod util {
     pub mod runner;
@@ -297,7 +297,5 @@ fn main() {
         }
     }
 
-    for test in tests(src_dir, &ignores) {
-        test.run();
-    }
+    run_all(tests(src_dir, &ignores));
 }

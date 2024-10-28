@@ -28,7 +28,7 @@ use std::io::Read;
 use std::path::Path;
 use std::{char, env};
 
-use util::runner::Test;
+use util::runner::{run_all, Test};
 
 mod util {
     pub mod runner;
@@ -481,7 +481,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    for test in tests(Path::new(env!("CARGO_MANIFEST_DIR"))) {
-        test.run();
-    }
+    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
 }
