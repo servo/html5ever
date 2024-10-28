@@ -16,7 +16,7 @@ use std::io::Read;
 use std::path::Path;
 
 use util::find_tests::foreach_xml5lib_test;
-use util::runner::Test;
+use util::runner::{run_all, Test};
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{SliceExt, StrTendril};
@@ -372,7 +372,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    for test in tests(Path::new(env!("CARGO_MANIFEST_DIR"))) {
-        test.run();
-    }
+    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
 }

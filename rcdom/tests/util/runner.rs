@@ -7,11 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use libtest_mimic::{Arguments, Trial};
+
 /// Simple container for storing tests for later execution
 pub struct Test {
     pub name: String,
     pub skip: bool,
-    pub test: Box<dyn Fn()>,
+    pub test: Box<dyn Fn() + Send + Sync>,
 }
 
 impl Test {
@@ -29,4 +31,15 @@ impl Test {
             println!(" ok");
         }
     }
+}
+
+pub fn run_all(tests: Vec<Test>) {
+    let mut harness_tests = Vec::new();
+
+    for test in tests {
+        let harness_test = Trial::test(test.name.clone(), move || Ok(test.run()));
+        harness_tests.push(harness_test);
+    }
+    let args = Arguments::from_args();
+    libtest_mimic::run(&args, harness_tests).exit();
 }
