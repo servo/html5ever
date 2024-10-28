@@ -37,7 +37,10 @@ pub fn run_all(tests: Vec<Test>) {
     let mut harness_tests = Vec::new();
 
     for test in tests {
-        let harness_test = Trial::test(test.name.clone(), move || Ok(test.run()));
+        let harness_test = Trial::test(test.name.clone(), move || {
+            test.run();
+            Ok(())
+        });
         harness_tests.push(harness_test);
     }
     let args = Arguments::from_args();
