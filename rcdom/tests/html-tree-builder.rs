@@ -190,7 +190,10 @@ fn make_test_desc_with_scripting_flag(
     scripting_enabled: bool,
 ) -> Test {
     let expect_field = |key| {
-        fields.get(key).unwrap_or_else(|| panic!("missing field {}, testcase: {:?}", key, fields)).to_string()
+        fields
+            .get(key)
+            .unwrap_or_else(|| panic!("missing field {}, testcase: {:?}", key, fields))
+            .to_string()
     };
 
     let mut data = expect_field("data");
