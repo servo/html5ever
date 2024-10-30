@@ -189,14 +189,13 @@ fn make_test_desc_with_scripting_flag(
     fields: &HashMap<String, String>,
     scripting_enabled: bool,
 ) -> Test {
-    let get_field = |key| {
-        let field = fields.get(key).expect("missing field");
-        field.trim_end_matches('\n').to_string()
+    let expect_field = |key| {
+        fields.get(key).unwrap_or_else(|| panic!("missing field {}, testcase: {:?}", key, fields)).to_string()
     };
 
-    let mut data = fields.get("data").expect("missing data").to_string();
+    let mut data = expect_field("data");
     data.pop();
-    let expected = get_field("document");
+    let expected = expect_field("document").trim_end_matches('\n').to_string();
     let context = fields
         .get("document-fragment")
         .map(|field| context_name(field.trim_end_matches('\n')));

@@ -624,6 +624,13 @@ where
 
                 tag @ <hr> => {
                     self.close_p_element_in_button_scope();
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_except(local_name!("optgroup"));
+                        if self.in_scope_named(default_scope, local_name!("option")) {
+                            self.sink.parse_error(Borrowed("hr in option"));
+                        }
+                    }
+
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok.set(false);
                     DoneAckSelfClosing
@@ -662,25 +669,47 @@ where
                 // <noscript> handled in wildcard case below
 
                 tag @ <select> => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.sink.parse_error(Borrowed("nested select"));
+                        self.pop_until_named(local_name!("select"));
+                    }
+
                     self.reconstruct_formatting();
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
-                    // NB: mode == InBody but possibly self.mode != mode, if
-                    // we're processing "as in the rules for InBody".
-                    self.mode.set(match self.mode.get() {
-                        InTable | InCaption | InTableBody
-                            | InRow | InCell => InSelectInTable,
-                        _ => InSelect,
-                    });
                     Done
                 }
 
-                tag @ <optgroup> <option> => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
+                tag @ <option> => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_except(local_name!("optgroup"));
+                        if self.in_scope_named(default_scope, local_name!("option")) {
+                            self.sink.parse_error(Borrowed("nested options"));
+                        }
+                    } else {
+                        if self.current_node_named(local_name!("option")) {
+                            self.pop();
+                        }
+                        self.reconstruct_formatting();
                     }
-                    self.reconstruct_formatting();
+
                     self.insert_element_for(tag);
+                    Done
+                }
+
+                tag @ <optgroup> => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end(cursory_implied_end);
+                        // XXX: perf
+                        if self.in_scope_named(default_scope, local_name!("option")) || self.in_scope_named(default_scope, local_name!("optgroup")) {
+                            self.sink.parse_error(Borrowed("nested options"));
+                        }
+                    } else {
+                        if self.current_node_named(local_name!("option")) {
+                            self.pop();
+                        }
+                        self.reconstruct_formatting();
+                    }
                     Done
                 }
 
@@ -1098,121 +1127,6 @@ where
                 }
 
                 token => self.step(InBody, token),
-            }),
-
-            //§ parsing-main-inselect
-            InSelect => match_token!(token {
-                NullCharacterToken => self.unexpected(&token),
-                CharacterTokens(_, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
-
-                <html> => self.step(InBody, token),
-
-                tag @ <option> => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    Done
-                }
-
-                tag @ <optgroup> => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    Done
-                }
-
-                tag @ <hr> => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    self.pop();
-                    DoneAckSelfClosing
-                }
-
-                </optgroup> => {
-                    if self.open_elems.borrow().len() >= 2
-                        && self.current_node_named(local_name!("option"))
-                        && self.html_elem_named(&self.open_elems.borrow()[self.open_elems.borrow().len() - 2],
-                            local_name!("optgroup")) {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    } else {
-                        self.unexpected(&token);
-                    }
-                    Done
-                }
-
-                </option> => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    } else {
-                        self.unexpected(&token);
-                    }
-                    Done
-                }
-
-                tag @ <select> </select> => {
-                    let in_scope = self.in_scope_named(select_scope, local_name!("select"));
-
-                    if !in_scope || tag.kind == StartTag {
-                        self.unexpected(&tag);
-                    }
-
-                    if in_scope {
-                        self.pop_until_named(local_name!("select"));
-                        self.mode.set(self.reset_insertion_mode());
-                    }
-                    Done
-                }
-
-                <input> <keygen> <textarea> => {
-                    self.unexpected(&token);
-                    if self.in_scope_named(select_scope, local_name!("select")) {
-                        self.pop_until_named(local_name!("select"));
-                        Reprocess(self.reset_insertion_mode(), token)
-                    } else {
-                        Done
-                    }
-                }
-
-                <script> <template> </template> => self.step(InHead, token),
-
-                EOFToken => self.step(InBody, token),
-
-                token => self.unexpected(&token),
-            }),
-
-            //§ parsing-main-inselectintable
-            InSelectInTable => match_token!(token {
-                <caption> <table> <tbody> <tfoot> <thead> <tr> <td> <th> => {
-                    self.unexpected(&token);
-                    self.pop_until_named(local_name!("select"));
-                    Reprocess(self.reset_insertion_mode(), token)
-                }
-
-                tag @ </caption> </table> </tbody> </tfoot> </thead> </tr> </td> </th> => {
-                    self.unexpected(&tag);
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.pop_until_named(local_name!("select"));
-                        Reprocess(self.reset_insertion_mode(), TagToken(tag))
-                    } else {
-                        Done
-                    }
-                }
-
-                token => self.step(InSelect, token),
             }),
 
             //§ parsing-main-intemplate

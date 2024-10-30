@@ -48,13 +48,9 @@ macro_rules! declare_tag_set (
 pub(crate) fn empty_set(_: ExpandedName) -> bool {
     false
 }
-#[inline(always)]
-pub(crate) fn full_set(_: ExpandedName) -> bool {
-    true
-}
 
 declare_tag_set!(pub html_default_scope =
-    "applet" "caption" "html" "table" "td" "th" "marquee" "object" "template");
+    "applet" "caption" "html" "table" "td" "th" "marquee" "object" "select" "template");
 
 #[inline(always)]
 pub(crate) fn default_scope(name: ExpandedName) -> bool {
@@ -66,7 +62,6 @@ pub(crate) fn default_scope(name: ExpandedName) -> bool {
 declare_tag_set!(pub list_item_scope = [default_scope] + "ol" "ul");
 declare_tag_set!(pub button_scope = [default_scope] + "button");
 declare_tag_set!(pub table_scope = "html" "table" "template");
-declare_tag_set!(pub select_scope = [full_set] - "optgroup" "option");
 
 declare_tag_set!(pub table_body_context = "tbody" "tfoot" "thead" "template" "html");
 declare_tag_set!(pub table_row_context = "tr" "template" "html");
