@@ -1146,6 +1146,7 @@ where
         n
     }
 
+    /// Pop element until an element with the given name has been popped.
     fn pop_until_named(&self, name: LocalName) -> usize {
         self.pop_until(|p| *p.ns == ns!(html) && *p.local == name)
     }
@@ -1231,16 +1232,6 @@ where
                 _ => continue,
             };
             match *name {
-                local_name!("select") => {
-                    for ancestor in self.open_elems.borrow()[0..i].iter().rev() {
-                        if self.html_elem_named(ancestor, local_name!("template")) {
-                            return InSelect;
-                        } else if self.html_elem_named(ancestor, local_name!("table")) {
-                            return InSelectInTable;
-                        }
-                    }
-                    return InSelect;
-                },
                 local_name!("td") | local_name!("th") => {
                     if !last {
                         return InCell;
