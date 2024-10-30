@@ -710,6 +710,8 @@ where
                         }
                         self.reconstruct_formatting();
                     }
+
+                    self.insert_element_for(tag);
                     Done
                 }
 
