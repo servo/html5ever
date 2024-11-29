@@ -355,9 +355,7 @@ fn mk_test(
                 let output = tokenize(input.clone(), opts.clone());
                 let expect_toks = json_to_tokens(&expect, &expect_errors, opts.exact_errors);
                 if output != expect_toks {
-                    panic!(
-                        "\ninput: {input:?}\ngot: {output:?}\nexpected: {expect_toks:?}"
-                    );
+                    panic!("\ninput: {input:?}\ngot: {output:?}\nexpected: {expect_toks:?}");
                 }
             }
         }),

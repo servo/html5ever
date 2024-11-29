@@ -240,9 +240,7 @@ fn make_test_desc_with_scripting_flag(
             result.truncate(len - 1); // drop the trailing newline
 
             if result != expected {
-                panic!(
-                    "\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n"
-                );
+                panic!("\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n");
             }
         }),
     }

@@ -297,9 +297,7 @@ fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpt
                 let output = tokenize_xml(input.clone(), opts);
                 let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
-                    panic!(
-                        "\ninput: {input:?}\ngot: {output:?}\nexpected: {expect:?}"
-                    );
+                    panic!("\ninput: {input:?}\ngot: {output:?}\nexpected: {expect:?}");
                 }
             }
         }),

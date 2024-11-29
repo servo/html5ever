@@ -73,11 +73,7 @@ fn main() {
     )
     .unwrap();
     for &(prefix, url) in NAMESPACES {
-        writeln!(
-            generated,
-            "({prefix}) => {{ namespace_url!({url:?}) }};"
-        )
-        .unwrap();
+        writeln!(generated, "({prefix}) => {{ namespace_url!({url:?}) }};").unwrap();
     }
     writeln!(generated, "}}").unwrap();
 }
