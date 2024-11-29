@@ -11,7 +11,7 @@ use std::fmt;
 
 pub(crate) fn to_escaped_string<T: fmt::Debug>(x: &T) -> String {
     // FIXME: don't allocate twice
-    let string = format!("{:?}", x);
+    let string = format!("{x:?}");
     string.chars().flat_map(|c| c.escape_default()).collect()
 }
 

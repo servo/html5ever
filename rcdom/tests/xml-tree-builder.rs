@@ -84,7 +84,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
+                buf.push_str(&format!(" \"{public_id}\" \"{system_id}\""));
             }
             buf.push_str(">\n");
         },
@@ -172,7 +172,7 @@ fn make_xml_test(
 
     let data = get_field("data");
     let expected = get_field("document");
-    let name = format!("tb: {}-{}", filename, idx);
+    let name = format!("tb: {filename}-{idx}");
     let skip = ignores.contains(&name) || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
 
     tests.push(Test {
@@ -191,8 +191,7 @@ fn make_xml_test(
 
             if result != expected {
                 panic!(
-                    "\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
-                    data, result, expected
+                    "\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n"
                 );
             }
         }),

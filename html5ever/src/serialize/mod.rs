@@ -109,7 +109,7 @@ impl<Wr: Write> HtmlSerializer<Wr> {
                 '"' if attr_mode => self.writer.write_all(b"&quot;"),
                 '<' if !attr_mode => self.writer.write_all(b"&lt;"),
                 '>' if !attr_mode => self.writer.write_all(b"&gt;"),
-                c => self.writer.write_fmt(format_args!("{}", c)),
+                c => self.writer.write_fmt(format_args!("{c}")),
             }?;
         }
         Ok(())

@@ -291,8 +291,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
             (Lhs::Pattern(pat), Rhs::Expression(expr)) => {
                 if !wildcards_patterns.is_empty() {
                     panic!(
-                        "ordinary patterns may not appear after wildcard tags {:?} {:?}",
-                        pat, expr
+                        "ordinary patterns may not appear after wildcard tags {pat:?} {expr:?}"
                     );
                 }
                 arms_code.push(quote!(#binding #pat => #expr,))

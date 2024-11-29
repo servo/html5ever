@@ -48,7 +48,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
         total += sz;
     }
 
-    let test_name = format!("xml tokenizing {}", name);
+    let test_name = format!("xml tokenizing {name}");
 
     c.bench_function(&test_name, move |b| {
         b.iter(|| {

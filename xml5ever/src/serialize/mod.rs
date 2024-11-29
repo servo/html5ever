@@ -80,7 +80,7 @@ fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -
             '"' if attr_mode => writer.write_all(b"&quot;"),
             '<' if !attr_mode => writer.write_all(b"&lt;"),
             '>' if !attr_mode => writer.write_all(b"&gt;"),
-            c => writer.write_fmt(format_args!("{}", c)),
+            c => writer.write_fmt(format_args!("{c}")),
         }?;
     }
     Ok(())

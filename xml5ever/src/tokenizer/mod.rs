@@ -256,7 +256,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 _ => false,
             }
         {
-            let msg = format!("Bad character {}", c);
+            let msg = format!("Bad character {c}");
             self.emit_error(Cow::Owned(msg));
         }
 

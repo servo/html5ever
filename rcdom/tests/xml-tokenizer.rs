@@ -262,7 +262,7 @@ fn json_to_token(js: &Value) -> Token {
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
-        _ => panic!("don't understand token {:?}", parts),
+        _ => panic!("don't understand token {parts:?}"),
     }
 }
 
@@ -298,8 +298,7 @@ fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpt
                 let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
                     panic!(
-                        "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect
+                        "\ninput: {input:?}\ngot: {output:?}\nexpected: {expect:?}"
                     );
                 }
             }
@@ -320,10 +319,10 @@ fn mk_xml_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             if let Some(s) = state {
-                newdesc = format!("{} (in state {:?})", newdesc, s)
+                newdesc = format!("{newdesc} (in state {s:?})")
             };
             if exact_errors {
-                newdesc = format!("{} (exact errors)", newdesc);
+                newdesc = format!("{newdesc} (exact errors)");
             }
 
             tests.push(mk_xml_test(

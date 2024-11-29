@@ -74,15 +74,15 @@ impl TokenSink for TokenPrinter {
             },
             ParseError(err) => {
                 self.is_char(false);
-                println!("ERROR: {}", err);
+                println!("ERROR: {err}");
             },
             PIToken(Pi { target, data }) => {
                 self.is_char(false);
-                println!("PI : <?{:?} {:?}?>", target, data);
+                println!("PI : <?{target:?} {data:?}?>");
             },
             _ => {
                 self.is_char(false);
-                println!("OTHER: {:?}", token);
+                println!("OTHER: {token:?}");
             },
         }
     }
