@@ -34,16 +34,16 @@ impl TokenSink for SimpleTokenPrinter {
                 println!("{:?} {} ", tag.kind, &*tag.name.local);
             },
             ParseError(err) => {
-                println!("ERROR: {}", err);
+                println!("ERROR: {err}");
             },
             PIToken(Pi {
                 ref target,
                 ref data,
             }) => {
-                println!("PI : <?{} {}?>", target, data);
+                println!("PI : <?{target} {data}?>");
             },
             CommentToken(ref comment) => {
-                println!("<!--{:?}-->", comment);
+                println!("<!--{comment:?}-->");
             },
             EOFToken => {
                 println!("EOF");
@@ -53,7 +53,7 @@ impl TokenSink for SimpleTokenPrinter {
                 ref public_id,
                 ..
             }) => {
-                println!("<!DOCTYPE {:?} {:?}>", name, public_id);
+                println!("<!DOCTYPE {name:?} {public_id:?}>");
             },
         }
     }

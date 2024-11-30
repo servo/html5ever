@@ -31,7 +31,7 @@ fn walk(indent: usize, handle: &Handle) {
             ref name,
             ref public_id,
             ref system_id,
-        } => println!("<!DOCTYPE {} \"{}\" \"{}\">", name, public_id, system_id),
+        } => println!("<!DOCTYPE {name} \"{public_id}\" \"{system_id}\">"),
 
         NodeData::Text { ref contents } => {
             println!("#text: {}", contents.borrow().escape_default())
@@ -72,7 +72,7 @@ fn main() {
     if !dom.errors.borrow().is_empty() {
         println!("\nParse errors:");
         for err in dom.errors.borrow().iter() {
-            println!("    {}", err);
+            println!("    {err}");
         }
     }
 }

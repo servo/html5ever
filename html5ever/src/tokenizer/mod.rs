@@ -273,7 +273,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 _ => false,
             }
         {
-            let msg = format!("Bad character {}", c);
+            let msg = format!("Bad character {c}");
             self.emit_error(Cow::Owned(msg));
         }
 
@@ -1483,11 +1483,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             "\n{:12}         total in token sink",
             self.time_in_sink.get()
         );
-        println!("\n{:12}         total in tokenizer", total);
+        println!("\n{total:12}         total in tokenizer");
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            println!("{:12}  {:4.1}%  {:?}", v, pct, k);
+            println!("{v:12}  {pct:4.1}%  {k:?}");
         }
     }
 

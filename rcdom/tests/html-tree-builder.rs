@@ -90,7 +90,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
+                buf.push_str(&format!(" \"{public_id}\" \"{system_id}\""));
             }
             buf.push_str(">\n");
         },
@@ -176,7 +176,7 @@ fn make_test(
     } else {
         &scripting_flags[0..2]
     };
-    let name = format!("tb: {}-{}", filename, idx);
+    let name = format!("tb: {filename}-{idx}");
     for scripting_enabled in scripting_flags {
         let test = make_test_desc_with_scripting_flag(ignores, &name, &fields, *scripting_enabled);
         tests.push(test);
@@ -240,10 +240,7 @@ fn make_test_desc_with_scripting_flag(
             result.truncate(len - 1); // drop the trailing newline
 
             if result != expected {
-                panic!(
-                    "\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
-                    data, result, expected
-                );
+                panic!("\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n");
             }
         }),
     }

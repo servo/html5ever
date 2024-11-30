@@ -33,5 +33,5 @@ fn main() {
         xml.push_str(&contents.borrow());
     }
 
-    println!("{:?} {:?}!", hello_tag, xml);
+    println!("{hello_tag:?} {xml:?}!");
 }

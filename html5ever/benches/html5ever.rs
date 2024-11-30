@@ -49,7 +49,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
         total += sz;
     }
 
-    let test_name = format!("html tokenizing {}", name);
+    let test_name = format!("html tokenizing {name}");
 
     c.bench_function(&test_name, move |b| {
         b.iter(|| {

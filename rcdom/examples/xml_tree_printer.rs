@@ -20,7 +20,7 @@ use xml5ever::tendril::TendrilSink;
 fn walk(prefix: &str, handle: &Handle) {
     let node = handle;
 
-    print!("{}", prefix);
+    print!("{prefix}");
     match node.data {
         NodeData::Document => println!("#document"),
 

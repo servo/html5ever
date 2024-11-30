@@ -296,7 +296,7 @@ where
 
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-        println!("dump_state on {}", label);
+        println!("dump_state on {label}");
         print!("    open_elems:");
         for node in self.open_elems.borrow().iter() {
             let name = self.sink.elem_name(node);

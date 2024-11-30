@@ -70,7 +70,7 @@ impl Debug for NamespaceMap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "\nNamespaceMap[")?;
         for (key, value) in &self.scope {
-            writeln!(f, "   {:?} : {:?}", key, value)?;
+            writeln!(f, "   {key:?} : {value:?}")?;
         }
         write!(f, "]")
     }

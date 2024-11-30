@@ -260,7 +260,7 @@ fn json_to_token(js: &Value) -> Token {
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
-        _ => panic!("don't understand token {:?}", parts),
+        _ => panic!("don't understand token {parts:?}"),
     }
 }
 
@@ -355,10 +355,7 @@ fn mk_test(
                 let output = tokenize(input.clone(), opts.clone());
                 let expect_toks = json_to_tokens(&expect, &expect_errors, opts.exact_errors);
                 if output != expect_toks {
-                    panic!(
-                        "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect_toks
-                    );
+                    panic!("\ninput: {input:?}\ngot: {output:?}\nexpected: {expect_toks:?}");
                 }
             }
         }),
@@ -404,7 +401,7 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
                     "Script data state" => RawData(ScriptData),
                     "CDATA section state" => CdataSection,
                     "Data state" => Data,
-                    s => panic!("don't know state {}", s),
+                    s => panic!("don't know state {s}"),
                 })
             })
             .collect(),
@@ -417,10 +414,10 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             if let Some(s) = state {
-                newdesc = format!("{} (in state {:?})", newdesc, s)
+                newdesc = format!("{newdesc} (in state {s:?})")
             };
             if exact_errors {
-                newdesc = format!("{} (exact errors)", newdesc);
+                newdesc = format!("{newdesc} (exact errors)");
             }
 
             tests.push(mk_test(
