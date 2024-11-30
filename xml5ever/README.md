@@ -37,8 +37,8 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 Add xml5ever as a dependency in your project manifest:
 
 ```toml
-    [dependencies]
-    xml5ever = "0.18"
+[dependencies]
+xml5ever = "0.20"
 ```
 
 # Getting started
