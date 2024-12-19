@@ -263,10 +263,10 @@ impl TreeSink for RcDom {
     }
 
     fn elem_name<'a>(&self, target: &'a Handle) -> ExpandedName<'a> {
-        return match target.data {
+        match target.data {
             NodeData::Element { ref name, .. } => name.expanded(),
             _ => panic!("not an element!"),
-        };
+        }
     }
 
     fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
