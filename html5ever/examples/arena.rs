@@ -183,7 +183,10 @@ impl<'arena> Sink<'arena> {
 impl<'arena> TreeSink for Sink<'arena> {
     type Handle = Ref<'arena>;
     type Output = Ref<'arena>;
-    type ElemName<'a> = &'a QualName where Self : 'a;
+    type ElemName<'a>
+        = &'a QualName
+    where
+        Self: 'a;
 
     fn finish(self) -> Ref<'arena> {
         self.document

@@ -225,7 +225,10 @@ impl TreeSink for RcDom {
 
     type Handle = Handle;
 
-    type ElemName<'a> = ExpandedName<'a> where Self : 'a;
+    type ElemName<'a>
+        = ExpandedName<'a>
+    where
+        Self: 'a;
 
     fn parse_error(&self, msg: Cow<'static, str>) {
         self.errors.borrow_mut().push(msg);
@@ -260,10 +263,10 @@ impl TreeSink for RcDom {
     }
 
     fn elem_name<'a>(&self, target: &'a Handle) -> ExpandedName<'a> {
-        return match target.data {
+        match target.data {
             NodeData::Element { ref name, .. } => name.expanded(),
             _ => panic!("not an element!"),
-        };
+        }
     }
 
     fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> Handle {
