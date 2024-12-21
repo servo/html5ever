@@ -26,7 +26,7 @@ pub struct ExpandedName<'a> {
     pub local: &'a LocalName,
 }
 
-impl<'a> ElemName for ExpandedName<'a> {
+impl ElemName for ExpandedName<'_> {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         self.ns
@@ -50,7 +50,7 @@ impl<'a> ElemName for Ref<'a, ExpandedName<'a>> {
     }
 }
 
-impl<'a> fmt::Debug for ExpandedName<'a> {
+impl fmt::Debug for ExpandedName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.ns.is_empty() {
             write!(f, "{}", self.local)
@@ -266,7 +266,7 @@ pub struct QualName {
     pub local: LocalName,
 }
 
-impl<'a> ElemName for Ref<'a, QualName> {
+impl ElemName for Ref<'_, QualName> {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         &self.ns
@@ -278,7 +278,7 @@ impl<'a> ElemName for Ref<'a, QualName> {
     }
 }
 
-impl<'a> ElemName for &'a QualName {
+impl ElemName for &QualName {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         &self.ns
