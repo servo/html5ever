@@ -13,13 +13,16 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [features]
+default = ["encoding"]
 trace_tokenizer = []
+encoding = ["dep:encoding_rs", "markup5ever/encoding"]
 
 [dependencies]
 log = "0.4"
 mac = "0.1"
 markup5ever = { version = "0.16", path = "../markup5ever" }
 match_token = { workspace = true }
+encoding_rs = { version = "0.8", optional = true }
 
 [dev-dependencies]
 criterion = "0.6"

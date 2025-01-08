@@ -13,6 +13,8 @@ use std::fmt;
 use tendril::StrTendril;
 use web_atoms::{LocalName, Namespace, Prefix};
 
+use crate::InputSinkResult;
+
 pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
 pub use self::tree_builder::{ElemName, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
@@ -65,6 +67,19 @@ impl fmt::Debug for ExpandedName<'_> {
 pub enum TokenizerResult<Handle> {
     Done,
     Script(Handle),
+    MaybeChangeEncodingAndStartOver(&'static encoding_rs::Encoding),
+}
+
+impl<Handle> From<TokenizerResult<Handle>> for Option<InputSinkResult<Handle>> {
+    fn from(value: TokenizerResult<Handle>) -> Self {
+        match value {
+            TokenizerResult::Script(handle) => Some(InputSinkResult::HandleScript(handle)),
+            TokenizerResult::MaybeChangeEncodingAndStartOver(encoding) => {
+                Some(InputSinkResult::MaybeStartOverWithEncoding(encoding))
+            },
+            TokenizerResult::Done => None,
+        }
+    }
 }
 
 /// Helper to quickly create an expanded name.

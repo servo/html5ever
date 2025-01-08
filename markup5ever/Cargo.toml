@@ -13,7 +13,15 @@ rust-version.workspace = true
 [lib]
 path = "lib.rs"
 
+[features]
+encoding = ["dep:encoding_rs"]
+
 [dependencies]
 web_atoms = { version = "0.1", path = "../web_atoms" }
 tendril = "0.4"
 log = "0.4"
+encoding_rs = { version = "0.8", optional = true }
+
+[build-dependencies]
+string_cache_codegen = "0.5.4"
+phf_codegen = "0.11"

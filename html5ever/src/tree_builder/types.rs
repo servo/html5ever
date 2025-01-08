@@ -70,6 +70,8 @@ pub(crate) enum ProcessResult<Handle> {
     Script(Handle),
     ToPlaintext,
     ToRawData(RawKind),
+    #[cfg(feature = "encoding")]
+    MaybeChangeEncodingAndStartOver(&'static encoding_rs::Encoding),
 }
 
 pub(crate) enum FormatEntry<Handle> {

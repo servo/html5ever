@@ -15,7 +15,8 @@ use std::cell::RefCell;
 use std::io;
 
 use html5ever::tendril::*;
-use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
+use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, Tokenizer};
+use markup5ever::buffer_queue::BufferQueue;
 
 /// In our case, our sink only contains a tokens vector
 struct Sink(RefCell<Vec<Token>>);

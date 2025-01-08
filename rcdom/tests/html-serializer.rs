@@ -68,7 +68,7 @@ impl Serialize for Tokens {
 
 fn tokenize_and_serialize(input: StrTendril) -> StrTendril {
     let input = {
-        let q = ::html5ever::tokenizer::BufferQueue::default();
+        let q = markup5ever::buffer_queue::BufferQueue::default();
         q.push_front(input);
         q
     };

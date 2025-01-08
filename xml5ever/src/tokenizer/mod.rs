@@ -23,13 +23,17 @@ use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
 use mac::{format_if, unwrap_or_return};
-use markup5ever::{local_name, namespace_prefix, ns, small_char_set, TokenizerResult};
+use markup5ever::{
+    buffer_queue::BufferQueue, local_name, namespace_prefix, namespace_url, ns, small_char_set,
+    InputSink, InputSinkResult, TokenizerResult,
+};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
+use std::iter;
 use std::mem::replace;
 
-use self::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
+use self::buffer_queue::{FromSet, NotFromSet, SetResult};
 use self::char_ref::{CharRef, CharRefTokenizer};
 use self::qname::QualNameTokenizer;
 use self::states::XmlState;
@@ -1294,6 +1298,20 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         self.finish_attribute();
 
         self.current_attr_name.borrow_mut().push_char(c);
+    }
+}
+
+impl<Sink> InputSink for XmlTokenizer<Sink>
+where
+    Sink: TokenSink,
+{
+    type Handle = Sink::Handle;
+
+    fn feed<'a>(
+        &'a self,
+        input: &'a BufferQueue,
+    ) -> impl Iterator<Item = InputSinkResult<Self::Handle>> + 'a {
+        iter::from_fn(|| self.feed(input).into())
     }
 }
 

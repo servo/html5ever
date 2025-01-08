@@ -57,3 +57,10 @@ mod util {
 pub use interface::{Attribute, ExpandedName, QualName, TokenizerResult};
 pub use util::smallcharset::SmallCharSet;
 pub use util::*;
+
+#[cfg(feature = "encoding")]
+pub mod encoding;
+
+mod input_stream;
+
+pub use input_stream::{DecodingParser, InputSink, InputSinkResult, InputStream, ParserAction};

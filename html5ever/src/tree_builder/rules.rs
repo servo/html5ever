@@ -10,20 +10,23 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use crate::interface::Quirks;
-use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
+use crate::tokenizer::states::{Rawtext, Rcdata};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
-use crate::tree_builder::{
-    create_element, html_elem, ElemName, NodeOrText::AppendNode, StrTendril, Tag, TreeBuilder,
-    TreeSink,
-};
-use crate::QualName;
-use markup5ever::{expanded_name, local_name, ns};
+use crate::tree_builder::RawKind::ScriptData;
+use crate::tree_builder::{html_elem, ElemName, StrTendril, Tag, TreeBuilder, TreeSink};
+
+use markup5ever::interface::create_element;
+use markup5ever::interface::NodeOrText::AppendNode;
+use markup5ever::{expanded_name, local_name, namespace_url, ns, QualName};
 use std::borrow::Cow::Borrowed;
 
 use crate::tendril::SliceExt;
 use match_token::match_token;
+
+#[cfg(feature = "encoding")]
+use encoding_rs::Encoding;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
@@ -113,8 +116,21 @@ where
 
                 <html> => self.step(InsertionMode::InBody, token),
 
-                tag @ <base> <basefont> <bgsound> <link> <meta> => {
-                    // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
+                tag @ <meta> => {
+                    // FIXME: handle  <meta http-equiv="Content-Type">
+                    #[cfg(feature = "encoding")]
+                    if let Some(charset) = tag.attrs.iter().find(|a| a.name == QualName::new(None, ns!(html), local_name!("charset"))) {
+                        if let Some(encoding) = Encoding::for_label(charset.value.as_bytes()) {
+                            self.insert_and_pop_element_for(tag);
+                            return ProcessResult::MaybeChangeEncodingAndStartOver(encoding);
+                        }
+                    }
+
+                    self.insert_and_pop_element_for(tag);
+                    ProcessResult::DoneAckSelfClosing
+                },
+
+                tag @ <base> <basefont> <bgsound> <link>  => {
                     self.insert_and_pop_element_for(tag);
                     ProcessResult::DoneAckSelfClosing
                 }

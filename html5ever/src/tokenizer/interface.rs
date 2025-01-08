@@ -77,6 +77,8 @@ pub enum TokenSinkResult<Handle> {
     Script(Handle),
     Plaintext,
     RawData(states::RawKind),
+    #[cfg(feature = "encoding")]
+    MaybeChangeEncodingAndStartOver(&'static encoding_rs::Encoding),
 }
 
 /// Types which can receive tokens from the tokenizer.
