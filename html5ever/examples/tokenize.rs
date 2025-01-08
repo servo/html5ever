@@ -13,11 +13,11 @@ use std::cell::Cell;
 use std::io;
 
 use html5ever::tendril::*;
-use html5ever::tokenizer::BufferQueue;
 use html5ever::tokenizer::{CharacterTokens, EndTag, NullCharacterToken, StartTag, TagToken};
 use html5ever::tokenizer::{
     ParseError, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
 };
+use markup5ever::buffer_queue::BufferQueue;
 
 #[derive(Clone)]
 struct TokenPrinter {

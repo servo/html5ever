@@ -8,12 +8,12 @@
 // except according to those terms.
 
 use super::{TokenSink, Tokenizer};
-use crate::buffer_queue::BufferQueue;
 use crate::data;
 use crate::tendril::StrTendril;
 
 use log::debug;
 use mac::format_if;
+use markup5ever::buffer_queue::BufferQueue;
 use std::borrow::Cow::Borrowed;
 use std::char::from_u32;
 
