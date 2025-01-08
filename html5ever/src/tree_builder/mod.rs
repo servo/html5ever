@@ -392,6 +392,10 @@ where
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::RawData(k);
                 },
+                #[cfg(feature = "encoding")]
+                MaybeChangeEncodingAndStartOver(encoding) => {
+                    return tokenizer::TokenSinkResult::MaybeChangeEncodingAndStartOver(encoding);
+                },
             }
         }
     }
