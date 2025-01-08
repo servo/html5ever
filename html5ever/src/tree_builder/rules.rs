@@ -19,7 +19,7 @@ use crate::tree_builder::{
     TreeSink,
 };
 use crate::QualName;
-use markup5ever::{expanded_name, local_name,  namespace_url, ns};
+use markup5ever::{expanded_name, local_name, namespace_url, ns};
 use std::borrow::Cow::Borrowed;
 
 use crate::tendril::SliceExt;
@@ -420,12 +420,9 @@ where
                         }
                     }
 
-                    match to_close {
-                        Some(name) => {
-                            self.generate_implied_end_except(name.clone());
-                            self.expect_to_close(name);
-                        }
-                        None => (),
+                    if let Some(name) = to_close {
+                        self.generate_implied_end_except(name.clone());
+                        self.expect_to_close(name);
                     }
 
                     self.close_p_element_in_button_scope();
