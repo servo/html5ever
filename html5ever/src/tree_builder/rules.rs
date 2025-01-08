@@ -10,7 +10,7 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use crate::interface::Quirks;
-use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
+use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
@@ -19,12 +19,11 @@ use crate::tree_builder::{
     TreeSink,
 };
 use crate::QualName;
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{expanded_name, local_name, namespace_url, ns};
 use std::borrow::Cow::Borrowed;
 
-use std::borrow::ToOwned;
-
 use crate::tendril::SliceExt;
+use match_token::match_token;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
@@ -421,12 +420,9 @@ where
                         }
                     }
 
-                    match to_close {
-                        Some(name) => {
-                            self.generate_implied_end_except(name.clone());
-                            self.expect_to_close(name);
-                        }
-                        None => (),
+                    if let Some(name) = to_close {
+                        self.generate_implied_end_except(name.clone());
+                        self.expect_to_close(name);
                     }
 
                     self.close_p_element_in_button_scope();

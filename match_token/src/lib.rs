@@ -1,138 +1,82 @@
-// Copyright 2014-2017 The html5ever Project Developers. See the
-// COPYRIGHT file at the top-level directory of this distribution.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
-/*!
-
-Implements the `match_token!()` macro for use by the HTML tree builder
-in `src/tree_builder/rules.rs`.
-
-
-## Example
-
-```rust
-match_token!(token {
-    CommentToken(text) => 1,
-
-    tag @ <base> <link> <meta> => 2,
-
-    </head> => 3,
-
-    </body> </html> </br> => else,
-
-    tag @ </_> => 4,
-
-    token => 5,
-})
-```
-
-
-## Syntax
-
-Because of the simplistic parser, the macro invocation must
-start with exactly `match_token!(token {` (with whitespace as specified)
-and end with exactly `})`.
-
-The left-hand side of each match arm is an optional `name @` binding, followed by
-
-  - an ordinary Rust pattern that starts with an identifier or an underscore, or
-
-  - a sequence of HTML tag names as identifiers, each inside "<...>" or "</...>"
-    to match an open or close tag respectively, or
-
-  - a "wildcard tag" "<_>" or "</_>" to match all open tags or all close tags
-    respectively.
-
-The right-hand side is either an expression or the keyword `else`.
-
-Note that this syntax does not support guards or pattern alternation like
-`Foo | Bar`.  This is not a fundamental limitation; it's done for implementation
-simplicity.
-
-
-## Semantics
-
-Ordinary Rust patterns match as usual.  If present, the `name @` binding has
-the usual meaning.
-
-A sequence of named tags matches any of those tags.  A single sequence can
-contain both open and close tags.  If present, the `name @` binding binds (by
-move) the `Tag` struct, not the outer `Token`.  That is, a match arm like
-
-```rust
-tag @ <html> <head> => ...
-```
-
-expands to something like
-
-```rust
-TagToken(tag @ Tag { name: local_name!("html"), kind: StartTag })
-| TagToken(tag @ Tag { name: local_name!("head"), kind: StartTag }) => ...
-```
-
-A wildcard tag matches any tag of the appropriate kind, *unless* it was
-previously matched with an `else` right-hand side (more on this below).
-
-The expansion of this macro reorders code somewhat, to satisfy various
-restrictions arising from moves.  However it provides the semantics of in-order
-matching, by enforcing the following restrictions on its input:
-
-  - The last pattern must be a variable or the wildcard "_".  In other words
-    it must match everything.
-
-  - Otherwise, ordinary Rust patterns and specific-tag patterns cannot appear
-    after wildcard tag patterns.
-
-  - No tag name may appear more than once.
-
-  - A wildcard tag pattern may not occur in the same arm as any other tag.
-    "<_> <html> => ..." and "<_> </_> => ..." are both forbidden.
-
-  - The right-hand side "else" may only appear with specific-tag patterns.
-    It means that these specific tags should be handled by the last,
-    catch-all case arm, rather than by any wildcard tag arm.  This situation
-    is common in the HTML5 syntax.
-*/
+extern crate proc_macro;
 
 use quote::quote;
-use syn::{braced, parse_quote, Token};
+use syn::{braced, Token};
 
-use proc_macro2::TokenStream;
-use quote::ToTokens;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
 use syn::ext::IdentExt;
-use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
 
-pub fn expand(from: &Path, to: &Path) {
-    let mut source = String::new();
-    File::open(from)
-        .unwrap()
-        .read_to_string(&mut source)
-        .unwrap();
-    let ast = syn::parse_file(&source).expect("Parsing rules.rs module");
-    let mut m = MatchTokenParser {};
-    let ast = m.fold_file(ast);
-    let code = ast
-        .into_token_stream()
-        .to_string()
-        .replace("{ ", "{\n")
-        .replace(" }", "\n}");
-    File::create(to)
-        .unwrap()
-        .write_all(code.as_bytes())
-        .unwrap();
-}
+/// Implements the `match_token!()` macro for use by the HTML tree builder
+/// in `src/tree_builder/rules.rs`.
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// match_token!(token {
+///     CommentToken(text) => 1,
+///     tag @ <base> <link> <meta> => 2,
+///     </head> => 3,
+///     </body> </html> </br> => else,
+///     tag @ </_> => 4,
+///     token => 5,
+/// })
+/// ```
+///
+/// ## Syntax
+/// Because of the simplistic parser, the macro invocation must
+/// start with exactly `match_token!(token {` (with whitespace as specified)
+/// and end with exactly `})`.
+/// The left-hand side of each match arm is an optional `name @` binding, followed by
+///   - an ordinary Rust pattern that starts with an identifier or an underscore, or
+///   - a sequence of HTML tag names as identifiers, each inside "<...>" or "</...>"
+///     to match an open or close tag respectively, or
+///   - a "wildcard tag" "<_>" or "</_>" to match all open tags or all close tags
+///     respectively.
+///
+/// The right-hand side is either an expression or the keyword `else`.
+/// Note that this syntax does not support guards or pattern alternation like
+/// `Foo | Bar`.  This is not a fundamental limitation; it's done for implementation
+/// simplicity.
+/// ## Semantics
+/// Ordinary Rust patterns match as usual.  If present, the `name @` binding has
+/// the usual meaning.
+/// A sequence of named tags matches any of those tags.  A single sequence can
+/// contain both open and close tags.  If present, the `name @` binding binds (by
+/// move) the `Tag` struct, not the outer `Token`.  That is, a match arm like
+/// ```rust,ignore
+/// tag @ <html> <head> => ...
+/// ```
+/// expands to something like
+/// ```rust,ignore
+/// TagToken(tag @ Tag { name: local_name!("html"), kind: StartTag })
+/// | TagToken(tag @ Tag { name: local_name!("head"), kind: StartTag }) => ...
+/// ```
+/// A wildcard tag matches any tag of the appropriate kind, *unless* it was
+/// previously matched with an `else` right-hand side (more on this below).
+/// The expansion of this macro reorders code somewhat, to satisfy various
+/// restrictions arising from moves.  However it provides the semantics of in-order
+/// matching, by enforcing the following restrictions on its input:
+///   - The last pattern must be a variable or the wildcard "_".  In other words
+///     it must match everything.
+///   - Otherwise, ordinary Rust patterns and specific-tag patterns cannot appear
+///     after wildcard tag patterns.
+///   - No tag name may appear more than once.
+///   - A wildcard tag pattern may not occur in the same arm as any other tag.
+///     "<_> <html> => ..." and "<_> </_> => ..." are both forbidden.
+///   - The right-hand side "else" may only appear with specific-tag patterns.
+///     It means that these specific tags should be handled by the last,
+///     catch-all case arm, rather than by any wildcard tag arm.  This situation
+///     is common in the HTML5 syntax.
+#[proc_macro]
+pub fn match_token(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = proc_macro2::TokenStream::from(input);
 
-struct MatchTokenParser {}
+    let match_token = syn::parse2::<MatchToken>(input).expect("Parsing match_token! input failed");
+    let output = expand_match_token_macro(match_token);
+
+    proc_macro::TokenStream::from(output)
+}
 
 struct MatchToken {
     ident: syn::Ident,
@@ -163,7 +107,7 @@ enum TagKind {
 
 // Option is None if wildcard
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Tag {
+struct Tag {
     kind: TagKind,
     name: Option<syn::Ident>,
 }
@@ -250,13 +194,7 @@ impl Parse for MatchToken {
     }
 }
 
-pub fn expand_match_token(body: &TokenStream) -> syn::Expr {
-    let match_token = syn::parse2::<MatchToken>(body.clone());
-    let ast = expand_match_token_macro(match_token.unwrap());
-    syn::parse2(ast).unwrap()
-}
-
-fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
+fn expand_match_token_macro(match_token: MatchToken) -> proc_macro2::TokenStream {
     let mut arms = match_token.arms;
     let to_be_matched = match_token.ident;
     // Handle the last arm specially at the end.
@@ -267,11 +205,11 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
 
     // Case arms for wildcard matching.  We collect these and
     // emit them later.
-    let mut wildcards_patterns: Vec<TokenStream> = Vec::new();
+    let mut wildcards_patterns: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut wildcards_expressions: Vec<syn::Expr> = Vec::new();
 
     // Tags excluded (by an 'else' RHS) from wildcard matching.
-    let mut wild_excluded_patterns: Vec<TokenStream> = Vec::new();
+    let mut wild_excluded_patterns: Vec<proc_macro2::TokenStream> = Vec::new();
 
     let mut arms_code = Vec::new();
 
@@ -290,7 +228,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
             // ordinary pattern => expression
             (Lhs::Pattern(pat), Rhs::Expression(expr)) => {
                 if !wildcards_patterns.is_empty() {
-                    panic!("ordinary patterns may not appear after wildcard tags {pat:?} {expr:?}");
+                    panic!("ordinary patterns may not appear after wildcard tags");
                 }
                 arms_code.push(quote!(#binding #pat => #expr,))
             },
@@ -304,7 +242,8 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
                     if tag.name.is_none() {
                         panic!("'else' may not appear with a wildcard tag");
                     }
-                    wild_excluded_patterns.push(make_tag_pattern(&TokenStream::new(), tag));
+                    wild_excluded_patterns
+                        .push(make_tag_pattern(&proc_macro2::TokenStream::new(), tag));
                 }
             },
 
@@ -413,32 +352,7 @@ fn expand_match_token_macro(match_token: MatchToken) -> TokenStream {
     }
 }
 
-impl Fold for MatchTokenParser {
-    fn fold_stmt(&mut self, stmt: syn::Stmt) -> syn::Stmt {
-        if let syn::Stmt::Item(syn::Item::Macro(syn::ItemMacro { ref mac, .. })) = stmt {
-            if mac.path == parse_quote!(match_token) {
-                return syn::fold::fold_stmt(
-                    self,
-                    syn::Stmt::Expr(expand_match_token(&mac.tokens), None),
-                );
-            }
-        }
-
-        syn::fold::fold_stmt(self, stmt)
-    }
-
-    fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
-        if let syn::Expr::Macro(syn::ExprMacro { ref mac, .. }) = expr {
-            if mac.path == parse_quote!(match_token) {
-                return syn::fold::fold_expr(self, expand_match_token(&mac.tokens));
-            }
-        }
-
-        syn::fold::fold_expr(self, expr)
-    }
-}
-
-fn make_tag_pattern(binding: &TokenStream, tag: Tag) -> TokenStream {
+fn make_tag_pattern(binding: &proc_macro2::TokenStream, tag: Tag) -> proc_macro2::TokenStream {
     let kind = match tag.kind {
         TagKind::StartTag => quote!(crate::tokenizer::StartTag),
         TagKind::EndTag => quote!(crate::tokenizer::EndTag),
