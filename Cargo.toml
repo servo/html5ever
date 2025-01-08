@@ -3,6 +3,11 @@ members = [
     "markup5ever",
     "html5ever",
     "rcdom",
-    "xml5ever"
+    "xml5ever",
+    "match_token"
 ]
+
+[workspace.dependencies]
+match_token = { path = "match_token" }
+
 resolver = "2"
