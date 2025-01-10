@@ -849,6 +849,10 @@ separator
 separators
 set
 setdiff
+shadowrootclonable
+shadowrootdelegatesfocus
+shadowrootmode
+shadowrootserializable
 shape
 shape-rendering
 show

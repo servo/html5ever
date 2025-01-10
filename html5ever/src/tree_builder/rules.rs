@@ -105,6 +105,7 @@ where
             }),
 
             //§ parsing-main-inhead
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
             InHead => match_token!(token {
                 CharacterTokens(NotSplit, text) => SplitWhitespace(text),
                 CharacterTokens(Whitespace, text) => self.append_text(text),
@@ -153,11 +154,21 @@ where
                 </body> </html> </br> => else,
 
                 tag @ <template> => {
-                    self.insert_element_for(tag);
                     self.active_formatting.borrow_mut().push(Marker);
                     self.frameset_ok.set(false);
                     self.mode.set(InTemplate);
                     self.template_modes.borrow_mut().push(InTemplate);
+
+                    if (self.should_attach_declarative_shadow(&tag)) {
+                        if let Err(_) = self.attach_declarative_shadow(&tag) {
+                            // TODO:
+                            // insert at the adjusted insertion location
+                            // with the result of insert a foreign element for template tag
+                        }
+                    } else {
+                        self.insert_element_for(tag);
+                    }
+
                     Done
                 }
 

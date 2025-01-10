@@ -260,6 +260,19 @@ pub trait TreeSink {
     fn complete_script(&self, _node: &Self::Handle) -> NextParserState {
         NextParserState::Continue
     }
+
+    fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
+        return true;
+    }
+
+    /// Attach declarative shadow
+    fn attach_declarative_shadow(
+        &self,
+        _location: &Self::Handle,
+        _attrs: Vec<Attribute>,
+    ) -> Result<(), String> {
+        Err(String::from("No implementation for attach_declarative_shadow"))
+    }
 }
 
 /// Trace hooks for a garbage-collected DOM.
