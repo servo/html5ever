@@ -338,25 +338,17 @@ where
         // List of already present namespace local name attribute pairs.
         let mut present_attrs: HashSet<(Namespace, LocalName)> = Default::default();
 
-        let mut new_attr = vec![];
-        // First we extract all namespace declarations
-        for attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix == Some(namespace_prefix!("xmlns"))
+        // We need to filter out any duplicate attributes.
+        tag.attrs.retain_mut(|attr| {
+            if attr.name.prefix == Some(namespace_prefix!("xmlns"))
                 || attr.name.local == local_name!("xmlns")
-        }) {
-            self.declare_ns(attr);
-        }
-
-        // Then we bind those namespace declarations to attributes
-        for attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix != Some(namespace_prefix!("xmlns"))
-                && attr.name.local != local_name!("xmlns")
-        }) {
-            if self.bind_attr_qname(&mut present_attrs, &mut attr.name) {
-                new_attr.push(attr.clone());
+            {
+                self.declare_ns(attr);
+                true
+            } else {
+                self.bind_attr_qname(&mut present_attrs, &mut attr.name)
             }
-        }
-        tag.attrs = new_attr;
+        });
 
         // Then we bind the tags namespace.
         self.bind_qname(&mut tag.name);
