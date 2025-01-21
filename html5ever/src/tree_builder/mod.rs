@@ -1392,7 +1392,7 @@ where
         // template start tag's shadowrootmode is not in the none state
         let is_shadow_root_mode = tag.attrs.iter().any(|attr| {
             attr.name.local == local_name!("shadowrootmode")
-            && (attr.value.to_string() == String::from("open") || attr.value.to_string() == String::from("close"))
+            && (attr.value.to_string() == *"open" || attr.value.to_string() == *"close")
         });
 
         // Check if intended_parent's document allows declarative shadow roots
@@ -1412,7 +1412,7 @@ where
             None => true,
         };
 
-        return is_shadow_root_mode && allow_declarative_shadow_roots && adjusted_current_node_not_topmost;
+        is_shadow_root_mode && allow_declarative_shadow_roots && adjusted_current_node_not_topmost
     }
 
     fn attach_declarative_shadow(&self, tag: &Tag) -> Result<(), String> {

@@ -262,7 +262,7 @@ pub trait TreeSink {
     }
 
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
-        return true;
+        true
     }
 
     /// Attach declarative shadow

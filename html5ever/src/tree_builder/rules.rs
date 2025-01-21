@@ -160,7 +160,7 @@ where
                     self.template_modes.borrow_mut().push(InTemplate);
 
                     if (self.should_attach_declarative_shadow(&tag)) {
-                        if let Err(_) = self.attach_declarative_shadow(&tag) {
+                        if self.attach_declarative_shadow(&tag).is_err() {
                             // TODO:
                             // insert at the adjusted insertion location
                             // with the result of insert a foreign element for template tag
