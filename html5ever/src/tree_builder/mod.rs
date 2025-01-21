@@ -1392,11 +1392,12 @@ where
         // template start tag's shadowrootmode is not in the none state
         let is_shadow_root_mode = tag.attrs.iter().any(|attr| {
             attr.name.local == local_name!("shadowrootmode")
-            && (attr.value.to_string() == *"open" || attr.value.to_string() == *"close")
+                && (attr.value.to_string() == *"open" || attr.value.to_string() == *"close")
         });
 
         // Check if intended_parent's document allows declarative shadow roots
-        let allow_declarative_shadow_roots = self.sink.allow_declarative_shadow_roots(&intended_parent);
+        let allow_declarative_shadow_roots =
+            self.sink.allow_declarative_shadow_roots(&intended_parent);
 
         // the adjusted current node is not the topmost element in the stack of open elements
         let adjusted_current_node_not_topmost = match self.open_elems.borrow().first() {
@@ -1416,7 +1417,8 @@ where
     }
 
     fn attach_declarative_shadow(&self, tag: &Tag) -> Result<(), String> {
-        self.sink.attach_declarative_shadow(self.open_elems.borrow().last().unwrap(), tag.attrs.clone())
+        self.sink
+            .attach_declarative_shadow(self.open_elems.borrow().last().unwrap(), tag.attrs.clone())
     }
 
     fn create_formatting_element_for(&self, tag: Tag) -> Handle {

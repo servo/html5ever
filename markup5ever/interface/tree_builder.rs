@@ -271,7 +271,9 @@ pub trait TreeSink {
         _location: &Self::Handle,
         _attrs: Vec<Attribute>,
     ) -> Result<(), String> {
-        Err(String::from("No implementation for attach_declarative_shadow"))
+        Err(String::from(
+            "No implementation for attach_declarative_shadow",
+        ))
     }
 }
 
