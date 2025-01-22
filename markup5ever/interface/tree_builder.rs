@@ -262,7 +262,7 @@ pub trait TreeSink {
     }
 
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
-        return true;
+        true
     }
 
     /// Attach declarative shadow
@@ -271,7 +271,9 @@ pub trait TreeSink {
         _location: &Self::Handle,
         _attrs: Vec<Attribute>,
     ) -> Result<(), String> {
-        Err(String::from("No implementation for attach_declarative_shadow"))
+        Err(String::from(
+            "No implementation for attach_declarative_shadow",
+        ))
     }
 }
 
