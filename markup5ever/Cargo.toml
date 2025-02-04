@@ -1,6 +1,6 @@
 [package]
 name = "markup5ever"
-version = "0.14.0"
+version = "0.14.1"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
@@ -9,6 +9,7 @@ documentation = "https://docs.rs/markup5ever"
 build = "build.rs"
 categories = [ "parser-implementations", "web-programming" ]
 edition = "2021"
+rust-version.workspace = true
 
 [lib]
 path = "lib.rs"

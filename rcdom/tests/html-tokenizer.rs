@@ -377,7 +377,7 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
     // the input and output.
     if obj
         .get(&"doubleEscaped".to_string())
-        .map_or(false, |j| j.get_bool())
+        .is_some_and(|j| j.get_bool())
     {
         match unescape(&input) {
             None => return,

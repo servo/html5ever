@@ -12,6 +12,7 @@ keywords = ["xml", "xml5", "parser", "parsing"]
 exclude = ["xml5lib-tests/*"]
 categories = ["parser-implementations", "web-programming"]
 edition = "2021"
+rust-version.workspace = true
 
 [features]
 trace_tokenizer = []
