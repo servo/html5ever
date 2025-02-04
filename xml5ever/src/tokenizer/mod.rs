@@ -62,7 +62,7 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     //     a:b
     // Since StrTendril are UTF-8, we know that minimal size in bytes must be
     // three bytes minimum.
-    let split = if (*tag_name).as_bytes().len() < 3 {
+    let split = if (*tag_name).len() < 3 {
         None
     } else {
         QualNameTokenizer::new((*tag_name).as_bytes()).run()
@@ -71,7 +71,7 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     match split {
         None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
-            let len = (*tag_name).as_bytes().len() as u32;
+            let len = (*tag_name).len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local = tag_name.subtendril(col + 1, len - col - 1);
             let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
