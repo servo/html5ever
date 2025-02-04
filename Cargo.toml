@@ -13,5 +13,5 @@ resolver = "2"
 rust-version = "1.70.0"
 
 [workspace.dependencies]
-match_token = { path = "match_token" }
+match_token = { version = "0.1", path = "match_token" }
 
