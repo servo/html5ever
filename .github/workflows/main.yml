@@ -47,7 +47,7 @@ jobs:
       - name: Install stable toolchain
         run: |
           rustup set profile minimal
-          rustup override set 1.65.0
+          rustup override set 1.70.0
 
       - run: cargo check --lib --all-features
 

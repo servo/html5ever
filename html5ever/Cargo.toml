@@ -10,6 +10,7 @@ categories = [ "parser-implementations", "web-programming" ]
 keywords = ["html", "html5", "parser", "parsing"]
 edition = "2021"
 readme = "../README.md"
+rust-version.workspace = true
 
 [features]
 trace_tokenizer = []
