@@ -10,7 +10,7 @@
 extern crate phf_codegen;
 extern crate string_cache_codegen;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -79,7 +79,7 @@ fn main() {
 }
 
 fn named_entities_to_phf(to: &Path) {
-    let mut entities: HashMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
+    let mut entities: BTreeMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
         .iter()
         .map(|(name, cp1, cp2)| {
             assert!(name.starts_with('&'));
