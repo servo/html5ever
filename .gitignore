@@ -1,4 +1,6 @@
 /data/bench/uncommitted
 target
+.idea
+.vscode
 Cargo.lock
 *.racertmp
