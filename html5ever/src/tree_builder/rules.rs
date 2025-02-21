@@ -160,10 +160,12 @@ where
                     self.template_modes.borrow_mut().push(InTemplate);
 
                     if (self.should_attach_declarative_shadow(&tag)) {
-                        if self.attach_declarative_shadow(&tag).is_err() {
-                            // TODO:
-                            // insert at the adjusted insertion location
-                            // with the result of insert a foreign element for template tag
+                        let shadow_host = self.open_elems.borrow().last().unwrap().clone();
+                        let template = self.insert_foreign_element(tag.clone(), ns!(html), true);
+
+                        if self.attach_declarative_shadow(&tag, &shadow_host, &template).is_err() {
+                            let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
+                            self.insert_at(adjusted_insertion_location, AppendNode(template.clone()));
                         }
                     } else {
                         self.insert_element_for(tag);
