@@ -1376,6 +1376,25 @@ where
     fn insert_phantom(&self, name: LocalName) -> Handle {
         self.insert_element(Push, ns!(html), name, vec![])
     }
+
+    fn insert_foreign_element(
+        &self,
+        tag: Tag,
+        ns: Namespace,
+        only_add_to_element_stack: bool,
+    ) -> Handle {
+        let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
+        let qname = QualName::new(None, ns, tag.name);
+        let elem = create_element(&self.sink, qname.clone(), tag.attrs.clone());
+
+        if !only_add_to_element_stack {
+            self.insert_at(adjusted_insertion_location, AppendNode(elem.clone()));
+        }
+
+        self.push(&elem);
+
+        elem
+    }
     //§ END
 
     fn should_attach_declarative_shadow(&self, tag: &Tag) -> bool {
@@ -1416,9 +1435,14 @@ where
         is_shadow_root_mode && allow_declarative_shadow_roots && adjusted_current_node_not_topmost
     }
 
-    fn attach_declarative_shadow(&self, tag: &Tag) -> Result<(), String> {
+    fn attach_declarative_shadow(
+        &self,
+        tag: &Tag,
+        shadow_host: &Handle,
+        template: &Handle,
+    ) -> Result<(), String> {
         self.sink
-            .attach_declarative_shadow(self.open_elems.borrow().last().unwrap(), tag.attrs.clone())
+            .attach_declarative_shadow(shadow_host, template, tag.attrs.clone())
     }
 
     fn create_formatting_element_for(&self, tag: Tag) -> Handle {

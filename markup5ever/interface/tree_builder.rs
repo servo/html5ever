@@ -269,6 +269,7 @@ pub trait TreeSink {
     fn attach_declarative_shadow(
         &self,
         _location: &Self::Handle,
+        _template: &Self::Handle,
         _attrs: Vec<Attribute>,
     ) -> Result<(), String> {
         Err(String::from(
