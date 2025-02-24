@@ -1377,6 +1377,7 @@ where
         self.insert_element(Push, ns!(html), name, vec![])
     }
 
+    // https://html.spec.whatwg.org/multipage/parsing.html#insert-an-element-at-the-adjusted-insertion-location
     fn insert_foreign_element(
         &self,
         tag: Tag,
@@ -1397,6 +1398,8 @@ where
     }
     //§ END
 
+    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
+    // A start tag whose tag name is "template"
     fn should_attach_declarative_shadow(&self, tag: &Tag) -> bool {
         let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
 
@@ -1435,6 +1438,8 @@ where
         is_shadow_root_mode && allow_declarative_shadow_roots && adjusted_current_node_not_topmost
     }
 
+    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
+    // A start tag whose tag name is "template"
     fn attach_declarative_shadow(
         &self,
         tag: &Tag,
