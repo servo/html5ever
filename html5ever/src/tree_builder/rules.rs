@@ -160,12 +160,22 @@ where
                     self.template_modes.borrow_mut().push(InTemplate);
 
                     if (self.should_attach_declarative_shadow(&tag)) {
-                        let shadow_host = self.open_elems.borrow().last().unwrap().clone();
+                        // Attach shadow path
+
+                        // Step 1.
+                        let mut shadow_host = self.open_elems.borrow().last().unwrap().clone();
+                        if self.is_fragment() && self.open_elems.borrow().len() == 1 {
+                            shadow_host = self.context_elem.borrow().clone().unwrap();
+                        }
+
+                        // Step 2.
                         let template = self.insert_foreign_element(tag.clone(), ns!(html), true);
 
+                        // Step 3 - 8.
                         if self.attach_declarative_shadow(&tag, &shadow_host, &template).is_err() {
-                            let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
-                            self.insert_at(adjusted_insertion_location, AppendNode(template.clone()));
+                            // Step 8.1.1.
+                            self.pop();
+                            self.insert_element_for(tag);
                         }
                     } else {
                         self.insert_element_for(tag);
