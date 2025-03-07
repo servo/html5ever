@@ -160,10 +160,24 @@ where
                     self.template_modes.borrow_mut().push(InTemplate);
 
                     if (self.should_attach_declarative_shadow(&tag)) {
-                        if self.attach_declarative_shadow(&tag).is_err() {
-                            // TODO:
-                            // insert at the adjusted insertion location
-                            // with the result of insert a foreign element for template tag
+                        // Attach shadow path
+
+                        // Step 1. Let declarative shadow host element be adjusted current node.
+                        let mut shadow_host = self.open_elems.borrow().last().unwrap().clone();
+                        if self.is_fragment() && self.open_elems.borrow().len() == 1 {
+                            shadow_host = self.context_elem.borrow().clone().unwrap();
+                        }
+
+                        // Step 2. Let template be the result of insert a foreign element for template start tag, with HTML namespace and true.
+                        let template = self.insert_foreign_element(tag.clone(), ns!(html), true);
+
+                        // Step 3 - 8.
+                        // Attach a shadow root with declarative shadow host element, mode, clonable, serializable, delegatesFocus, and "named".
+                        if self.attach_declarative_shadow(&tag, &shadow_host, &template).is_err() {
+                            // Step 8.1.1. Insert an element at the adjusted insertion location with template.
+                            // Pop the current template element created in step 2 first.
+                            self.pop();
+                            self.insert_element_for(tag);
                         }
                     } else {
                         self.insert_element_for(tag);
