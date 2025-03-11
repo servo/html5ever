@@ -35,6 +35,7 @@ pub enum RawKind {
     Rcdata,
     Rawtext,
     ScriptData,
+    PreData,
     ScriptDataEscaped(ScriptEscapeKind),
 }
 

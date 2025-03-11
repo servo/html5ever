@@ -75,6 +75,7 @@ pub enum Token {
 pub enum TokenSinkResult<Handle> {
     Continue,
     Script(Handle),
+    PreData(Handle),
     Plaintext,
     RawData(states::RawKind),
 }

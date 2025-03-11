@@ -34,11 +34,18 @@ fn main() {
         },
         ..Default::default()
     };
-    let stdin = io::stdin();
+
+    let input = "<hello>XML</hello><pre>\n<bad> </bad>text-in  pre</pre><p>asdf</p><script>script</html> magic string</script>";
+    println!("-------- {} ----------", input);
     let dom = parse_document(RcDom::default(), opts)
-        .from_utf8()
-        .read_from(&mut stdin.lock())
-        .unwrap();
+    .one(input);
+
+    // let stdin = io::stdin();
+    // let dom = parse_document(RcDom::default(), opts)
+    //     .from_utf8()
+    //     .read_from(&mut stdin.lock())
+    //     .unwrap();
+
 
     // The validator.nu HTML2HTML always prints a doctype at the very beginning.
     io::stdout()

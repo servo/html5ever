@@ -75,6 +75,7 @@ pub(crate) enum ProcessResult<Handle> {
     #[allow(dead_code)] // FIXME
     ReprocessForeign(Token),
     Script(Handle),
+    PreData(Handle),
     ToPlaintext,
     ToRawData(RawKind),
 }

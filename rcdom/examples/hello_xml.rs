@@ -19,7 +19,7 @@ use xml5ever::tree_builder::TreeSink;
 fn main() {
     // To parse a string into a tree of nodes, we need to invoke
     // `parse_document` and supply it with a TreeSink implementation (RcDom).
-    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one("<hello>XML</hello>");
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one("<hello>XML</hello><pre>asdf</pre>");
 
     // Do some processing
     let doc = &dom.document;

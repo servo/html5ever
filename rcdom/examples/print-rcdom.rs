@@ -34,7 +34,7 @@ fn walk(indent: usize, handle: &Handle) {
         } => println!("<!DOCTYPE {name} \"{public_id}\" \"{system_id}\">"),
 
         NodeData::Text { ref contents } => {
-            println!("#text: {}", contents.borrow().escape_default())
+            print!("{}", contents.borrow().escape_default())
         },
 
         NodeData::Comment { ref contents } => println!("<!-- {} -->", contents.escape_default()),

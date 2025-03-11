@@ -36,6 +36,7 @@ use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
 use mac::format_if;
 use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use crate::tokenizer::TagKind;
 
 pub use self::PushFlag::*;
 
@@ -67,6 +68,9 @@ pub struct TreeBuilderOpts {
 
     /// Initial TreeBuilder quirks mode. Default: NoQuirks
     pub quirks_mode: QuirksMode,
+
+    /// true: Parses <pre> sections, false: adds them as Text nodes
+    pub parse_pre: bool,
 }
 
 impl Default for TreeBuilderOpts {
@@ -78,6 +82,7 @@ impl Default for TreeBuilderOpts {
             drop_doctype: false,
             ignore_missing_rules: false,
             quirks_mode: NoQuirks,
+            parse_pre: false,
         }
     }
 }
@@ -228,6 +233,7 @@ where
     // https://html.spec.whatwg.org/multipage/#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
     pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
+        println!("tokenizer_state_for_context_elem");
         let context_elem = self.context_elem.borrow();
         let elem = context_elem.as_ref().expect("no context element");
         let elem_name = self.sink.elem_name(elem);
@@ -319,16 +325,15 @@ where
     }
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
-        if log_enabled!(Level::Debug) {
-            debug!(
+        println!(
                 "processing {} in insertion mode {:?}",
                 to_escaped_string(token),
                 mode
             );
-        }
     }
 
     fn process_to_completion(&self, mut token: Token) -> TokenSinkResult<Handle> {
+        println!("process_to_completion");
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -383,9 +388,16 @@ where
                     }
                 },
                 Script(node) => {
+                    println!("here1 Script(node)");
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Script(node);
                 },
+                PreData(pre_data) => {
+                    println!("here1 PreData(node)");
+                    todo!();
+                    assert!(more_tokens.is_empty());
+                    return tokenizer::TokenSinkResult::PreData(pre_data);
+                }
                 ToPlaintext => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Plaintext;
@@ -513,8 +525,40 @@ where
                     return tokenizer::TokenSinkResult::Continue;
                 }
             },
+// qknight
+            tokenizer::TagToken(x) => {
+                println!("TagToken: {}", x.name);
+                if *x.name == *"pre" {
+                    if x.kind == TagKind::StartTag { 
+                        println!("start tag pre");
+                        // Read everything until </pre> as raw text
+                        // let mut pre_content = String::new();
+                        
+                        // while let Some(token) = self.sink.next() {
+                        //     match token {
+                        //         Token::TagToken(ref tag) if tag.kind == TagKind::End && tag.name == local_name!("pre") => {
+                        //             break;
+                        //         }
+                        //         Token::CharacterTokens(ref text, _) => {
+                        //             pre_content.push_str(text);
+                        //         }
+                        //         _ => {}
+                        //     }
+                        // }
 
-            tokenizer::TagToken(x) => TagToken(x),
+                        // // Store the entire text inside NodeData::Text
+                        // let node = self.sink.create_text_node(pre_content.into());
+                        // self.sink.append(self.current_node(), NodeOrText::AppendNode(node));
+                        //return tokenizer::TokenSinkResult::PreData(x);
+                    } else {
+                        println!("end tag pre");
+                        //return tokenizer::TokenSinkResult::Continue;
+                    }
+                }
+                TagToken(x)
+            },
+
+            // tokenizer::TagToken(x) => TagToken(x),
             tokenizer::CommentToken(x) => CommentToken(x),
             tokenizer::NullCharacterToken => NullCharacterToken,
             tokenizer::EOFToken => EOFToken,

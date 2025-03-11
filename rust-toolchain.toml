@@ -1,0 +1,6 @@
+[toolchain]
+channel = "stable"
+targets = [
+  "x86_64-unknown-linux-musl", # used for the backend
+  "wasm32-unknown-unknown"     # used for the frontend
+]
