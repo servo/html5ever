@@ -31,12 +31,12 @@ use std::iter::{Enumerate, Rev};
 use std::{fmt, slice};
 
 use crate::tokenizer::states::RawKind;
+use crate::tokenizer::TagKind;
 use crate::tree_builder::tag_sets::*;
 use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
 use mac::format_if;
 use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
-use crate::tokenizer::TagKind;
 
 pub use self::PushFlag::*;
 
@@ -82,7 +82,7 @@ impl Default for TreeBuilderOpts {
             drop_doctype: false,
             ignore_missing_rules: false,
             quirks_mode: NoQuirks,
-            parse_pre: false,
+            parse_pre: true,
         }
     }
 }
@@ -326,10 +326,10 @@ where
 
     fn debug_step(&self, mode: InsertionMode, token: &Token) {
         println!(
-                "processing {} in insertion mode {:?}",
-                to_escaped_string(token),
-                mode
-            );
+            "processing {} in insertion mode {:?}",
+            to_escaped_string(token),
+            mode
+        );
     }
 
     fn process_to_completion(&self, mut token: Token) -> TokenSinkResult<Handle> {
@@ -396,7 +396,7 @@ where
                     println!("here1 PreData(node)");
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::PreData(pre_data);
-                }
+                },
                 ToPlaintext => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Plaintext;
@@ -524,15 +524,15 @@ where
                     return tokenizer::TokenSinkResult::Continue;
                 }
             },
-// qknight
+            // qknight
             tokenizer::TagToken(x) => {
                 println!("TagToken: {}", x.name);
                 if *x.name == *"pre" {
-                    if x.kind == TagKind::StartTag { 
+                    if x.kind == TagKind::StartTag {
                         println!("start tag pre");
                         // Read everything until </pre> as raw text
                         // let mut pre_content = String::new();
-                        
+
                         // while let Some(token) = self.sink.next() {
                         //     match token {
                         //         Token::TagToken(ref tag) if tag.kind == TagKind::End && tag.name == local_name!("pre") => {

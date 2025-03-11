@@ -30,6 +30,7 @@ fn main() {
     let opts = ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,
+            parse_pre: false,
             ..Default::default()
         },
         ..Default::default()
@@ -37,15 +38,13 @@ fn main() {
 
     let input = "<hello>XML</hello><pre>\n<bad> </bad>text-in  pre</pre><p>asdf</p><script>script</html> magic string</script>";
     println!("-------- {} ----------", input);
-    let dom = parse_document(RcDom::default(), opts)
-    .one(input);
+    let dom = parse_document(RcDom::default(), opts).one(input);
 
     // let stdin = io::stdin();
     // let dom = parse_document(RcDom::default(), opts)
     //     .from_utf8()
     //     .read_from(&mut stdin.lock())
     //     .unwrap();
-
 
     // The validator.nu HTML2HTML always prints a doctype at the very beginning.
     io::stdout()

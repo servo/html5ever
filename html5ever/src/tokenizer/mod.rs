@@ -14,11 +14,11 @@ pub use self::interface::{CommentToken, DoctypeToken, TagToken, Token};
 pub use self::interface::{Doctype, EndTag, StartTag, Tag, TagKind};
 pub use self::interface::{TokenSink, TokenSinkResult};
 
+use self::char_ref::{CharRef, CharRefTokenizer};
 use self::states::{DoctypeIdKind, Public, System};
 use self::states::{DoubleEscaped, Escaped};
 use self::states::{DoubleQuoted, SingleQuoted, Unquoted};
-use self::states::{Rawtext, Rcdata, ScriptData, PreData, ScriptDataEscaped};
-use self::char_ref::{CharRef, CharRefTokenizer};
+use self::states::{PreData, Rawtext, Rcdata, ScriptData, ScriptDataEscaped};
 
 use crate::util::str::lower_ascii_letter;
 
@@ -364,12 +364,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match run {
                     ProcessResult::Continue => (),
                     ProcessResult::Suspend => break,
-                    ProcessResult::Script(node) => return {
-                        TokenizerResult::Script(node)
-                    },
-                    ProcessResult::PreData(node) => return {
-                        TokenizerResult::PreData(node)
-                    },
+                    ProcessResult::Script(node) => return { TokenizerResult::Script(node) },
+                    ProcessResult::PreData(node) => return { TokenizerResult::PreData(node) },
                 }
             }
         } else {
@@ -377,14 +373,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match self.step(input) {
                     ProcessResult::Continue => (),
                     ProcessResult::Suspend => break,
-                    ProcessResult::Script(node) => return {
-                        println!(" TokenizerResult::Script(node)");
-                        TokenizerResult::Script(node)
+                    ProcessResult::Script(node) => {
+                        return {
+                            println!(" TokenizerResult::Script(node)");
+                            TokenizerResult::Script(node)
+                        }
                     },
-                    ProcessResult::PreData(node) => return {
-                        println!(" TokenizerResult::PreData(node)");
-                        TokenizerResult::PreData(node)
-                    },                    
+                    ProcessResult::PreData(node) => {
+                        return {
+                            println!(" TokenizerResult::PreData(node)");
+                            TokenizerResult::PreData(node)
+                        }
+                    },
                 }
             }
         }
@@ -461,7 +461,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 ProcessResult::Continue
             },
             TokenSinkResult::Script(node) => {
-                println!("match self.process_token(token)  for script");
+                println!("match self.process_token(token) for script");
                 self.state.set(states::Data);
                 ProcessResult::Script(node)
             },
@@ -786,13 +786,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::RawData(PreData) => {
                 println!("====== states::RawData(PreData)");
                 loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
-                    FromSet('\0') => go!(self: error; emit '\u{fffd}'),
-                    FromSet('<') => go!(self: to RawLessThanSign PreData),
-                    FromSet(c) => go!(self: emit c),
-                    NotFromSet(b) => self.emit_chars(b),
+                    match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
+                        FromSet('\0') => go!(self: error; emit '\u{fffd}'),
+                        FromSet('<') => go!(self: to RawLessThanSign PreData),
+                        FromSet(c) => go!(self: emit c),
+                        NotFromSet(b) => self.emit_chars(b),
+                    }
                 }
-            }},
+            },
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
@@ -835,7 +836,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::EndTagOpen => loop {
                 match get_char!(self, input) {
                     '>' => {
-                        //println!("tttt {}", cl); 
+                        //println!("tttt {}", cl);
                         go!(self: error; to Data)
                     },
                     c => match lower_ascii_letter(c) {
@@ -844,7 +845,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     },
                 }
             },
-
 
             //§ tag-name-state
             states::TagName => loop {

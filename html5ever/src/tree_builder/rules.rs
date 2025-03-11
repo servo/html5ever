@@ -10,7 +10,7 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use crate::interface::Quirks;
-use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData, PreData};
+use crate::tokenizer::states::{PreData, Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
@@ -403,15 +403,23 @@ where
                 }
 
                 tag @ <pre> => {
-                    let elem = create_element(
-                        &self.sink, QualName::new(None, ns!(html), local_name!("pre")),
-                        tag.attrs);
-                    if self.is_fragment() {
-                        self.sink.mark_script_already_started(&elem);
+                    if self.opts.parse_pre {
+                        self.close_p_element_in_button_scope();
+                        self.insert_element_for(tag);
+                        self.ignore_lf.set(true);
+                        self.frameset_ok.set(false);
+                        Done
+                    } else {
+                        let elem = create_element(
+                            &self.sink, QualName::new(None, ns!(html), local_name!("pre")),
+                            tag.attrs);
+                        if self.is_fragment() {
+                            self.sink.mark_script_already_started(&elem);
+                        }
+                        self.insert_appropriately(AppendNode(elem.clone()), None);
+                        self.open_elems.borrow_mut().push(elem);
+                        self.to_raw_text_mode(PreData)
                     }
-                    self.insert_appropriately(AppendNode(elem.clone()), None);
-                    self.open_elems.borrow_mut().push(elem);
-                    self.to_raw_text_mode(PreData)
                 }
 
                 tag @ <form> => {
@@ -789,7 +797,7 @@ where
                     let node = self.pop();
                     self.mode.set(self.orig_mode.take().unwrap());
                     if tag.name == local_name!("script") {
-                        return Script(node);
+                        return ProcessResult::Script(node);
                     }
                     if tag.name == local_name!("pre") {
                         return ProcessResult::PreData(node);
