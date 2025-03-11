@@ -394,7 +394,6 @@ where
                 },
                 PreData(pre_data) => {
                     println!("here1 PreData(node)");
-                    todo!();
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::PreData(pre_data);
                 }

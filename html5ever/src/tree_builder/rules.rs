@@ -41,6 +41,7 @@ where
     Sink: TreeSink<Handle = Handle>,
 {
     pub(crate) fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
+        println!("step");
         self.debug_step(mode, &token);
 
         match mode {
@@ -402,11 +403,6 @@ where
                 }
 
                 tag @ <pre> => {
-                    // self.close_p_element_in_button_scope();
-                    // self.insert_element_for(tag);
-                    // self.ignore_lf.set(true);
-                    // self.frameset_ok.set(false);
-                    // self.to_raw_text_mode(PreData)
                     let elem = create_element(
                         &self.sink, QualName::new(None, ns!(html), local_name!("pre")),
                         tag.attrs);
@@ -416,7 +412,6 @@ where
                     self.insert_appropriately(AppendNode(elem.clone()), None);
                     self.open_elems.borrow_mut().push(elem);
                     self.to_raw_text_mode(PreData)
-
                 }
 
                 tag @ <form> => {
@@ -796,10 +791,9 @@ where
                     if tag.name == local_name!("script") {
                         return Script(node);
                     }
-                    // if tag.name == local_name!("pre") {
-                    //     println!("here be pre");
-                    //     return PreData(node);
-                    // }
+                    if tag.name == local_name!("pre") {
+                        return ProcessResult::PreData(node);
+                    }
                     Done
                 }
 
@@ -1438,6 +1432,7 @@ where
     }
 
     pub(crate) fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
+        println!("step_foreign");
         match_token!(token {
             NullCharacterToken => {
                 self.unexpected(&token);
