@@ -16,9 +16,9 @@ path = "lib.rs"
 
 [dependencies]
 tendril = "0.4"
-html5ever = { version = "0.29", path = "../html5ever" }
-markup5ever = { version = "0.14", path = "../markup5ever" }
-xml5ever = { version = "0.20", path = "../xml5ever" }
+html5ever = { version = "0.30", path = "../html5ever" }
+markup5ever = { version = "0.15", path = "../markup5ever" }
+xml5ever = { version = "0.21", path = "../xml5ever" }
 
 [dev-dependencies]
 libtest-mimic = "0.8.1"

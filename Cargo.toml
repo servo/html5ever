@@ -7,7 +7,11 @@ members = [
     "match_token"
 ]
 
-[workspace.dependencies]
-match_token = { path = "match_token" }
-
 resolver = "2"
+
+[workspace.package]
+rust-version = "1.70.0"
+
+[workspace.dependencies]
+match_token = { version = "0.1", path = "match_token" }
+

@@ -1376,7 +1376,81 @@ where
     fn insert_phantom(&self, name: LocalName) -> Handle {
         self.insert_element(Push, ns!(html), name, vec![])
     }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-element-at-the-adjusted-insertion-location>
+    fn insert_foreign_element(
+        &self,
+        tag: Tag,
+        ns: Namespace,
+        only_add_to_element_stack: bool,
+    ) -> Handle {
+        let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
+        let qname = QualName::new(None, ns, tag.name);
+        let elem = create_element(&self.sink, qname.clone(), tag.attrs.clone());
+
+        if !only_add_to_element_stack {
+            self.insert_at(adjusted_insertion_location, AppendNode(elem.clone()));
+        }
+
+        self.push(&elem);
+
+        elem
+    }
     //§ END
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead>
+    ///
+    /// A start tag whose tag name is "template"
+    fn should_attach_declarative_shadow(&self, tag: &Tag) -> bool {
+        let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
+
+        let (intended_parent, _node2) = match adjusted_insertion_location {
+            LastChild(ref p) | BeforeSibling(ref p) => (p.clone(), None),
+            TableFosterParenting {
+                ref element,
+                ref prev_element,
+            } => (element.clone(), Some(prev_element.clone())),
+        };
+
+        // template start tag's shadowrootmode is not in the none state
+        let is_shadow_root_mode = tag.attrs.iter().any(|attr| {
+            attr.name.local == local_name!("shadowrootmode")
+                && (attr.value.as_ref() == "open" || attr.value.as_ref() == "closed")
+        });
+
+        // Check if intended_parent's document allows declarative shadow roots
+        let allow_declarative_shadow_roots =
+            self.sink.allow_declarative_shadow_roots(&intended_parent);
+
+        // the adjusted current node is not the topmost element in the stack of open elements
+        let adjusted_current_node_not_topmost = match self.open_elems.borrow().first() {
+            // The stack grows downwards; the topmost node on the stack is the first one added to the stack
+            // The current node is the bottommost node in this stack of open elements.
+            //
+            // (1) The adjusted current node is the context element if the parser was created as part of the HTML fragment parsing algorithm
+            // and the stack of open elements has only one element in it (fragment case);
+            // (2) otherwise, the adjusted current node is the current node (the bottomost node)
+            //
+            // => adjusted current node != topmost element in the stack when the stack size > 1
+            Some(_) => self.open_elems.borrow().len() > 1,
+            None => true,
+        };
+
+        is_shadow_root_mode && allow_declarative_shadow_roots && adjusted_current_node_not_topmost
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead>
+    ///
+    /// A start tag whose tag name is "template"
+    fn attach_declarative_shadow(
+        &self,
+        tag: &Tag,
+        shadow_host: &Handle,
+        template: &Handle,
+    ) -> Result<(), String> {
+        self.sink
+            .attach_declarative_shadow(shadow_host, template, tag.attrs.clone())
+    }
 
     fn create_formatting_element_for(&self, tag: Tag) -> Handle {
         // FIXME: This really wants unit tests.
