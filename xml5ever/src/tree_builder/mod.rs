@@ -20,12 +20,11 @@ use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
 
-pub use self::interface::{ElemName, NextParserState, NodeOrText, Tracer, TreeSink};
+pub use self::interface::{ElemName, NodeOrText, Tracer, TreeSink};
 use self::types::*;
 use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
 use crate::interface::{AppendText, ExpandedName};
-use crate::tokenizer::states::Quiescent;
-use crate::tokenizer::{self, EndTag, StartTag, Tag, TokenSink};
+use crate::tokenizer::{self, EndTag, ProcessResult, StartTag, Tag, TokenSink};
 use crate::tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
 use crate::{LocalName, Namespace, Prefix};
 
@@ -182,9 +181,6 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     /// The document node, which is created by the sink.
     doc_handle: Handle,
 
-    /// Next state change for the tokenizer, if any.
-    next_tokenizer_state: Cell<Option<tokenizer::states::XmlState>>,
-
     /// Stack of open elements, most recently added at end.
     open_elems: RefCell<Vec<Handle>>,
 
@@ -214,7 +210,6 @@ where
             _opts: opts,
             sink,
             doc_handle,
-            next_tokenizer_state: Cell::new(None),
             open_elems: RefCell::new(vec![]),
             curr_elem: RefCell::new(None),
             namespace_stack: RefCell::new(NamespaceMapStack::new()),
@@ -376,7 +371,10 @@ where
         }
     }
 
-    fn process_to_completion(&self, mut token: Token) {
+    fn process_to_completion(
+        &self,
+        mut token: Token,
+    ) -> ProcessResult<<Self as TokenSink>::Handle> {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -386,12 +384,16 @@ where
 
             #[allow(clippy::unused_unit)]
             match self.step(phase, token) {
-                Done => {
-                    token = unwrap_or_return!(more_tokens.pop_front(), ());
+                XmlProcessResult::Done => {
+                    token = unwrap_or_return!(more_tokens.pop_front(), ProcessResult::Continue);
                 },
-                Reprocess(m, t) => {
+                XmlProcessResult::Reprocess(m, t) => {
                     self.phase.set(m);
                     token = t;
+                },
+                XmlProcessResult::Script(node) => {
+                    assert!(more_tokens.is_empty());
+                    return ProcessResult::Script(node);
                 },
             }
         }
@@ -403,12 +405,14 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn process_token(&self, token: tokenizer::Token) {
+    type Handle = Handle;
+
+    fn process_token(&self, token: tokenizer::Token) -> ProcessResult<Self::Handle> {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
             tokenizer::ParseError(e) => {
                 self.sink.parse_error(e);
-                return;
+                return ProcessResult::Done;
             },
 
             tokenizer::DoctypeToken(d) => Doctype(d),
@@ -420,17 +424,13 @@ where
             tokenizer::CharacterTokens(x) => Characters(x),
         };
 
-        self.process_to_completion(token);
+        self.process_to_completion(token)
     }
 
     fn end(&self) {
         for node in self.open_elems.borrow_mut().drain(..).rev() {
             self.sink.pop(&node);
         }
-    }
-
-    fn query_state_change(&self) -> Option<tokenizer::states::XmlState> {
-        self.next_tokenizer_state.take()
     }
 }
 
@@ -456,13 +456,13 @@ where
         self.sink.append(target, child);
     }
 
-    fn insert_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn insert_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         let child = create_element(&self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
-    fn append_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn append_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         let child = create_element(&self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.sink.pop(&child);
@@ -477,19 +477,19 @@ where
         child
     }
 
-    fn add_to_open_elems(&self, el: Handle) -> XmlProcessResult {
+    fn add_to_open_elems(&self, el: Handle) -> XmlProcessResult<Handle> {
         self.open_elems.borrow_mut().push(el);
 
         Done
     }
 
-    fn append_comment_to_doc(&self, text: StrTendril) -> XmlProcessResult {
+    fn append_comment_to_doc(&self, text: StrTendril) -> XmlProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.sink.append(&self.doc_handle, AppendNode(comment));
         Done
     }
 
-    fn append_comment_to_tag(&self, text: StrTendril) -> XmlProcessResult {
+    fn append_comment_to_tag(&self, text: StrTendril) -> XmlProcessResult<Handle> {
         let open_elems = self.open_elems.borrow();
         let target = current_node(&open_elems);
         let comment = self.sink.create_comment(text);
@@ -497,7 +497,7 @@ where
         Done
     }
 
-    fn append_doctype_to_doc(&self, doctype: Doctype) -> XmlProcessResult {
+    fn append_doctype_to_doc(&self, doctype: Doctype) -> XmlProcessResult<Handle> {
         fn get_tendril(opt: Option<StrTendril>) -> StrTendril {
             match opt {
                 Some(expr) => expr,
@@ -512,13 +512,13 @@ where
         Done
     }
 
-    fn append_pi_to_doc(&self, pi: Pi) -> XmlProcessResult {
+    fn append_pi_to_doc(&self, pi: Pi) -> XmlProcessResult<Handle> {
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(&self.doc_handle, AppendNode(pi));
         Done
     }
 
-    fn append_pi_to_tag(&self, pi: Pi) -> XmlProcessResult {
+    fn append_pi_to_tag(&self, pi: Pi) -> XmlProcessResult<Handle> {
         let open_elems = self.open_elems.borrow();
         let target = current_node(&open_elems);
         let pi = self.sink.create_pi(pi.target, pi.data);
@@ -526,7 +526,7 @@ where
         Done
     }
 
-    fn append_text(&self, chars: StrTendril) -> XmlProcessResult {
+    fn append_text(&self, chars: StrTendril) -> XmlProcessResult<Handle> {
         self.insert_appropriately(AppendText(chars));
         Done
     }
@@ -538,8 +538,7 @@ where
             .any(|a| self.sink.elem_name(a).expanded() == tag.name.expanded())
     }
 
-    // Pop elements until an element from the set has been popped.  Returns the
-    // number of elements popped.
+    // Pop elements until an element from the set has been popped.
     fn pop_until<P>(&self, pred: P)
     where
         P: Fn(ExpandedName) -> bool,
@@ -560,7 +559,7 @@ where
         set(self.sink.elem_name(&self.current_node()).expanded())
     }
 
-    fn close_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn close_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         debug!(
             "Close tag: current_node.name {:?} \n Current tag {:?}",
             self.sink.elem_name(&self.current_node()),
@@ -597,17 +596,9 @@ where
         node
     }
 
-    fn stop_parsing(&self) -> XmlProcessResult {
+    fn stop_parsing(&self) -> XmlProcessResult<Handle> {
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
         Done
-    }
-
-    fn complete_script(&self) {
-        let open_elems = self.open_elems.borrow();
-        let current = current_node(&open_elems);
-        if self.sink.complete_script(current) == NextParserState::Suspend {
-            self.next_tokenizer_state.set(Some(Quiescent));
-        }
     }
 }
 
@@ -622,7 +613,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&self, mode: XmlPhase, token: Token) -> XmlProcessResult {
+    fn step(&self, mode: XmlPhase, token: Token) -> XmlProcessResult<<Self as TokenSink>::Handle> {
         self.debug_step(mode, &token);
 
         match mode {
@@ -716,8 +707,9 @@ where
                     };
                     if tag.name.local == local_name!("script") {
                         self.insert_tag(tag.clone());
-                        self.complete_script();
-                        self.close_tag(tag)
+                        let script = current_node(&self.open_elems.borrow()).clone();
+                        self.close_tag(tag);
+                        XmlProcessResult::Script(script)
                     } else {
                         self.append_tag(tag)
                     }
@@ -737,7 +729,12 @@ where
                         tag
                     };
                     if tag.name.local == local_name!("script") {
-                        self.complete_script();
+                        let script = current_node(&self.open_elems.borrow()).clone();
+                        self.close_tag(tag);
+                        if self.no_open_elems() {
+                            self.phase.set(End);
+                        }
+                        return XmlProcessResult::Script(script);
                     }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {

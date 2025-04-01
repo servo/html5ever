@@ -9,9 +9,7 @@
 
 //! The HTML5 tree builder.
 
-pub use crate::interface::{
-    create_element, ElemName, ElementFlags, NextParserState, Tracer, TreeSink,
-};
+pub use crate::interface::{create_element, ElemName, ElementFlags, Tracer, TreeSink};
 pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
 pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
