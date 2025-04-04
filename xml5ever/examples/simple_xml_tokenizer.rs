@@ -16,7 +16,7 @@ use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
+use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, ProcessResult, TagToken};
 use xml5ever::tokenizer::{CommentToken, PIToken, Pi};
 use xml5ever::tokenizer::{Doctype, DoctypeToken, EOFToken};
 use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
@@ -24,7 +24,9 @@ use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
 struct SimpleTokenPrinter;
 
 impl TokenSink for SimpleTokenPrinter {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
             CharacterTokens(b) => {
                 println!("TEXT: {}", &*b);
@@ -55,7 +57,8 @@ impl TokenSink for SimpleTokenPrinter {
             }) => {
                 println!("<!DOCTYPE {name:?} {public_id:?}>");
             },
-        }
+        };
+        ProcessResult::Continue
     }
 }
 
@@ -76,6 +79,6 @@ fn main() {
     input_buffer.push_back(input.try_reinterpret().unwrap());
     // Here we create and run tokenizer
     let tok = XmlTokenizer::new(sink, Default::default());
-    tok.feed(&input_buffer);
+    let _ = tok.feed(&input_buffer);
     tok.end();
 }

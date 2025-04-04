@@ -14,6 +14,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
+use xml5ever::tokenizer::ProcessResult;
 
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::{run_all, Test};
@@ -91,7 +92,9 @@ impl TokenLogger {
 }
 
 impl TokenSink for TokenLogger {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
             CharacterTokens(b) => {
                 self.current_str.borrow_mut().push_slice(&b);
@@ -123,7 +126,8 @@ impl TokenSink for TokenLogger {
             EOFToken => (),
 
             _ => self.push(token),
-        }
+        };
+        ProcessResult::Continue
     }
 }
 
@@ -134,9 +138,9 @@ fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
 
     for chunk in input.into_iter() {
         buf.push_back(chunk);
-        tok.feed(&buf);
+        let _ = tok.feed(&buf);
     }
-    tok.feed(&buf);
+    let _ = tok.feed(&buf);
     tok.end();
     tok.sink.get_tokens()
 }
@@ -274,9 +278,11 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     for tok in js.as_array().unwrap().iter() {
         match *tok {
             Value::String(ref s) if &s[..] == "ParseError" => {
-                sink.process_token(ParseError(Borrowed("")))
+                let _ = sink.process_token(ParseError(Borrowed("")));
             },
-            _ => sink.process_token(json_to_token(tok)),
+            _ => {
+                let _ = sink.process_token(json_to_token(tok));
+            },
         }
     }
     sink.get_tokens()

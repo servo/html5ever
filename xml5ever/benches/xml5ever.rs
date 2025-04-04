@@ -10,15 +10,18 @@ use criterion::{black_box, Criterion};
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::*;
-use xml5ever::tokenizer::{Token, TokenSink, XmlTokenizer};
+use xml5ever::tokenizer::{ProcessResult, Token, TokenSink, XmlTokenizer};
 
 struct Sink;
 
 impl TokenSink for Sink {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         black_box(token);
+        ProcessResult::Continue
     }
 }
 
@@ -58,9 +61,9 @@ fn run_bench(c: &mut Criterion, name: &str) {
             // necessary since our iterator consumes the underlying buffer.
             for buf in input.clone().into_iter() {
                 buffer.push_back(buf);
-                tok.feed(&buffer);
+                let _ = tok.feed(&buffer);
             }
-            tok.feed(&buffer);
+            let _ = tok.feed(&buffer);
             tok.end();
         })
     });

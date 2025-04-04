@@ -10,13 +10,12 @@
 use std::borrow::Cow;
 
 use crate::tendril::StrTendril;
+use crate::tokenizer::ProcessResult;
 use crate::{Attribute, QualName};
 
 pub use self::TagKind::{EmptyTag, EndTag, ShortTag, StartTag};
 pub use self::Token::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
 pub use self::Token::{CommentToken, DoctypeToken, PIToken, TagToken};
-
-use super::states;
 
 /// Tag kind denotes which kind of tag did we encounter.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -108,16 +107,12 @@ pub enum Token {
 
 /// Types which can receive tokens from the tokenizer.
 pub trait TokenSink {
+    /// Handle to a DOM script element
+    type Handle;
+
     /// Process a token.
-    fn process_token(&self, token: Token);
+    fn process_token(&self, token: Token) -> ProcessResult<Self::Handle>;
 
     /// Signal to the sink that parsing has ended.
     fn end(&self) {}
-
-    /// The tokenizer will call this after emitting any start tag.
-    /// This allows the tree builder to change the tokenizer's state.
-    /// By default no state changes occur.
-    fn query_state_change(&self) -> Option<states::XmlState> {
-        None
-    }
 }

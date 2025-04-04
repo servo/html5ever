@@ -63,7 +63,8 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for XmlParser<Sink> {
 
     fn process(&mut self, t: StrTendril) {
         self.input_buffer.push_back(t);
-        self.tokenizer.feed(&self.input_buffer);
+        // FIXME: Properly support </script> somehow.
+        let _ = self.tokenizer.feed(&self.input_buffer);
     }
 
     // FIXME: Is it too noisy to report every character decoding error?

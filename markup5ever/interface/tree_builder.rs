@@ -43,17 +43,6 @@ pub enum QuirksMode {
     NoQuirks,
 }
 
-/// Whether to interrupt further parsing of the current input until
-/// the next explicit resumption of the tokenizer, or continue without
-/// any interruption.
-#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-pub enum NextParserState {
-    /// Stop further parsing.
-    Suspend,
-    /// Continue without interruptions.
-    Continue,
-}
-
 /// Special properties of an element, useful for tagging elements with this information.
 #[derive(Default)]
 #[non_exhaustive]
@@ -255,11 +244,6 @@ pub trait TreeSink {
 
     /// Called whenever the line number changes.
     fn set_current_line(&self, _line_number: u64) {}
-
-    /// Indicate that a `script` element is complete.
-    fn complete_script(&self, _node: &Self::Handle) -> NextParserState {
-        NextParserState::Continue
-    }
 
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
         true

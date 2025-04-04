@@ -34,7 +34,8 @@ pub enum Token {
     Eof,
 }
 
-pub enum XmlProcessResult {
+pub enum XmlProcessResult<Handle> {
     Done,
     Reprocess(XmlPhase, Token),
+    Script(Handle),
 }
