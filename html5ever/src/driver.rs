@@ -10,10 +10,10 @@
 //! High-level interface to the parser.
 
 use crate::buffer_queue::BufferQueue;
-use crate::tokenizer::{Tokenizer, TokenizerOpts, TokenizerResult};
+use crate::tokenizer::{Tokenizer, TokenizerOpts};
 use crate::tree_builder::{create_element, TreeBuilder, TreeBuilderOpts, TreeSink};
 use crate::{Attribute, QualName};
-
+use markup5ever::TokenizerResult;
 use std::borrow::Cow;
 
 use crate::tendril;

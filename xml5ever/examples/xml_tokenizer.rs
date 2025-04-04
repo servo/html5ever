@@ -17,7 +17,7 @@ use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
+use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, ProcessResult, TagToken};
 use xml5ever::tokenizer::{EmptyTag, EndTag, ShortTag, StartTag};
 use xml5ever::tokenizer::{PIToken, Pi};
 use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer, XmlTokenizerOpts};
@@ -44,7 +44,9 @@ impl TokenPrinter {
 }
 
 impl TokenSink for TokenPrinter {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
@@ -84,7 +86,9 @@ impl TokenSink for TokenPrinter {
                 self.is_char(false);
                 println!("OTHER: {token:?}");
             },
-        }
+        };
+
+        ProcessResult::Continue
     }
 }
 
@@ -105,7 +109,7 @@ fn main() {
             ..Default::default()
         },
     );
-    tok.feed(&input_buffer);
+    let _ = tok.feed(&input_buffer);
     tok.end();
     tok.sink.is_char(false);
 }

@@ -13,7 +13,7 @@ use std::fmt;
 use tendril::StrTendril;
 
 pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
-pub use self::tree_builder::{ElemName, NextParserState, Tracer, TreeSink};
+pub use self::tree_builder::{ElemName, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 use super::{LocalName, Namespace, Prefix};
 
@@ -58,6 +58,13 @@ impl fmt::Debug for ExpandedName<'_> {
             write!(f, "{{{}}}:{}", self.ns, self.local)
         }
     }
+}
+
+#[must_use]
+#[derive(Debug)]
+pub enum TokenizerResult<Handle> {
+    Done,
+    Script(Handle),
 }
 
 /// Helper to quickly create an expanded name.
