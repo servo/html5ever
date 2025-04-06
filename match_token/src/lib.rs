@@ -364,6 +364,6 @@ fn make_tag_pattern(binding: &proc_macro2::TokenStream, tag: Tag) -> proc_macro2
         quote!()
     };
     quote! {
-        crate::tree_builder::types::TagToken(#binding crate::tokenizer::Tag { kind: #kind, #name_field .. })
+        crate::tree_builder::types::Token::Tag(#binding crate::tokenizer::Tag { kind: #kind, #name_field .. })
     }
 }
