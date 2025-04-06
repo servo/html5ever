@@ -38,7 +38,7 @@ Add xml5ever as a dependency in your project manifest:
 
 ```toml
 [dependencies]
-xml5ever = "0.21"
+xml5ever = "0.22"
 ```
 
 # Getting started
