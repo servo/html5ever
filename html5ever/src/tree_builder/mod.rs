@@ -35,8 +35,6 @@ use log::{debug, log_enabled, warn, Level};
 use mac::format_if;
 use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
 
-pub use self::PushFlag::*;
-
 #[macro_use]
 mod tag_sets;
 
@@ -154,7 +152,7 @@ where
         TreeBuilder {
             opts,
             sink,
-            mode: Cell::new(Initial),
+            mode: Cell::new(InsertionMode::Initial),
             orig_mode: Cell::new(None),
             template_modes: Default::default(),
             pending_table_text: Default::default(),
@@ -186,7 +184,7 @@ where
         let context_is_template =
             sink.elem_name(&context_elem).expanded() == expanded_name!(html "template");
         let template_modes = if context_is_template {
-            RefCell::new(vec![InTemplate])
+            RefCell::new(vec![InsertionMode::InTemplate])
         } else {
             RefCell::new(vec![])
         };
@@ -194,7 +192,7 @@ where
         let tb = TreeBuilder {
             opts,
             sink,
-            mode: Cell::new(Initial),
+            mode: Cell::new(InsertionMode::Initial),
             orig_mode: Cell::new(None),
             template_modes,
             pending_table_text: Default::default(),
@@ -303,8 +301,8 @@ where
         print!("    active_formatting:");
         for entry in self.active_formatting.borrow().iter() {
             match entry {
-                &Marker => print!(" Marker"),
-                Element(h, _) => {
+                &FormatEntry::Marker => print!(" Marker"),
+                FormatEntry::Element(h, _) => {
                     let name = self.sink.elem_name(h);
                     match *name.ns() {
                         ns!(html) => print!(" {}", name.local_name()),
@@ -334,7 +332,7 @@ where
         loop {
             let should_have_acknowledged_self_closing_flag = matches!(
                 token,
-                TagToken(Tag {
+                Token::Tag(Tag {
                     self_closing: true,
                     kind: StartTag,
                     ..
@@ -347,7 +345,7 @@ where
                 self.step(mode, token)
             };
             match result {
-                Done => {
+                ProcessResult::Done => {
                     if should_have_acknowledged_self_closing_flag {
                         self.sink
                             .parse_error(Borrowed("Unacknowledged self-closing tag"));
@@ -357,38 +355,42 @@ where
                         tokenizer::TokenSinkResult::Continue
                     );
                 },
-                DoneAckSelfClosing => {
+                ProcessResult::DoneAckSelfClosing => {
                     token = unwrap_or_return!(
                         more_tokens.pop_front(),
                         tokenizer::TokenSinkResult::Continue
                     );
                 },
-                Reprocess(m, t) => {
+                ProcessResult::Reprocess(m, t) => {
                     self.mode.set(m);
                     token = t;
                 },
-                ReprocessForeign(t) => {
+                ProcessResult::ReprocessForeign(t) => {
                     token = t;
                 },
-                SplitWhitespace(mut buf) => {
+                ProcessResult::SplitWhitespace(mut buf) => {
                     let p = buf.pop_front_char_run(|c| c.is_ascii_whitespace());
                     let (first, is_ws) = unwrap_or_return!(p, tokenizer::TokenSinkResult::Continue);
-                    let status = if is_ws { Whitespace } else { NotWhitespace };
-                    token = CharacterTokens(status, first);
+                    let status = if is_ws {
+                        SplitStatus::Whitespace
+                    } else {
+                        SplitStatus::NotWhitespace
+                    };
+                    token = Token::Characters(status, first);
 
                     if buf.len32() > 0 {
-                        more_tokens.push_back(CharacterTokens(NotSplit, buf));
+                        more_tokens.push_back(Token::Characters(SplitStatus::NotSplit, buf));
                     }
                 },
-                Script(node) => {
+                ProcessResult::Script(node) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Script(node);
                 },
-                ToPlaintext => {
+                ProcessResult::ToPlaintext => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::Plaintext;
                 },
-                ToRawData(k) => {
+                ProcessResult::ToRawData(k) => {
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::RawData(k);
                 },
@@ -414,10 +416,10 @@ where
             if self.html_elem_named(&target, local_name!("template")) {
                 // No foster parenting (inside template).
                 let contents = self.sink.get_template_contents(&target);
-                return LastChild(contents);
+                return InsertionPoint::LastChild(contents);
             } else {
                 // No foster parenting (the common case).
-                return LastChild(target);
+                return InsertionPoint::LastChild(target);
             }
         }
 
@@ -427,23 +429,25 @@ where
         while let Some(elem) = iter.next() {
             if self.html_elem_named(elem, local_name!("template")) {
                 let contents = self.sink.get_template_contents(elem);
-                return LastChild(contents);
+                return InsertionPoint::LastChild(contents);
             } else if self.html_elem_named(elem, local_name!("table")) {
-                return TableFosterParenting {
+                return InsertionPoint::TableFosterParenting {
                     element: elem.clone(),
                     prev_element: (*iter.peek().unwrap()).clone(),
                 };
             }
         }
         let html_elem = self.html_elem();
-        LastChild(html_elem.clone())
+        InsertionPoint::LastChild(html_elem.clone())
     }
 
     fn insert_at(&self, insertion_point: InsertionPoint<Handle>, child: NodeOrText<Handle>) {
         match insertion_point {
-            LastChild(parent) => self.sink.append(&parent, child),
-            BeforeSibling(sibling) => self.sink.append_before_sibling(&sibling, child),
-            TableFosterParenting {
+            InsertionPoint::LastChild(parent) => self.sink.append(&parent, child),
+            InsertionPoint::BeforeSibling(sibling) => {
+                self.sink.append_before_sibling(&sibling, child)
+            },
+            InsertionPoint::TableFosterParenting {
                 element,
                 prev_element,
             } => self
@@ -474,7 +478,7 @@ where
             },
 
             tokenizer::DoctypeToken(dt) => {
-                if self.mode.get() == Initial {
+                if self.mode.get() == InsertionMode::Initial {
                     let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
                     if err {
                         self.sink.parse_error(format_if!(
@@ -499,7 +503,7 @@ where
                     }
                     self.set_quirks_mode(quirk);
 
-                    self.mode.set(BeforeHtml);
+                    self.mode.set(InsertionMode::BeforeHtml);
                     return tokenizer::TokenSinkResult::Continue;
                 } else {
                     self.sink.parse_error(format_if!(
@@ -512,10 +516,10 @@ where
                 }
             },
 
-            tokenizer::TagToken(x) => TagToken(x),
-            tokenizer::CommentToken(x) => CommentToken(x),
-            tokenizer::NullCharacterToken => NullCharacterToken,
-            tokenizer::EOFToken => EOFToken,
+            tokenizer::TagToken(x) => Token::Tag(x),
+            tokenizer::CommentToken(x) => Token::Comment(x),
+            tokenizer::NullCharacterToken => Token::NullCharacter,
+            tokenizer::EOFToken => Token::Eof,
 
             tokenizer::CharacterTokens(mut x) => {
                 if ignore_lf && x.starts_with("\n") {
@@ -524,7 +528,7 @@ where
                 if x.is_empty() {
                     return tokenizer::TokenSinkResult::Continue;
                 }
-                CharacterTokens(NotSplit, x)
+                Token::Characters(SplitStatus::NotSplit, x)
             },
         };
 
@@ -567,8 +571,8 @@ impl<'a, Handle> Iterator for ActiveFormattingIter<'a, Handle> {
     type Item = (usize, &'a Handle, &'a Tag);
     fn next(&mut self) -> Option<(usize, &'a Handle, &'a Tag)> {
         match self.iter.next() {
-            None | Some((_, &Marker)) => None,
-            Some((i, Element(h, t))) => Some((i, h, t)),
+            None | Some((_, &FormatEntry::Marker)) => None,
+            Some((i, FormatEntry::Element(h, t))) => Some((i, h, t)),
         }
     }
 }
@@ -614,7 +618,7 @@ where
             to_escaped_string(_thing),
             self.mode.get()
         ));
-        Done
+        ProcessResult::Done
     }
 
     fn assert_named(&self, node: &Handle, name: LocalName) {
@@ -645,7 +649,7 @@ where
     }
 
     fn stop_parsing(&self) -> ProcessResult<Handle> {
-        Done
+        ProcessResult::Done
     }
 
     //§ parsing-elements-that-contain-only-text
@@ -655,8 +659,8 @@ where
     // `process_token` of a start tag returns!
     fn to_raw_text_mode(&self, k: RawKind) -> ProcessResult<Handle> {
         self.orig_mode.set(Some(self.mode.get()));
-        self.mode.set(Text);
-        ToRawData(k)
+        self.mode.set(InsertionMode::Text);
+        ProcessResult::ToRawData(k)
     }
 
     // The generic raw text / RCDATA parsing algorithm.
@@ -812,11 +816,11 @@ where
 
                 // 13.7.
                 let tag = match self.active_formatting.borrow()[node_formatting_index] {
-                    Element(ref h, ref t) => {
+                    FormatEntry::Element(ref h, ref t) => {
                         assert!(self.sink.same_node(h, &node));
                         t.clone()
                     },
-                    Marker => panic!("Found marker during adoption agency"),
+                    FormatEntry::Marker => panic!("Found marker during adoption agency"),
                 };
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
                 // own, once as part of t.clone() above)?
@@ -827,7 +831,7 @@ where
                 );
                 self.open_elems.borrow_mut()[node_index] = new_element.clone();
                 self.active_formatting.borrow_mut()[node_formatting_index] =
-                    Element(new_element.clone(), tag);
+                    FormatEntry::Element(new_element.clone(), tag);
                 node = new_element;
 
                 // 13.8.
@@ -857,7 +861,7 @@ where
                 QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
                 fmt_elem_tag.attrs.clone(),
             );
-            let new_entry = Element(new_element.clone(), fmt_elem_tag);
+            let new_entry = FormatEntry::Element(new_element.clone(), fmt_elem_tag);
 
             // 16.
             self.sink.reparent_children(&furthest_block, &new_element);
@@ -933,8 +937,8 @@ where
 
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
         match *entry {
-            Marker => true,
-            Element(ref node, _) => self
+            FormatEntry::Marker => true,
+            FormatEntry::Element(ref node, _) => self
                 .open_elems
                 .borrow()
                 .iter()
@@ -967,15 +971,22 @@ where
 
         loop {
             let tag = match self.active_formatting.borrow()[entry_index] {
-                Element(_, ref t) => t.clone(),
-                Marker => panic!("Found marker during formatting element reconstruction"),
+                FormatEntry::Element(_, ref t) => t.clone(),
+                FormatEntry::Marker => {
+                    panic!("Found marker during formatting element reconstruction")
+                },
             };
 
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
-            let new_element =
-                self.insert_element(Push, ns!(html), tag.name.clone(), tag.attrs.clone());
-            self.active_formatting.borrow_mut()[entry_index] = Element(new_element, tag);
+            let new_element = self.insert_element(
+                PushFlag::Push,
+                ns!(html),
+                tag.name.clone(),
+                tag.attrs.clone(),
+            );
+            self.active_formatting.borrow_mut()[entry_index] =
+                FormatEntry::Element(new_element, tag);
             if entry_index == self.active_formatting.borrow().len() - 1 {
                 break;
             }
@@ -1184,7 +1195,7 @@ where
     fn foster_parent_in_body(&self, token: Token) -> ProcessResult<Handle> {
         warn!("foster parenting not implemented");
         self.foster_parenting.set(true);
-        let res = self.step(InBody, token);
+        let res = self.step(InsertionMode::InBody, token);
         // FIXME: what if res is Reprocess?
         self.foster_parenting.set(false);
         res
@@ -1195,7 +1206,7 @@ where
         if self.current_node_in(table_outer) {
             assert!(self.pending_table_text.borrow().is_empty());
             self.orig_mode.set(Some(self.mode.get()));
-            Reprocess(InTableText, token)
+            ProcessResult::Reprocess(InsertionMode::InTableText, token)
         } else {
             self.sink.parse_error(format_if!(
                 self.opts.exact_errors,
@@ -1228,42 +1239,42 @@ where
                 local_name!("select") => {
                     for ancestor in self.open_elems.borrow()[0..i].iter().rev() {
                         if self.html_elem_named(ancestor, local_name!("template")) {
-                            return InSelect;
+                            return InsertionMode::InSelect;
                         } else if self.html_elem_named(ancestor, local_name!("table")) {
-                            return InSelectInTable;
+                            return InsertionMode::InSelectInTable;
                         }
                     }
-                    return InSelect;
+                    return InsertionMode::InSelect;
                 },
                 local_name!("td") | local_name!("th") => {
                     if !last {
-                        return InCell;
+                        return InsertionMode::InCell;
                     }
                 },
-                local_name!("tr") => return InRow,
+                local_name!("tr") => return InsertionMode::InRow,
                 local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => {
-                    return InTableBody;
+                    return InsertionMode::InTableBody;
                 },
-                local_name!("caption") => return InCaption,
-                local_name!("colgroup") => return InColumnGroup,
-                local_name!("table") => return InTable,
+                local_name!("caption") => return InsertionMode::InCaption,
+                local_name!("colgroup") => return InsertionMode::InColumnGroup,
+                local_name!("table") => return InsertionMode::InTable,
                 local_name!("template") => return *self.template_modes.borrow().last().unwrap(),
                 local_name!("head") => {
                     if !last {
-                        return InHead;
+                        return InsertionMode::InHead;
                     }
                 },
-                local_name!("body") => return InBody,
-                local_name!("frameset") => return InFrameset,
+                local_name!("body") => return InsertionMode::InBody,
+                local_name!("frameset") => return InsertionMode::InFrameset,
                 local_name!("html") => match *self.head_elem.borrow() {
-                    None => return BeforeHead,
-                    Some(_) => return AfterHead,
+                    None => return InsertionMode::BeforeHead,
+                    Some(_) => return InsertionMode::AfterHead,
                 },
 
                 _ => (),
             }
         }
-        InBody
+        InsertionMode::InBody
     }
 
     fn close_the_cell(&self) {
@@ -1277,19 +1288,19 @@ where
 
     fn append_text(&self, text: StrTendril) -> ProcessResult<Handle> {
         self.insert_appropriately(AppendText(text), None);
-        Done
+        ProcessResult::Done
     }
 
     fn append_comment(&self, text: StrTendril) -> ProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.insert_appropriately(AppendNode(comment), None);
-        Done
+        ProcessResult::Done
     }
 
     fn append_comment_to_doc(&self, text: StrTendril) -> ProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.sink.append(&self.doc_handle, AppendNode(comment));
-        Done
+        ProcessResult::Done
     }
 
     fn append_comment_to_html(&self, text: StrTendril) -> ProcessResult<Handle> {
@@ -1297,7 +1308,7 @@ where
         let target = html_elem(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
-        Done
+        ProcessResult::Done
     }
 
     //§ creating-and-inserting-nodes
@@ -1332,8 +1343,10 @@ where
 
         let insertion_point = self.appropriate_place_for_insertion(None);
         let (node1, node2) = match insertion_point {
-            LastChild(ref p) | BeforeSibling(ref p) => (p.clone(), None),
-            TableFosterParenting {
+            InsertionPoint::LastChild(ref p) | InsertionPoint::BeforeSibling(ref p) => {
+                (p.clone(), None)
+            },
+            InsertionPoint::TableFosterParenting {
                 ref element,
                 ref prev_element,
             } => (element.clone(), Some(prev_element.clone())),
@@ -1356,23 +1369,23 @@ where
         self.insert_at(insertion_point, AppendNode(elem.clone()));
 
         match push {
-            Push => self.push(&elem),
-            NoPush => (),
+            PushFlag::Push => self.push(&elem),
+            PushFlag::NoPush => (),
         }
         // FIXME: Remove from the stack if we can't append?
         elem
     }
 
     fn insert_element_for(&self, tag: Tag) -> Handle {
-        self.insert_element(Push, ns!(html), tag.name, tag.attrs)
+        self.insert_element(PushFlag::Push, ns!(html), tag.name, tag.attrs)
     }
 
     fn insert_and_pop_element_for(&self, tag: Tag) -> Handle {
-        self.insert_element(NoPush, ns!(html), tag.name, tag.attrs)
+        self.insert_element(PushFlag::NoPush, ns!(html), tag.name, tag.attrs)
     }
 
     fn insert_phantom(&self, name: LocalName) -> Handle {
-        self.insert_element(Push, ns!(html), name, vec![])
+        self.insert_element(PushFlag::Push, ns!(html), name, vec![])
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-element-at-the-adjusted-insertion-location>
@@ -1403,8 +1416,10 @@ where
         let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
 
         let (intended_parent, _node2) = match adjusted_insertion_location {
-            LastChild(ref p) | BeforeSibling(ref p) => (p.clone(), None),
-            TableFosterParenting {
+            InsertionPoint::LastChild(ref p) | InsertionPoint::BeforeSibling(ref p) => {
+                (p.clone(), None)
+            },
+            InsertionPoint::TableFosterParenting {
                 ref element,
                 ref prev_element,
             } => (element.clone(), Some(prev_element.clone())),
@@ -1467,17 +1482,22 @@ where
                 .remove(first_match.expect("matches with no index"));
         }
 
-        let elem = self.insert_element(Push, ns!(html), tag.name.clone(), tag.attrs.clone());
+        let elem = self.insert_element(
+            PushFlag::Push,
+            ns!(html),
+            tag.name.clone(),
+            tag.attrs.clone(),
+        );
         self.active_formatting
             .borrow_mut()
-            .push(Element(elem.clone(), tag));
+            .push(FormatEntry::Element(elem.clone(), tag));
         elem
     }
 
     fn clear_active_formatting_to_marker(&self) {
         loop {
             match self.active_formatting.borrow_mut().pop() {
-                None | Some(Marker) => break,
+                None | Some(FormatEntry::Marker) => break,
                 _ => (),
             }
         }
@@ -1535,7 +1555,7 @@ where
 
     //§ tree-construction
     fn is_foreign(&self, token: &Token) -> bool {
-        if let EOFToken = *token {
+        if let Token::Eof = *token {
             return false;
         }
 
@@ -1552,8 +1572,8 @@ where
 
         if mathml_text_integration_point(name) {
             match *token {
-                CharacterTokens(..) | NullCharacterToken => return false,
-                TagToken(Tag {
+                Token::Characters(..) | Token::NullCharacter => return false,
+                Token::Tag(Tag {
                     kind: StartTag,
                     ref name,
                     ..
@@ -1566,20 +1586,22 @@ where
 
         if svg_html_integration_point(name) {
             match *token {
-                CharacterTokens(..) | NullCharacterToken => return false,
-                TagToken(Tag { kind: StartTag, .. }) => return false,
+                Token::Characters(..) | Token::NullCharacter => return false,
+                Token::Tag(Tag { kind: StartTag, .. }) => return false,
                 _ => (),
             }
         }
 
         if let expanded_name!(mathml "annotation-xml") = name {
             match *token {
-                TagToken(Tag {
+                Token::Tag(Tag {
                     kind: StartTag,
                     name: local_name!("svg"),
                     ..
                 }) => return false,
-                CharacterTokens(..) | NullCharacterToken | TagToken(Tag { kind: StartTag, .. }) => {
+                Token::Characters(..)
+                | Token::NullCharacter
+                | Token::Tag(Tag { kind: StartTag, .. }) => {
                     return !self
                         .sink
                         .is_mathml_annotation_xml_integration_point(&self.adjusted_current_node());
@@ -1601,11 +1623,11 @@ where
         self.adjust_foreign_attributes(&mut tag);
 
         if tag.self_closing {
-            self.insert_element(NoPush, ns, tag.name, tag.attrs);
-            DoneAckSelfClosing
+            self.insert_element(PushFlag::NoPush, ns, tag.name, tag.attrs);
+            ProcessResult::DoneAckSelfClosing
         } else {
-            self.insert_element(Push, ns, tag.name, tag.attrs);
-            Done
+            self.insert_element(PushFlag::Push, ns, tag.name, tag.attrs);
+            ProcessResult::Done
         }
     }
 
@@ -1769,11 +1791,11 @@ where
         self.adjust_foreign_attributes(&mut tag);
         if tag.self_closing {
             // FIXME(#118): <script /> in SVG
-            self.insert_element(NoPush, current_ns, tag.name, tag.attrs);
-            DoneAckSelfClosing
+            self.insert_element(PushFlag::NoPush, current_ns, tag.name, tag.attrs);
+            ProcessResult::DoneAckSelfClosing
         } else {
-            self.insert_element(Push, current_ns, tag.name, tag.attrs);
-            Done
+            self.insert_element(PushFlag::Push, current_ns, tag.name, tag.attrs);
+            ProcessResult::Done
         }
     }
 
@@ -1784,6 +1806,6 @@ where
         }) {
             self.pop();
         }
-        self.step(self.mode.get(), TagToken(tag))
+        self.step(self.mode.get(), Token::Tag(tag))
     }
 }
