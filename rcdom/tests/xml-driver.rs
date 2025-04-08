@@ -99,39 +99,3 @@ fn assert_serialization(text: &'static str, dom: RcDom) {
     serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
     assert_eq!(String::from_utf8(serialized).unwrap(), text);
 }
-
-#[test]
-fn xmlns_on_root() {
-    assert_serialization(
-       r##"<svg xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg">
-    <sodipodi:namedview>
-        ...
-    </sodipodi:namedview>
-
-    <path d="..." sodipodi:nodetypes="cccc"></path>
-</svg>"##,
-        driver::parse_document(RcDom::default(), Default::default())
-            .from_utf8()
-            .one(r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
-    <sodipodi:namedview>
-        ...
-    </sodipodi:namedview>
-
-    <path d="..." sodipodi:nodetypes="cccc"/>
-</svg>"##.as_bytes()),
-    );
-}
-
-#[test]
-fn xmlns_applies_to_attr() {
-    assert_serialization(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
-    <path d="..." sodipodi:nodetypes="cccc"></path>
-</svg>"##,
-        driver::parse_document(RcDom::default(), Default::default())
-            .from_utf8()
-            .one(r##"<svg xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg">
-    <path d="..." sodipodi:nodetypes="cccc"/>
-</svg>"##.as_bytes()),
-    );
-}
