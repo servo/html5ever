@@ -18,9 +18,12 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-use std::{cell::RefCell, collections::VecDeque, mem};
+use std::{cell::RefCell, collections::VecDeque, fmt, mem};
 
-use tendril::StrTendril;
+use tendril::{
+    fmt::{Bytes, SliceFormat, UTF8},
+    Atomicity, NonAtomic, StrTendril, Tendril,
+};
 
 pub use self::SetResult::{FromSet, NotFromSet};
 use crate::util::smallcharset::SmallCharSet;
@@ -38,18 +41,30 @@ pub enum SetResult {
     NotFromSet(StrTendril),
 }
 
-/// A queue of owned string buffers, which supports incrementally consuming characters.
+/// A queue of tendrils, which supports incrementally consuming characters.
 ///
 /// Internally it uses [`VecDeque`] and has the same complexity properties.
 ///
 /// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 #[derive(Debug)]
-pub struct BufferQueue {
+pub struct BufferQueue<F = UTF8, A = NonAtomic>
+where
+    F: SliceFormat + Default,
+    <F as SliceFormat>::Slice: fmt::Debug,
+    A: Atomicity,
+{
     /// Buffers to process.
-    buffers: RefCell<VecDeque<StrTendril>>,
+    buffers: RefCell<VecDeque<Tendril<F, A>>>,
 }
 
-impl Default for BufferQueue {
+pub type ByteBufferQueue = BufferQueue<Bytes>;
+
+impl<F, A> Default for BufferQueue<F, A>
+where
+    F: SliceFormat + Default,
+    <F as SliceFormat>::Slice: fmt::Debug,
+    A: Atomicity,
+{
     /// Create an empty BufferQueue.
     #[inline]
     fn default() -> Self {
@@ -59,7 +74,17 @@ impl Default for BufferQueue {
     }
 }
 
-impl BufferQueue {
+impl<F, A> BufferQueue<F, A>
+where
+    F: SliceFormat + Default,
+    <F as SliceFormat>::Slice: fmt::Debug,
+    A: Atomicity,
+{
+    /// Swap the contents of the two buffers
+    pub fn swap(&self, other: &Self){
+        mem::swap(&mut self.buffers.borrow_mut(), &mut other.buffers.borrow_mut());
+    }
+
     /// Returns whether the queue is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -68,14 +93,14 @@ impl BufferQueue {
 
     /// Get the buffer at the beginning of the queue.
     #[inline]
-    pub fn pop_front(&self) -> Option<StrTendril> {
+    pub fn pop_front(&self) -> Option<Tendril<F, A>> {
         self.buffers.borrow_mut().pop_front()
     }
 
     /// Add a buffer to the beginning of the queue.
     ///
     /// If the buffer is empty, it will be skipped.
-    pub fn push_front(&self, buf: StrTendril) {
+    pub fn push_front(&self, buf: Tendril<F, A>) {
         if buf.len32() == 0 {
             return;
         }
@@ -85,13 +110,27 @@ impl BufferQueue {
     /// Add a buffer to the end of the queue.
     ///
     /// If the buffer is empty, it will be skipped.
-    pub fn push_back(&self, buf: StrTendril) {
+    pub fn push_back(&self, buf: Tendril<F, A>) {
         if buf.len32() == 0 {
             return;
         }
         self.buffers.borrow_mut().push_back(buf);
     }
 
+    pub fn insert(&self, index: usize, buffer: Tendril<F, A>) {
+        if buffer.len32() == 0 {
+            return;
+        }
+
+        self.buffers.borrow_mut().insert(index, buffer);
+    }
+
+    pub fn clear(&self) {
+        self.buffers.borrow_mut().clear();
+    }
+}
+
+impl BufferQueue {
     /// Look at the next available character without removing it, if the queue is not empty.
     pub fn peek(&self) -> Option<char> {
         debug_assert!(
@@ -236,15 +275,29 @@ impl BufferQueue {
         result
     }
 
-    pub fn replace_with(&self, other: BufferQueue) {
+    pub fn replace_with(&self, other: Self) {
         let _ = mem::replace(&mut *self.buffers.borrow_mut(), other.buffers.take());
     }
 
-    pub fn swap_with(&self, other: &BufferQueue) {
+    pub fn swap_with(&self, other: &Self) {
         mem::swap(
             &mut *self.buffers.borrow_mut(),
             &mut *other.buffers.borrow_mut(),
         );
+    }
+}
+
+impl<F, A> IntoIterator for BufferQueue<F, A>
+where
+    F: SliceFormat + Default,
+    <F as SliceFormat>::Slice: fmt::Debug,
+    A: Atomicity,
+{
+    type Item = Tendril<F, A>;
+    type IntoIter = <VecDeque<Tendril<F, A>> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.buffers.into_inner().into_iter()
     }
 }
 
