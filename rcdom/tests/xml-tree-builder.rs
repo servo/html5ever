@@ -70,7 +70,7 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push('|');
-    buf.extend(iter::repeat(" ").take(indent));
+    buf.extend(iter::repeat_n(" ", indent));
 
     let node = handle;
     match &node.data {
@@ -132,7 +132,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
             for attr in attrs.into_iter() {
                 buf.push('|');
-                buf.extend(iter::repeat(" ").take(indent + 2));
+                buf.extend(iter::repeat_n(" ", indent + 2));
 
                 if !attr.name.ns.is_empty() {
                     buf.push('{');

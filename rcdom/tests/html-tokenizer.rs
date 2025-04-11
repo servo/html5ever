@@ -92,7 +92,7 @@ impl TokenLogger {
     }
 
     fn finish_str(&self) {
-        if self.current_str.borrow().len() > 0 {
+        if !self.current_str.borrow().is_empty() {
             let s = self.current_str.take();
             self.tokens.borrow_mut().push(CharacterTokens(s));
         }

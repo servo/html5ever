@@ -76,7 +76,7 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push('|');
-    buf.extend(iter::repeat(" ").take(indent));
+    buf.extend(iter::repeat_n(" ", indent));
 
     let node = handle;
     match node.data {
@@ -127,7 +127,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
             for attr in attrs.into_iter() {
                 buf.push('|');
-                buf.extend(iter::repeat(" ").take(indent + 2));
+                buf.extend(iter::repeat_n(" ", indent + 2));
                 match attr.name.ns {
                     ns!(xlink) => buf.push_str("xlink "),
                     ns!(xml) => buf.push_str("xml "),
@@ -152,7 +152,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     {
         if let Some(ref content) = &*template_contents.borrow() {
             buf.push('|');
-            buf.extend(iter::repeat(" ").take(indent + 2));
+            buf.extend(iter::repeat_n(" ", indent + 2));
             buf.push_str("content\n");
             for child in content.children.borrow().iter() {
                 serialize(buf, indent + 4, child.clone());
