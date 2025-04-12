@@ -137,19 +137,19 @@ impl CharRefTokenizer {
         tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            'a'..='z' | 'A'..='Z' | '0'..='9' => {
+        match tokenizer.peek(input) {
+            Some('a'..='z' | 'A'..='Z' | '0'..='9') => {
                 self.state = Named;
                 self.name_buf_opt = Some(StrTendril::new());
                 Progress
             },
-
-            '#' => {
+            Some('#') => {
                 tokenizer.discard_char(input);
                 self.state = Octothorpe;
                 Progress
             },
-            _ => self.finish_none(),
+            Some(_) => self.finish_none(),
+            None => Stuck,
         }
     }
 
@@ -158,18 +158,17 @@ impl CharRefTokenizer {
         tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
-        match c {
-            'x' | 'X' => {
+        match tokenizer.peek(input) {
+            Some(c @ ('x' | 'X')) => {
                 tokenizer.discard_char(input);
                 self.hex_marker = Some(c);
                 self.state = Numeric(16);
             },
-
-            _ => {
+            Some(_) => {
                 self.hex_marker = None;
                 self.state = Numeric(10);
             },
+            None => return Stuck,
         }
         Progress
     }
@@ -180,7 +179,9 @@ impl CharRefTokenizer {
         input: &BufferQueue,
         base: u32,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        let Some(c) = tokenizer.peek(input) else {
+            return Stuck;
+        };
         match c.to_digit(base) {
             Some(n) => {
                 tokenizer.discard_char(input);
@@ -209,11 +210,12 @@ impl CharRefTokenizer {
         tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            ';' => tokenizer.discard_char(input),
-            _ => tokenizer.emit_error(Borrowed(
+        match tokenizer.peek(input) {
+            Some(';') => tokenizer.discard_char(input),
+            Some(_) => tokenizer.emit_error(Borrowed(
                 "Semicolon missing after numeric character reference",
             )),
+            None => return Stuck,
         };
         self.finish_numeric(tokenizer)
     }
@@ -274,7 +276,9 @@ impl CharRefTokenizer {
     ) -> Status {
         // peek + discard skips over newline normalization, therefore making it easier to
         // un-consume
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        let Some(c) = tokenizer.peek(input) else {
+            return Stuck;
+        };
         tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
@@ -399,7 +403,9 @@ impl CharRefTokenizer {
     ) -> Status {
         // peek + discard skips over newline normalization, therefore making it easier to
         // un-consume
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        let Some(c) = tokenizer.peek(input) else {
+            return Stuck;
+        };
         tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match c {

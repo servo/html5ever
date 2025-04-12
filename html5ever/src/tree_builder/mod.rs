@@ -350,16 +350,16 @@ where
                         self.sink
                             .parse_error(Borrowed("Unacknowledged self-closing tag"));
                     }
-                    token = unwrap_or_return!(
-                        more_tokens.pop_front(),
-                        tokenizer::TokenSinkResult::Continue
-                    );
+                    let Some(new_token) = more_tokens.pop_front() else {
+                        return tokenizer::TokenSinkResult::Continue;
+                    };
+                    token = new_token;
                 },
                 ProcessResult::DoneAckSelfClosing => {
-                    token = unwrap_or_return!(
-                        more_tokens.pop_front(),
-                        tokenizer::TokenSinkResult::Continue
-                    );
+                    let Some(new_token) = more_tokens.pop_front() else {
+                        return tokenizer::TokenSinkResult::Continue;
+                    };
+                    token = new_token;
                 },
                 ProcessResult::Reprocess(m, t) => {
                     self.mode.set(m);
@@ -370,7 +370,9 @@ where
                 },
                 ProcessResult::SplitWhitespace(mut buf) => {
                     let p = buf.pop_front_char_run(|c| c.is_ascii_whitespace());
-                    let (first, is_ws) = unwrap_or_return!(p, tokenizer::TokenSinkResult::Continue);
+                    let Some((first, is_ws)) = p else {
+                        return tokenizer::TokenSinkResult::Continue;
+                    };
                     let status = if is_ws {
                         SplitStatus::Whitespace
                     } else {
@@ -714,33 +716,33 @@ where
         // 2. 3. 4.
         for _ in 0..8 {
             // 5.
-            let (fmt_elem_index, fmt_elem, fmt_elem_tag) = unwrap_or_return!(
-                // We clone the Handle and Tag so they don't cause an immutable borrow of self.
-                self.active_formatting_end_to_marker()
-                    .iter()
-                    .find(|&(_, _, tag)| tag.name == subject)
-                    .map(|(i, h, t)| (i, h.clone(), t.clone())),
-                {
-                    self.process_end_tag_in_body(Tag {
-                        kind: EndTag,
-                        name: subject,
-                        self_closing: false,
-                        attrs: vec![],
-                    });
-                }
-            );
+            // We clone the Handle and Tag so they don't cause an immutable borrow of self.
+            let maybe_fmt_entry = self
+                .active_formatting_end_to_marker()
+                .iter()
+                .find(|&(_, _, tag)| tag.name == subject)
+                .map(|(i, h, t)| (i, h.clone(), t.clone()));
 
-            let fmt_elem_stack_index = unwrap_or_return!(
-                self.open_elems
-                    .borrow()
-                    .iter()
-                    .rposition(|n| self.sink.same_node(n, &fmt_elem)),
-                {
-                    self.sink
-                        .parse_error(Borrowed("Formatting element not open"));
-                    self.active_formatting.borrow_mut().remove(fmt_elem_index);
-                }
-            );
+            let Some((fmt_elem_index, fmt_elem, fmt_elem_tag)) = maybe_fmt_entry else {
+                return self.process_end_tag_in_body(Tag {
+                    kind: EndTag,
+                    name: subject,
+                    self_closing: false,
+                    attrs: vec![],
+                });
+            };
+
+            let Some(fmt_elem_stack_index) = self
+                .open_elems
+                .borrow()
+                .iter()
+                .rposition(|n| self.sink.same_node(n, &fmt_elem))
+            else {
+                self.sink
+                    .parse_error(Borrowed("Formatting element not open"));
+                self.active_formatting.borrow_mut().remove(fmt_elem_index);
+                return;
+            };
 
             // 7.
             if !self.in_scope(default_scope, |n| self.sink.same_node(&n, &fmt_elem)) {
@@ -756,20 +758,21 @@ where
             }
 
             // 9.
-            let (furthest_block_index, furthest_block) = unwrap_or_return!(
-                self.open_elems
-                    .borrow()
-                    .iter()
-                    .enumerate()
-                    .skip(fmt_elem_stack_index)
-                    .find(|&(_, open_element)| self.elem_in(open_element, special_tag))
-                    .map(|(i, h)| (i, h.clone())),
+            let maybe_furthest_block = self
+                .open_elems
+                .borrow()
+                .iter()
+                .enumerate()
+                .skip(fmt_elem_stack_index)
+                .find(|&(_, open_element)| self.elem_in(open_element, special_tag))
+                .map(|(i, h)| (i, h.clone()));
+
+            let Some((furthest_block_index, furthest_block)) = maybe_furthest_block else {
                 // 10.
-                {
-                    self.open_elems.borrow_mut().truncate(fmt_elem_stack_index);
-                    self.active_formatting.borrow_mut().remove(fmt_elem_index);
-                }
-            );
+                self.open_elems.borrow_mut().truncate(fmt_elem_stack_index);
+                self.active_formatting.borrow_mut().remove(fmt_elem_index);
+                return;
+            };
 
             // 11.
             let common_ancestor = self.open_elems.borrow()[fmt_elem_stack_index - 1].clone();
@@ -1569,11 +1572,14 @@ where
     }
 
     fn handle_misnested_a_tags(&self, tag: &Tag) {
-        let node = unwrap_or_return!(self
+        let Some(node) = self
             .active_formatting_end_to_marker()
             .iter()
             .find(|&(_, n, _)| self.html_elem_named(n, local_name!("a")))
-            .map(|(_, n, _)| n.clone()));
+            .map(|(_, n, _)| n.clone())
+        else {
+            return;
+        };
 
         self.unexpected(tag);
         self.adoption_agency(local_name!("a"));
