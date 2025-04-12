@@ -214,7 +214,7 @@ where
             curr_elem: RefCell::new(None),
             namespace_stack: RefCell::new(NamespaceMapStack::new()),
             current_namespace: RefCell::new(NamespaceMap::empty()),
-            phase: Cell::new(Start),
+            phase: Cell::new(XmlPhase::Start),
         }
     }
 
@@ -415,13 +415,13 @@ where
                 return ProcessResult::Done;
             },
 
-            tokenizer::DoctypeToken(d) => Doctype(d),
-            tokenizer::PIToken(x) => Pi(x),
-            tokenizer::TagToken(x) => Tag(x),
-            tokenizer::CommentToken(x) => Comment(x),
-            tokenizer::NullCharacterToken => NullCharacter,
-            tokenizer::EOFToken => Eof,
-            tokenizer::CharacterTokens(x) => Characters(x),
+            tokenizer::DoctypeToken(d) => Token::Doctype(d),
+            tokenizer::PIToken(instruction) => Token::Pi(instruction),
+            tokenizer::TagToken(x) => Token::Tag(x),
+            tokenizer::CommentToken(x) => Token::Comment(x),
+            tokenizer::NullCharacterToken => Token::NullCharacter,
+            tokenizer::EOFToken => Token::Eof,
+            tokenizer::CharacterTokens(x) => Token::Characters(x),
         };
 
         self.process_to_completion(token)
@@ -466,7 +466,7 @@ where
         let child = create_element(&self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.sink.pop(&child);
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_tag_to_doc(&self, tag: Tag) -> Handle {
@@ -480,13 +480,13 @@ where
     fn add_to_open_elems(&self, el: Handle) -> XmlProcessResult<Handle> {
         self.open_elems.borrow_mut().push(el);
 
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_comment_to_doc(&self, text: StrTendril) -> XmlProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.sink.append(&self.doc_handle, AppendNode(comment));
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_comment_to_tag(&self, text: StrTendril) -> XmlProcessResult<Handle> {
@@ -494,7 +494,7 @@ where
         let target = current_node(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_doctype_to_doc(&self, doctype: Doctype) -> XmlProcessResult<Handle> {
@@ -509,13 +509,13 @@ where
             get_tendril(doctype.public_id),
             get_tendril(doctype.system_id),
         );
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_pi_to_doc(&self, pi: Pi) -> XmlProcessResult<Handle> {
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(&self.doc_handle, AppendNode(pi));
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_pi_to_tag(&self, pi: Pi) -> XmlProcessResult<Handle> {
@@ -523,12 +523,12 @@ where
         let target = current_node(&open_elems);
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(target, AppendNode(pi));
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_text(&self, chars: StrTendril) -> XmlProcessResult<Handle> {
         self.insert_appropriately(AppendText(chars));
-        Done
+        XmlProcessResult::Done
     }
 
     fn tag_in_open_elems(&self, tag: &Tag) -> bool {
@@ -578,7 +578,7 @@ where
             self.pop();
         }
 
-        Done
+        XmlProcessResult::Done
     }
 
     fn no_open_elems(&self) -> bool {
@@ -598,7 +598,7 @@ where
 
     fn stop_parsing(&self) -> XmlProcessResult<Handle> {
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
-        Done
+        XmlProcessResult::Done
     }
 }
 
@@ -617,8 +617,8 @@ where
         self.debug_step(mode, &token);
 
         match mode {
-            Start => match token {
-                Tag(Tag {
+            XmlPhase::Start => match token {
+                Token::Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -632,11 +632,11 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase.set(Main);
+                    self.phase.set(XmlPhase::Main);
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -650,32 +650,34 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase.set(End);
+                    self.phase.set(XmlPhase::End);
                     let handle = self.append_tag_to_doc(tag);
                     self.sink.pop(&handle);
-                    Done
+                    XmlProcessResult::Done
                 },
-                Comment(comment) => self.append_comment_to_doc(comment),
-                Pi(pi) => self.append_pi_to_doc(pi),
-                Characters(ref chars) if !any_not_whitespace(chars) => Done,
-                Eof => {
+                Token::Comment(comment) => self.append_comment_to_doc(comment),
+                Token::Pi(pi) => self.append_pi_to_doc(pi),
+                Token::Characters(ref chars) if !any_not_whitespace(chars) => {
+                    XmlProcessResult::Done
+                },
+                Token::Eof => {
                     self.sink
                         .parse_error(Borrowed("Unexpected EOF in start phase"));
-                    Reprocess(End, Eof)
+                    XmlProcessResult::Reprocess(XmlPhase::End, Token::Eof)
                 },
-                Doctype(d) => {
+                Token::Doctype(d) => {
                     self.append_doctype_to_doc(d);
-                    Done
+                    XmlProcessResult::Done
                 },
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in start phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
-            Main => match token {
-                Characters(chs) => self.append_text(chs),
-                Tag(Tag {
+            XmlPhase::Main => match token {
+                Token::Characters(chs) => self.append_text(chs),
+                Token::Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -691,7 +693,7 @@ where
                     };
                     self.insert_tag(tag)
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -714,7 +716,7 @@ where
                         self.append_tag(tag)
                     }
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EndTag,
                     name,
                     attrs,
@@ -732,41 +734,45 @@ where
                         let script = current_node(&self.open_elems.borrow()).clone();
                         self.close_tag(tag);
                         if self.no_open_elems() {
-                            self.phase.set(End);
+                            self.phase.set(XmlPhase::End);
                         }
                         return XmlProcessResult::Script(script);
                     }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
-                        self.phase.set(End);
+                        self.phase.set(XmlPhase::End);
                     }
                     retval
                 },
-                Tag(Tag { kind: ShortTag, .. }) => {
+                Token::Tag(Tag { kind: ShortTag, .. }) => {
                     self.pop();
                     if self.no_open_elems() {
-                        self.phase.set(End);
+                        self.phase.set(XmlPhase::End);
                     }
-                    Done
+                    XmlProcessResult::Done
                 },
-                Comment(comment) => self.append_comment_to_tag(comment),
-                Pi(pi) => self.append_pi_to_tag(pi),
-                Eof | NullCharacter => Reprocess(End, Eof),
-                Doctype(_) => {
+                Token::Comment(comment) => self.append_comment_to_tag(comment),
+                Token::Pi(pi) => self.append_pi_to_tag(pi),
+                Token::Eof | Token::NullCharacter => {
+                    XmlProcessResult::Reprocess(XmlPhase::End, Token::Eof)
+                },
+                Token::Doctype(_) => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in main phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
-            End => match token {
-                Comment(comment) => self.append_comment_to_doc(comment),
-                Pi(pi) => self.append_pi_to_doc(pi),
-                Characters(ref chars) if !any_not_whitespace(chars) => Done,
-                Eof => self.stop_parsing(),
+            XmlPhase::End => match token {
+                Token::Comment(comment) => self.append_comment_to_doc(comment),
+                Token::Pi(pi) => self.append_pi_to_doc(pi),
+                Token::Characters(ref chars) if !any_not_whitespace(chars) => {
+                    XmlProcessResult::Done
+                },
+                Token::Eof => self.stop_parsing(),
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in end phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
         }
