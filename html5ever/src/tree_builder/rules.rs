@@ -329,7 +329,9 @@ where
                     self.unexpected(&tag);
                     if !self.frameset_ok.get() { return ProcessResult::Done; }
 
-                    let body = unwrap_or_return!(self.body_elem(), ProcessResult::Done).clone();
+                    let Some(body) = self.body_elem().map(|b| b.clone()) else {
+                        return ProcessResult::Done;
+                    };
                     self.sink.remove_from_parent(&body);
 
                     // FIXME: can we get here in the fragment case?
