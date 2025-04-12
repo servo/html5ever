@@ -27,6 +27,8 @@ use html5ever::{parse_document, serialize};
 use rcdom::{RcDom, SerializableHandle};
 
 fn main() {
+    env_logger::init();
+
     let opts = ParseOpts {
         tree_builder: TreeBuilderOpts {
             drop_doctype: true,

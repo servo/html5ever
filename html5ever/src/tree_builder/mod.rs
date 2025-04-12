@@ -947,22 +947,42 @@ where
         }
     }
 
-    /// Reconstruct the active formatting elements.
-    fn reconstruct_formatting(&self) {
+    /// <https://html.spec.whatwg.org/#reconstruct-the-active-formatting-elements>
+    fn reconstruct_active_formatting_elements(&self) {
         {
             let active_formatting = self.active_formatting.borrow();
-            let last = unwrap_or_return!(active_formatting.last());
+
+            // Step 1. If there are no entries in the list of active formatting elements,
+            // then there is nothing to reconstruct; stop this algorithm.
+            let Some(last) = active_formatting.last() else {
+                return;
+            };
+
+            // Step 2. If the last (most recently added) entry in the list of active formatting elements is a marker,
+            // or if it is an element that is in the stack of open elements, then there is nothing to reconstruct;
+            // stop this algorithm.
             if self.is_marker_or_open(last) {
                 return;
             }
         }
 
+        // Step 3. Let entry be the last (most recently added) element in the list of active formatting elements.
+        // NOTE: We track the index of the element instead
         let mut entry_index = self.active_formatting.borrow().len() - 1;
         loop {
+            // Step 4. Rewind: If there are no entries before entry in the list of active formatting elements,
+            // then jump to the step labeled create.
             if entry_index == 0 {
                 break;
             }
+
+            // Step 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
             entry_index -= 1;
+
+            // Step 6. If entry is neither a marker nor an element that is also in the stack of open elements,
+            // go to the step labeled rewind.
+            // Step 7. Advance: Let entry be the element one later than entry in the list
+            // of active formatting elements.
             if self.is_marker_or_open(&self.active_formatting.borrow()[entry_index]) {
                 entry_index += 1;
                 break;
@@ -970,6 +990,8 @@ where
         }
 
         loop {
+            // Step 8. Create: Insert an HTML element for the token for which the element entry was created,
+            // to obtain new element.
             let tag = match self.active_formatting.borrow()[entry_index] {
                 FormatEntry::Element(_, ref t) => t.clone(),
                 FormatEntry::Marker => {
@@ -985,8 +1007,13 @@ where
                 tag.name.clone(),
                 tag.attrs.clone(),
             );
+
+            // Step 9. Replace the entry for entry in the list with an entry for new element.
             self.active_formatting.borrow_mut()[entry_index] =
                 FormatEntry::Element(new_element, tag);
+
+            // Step 10. If the entry for new element in the list of active formatting elements is
+            // not the last entry in the list, return to the step labeled advance.
             if entry_index == self.active_formatting.borrow().len() - 1 {
                 break;
             }
@@ -1091,15 +1118,17 @@ where
         self.in_scope(scope, |elem| self.html_elem_named(&elem, name.clone()))
     }
 
-    //§ closing-elements-that-have-implied-end-tags
-    fn generate_implied_end<TagSet>(&self, set: TagSet)
+    /// <https://html.spec.whatwg.org/#generate-implied-end-tags>
+    fn generate_implied_end_tags<TagSet>(&self, set: TagSet)
     where
         TagSet: Fn(ExpandedName) -> bool,
     {
         loop {
             {
                 let open_elems = self.open_elems.borrow();
-                let elem = unwrap_or_return!(open_elems.last());
+                let Some(elem) = open_elems.last() else {
+                    return;
+                };
                 let elem_name = self.sink.elem_name(elem);
                 if !set(elem_name.expanded()) {
                     return;
@@ -1110,7 +1139,7 @@ where
     }
 
     fn generate_implied_end_except(&self, except: LocalName) {
-        self.generate_implied_end(|p| {
+        self.generate_implied_end_tags(|p| {
             if *p.ns == ns!(html) && *p.local == except {
                 false
             } else {
@@ -1155,8 +1184,8 @@ where
         self.pop_until(|p| *p.ns == ns!(html) && *p.local == name)
     }
 
-    // Pop elements until one with the specified name has been popped.
-    // Signal an error if it was not the first one.
+    /// Pop elements until one with the specified name has been popped.
+    /// Signal an error if it was not the first one.
     fn expect_to_close(&self, name: LocalName) {
         if self.pop_until_named(name.clone()) != 1 {
             self.sink.parse_error(format_if!(
@@ -1170,7 +1199,7 @@ where
 
     fn close_p_element(&self) {
         declare_tag_set!(implied = [cursory_implied_end] - "p");
-        self.generate_implied_end(implied);
+        self.generate_implied_end_tags(implied);
         self.expect_to_close(local_name!("p"));
     }
 
@@ -1278,7 +1307,7 @@ where
     }
 
     fn close_the_cell(&self) {
-        self.generate_implied_end(cursory_implied_end);
+        self.generate_implied_end_tags(cursory_implied_end);
         if self.pop_until(td_th) != 1 {
             self.sink
                 .parse_error(Borrowed("expected to close <td> or <th> with cell"));

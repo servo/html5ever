@@ -190,7 +190,7 @@ where
                     if !self.in_html_elem_named(local_name!("template")) {
                         self.unexpected(&tag);
                     } else {
-                        self.generate_implied_end(thorough_implied_end);
+                        self.generate_implied_end_tags(thorough_implied_end);
                         self.expect_to_close(local_name!("template"));
                         self.clear_active_formatting_to_marker();
                         self.template_modes.borrow_mut().pop();
@@ -287,7 +287,7 @@ where
                 Token::NullCharacter => self.unexpected(&token),
 
                 Token::Characters(_, text) => {
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     if any_not_whitespace(&text) {
                         self.frameset_ok.set(false);
                     }
@@ -464,10 +464,10 @@ where
                 tag @ <button> => {
                     if self.in_scope_named(default_scope, local_name!("button")) {
                         self.sink.parse_error(Borrowed("nested buttons"));
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.pop_until_named(local_name!("button"));
                     }
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
                     ProcessResult::Done
@@ -480,7 +480,7 @@ where
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                     }
                     ProcessResult::Done
@@ -500,7 +500,7 @@ where
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return ProcessResult::Done;
                         }
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         let current = self.current_node().clone();
                         self.remove_from_stack(&node);
                         if !self.sink.same_node(&current, &node) {
@@ -511,7 +511,7 @@ where
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
                             return ProcessResult::Done;
                         }
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         if !self.current_node_named(local_name!("form")) {
                             self.sink.parse_error(Borrowed("Bad open element on </form>"));
                         }
@@ -546,7 +546,7 @@ where
 
                 tag @ </h1> </h2> </h3> </h4> </h5> </h6> => {
                     if self.in_scope(default_scope, |n| self.elem_in(&n, heading_tag)) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         if !self.current_node_named(tag.name) {
                             self.sink.parse_error(Borrowed("Closing wrong heading tag"));
                         }
@@ -559,23 +559,23 @@ where
 
                 tag @ <a> => {
                     self.handle_misnested_a_tags(&tag);
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.create_formatting_element_for(tag);
                     ProcessResult::Done
                 }
 
                 tag @ <b> <big> <code> <em> <font> <i> <s> <small> <strike> <strong> <tt> <u> => {
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.create_formatting_element_for(tag);
                     ProcessResult::Done
                 }
 
                 tag @ <nobr> => {
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     if self.in_scope_named(default_scope, local_name!("nobr")) {
                         self.sink.parse_error(Borrowed("Nested <nobr>"));
                         self.adoption_agency(local_name!("nobr"));
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                     }
                     self.create_formatting_element_for(tag);
                     ProcessResult::Done
@@ -588,7 +588,7 @@ where
                 }
 
                 tag @ <applet> <marquee> <object> => {
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     self.active_formatting.borrow_mut().push(FormatEntry::Marker);
                     self.frameset_ok.set(false);
@@ -599,7 +599,7 @@ where
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
                     }
@@ -630,7 +630,7 @@ where
                         local_name!("input") => self.is_type_hidden(&tag),
                         _ => false,
                     };
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_and_pop_element_for(tag);
                     if !keep_frameset_ok {
                         self.frameset_ok.set(false);
@@ -666,7 +666,7 @@ where
 
                 tag @ <xmp> => {
                     self.close_p_element_in_button_scope();
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rawtext)
                 }
@@ -683,7 +683,7 @@ where
                 // <noscript> handled in wildcard case below
 
                 tag @ <select> => {
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
                     // NB: mode == InBody but possibly self.mode != mode, if
@@ -700,14 +700,14 @@ where
                     if self.current_node_named(local_name!("option")) {
                         self.pop();
                     }
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     ProcessResult::Done
                 }
 
                 tag @ <rb> <rtc> => {
                     if self.in_scope_named(default_scope, local_name!("ruby")) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                     }
                     if !self.current_node_named(local_name!("ruby")) {
                         self.unexpected(&tag);
@@ -741,7 +741,7 @@ where
                     if self.opts.scripting_enabled && tag.name == local_name!("noscript") {
                         self.parse_raw_data(tag, Rawtext)
                     } else {
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                         self.insert_element_for(tag);
                         ProcessResult::Done
                     }
@@ -924,7 +924,7 @@ where
                 tag @ <caption> <col> <colgroup> <tbody> <td> <tfoot>
                   <th> <thead> <tr> </table> </caption> => {
                     if self.in_scope_named(table_scope, local_name!("caption")) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(local_name!("caption"));
                         self.clear_active_formatting_to_marker();
                         match tag {
@@ -1087,7 +1087,7 @@ where
             InsertionMode::InCell => match_token!(token {
                 tag @ </td> </th> => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
                         self.mode.set(InsertionMode::InRow);
