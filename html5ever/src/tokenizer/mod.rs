@@ -658,13 +658,6 @@ macro_rules! go (
     ( $me:ident : ) => (());
 );
 
-macro_rules! go_match ( ( $me:ident : $x:expr, $($pats:pat),+ => $($cmds:tt)* ) => (
-    match $x {
-        $($pats)|+ => go!($me: $($cmds)*),
-        _ => (),
-    }
-));
-
 // This is a macro because it can cause early return
 // from the function where it is used.
 macro_rules! get_char ( ($me:expr, $input:expr) => (
@@ -965,8 +958,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     c => match lower_ascii_letter(c) {
                         Some(cl) => go!(self: create_attr cl; to AttributeName),
                         None => {
-                            go_match!(self: c,
-                            '"' , '\'' , '<' , '=' => error);
+                            if matches!(c, '"' | '\'' | '<' | '=') {
+                                self.bad_char_error();
+                            }
+
                             go!(self: create_attr c; to AttributeName);
                         },
                     },
@@ -984,8 +979,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     c => match lower_ascii_letter(c) {
                         Some(cl) => go!(self: push_name cl),
                         None => {
-                            go_match!(self: c,
-                            '"' , '\'' , '<' => error);
+                            if matches!(c, '"' | '\'' | '<') {
+                                self.bad_char_error();
+                            }
                             go!(self: push_name c);
                         },
                     },
@@ -1003,8 +999,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     c => match lower_ascii_letter(c) {
                         Some(cl) => go!(self: create_attr cl; to AttributeName),
                         None => {
-                            go_match!(self: c,
-                            '"' , '\'' , '<' => error);
+                            if matches!(c, '"' | '\'' | '<') {
+                                self.bad_char_error();
+                            }
+
                             go!(self: create_attr c; to AttributeName);
                         },
                     },
@@ -1060,8 +1058,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     FromSet('>') => go!(self: emit_tag Data),
                     FromSet('\0') => go!(self: error; push_value '\u{fffd}'),
                     FromSet(c) => {
-                        go_match!(self: c,
-                            '"' , '\'' , '<' , '=' , '`' => error);
+                        if matches!(c, '"' | '\'' | '<' | '=' | '`') {
+                            self.bad_char_error();
+                        }
                         go!(self: push_value c);
                     },
                     NotFromSet(ref b) => go!(self: append_value b),
