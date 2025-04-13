@@ -607,7 +607,6 @@ macro_rules! shorthand (
     ( $me:ident : force_quirks                     ) => ( $me.current_doctype.borrow_mut().force_quirks = true);
     ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype()                          );
     ( $me:ident : error                            ) => ( $me.bad_char_error()                                );
-    ( $me:ident : error_eof                        ) => ( $me.bad_eof_error()                                 );
 );
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
@@ -1501,13 +1500,22 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             | states::AfterAttributeValueQuoted
             | states::SelfClosingStartTag
             | states::ScriptDataEscapedDash(_)
-            | states::ScriptDataEscapedDashDash(_) => go!(self: error_eof; to Data),
+            | states::ScriptDataEscapedDashDash(_) => {
+                self.bad_eof_error();
+                go!(self: to Data)
+            },
 
             states::BeforeAttributeValue => go!(self: reconsume AttributeValue Unquoted),
 
-            states::TagOpen => go!(self: error_eof; emit '<'; to Data),
+            states::TagOpen => {
+                self.bad_eof_error();
+                go!(self: emit '<'; to Data)
+            },
 
-            states::EndTagOpen => go!(self: error_eof; emit '<'; emit '/'; to Data),
+            states::EndTagOpen => {
+                self.bad_eof_error();
+                go!(self: emit '<'; emit '/'; to Data)
+            },
 
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => {
                 go!(self: to RawData ScriptDataEscaped DoubleEscaped)
@@ -1534,7 +1542,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             | states::Comment
             | states::CommentEndDash
             | states::CommentEnd
-            | states::CommentEndBang => go!(self: error_eof; emit_comment; to Data),
+            | states::CommentEndBang => {
+                self.bad_eof_error();
+                go!(self: emit_comment; to Data)
+            },
 
             states::CommentLessThanSign | states::CommentLessThanSignBang => {
                 go!(self: reconsume Comment)
@@ -1545,7 +1556,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CommentLessThanSignBangDashDash => go!(self: reconsume CommentEnd),
 
             states::Doctype | states::BeforeDoctypeName => {
-                go!(self: error_eof; create_doctype; force_quirks; emit_doctype; to Data)
+                self.bad_eof_error();
+                go!(self: create_doctype; force_quirks; emit_doctype; to Data)
             },
 
             states::DoctypeName
@@ -1556,7 +1568,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             | states::DoctypeIdentifierSingleQuoted(_)
             | states::AfterDoctypeIdentifier(_)
             | states::BetweenDoctypePublicAndSystemIdentifiers => {
-                go!(self: error_eof; force_quirks; emit_doctype; to Data)
+                self.bad_eof_error();
+                go!(self: force_quirks; emit_doctype; to Data)
             },
 
             states::BogusDoctype => go!(self: emit_doctype; to Data),
@@ -1565,7 +1578,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             states::MarkupDeclarationOpen => go!(self: error; to BogusComment),
 
-            states::CdataSection => go!(self: emit_temp; error_eof; to Data),
+            states::CdataSection => {
+                self.bad_eof_error();
+                go!(self: emit_temp; to Data)
+            },
 
             states::CdataSectionBracket => go!(self: push_temp ']'; to CdataSection),
 
