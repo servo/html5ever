@@ -808,14 +808,11 @@ where
                     continue;
                 }
 
-                let node_formatting_index = unwrap_or_else!(
-                    self.position_in_active_formatting(&node),
+                let Some(node_formatting_index) = self.position_in_active_formatting(&node) else {
                     // 13.6.
-                    {
-                        self.open_elems.borrow_mut().remove(node_index);
-                        continue;
-                    }
-                );
+                    self.open_elems.borrow_mut().remove(node_index);
+                    continue;
+                };
 
                 // 13.7.
                 let tag = match self.active_formatting.borrow()[node_formatting_index] {
