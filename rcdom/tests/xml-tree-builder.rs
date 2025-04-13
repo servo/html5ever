@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use markup5ever::{namespace_url, ns};
+use markup5ever::ns;
 use markup5ever_rcdom::*;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;

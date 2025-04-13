@@ -13,6 +13,9 @@
 
 pub use tendril;
 
+#[macro_use]
+extern crate web_atoms;
+
 /// Create a [`SmallCharSet`], with each space-separated number stored in the set.
 ///
 /// # Examples
@@ -34,9 +37,15 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
     }
 ));
 
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+pub use web_atoms::{
+    local_name, namespace_prefix, namespace_url, ns, LocalName, LocalNameStaticSet, Namespace,
+    NamespaceStaticSet, Prefix, PrefixStaticSet,
+};
 
-pub mod data;
+pub mod data {
+    pub use web_atoms::C1_REPLACEMENTS;
+    pub use web_atoms::NAMED_ENTITIES;
+}
 #[macro_use]
 pub mod interface;
 pub mod serialize;

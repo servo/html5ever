@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "web_atoms",
     "markup5ever",
     "html5ever",
     "rcdom",

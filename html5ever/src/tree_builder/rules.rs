@@ -19,7 +19,7 @@ use crate::tree_builder::{
     TreeSink,
 };
 use crate::QualName;
-use markup5ever::{expanded_name, local_name, namespace_url, ns};
+use markup5ever::{expanded_name, local_name, ns};
 use std::borrow::Cow::Borrowed;
 
 use crate::tendril::SliceExt;

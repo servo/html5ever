@@ -25,7 +25,7 @@ use crate::util::str::lower_ascii_letter;
 
 use log::{debug, trace};
 use mac::format_if;
-use markup5ever::{namespace_url, ns, small_char_set, TokenizerResult};
+use markup5ever::{ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;

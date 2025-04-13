@@ -19,7 +19,7 @@ use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseE
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
-use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
+use html5ever::{ns, Attribute, LocalName, QualName};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::ffi::OsStr;
