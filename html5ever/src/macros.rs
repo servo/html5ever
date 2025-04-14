@@ -7,22 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-macro_rules! unwrap_or_else {
-    ($opt:expr, $else_block:block) => {{
-        let Some(x) = $opt else { $else_block };
+macro_rules! unwrap_or_return {
+    ($opt:expr) => {{
+        let Some(x) = $opt else {
+            return;
+        };
         x
     }};
-}
-
-macro_rules! unwrap_or_return {
-    ($opt:expr) => {
-        unwrap_or_else!($opt, {
-            return;
-        })
-    };
-    ($opt:expr, $retval:expr) => {
-        unwrap_or_else!($opt, { return $retval })
-    };
+    ($opt:expr, $retval:expr) => {{
+        let Some(x) = $opt else {
+            return $retval;
+        };
+        x
+    }};
 }
 
 macro_rules! time {
