@@ -704,7 +704,52 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         match self.state.get() {
             //§ data-state
             states::Data => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
+                let set = small_char_set!('\r' '\0' '&' '<' '\n');
+
+                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+                let set_result = if !(self.opts.exact_errors
+                    || self.reconsume.get()
+                    || self.ignore_lf.get())
+                    && is_x86_feature_detected!("sse2")
+                {
+                    let front_buffer = input.peek_front_chunk_mut();
+                    let Some(mut front_buffer) = front_buffer else {
+                        return ProcessResult::Suspend;
+                    };
+
+                    // Special case: The fast path is not worth taking if the first character is already in the set,
+                    // which is fairly common
+                    let first_char = front_buffer
+                        .chars()
+                        .next()
+                        .expect("Input buffers are never empty");
+
+                    if matches!(first_char, '\r' | '\0' | '&' | '<' | '\n') {
+                        drop(front_buffer);
+                        self.pop_except_from(input, set)
+                    } else {
+                        // SAFETY:
+                        // This CPU is guaranteed to support SSE2 due to the is_x86_feature_detected check above
+                        let result = unsafe { self.data_state_sse2_fast_path(&mut front_buffer) };
+
+                        if front_buffer.is_empty() {
+                            drop(front_buffer);
+                            input.pop_front();
+                        }
+
+                        result
+                    }
+                } else {
+                    self.pop_except_from(input, set)
+                };
+
+                #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+                let set_result = self.pop_except_from(input, set);
+
+                let Some(set_result) = set_result else {
+                    return ProcessResult::Suspend;
+                };
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\0');
@@ -1838,6 +1883,121 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             states::CdataSectionEnd => go!(self: push_temp ']'; push_temp ']'; to CdataSection),
         }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse2")]
+    /// Implements the [data state] with SIMD instructions.
+    ///
+    /// The algorithm implemented is the naive SIMD approach described [here].
+    ///
+    /// ### SAFETY:
+    /// Calling this function on a CPU that does not support SSE2 causes undefined behaviour.
+    ///
+    /// [data state]: https://html.spec.whatwg.org/#data-state
+    /// [here]: https://lemire.me/blog/2024/06/08/scan-html-faster-with-simd-instructions-chrome-edition/
+    unsafe fn data_state_sse2_fast_path(&self, input: &mut StrTendril) -> Option<SetResult> {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::{
+            __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_or_si128,
+            _mm_set1_epi8,
+        };
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::{
+            __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_or_si128,
+            _mm_set1_epi8,
+        };
+
+        debug_assert!(!input.is_empty());
+
+        let quote_mask = _mm_set1_epi8('<' as i8);
+        let escape_mask = _mm_set1_epi8('&' as i8);
+        let carriage_return_mask = _mm_set1_epi8('\r' as i8);
+        let zero_mask = _mm_set1_epi8('\0' as i8);
+        let newline_mask = _mm_set1_epi8('\n' as i8);
+
+        let raw_bytes: &[u8] = input.as_bytes();
+        let start = raw_bytes.as_ptr();
+
+        const STRIDE: usize = 16;
+        let mut i = 0;
+        let mut n_newlines = 0;
+        while i + STRIDE <= raw_bytes.len() {
+            // Load a 16 byte chunk from the input
+            let data = _mm_loadu_si128(start.add(i) as *const __m128i);
+
+            // Compare the chunk against each mask
+            let quotes = _mm_cmpeq_epi8(data, quote_mask);
+            let escapes = _mm_cmpeq_epi8(data, escape_mask);
+            let carriage_returns = _mm_cmpeq_epi8(data, carriage_return_mask);
+            let zeros = _mm_cmpeq_epi8(data, zero_mask);
+            let newlines = _mm_cmpeq_epi8(data, newline_mask);
+
+            // Combine all test results and create a bitmask from them.
+            // Each bit in the mask will be 1 if the character at the bit position is in the set and 0 otherwise.
+            let test_result = _mm_or_si128(
+                _mm_or_si128(quotes, zeros),
+                _mm_or_si128(escapes, carriage_returns),
+            );
+            let bitmask = _mm_movemask_epi8(test_result);
+            let newline_mask = _mm_movemask_epi8(newlines);
+
+            if (bitmask != 0) {
+                // We have reached one of the characters that cause the state machine to transition
+                let position = if cfg!(target_endian = "little") {
+                    bitmask.trailing_zeros() as usize
+                } else {
+                    bitmask.leading_zeros() as usize
+                };
+
+                n_newlines += (newline_mask & ((1 << position) - 1)).count_ones() as u64;
+                i += position;
+                break;
+            } else {
+                n_newlines += newline_mask.count_ones() as u64;
+            }
+
+            i += STRIDE;
+        }
+
+        // Process any remaining bytes (less than STRIDE)
+        while let Some(c) = raw_bytes.get(i) {
+            if matches!(*c, b'<' | b'&' | b'\r' | b'\0') {
+                break;
+            }
+            if *c == b'\n' {
+                n_newlines += 1;
+            }
+
+            i += 1;
+        }
+
+        let set_result = if i == 0 {
+            let first_char = input.pop_front_char().unwrap();
+            debug_assert!(matches!(first_char, '<' | '&' | '\r' | '\0'));
+
+            // FIXME: Passing a bogus input queue is only relevant when c is \n, which can never happen in this case.
+            // Still, it would be nice to not have to do that.
+            // The same is true for the unwrap call.
+            let preprocessed_char = self
+                .get_preprocessed_char(first_char, &BufferQueue::default())
+                .unwrap();
+            SetResult::FromSet(preprocessed_char)
+        } else {
+            debug_assert!(
+                input.len() >= i,
+                "Trying to remove {:?} bytes from a tendril that is only {:?} bytes long",
+                i,
+                input.len()
+            );
+            let consumed_chunk = input.unsafe_subtendril(0, i as u32);
+            input.unsafe_pop_front(i as u32);
+            SetResult::NotFromSet(consumed_chunk)
+        };
+
+        self.current_line.set(self.current_line.get() + n_newlines);
+
+        Some(set_result)
     }
 }
 
