@@ -460,6 +460,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_temp_buf(&self) {
+        #[cfg(feature = "trace_tokenizer")]
+        trace!("  emit_temp");
+
         // FIXME: Make sure that clearing on emit is spec-compatible.
         let buf = mem::take(&mut *self.temp_buf.borrow_mut());
         self.emit_chars(buf);
@@ -600,7 +603,6 @@ macro_rules! shorthand (
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag()                                   );
     ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input)                            );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.borrow_mut().push_char($c)             );
-    ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf()                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf()                                );
     ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c)                            );
     ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.borrow_mut().push_char($c)    );
@@ -935,7 +937,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         go!(self: discard_tag);
                         self.emit_char('<');
                         self.emit_char('/');
-                        go!(self: emit_temp; reconsume RawData kind);
+                        self.emit_temp_buf();
+                        go!(self: reconsume RawData kind);
                     },
                 }
             },
@@ -1579,7 +1582,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match get_char!(self, input) {
                     ']' => go!(self: to CdataSectionBracket),
                     '\0' => {
-                        go!(self: emit_temp);
+                        self.emit_temp_buf();
                         self.emit_char('\0');
                     },
                     c => go!(self: push_temp c),
@@ -1596,7 +1599,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CdataSectionEnd => loop {
                 match get_char!(self, input) {
                     ']' => go!(self: push_temp ']'),
-                    '>' => go!(self: emit_temp; to Data),
+                    '>' => {
+                        self.emit_temp_buf();
+                        go!(self: to Data);
+                    },
                     _ => go!(self: push_temp ']'; push_temp ']'; reconsume CdataSection),
                 }
             },
@@ -1766,7 +1772,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::RawEndTagName(kind) => {
                 self.emit_char('<');
                 self.emit_char('/');
-                go!(self: emit_temp; to RawData kind)
+                self.emit_temp_buf();
+                go!(self: to RawData kind)
             },
 
             states::ScriptDataEscapeStart(kind) => go!(self: to RawData ScriptDataEscaped kind),
@@ -1822,7 +1829,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             states::CdataSection => {
-                go!(self: emit_temp);
+                self.emit_temp_buf();
                 self.bad_eof_error();
                 go!(self: to Data)
             },
