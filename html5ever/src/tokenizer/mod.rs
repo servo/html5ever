@@ -401,6 +401,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_char(&self, c: char) {
+        #[cfg(feature = "trace_tokenizer")]
+        trace!("  emit");
+
         self.process_token_and_continue(match c {
             '\0' => NullCharacterToken,
             _ => CharacterTokens(StrTendril::from_char(c)),
@@ -457,6 +460,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_temp_buf(&self) {
+        #[cfg(feature = "trace_tokenizer")]
+        trace!("  emit_temp");
+
         // FIXME: Make sure that clearing on emit is spec-compatible.
         let buf = mem::take(&mut *self.temp_buf.borrow_mut());
         self.emit_chars(buf);
@@ -592,13 +598,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
 // Shorthand for common state machine behaviors.
 macro_rules! shorthand (
-    ( $me:ident : emit $c:expr                     ) => ( $me.emit_char($c)                                   );
     ( $me:ident : create_tag $kind:ident $c:expr   ) => ( $me.create_tag($kind, $c)                           );
     ( $me:ident : push_tag $c:expr                 ) => ( $me.current_tag_name.borrow_mut().push_char($c)     );
     ( $me:ident : discard_tag                      ) => ( $me.discard_tag()                                   );
     ( $me:ident : discard_char $input:expr         ) => ( $me.discard_char($input)                            );
     ( $me:ident : push_temp $c:expr                ) => ( $me.temp_buf.borrow_mut().push_char($c)             );
-    ( $me:ident : emit_temp                        ) => ( $me.emit_temp_buf()                                 );
     ( $me:ident : clear_temp                       ) => ( $me.clear_temp_buf()                                );
     ( $me:ident : create_attr $c:expr              ) => ( $me.create_attribute($c)                            );
     ( $me:ident : push_name $c:expr                ) => ( $me.current_attr_name.borrow_mut().push_char($c)    );
@@ -703,11 +707,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\0')
+                        self.emit_char('\0');
                     },
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('<') => go!(self: to TagOpen),
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => {
+                        self.emit_char(c);
+                    },
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -717,11 +723,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('<') => go!(self: to RawLessThanSign Rcdata),
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -731,10 +737,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
                     FromSet('<') => go!(self: to RawLessThanSign Rawtext),
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -744,10 +750,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
                     FromSet('<') => go!(self: to RawLessThanSign ScriptData),
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -757,11 +763,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
-                    FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash Escaped),
+                    FromSet('-') => {
+                        self.emit_char('-');
+                        go!(self: to ScriptDataEscapedDash Escaped);
+                    },
                     FromSet('<') => go!(self: to RawLessThanSign ScriptDataEscaped Escaped),
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -771,13 +780,17 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
-                    FromSet('-') => go!(self: emit '-'; to ScriptDataEscapedDash DoubleEscaped),
+                    FromSet('-') => {
+                        self.emit_char('-');
+                        go!(self: to ScriptDataEscapedDash DoubleEscaped);
+                    },
                     FromSet('<') => {
-                        go!(self: emit '<'; to RawLessThanSign ScriptDataEscaped DoubleEscaped)
+                        self.emit_char('<');
+                        go!(self: to RawLessThanSign ScriptDataEscaped DoubleEscaped)
                     },
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -787,9 +800,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match pop_except_from!(self, input, small_char_set!('\r' '\0' '\n')) {
                     FromSet('\0') => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}')
+                        self.emit_char('\u{fffd}');
                     },
-                    FromSet(c) => go!(self: emit c),
+                    FromSet(c) => self.emit_char(c),
                     NotFromSet(b) => self.emit_chars(b),
                 }
             },
@@ -807,7 +820,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         Some(cl) => go!(self: create_tag StartTag cl; to TagName),
                         None => {
                             self.bad_char_error();
-                            go!(self: emit '<'; reconsume Data)
+                            self.emit_char('<');
+                            go!(self: reconsume Data)
                         },
                     },
                 }
@@ -849,9 +863,16 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match get_char!(self, input) {
                     '/' => go!(self: clear_temp; to RawEndTagOpen ScriptDataEscaped Escaped),
                     c => match lower_ascii_letter(c) {
-                        Some(cl) => go!(self: clear_temp; push_temp cl; emit '<'; emit c;
-                                    to ScriptDataEscapeStart DoubleEscaped),
-                        None => go!(self: emit '<'; reconsume RawData ScriptDataEscaped Escaped),
+                        Some(cl) => {
+                            go!(self: clear_temp; push_temp cl);
+                            self.emit_char('<');
+                            self.emit_char(c);
+                            go!(self: to ScriptDataEscapeStart DoubleEscaped);
+                        },
+                        None => {
+                            self.emit_char('<');
+                            go!(self: reconsume RawData ScriptDataEscaped Escaped);
+                        },
                     },
                 }
             },
@@ -859,7 +880,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ script-data-double-escaped-less-than-sign-state
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => loop {
                 match get_char!(self, input) {
-                    '/' => go!(self: clear_temp; emit '/'; to ScriptDataDoubleEscapeEnd),
+                    '/' => {
+                        go!(self: clear_temp);
+                        self.emit_char('/');
+                        go!(self: to ScriptDataDoubleEscapeEnd);
+                    },
                     _ => go!(self: reconsume RawData ScriptDataEscaped DoubleEscaped),
                 }
             },
@@ -870,9 +895,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match get_char!(self, input) {
                     '/' => go!(self: clear_temp; to RawEndTagOpen kind),
                     '!' if kind == ScriptData => {
-                        go!(self: emit '<'; emit '!'; to ScriptDataEscapeStart Escaped)
+                        self.emit_char('<');
+                        self.emit_char('!');
+                        go!(self: to ScriptDataEscapeStart Escaped);
                     },
-                    _ => go!(self: emit '<'; reconsume RawData kind),
+                    _ => {
+                        self.emit_char('<');
+                        go!(self: reconsume RawData kind);
+                    },
                 }
             },
 
@@ -881,7 +911,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 let c = get_char!(self, input);
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(self: create_tag EndTag cl; push_temp c; to RawEndTagName kind),
-                    None => go!(self: emit '<'; emit '/'; reconsume RawData kind),
+                    None => {
+                        self.emit_char('<');
+                        self.emit_char('/');
+                        go!(self: reconsume RawData kind);
+                    },
                 }
             },
 
@@ -900,7 +934,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 match lower_ascii_letter(c) {
                     Some(cl) => go!(self: push_tag cl; push_temp c),
                     None => {
-                        go!(self: discard_tag; emit '<'; emit '/'; emit_temp; reconsume RawData kind)
+                        go!(self: discard_tag);
+                        self.emit_char('<');
+                        self.emit_char('/');
+                        self.emit_temp_buf();
+                        go!(self: reconsume RawData kind);
                     },
                 }
             },
@@ -915,10 +953,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         } else {
                             Escaped
                         };
-                        go!(self: emit c; to RawData ScriptDataEscaped esc);
+                        self.emit_char(c);
+                        go!(self: to RawData ScriptDataEscaped esc);
                     },
                     _ => match lower_ascii_letter(c) {
-                        Some(cl) => go!(self: push_temp cl; emit c),
+                        Some(cl) => {
+                            go!(self: push_temp cl);
+                            self.emit_char(c);
+                        },
                         None => go!(self: reconsume RawData ScriptDataEscaped Escaped),
                     },
                 }
@@ -927,7 +969,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ script-data-escape-start-state
             states::ScriptDataEscapeStart(Escaped) => loop {
                 match get_char!(self, input) {
-                    '-' => go!(self: emit '-'; to ScriptDataEscapeStartDash),
+                    '-' => {
+                        self.emit_char('-');
+                        go!(self: to ScriptDataEscapeStartDash);
+                    },
                     _ => go!(self: reconsume RawData ScriptData),
                 }
             },
@@ -935,7 +980,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ script-data-escape-start-dash-state
             states::ScriptDataEscapeStartDash => loop {
                 match get_char!(self, input) {
-                    '-' => go!(self: emit '-'; to ScriptDataEscapedDashDash Escaped),
+                    '-' => {
+                        self.emit_char('-');
+                        go!(self: to ScriptDataEscapedDashDash Escaped);
+                    },
                     _ => go!(self: reconsume RawData ScriptData),
                 }
             },
@@ -943,37 +991,53 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             //§ script-data-escaped-dash-state script-data-double-escaped-dash-state
             states::ScriptDataEscapedDash(kind) => loop {
                 match get_char!(self, input) {
-                    '-' => go!(self: emit '-'; to ScriptDataEscapedDashDash kind),
+                    '-' => {
+                        self.emit_char('-');
+                        go!(self: to ScriptDataEscapedDashDash kind);
+                    },
                     '<' => {
                         if kind == DoubleEscaped {
-                            go!(self: emit '<');
+                            self.emit_char('<');
                         }
                         go!(self: to RawLessThanSign ScriptDataEscaped kind);
                     },
                     '\0' => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}'; to RawData ScriptDataEscaped kind)
+                        self.emit_char('\u{fffd}');
+                        go!(self: to RawData ScriptDataEscaped kind)
                     },
-                    c => go!(self: emit c; to RawData ScriptDataEscaped kind),
+                    c => {
+                        self.emit_char(c);
+                        go!(self: to RawData ScriptDataEscaped kind);
+                    },
                 }
             },
 
             //§ script-data-escaped-dash-dash-state script-data-double-escaped-dash-dash-state
             states::ScriptDataEscapedDashDash(kind) => loop {
                 match get_char!(self, input) {
-                    '-' => go!(self: emit '-'),
+                    '-' => {
+                        self.emit_char('-');
+                    },
                     '<' => {
                         if kind == DoubleEscaped {
-                            go!(self: emit '<');
+                            self.emit_char('<');
                         }
                         go!(self: to RawLessThanSign ScriptDataEscaped kind);
                     },
-                    '>' => go!(self: emit '>'; to RawData ScriptData),
+                    '>' => {
+                        self.emit_char('>');
+                        go!(self: to RawData ScriptData);
+                    },
                     '\0' => {
                         self.bad_char_error();
-                        go!(self: emit '\u{fffd}'; to RawData ScriptDataEscaped kind)
+                        self.emit_char('\u{fffd}');
+                        go!(self: to RawData ScriptDataEscaped kind)
                     },
-                    c => go!(self: emit c; to RawData ScriptDataEscaped kind),
+                    c => {
+                        self.emit_char(c);
+                        go!(self: to RawData ScriptDataEscaped kind);
+                    },
                 }
             },
 
@@ -987,10 +1051,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         } else {
                             DoubleEscaped
                         };
-                        go!(self: emit c; to RawData ScriptDataEscaped esc);
+                        self.emit_char(c);
+                        go!(self: to RawData ScriptDataEscaped esc);
                     },
                     _ => match lower_ascii_letter(c) {
-                        Some(cl) => go!(self: push_temp cl; emit c),
+                        Some(cl) => {
+                            go!(self: push_temp cl);
+                            self.emit_char(c);
+                        },
                         None => go!(self: reconsume RawData ScriptDataEscaped DoubleEscaped),
                     },
                 }
@@ -1513,7 +1581,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CdataSection => loop {
                 match get_char!(self, input) {
                     ']' => go!(self: to CdataSectionBracket),
-                    '\0' => go!(self: emit_temp; emit '\0'),
+                    '\0' => {
+                        self.emit_temp_buf();
+                        self.emit_char('\0');
+                    },
                     c => go!(self: push_temp c),
                 }
             },
@@ -1528,7 +1599,10 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::CdataSectionEnd => loop {
                 match get_char!(self, input) {
                     ']' => go!(self: push_temp ']'),
-                    '>' => go!(self: emit_temp; to Data),
+                    '>' => {
+                        self.emit_temp_buf();
+                        go!(self: to Data);
+                    },
                     _ => go!(self: push_temp ']'; push_temp ']'; reconsume CdataSection),
                 }
             },
@@ -1570,7 +1644,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         for i in 0..num_chars {
             let c = chars[i as usize];
             match self.state.get() {
-                states::Data | states::RawData(states::Rcdata) => go!(self: emit c),
+                states::Data | states::RawData(states::Rcdata) => self.emit_char(c),
 
                 states::AttributeValue(_) => go!(self: push_value c),
 
@@ -1669,24 +1743,37 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             states::TagOpen => {
                 self.bad_eof_error();
-                go!(self: emit '<'; to Data)
+                self.emit_char('<');
+                go!(self: to Data);
             },
 
             states::EndTagOpen => {
                 self.bad_eof_error();
-                go!(self: emit '<'; emit '/'; to Data)
+                self.emit_char('<');
+                self.emit_char('/');
+                go!(self: to Data);
             },
 
             states::RawLessThanSign(ScriptDataEscaped(DoubleEscaped)) => {
                 go!(self: to RawData ScriptDataEscaped DoubleEscaped)
             },
 
-            states::RawLessThanSign(kind) => go!(self: emit '<'; to RawData kind),
+            states::RawLessThanSign(kind) => {
+                self.emit_char('<');
+                go!(self: to RawData kind);
+            },
 
-            states::RawEndTagOpen(kind) => go!(self: emit '<'; emit '/'; to RawData kind),
+            states::RawEndTagOpen(kind) => {
+                self.emit_char('<');
+                self.emit_char('/');
+                go!(self: to RawData kind);
+            },
 
             states::RawEndTagName(kind) => {
-                go!(self: emit '<'; emit '/'; emit_temp; to RawData kind)
+                self.emit_char('<');
+                self.emit_char('/');
+                self.emit_temp_buf();
+                go!(self: to RawData kind)
             },
 
             states::ScriptDataEscapeStart(kind) => go!(self: to RawData ScriptDataEscaped kind),
@@ -1742,7 +1829,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             },
 
             states::CdataSection => {
-                go!(self: emit_temp);
+                self.emit_temp_buf();
                 self.bad_eof_error();
                 go!(self: to Data)
             },
