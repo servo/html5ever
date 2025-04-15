@@ -26,7 +26,7 @@ use xml5ever::tokenizer::{CommentToken, EmptyTag, EndTag, ShortTag, StartTag, Ta
 use xml5ever::tokenizer::{Doctype, DoctypeToken, PIToken, Pi};
 use xml5ever::tokenizer::{EOFToken, XmlTokenizer, XmlTokenizerOpts};
 use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
-use xml5ever::{namespace_url, ns, Attribute, LocalName, QualName};
+use xml5ever::{ns, Attribute, LocalName, QualName};
 
 mod util {
     pub mod find_tests;

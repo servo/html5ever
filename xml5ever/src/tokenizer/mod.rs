@@ -23,9 +23,7 @@ use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
 use mac::{format_if, unwrap_or_return};
-use markup5ever::{
-    local_name, namespace_prefix, namespace_url, ns, small_char_set, TokenizerResult,
-};
+use markup5ever::{local_name, namespace_prefix, ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;

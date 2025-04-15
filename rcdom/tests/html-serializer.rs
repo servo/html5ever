@@ -12,7 +12,7 @@ use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope}
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use html5ever::{parse_document, parse_fragment, serialize, QualName};
-use markup5ever::{local_name, namespace_url, ns};
+use markup5ever::{local_name, ns};
 use markup5ever_rcdom::{RcDom, SerializableHandle};
 
 use std::cell::RefCell;

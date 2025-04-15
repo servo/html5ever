@@ -33,7 +33,7 @@ use crate::tree_builder::tag_sets::*;
 use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
 use mac::format_if;
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{expanded_name, local_name, namespace_prefix, ns};
 
 #[macro_use]
 mod tag_sets;

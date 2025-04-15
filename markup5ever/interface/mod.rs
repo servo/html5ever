@@ -11,11 +11,11 @@
 use std::cell::Ref;
 use std::fmt;
 use tendril::StrTendril;
+use web_atoms::{LocalName, Namespace, Prefix};
 
 pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
 pub use self::tree_builder::{ElemName, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
-use super::{LocalName, Namespace, Prefix};
 
 /// An [expanded name], containing the tag and the namespace.
 ///
@@ -165,8 +165,7 @@ pub mod tree_builder;
 ///  prefix (when resolved gives namespace_url `https://furniture.rs`)
 /// ```
 ///
-/// NOTE: `Prefix`, `LocalName` and `Prefix` are all derivative of
-/// `string_cache::atom::Atom` and `Atom` implements `Deref<str>`.
+/// NOTE: `Prefix`, `LocalName` and `Prefix` all implement `Deref<str>`.
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
@@ -401,7 +400,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    use super::Namespace;
+    use web_atoms::{ns, Namespace};
 
     #[test]
     fn ns_macro() {

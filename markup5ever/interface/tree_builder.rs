@@ -12,10 +12,10 @@
 //! It can be used by a parser to create the DOM graph structure in memory.
 
 use crate::interface::{Attribute, ExpandedName, QualName};
-use crate::{LocalName, Namespace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use tendril::StrTendril;
+use web_atoms::{LocalName, Namespace};
 
 pub use self::NodeOrText::{AppendNode, AppendText};
 pub use self::QuirksMode::{LimitedQuirks, NoQuirks, Quirks};

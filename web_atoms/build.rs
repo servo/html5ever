@@ -73,7 +73,11 @@ fn main() {
     )
     .unwrap();
     for &(prefix, url) in NAMESPACES {
-        writeln!(generated, "({prefix}) => {{ namespace_url!({url:?}) }};").unwrap();
+        writeln!(
+            generated,
+            "({prefix}) => {{ $crate::namespace_url!({url:?}) }};"
+        )
+        .unwrap();
     }
     writeln!(generated, "}}").unwrap();
 }
@@ -110,7 +114,7 @@ fn named_entities_to_phf(to: &Path) {
 /// # Examples
 ///
 /// ```
-/// use markup5ever::data::NAMED_ENTITIES;
+/// use web_atoms::NAMED_ENTITIES;
 ///
 /// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
 /// ```
