@@ -7,7 +7,7 @@ repository = "https://github.com/servo/html5ever"
 description = "Atoms for xml5ever and html5ever"
 documentation = "https://docs.rs/web_atoms"
 build = "build.rs"
-categories = [ "string-interning", "web-programming" ]
+categories = [ "web-programming" ]
 edition = "2021"
 rust-version.workspace = true
 
