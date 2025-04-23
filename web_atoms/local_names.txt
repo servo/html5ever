@@ -431,6 +431,7 @@ in
 in2
 index
 infinity
+innerText
 input
 inputmode
 ins
@@ -936,6 +937,7 @@ text
 text-anchor
 text-decoration
 text-rendering
+textContent
 textLength
 textPath
 textarea
