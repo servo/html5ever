@@ -673,6 +673,7 @@ onlanguagechange
 onload
 onlosecapture
 onmessage
+onmessageerror
 onmousedown
 onmouseenter
 onmouseleave
@@ -687,11 +688,14 @@ onmovestart
 onoffline
 ononline
 onpagehide
+onpagereveal
 onpageshow
+onpageswap
 onpaste
 onpopstate
 onpropertychange
 onreadystatechange
+onrejectionhandled
 onrepeat
 onreset
 onresize
@@ -706,6 +710,7 @@ onstart
 onstop
 onstorage
 onsubmit
+onunhandledrejection
 onunload
 onzoom
 opacity
