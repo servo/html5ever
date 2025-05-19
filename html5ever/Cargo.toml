@@ -22,7 +22,7 @@ markup5ever = { version = "0.16", path = "../markup5ever" }
 match_token = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.6"
 typed-arena = "2.0.2"
 
 [[bench]]
