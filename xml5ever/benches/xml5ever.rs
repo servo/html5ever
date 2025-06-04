@@ -6,7 +6,7 @@ extern crate xml5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::*;
@@ -20,7 +20,7 @@ impl TokenSink for Sink {
     fn process_token(&self, token: Token) -> ProcessResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
-        black_box(token);
+        std::hint::black_box(token);
         ProcessResult::Continue
     }
 }
