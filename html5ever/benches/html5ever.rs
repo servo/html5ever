@@ -5,7 +5,7 @@ extern crate html5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 
 use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
@@ -18,7 +18,7 @@ impl TokenSink for Sink {
     fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
-        black_box(token);
+        std::hint::black_box(token);
         TokenSinkResult::Continue
     }
 }
