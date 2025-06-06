@@ -261,7 +261,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             self.emit_error(Cow::Owned(msg));
         }
 
-        debug!("got character {}", c);
+        debug!("got character {c}");
         self.current_char.set(c);
         Some(c)
     }
@@ -286,7 +286,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
 
         let d = input.pop_except_from(set);
-        debug!("got characters {:?}", d);
+        debug!("got characters {d:?}");
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(FromSet),
 
@@ -493,7 +493,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         self.process_token(DoctypeToken(doctype));
     }
 
-    fn doctype_id(&self, kind: DoctypeKind) -> RefMut<Option<StrTendril>> {
+    fn doctype_id(&self, kind: DoctypeKind) -> RefMut<'_, Option<StrTendril>> {
         let current_doctype = self.current_doctype.borrow_mut();
         match kind {
             Public => RefMut::map(current_doctype, |d| &mut d.public_id),
@@ -1148,11 +1148,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             "\n{:12}         total in token sink",
             self.time_in_sink.get()
         );
-        debug!("\n{:12}         total in tokenizer", total);
+        debug!("\n{total:12}         total in tokenizer");
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            debug!("{:12}  {:4.1}%  {:?}", v, pct, k);
+            debug!("{v:12}  {pct:4.1}%  {k:?}");
         }
     }
 

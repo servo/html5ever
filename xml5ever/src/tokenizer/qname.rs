@@ -21,7 +21,7 @@ pub struct QualNameTokenizer<'a> {
 }
 
 impl QualNameTokenizer<'_> {
-    pub fn new(tag: &[u8]) -> QualNameTokenizer {
+    pub fn new(tag: &[u8]) -> QualNameTokenizer<'_> {
         QualNameTokenizer {
             state: QualNameState::BeforeName,
             slice: tag,

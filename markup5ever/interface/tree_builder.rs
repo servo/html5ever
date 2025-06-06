@@ -94,7 +94,7 @@ pub trait ElemName: Debug {
     fn local_name(&self) -> &LocalName;
 
     #[inline(always)]
-    fn expanded(&self) -> ExpandedName {
+    fn expanded(&self) -> ExpandedName<'_> {
         ExpandedName {
             ns: self.ns(),
             local: self.local_name(),

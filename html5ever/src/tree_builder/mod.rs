@@ -672,13 +672,13 @@ where
     }
     //§ END
 
-    fn current_node(&self) -> Ref<Handle> {
+    fn current_node(&self) -> Ref<'_, Handle> {
         Ref::map(self.open_elems.borrow(), |elems| {
             elems.last().expect("no current element")
         })
     }
 
-    fn adjusted_current_node(&self) -> Ref<Handle> {
+    fn adjusted_current_node(&self) -> Ref<'_, Handle> {
         if self.open_elems.borrow().len() == 1 {
             let context_elem = self.context_elem.borrow();
             let ctx = Ref::filter_map(context_elem, |e| e.as_ref());
@@ -1022,12 +1022,12 @@ where
     }
 
     /// Get the first element on the stack, which will be the <html> element.
-    fn html_elem(&self) -> Ref<Handle> {
+    fn html_elem(&self) -> Ref<'_, Handle> {
         Ref::map(self.open_elems.borrow(), |elems| &elems[0])
     }
 
     /// Get the second element on the stack, if it's a HTML body element.
-    fn body_elem(&self) -> Option<Ref<Handle>> {
+    fn body_elem(&self) -> Option<Ref<'_, Handle>> {
         if self.open_elems.borrow().len() <= 1 {
             return None;
         }

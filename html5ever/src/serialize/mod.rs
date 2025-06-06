@@ -66,7 +66,7 @@ fn tagname(name: &QualName) -> LocalName {
         ns!(html) | ns!(mathml) | ns!(svg) => (),
         ref ns => {
             // FIXME(#122)
-            warn!("node with weird namespace {:?}", ns);
+            warn!("node with weird namespace {ns:?}");
         },
     }
 
@@ -150,7 +150,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
                 ns!(xlink) => self.writer.write_all(b"xlink:")?,
                 ref ns => {
                     // FIXME(#122)
-                    warn!("attr with weird namespace {:?}", ns);
+                    warn!("attr with weird namespace {ns:?}");
                     self.writer.write_all(b"unknown_namespace:")?;
                 },
             }
