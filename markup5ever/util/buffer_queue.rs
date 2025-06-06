@@ -252,7 +252,7 @@ impl BufferQueue {
     }
 
     /// Return a mutable reference to the first tendril in the queue.
-    pub fn peek_front_chunk_mut(&self) -> Option<RefMut<StrTendril>> {
+    pub fn peek_front_chunk_mut(&self) -> Option<RefMut<'_, StrTendril>> {
         let buffers = self.buffers.borrow_mut();
         if buffers.is_empty() {
             return None;

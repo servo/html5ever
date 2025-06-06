@@ -102,7 +102,7 @@ impl NamespaceMap {
     }
 
     #[doc(hidden)]
-    pub fn get_scope_iter(&self) -> Iter<Option<Prefix>, Option<Namespace>> {
+    pub fn get_scope_iter(&self) -> Iter<'_, Option<Prefix>, Option<Namespace>> {
         self.scope.iter()
     }
 
@@ -234,7 +234,7 @@ where
     #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-        debug!("dump_state on {}", label);
+        debug!("dump_state on {label}");
         debug!("    open_elems:");
         for node in self.open_elems.borrow().iter() {
             debug!(" {:?}", self.sink.elem_name(node));
@@ -444,7 +444,7 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn current_node(&self) -> Ref<Handle> {
+    fn current_node(&self) -> Ref<'_, Handle> {
         Ref::map(self.open_elems.borrow(), |elems| {
             elems.last().expect("no current element")
         })

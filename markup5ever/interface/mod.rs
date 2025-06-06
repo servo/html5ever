@@ -376,7 +376,7 @@ impl QualName {
     /// ```
     ///
     #[inline]
-    pub fn expanded(&self) -> ExpandedName {
+    pub fn expanded(&self) -> ExpandedName<'_> {
         ExpandedName {
             ns: &self.ns,
             local: &self.local,

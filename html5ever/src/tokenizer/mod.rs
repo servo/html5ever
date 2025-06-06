@@ -270,7 +270,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             self.emit_error(Cow::Owned(msg));
         }
 
-        trace!("got character {}", c);
+        trace!("got character {c}");
         self.current_char.set(c);
         Some(c)
     }
@@ -298,7 +298,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
 
         let d = input.pop_except_from(set);
-        trace!("got characters {:?}", d);
+        trace!("got characters {d:?}");
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(FromSet),
 
@@ -542,7 +542,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.process_token_and_continue(DoctypeToken(doctype));
     }
 
-    fn doctype_id(&self, kind: DoctypeIdKind) -> RefMut<Option<StrTendril>> {
+    fn doctype_id(&self, kind: DoctypeIdKind) -> RefMut<'_, Option<StrTendril>> {
         let current_doctype = self.current_doctype.borrow_mut();
         match kind {
             Public => RefMut::map(current_doctype, |d| &mut d.public_id),
