@@ -293,6 +293,7 @@ exists
 exp
 exponent
 exponentiale
+exportparts
 externalResourcesRequired
 face
 factorial
@@ -735,6 +736,7 @@ p
 panose-1
 param
 parse
+part
 partialdiff
 path
 pathLength
