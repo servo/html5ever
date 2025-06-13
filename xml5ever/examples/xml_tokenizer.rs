@@ -17,10 +17,10 @@ use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, ProcessResult, TagToken};
-use xml5ever::tokenizer::{EmptyTag, EndTag, ShortTag, StartTag};
-use xml5ever::tokenizer::{PIToken, Pi};
-use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer, XmlTokenizerOpts};
+use xml5ever::tokenizer::{
+    EmptyTag, EndTag, Pi, ProcessResult, ShortTag, StartTag, Token, TokenSink, XmlTokenizer,
+    XmlTokenizerOpts,
+};
 
 #[derive(Clone)]
 struct TokenPrinter {
@@ -48,13 +48,13 @@ impl TokenSink for TokenPrinter {
 
     fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
-            CharacterTokens(b) => {
+            Token::Characters(b) => {
                 for c in b.chars() {
                     self.do_char(c);
                 }
             },
-            NullCharacterToken => self.do_char('\0'),
-            TagToken(tag) => {
+            Token::NullCharacter => self.do_char('\0'),
+            Token::Tag(tag) => {
                 self.is_char(false);
                 // This is not proper HTML serialization, of course.
                 match tag.kind {
@@ -74,11 +74,11 @@ impl TokenSink for TokenPrinter {
                 }
                 println!(">");
             },
-            ParseError(err) => {
+            Token::ParseError(err) => {
                 self.is_char(false);
                 println!("ERROR: {err}");
             },
-            PIToken(Pi { target, data }) => {
+            Token::ProcessingInstruction(Pi { target, data }) => {
                 self.is_char(false);
                 println!("PI : <?{target:?} {data:?}?>");
             },

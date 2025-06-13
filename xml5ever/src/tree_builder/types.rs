@@ -17,7 +17,7 @@ pub enum XmlPhase {
     End,
 }
 
-/// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
+/// A subset/refinement of `tokenizer::Token`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {

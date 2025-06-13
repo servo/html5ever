@@ -16,10 +16,7 @@ use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, ProcessResult, TagToken};
-use xml5ever::tokenizer::{CommentToken, PIToken, Pi};
-use xml5ever::tokenizer::{Doctype, DoctypeToken, EOFToken};
-use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
+use xml5ever::tokenizer::{Doctype, Pi, ProcessResult, Token, TokenSink, XmlTokenizer};
 
 struct SimpleTokenPrinter;
 
@@ -28,29 +25,29 @@ impl TokenSink for SimpleTokenPrinter {
 
     fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
-            CharacterTokens(b) => {
+            Token::Characters(b) => {
                 println!("TEXT: {}", &*b);
             },
-            NullCharacterToken => print!("NULL"),
-            TagToken(tag) => {
+            Token::NullCharacter => print!("NULL"),
+            Token::Tag(tag) => {
                 println!("{:?} {} ", tag.kind, &*tag.name.local);
             },
-            ParseError(err) => {
+            Token::ParseError(err) => {
                 println!("ERROR: {err}");
             },
-            PIToken(Pi {
+            Token::ProcessingInstruction(Pi {
                 ref target,
                 ref data,
             }) => {
                 println!("PI : <?{target} {data}?>");
             },
-            CommentToken(ref comment) => {
+            Token::Comment(ref comment) => {
                 println!("<!--{comment:?}-->");
             },
-            EOFToken => {
+            Token::EndOfFile => {
                 println!("EOF");
             },
-            DoctypeToken(Doctype {
+            Token::Doctype(Doctype {
                 ref name,
                 ref public_id,
                 ..
