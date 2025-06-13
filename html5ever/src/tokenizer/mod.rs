@@ -743,7 +743,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     self.pop_except_from(input, set)
                 };
 
-                #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+                #[cfg(not(any(
+                    target_arch = "x86",
+                    target_arch = "x86_64",
+                    target_arch = "aarch64"
+                )))]
                 let set_result = self.pop_except_from(input, set);
 
                 let Some(set_result) = set_result else {
@@ -1888,10 +1892,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     /// Checks for supported SIMD feature, which is now either SSE2 for x86/x86_64 or NEON for aarch64.
     fn is_supported_simd_feature_detected() -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        { is_x86_feature_detected!("sse2") }
+        {
+            is_x86_feature_detected!("sse2")
+        }
 
         #[cfg(target_arch = "aarch64")]
-        { std::arch::is_aarch64_feature_detected!("neon") }
+        {
+            std::arch::is_aarch64_feature_detected!("neon")
+        }
 
         #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
         false
@@ -2041,9 +2049,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     ///
     /// [data state]: https://html.spec.whatwg.org/#data-state
     unsafe fn data_state_neon_fast_path(&self, input: &mut StrTendril) -> (usize, u64) {
-        use std::arch::aarch64::{
-            vceqq_u8, vdupq_n_u8, vld1q_u8, vmaxvq_u8, vorrq_u8,
-        };
+        use std::arch::aarch64::{vceqq_u8, vdupq_n_u8, vld1q_u8, vmaxvq_u8, vorrq_u8};
 
         debug_assert!(!input.is_empty());
 
@@ -2072,10 +2078,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             // Combine all test results and create a bitmask from them.
             // Each bit in the mask will be 1 if the character at the bit position is in the set and 0 otherwise.
-            let test_result = vorrq_u8(
-                vorrq_u8(quotes, zeros),
-                vorrq_u8(escapes, carriage_returns),
-            );
+            let test_result =
+                vorrq_u8(vorrq_u8(quotes, zeros), vorrq_u8(escapes, carriage_returns));
             let bitmask = vmaxvq_u8(test_result);
             let newline_mask = vmaxvq_u8(newlines);
             if bitmask != 0 {
@@ -2096,10 +2100,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             } else {
                 if newline_mask != 0 {
                     let chunk_bytes = std::slice::from_raw_parts(start.add(i), STRIDE);
-                    n_newlines += chunk_bytes
-                        .iter()
-                        .filter(|&&b| b == b'\n')
-                        .count() as u64;
+                    n_newlines += chunk_bytes.iter().filter(|&&b| b == b'\n').count() as u64;
                 }
             }
 
