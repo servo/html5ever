@@ -1885,7 +1885,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    /// Checks for supported SIMD feature, which is now either SSE2 for x86/x86_64 or NEON for aarch64
+    /// Checks for supported SIMD feature, which is now either SSE2 for x86/x86_64 or NEON for aarch64.
     fn is_supported_simd_feature_detected() -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         { is_x86_feature_detected!("sse2") }
@@ -1909,14 +1909,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     /// [data state]: https://html.spec.whatwg.org/#data-state
     /// [here]: https://lemire.me/blog/2024/06/08/scan-html-faster-with-simd-instructions-chrome-edition/
     unsafe fn data_state_simd_fast_path(&self, input: &mut StrTendril) -> Option<SetResult> {
-        let mut i = 0;
-        let mut n_newlines = 0;
-
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        self.data_state_sse2_fast_path(input, &mut i, &mut n_newlines);
+        let (mut i, mut n_newlines) = self.data_state_sse2_fast_path(input);
 
         #[cfg(target_arch = "aarch64")]
-        self.data_state_neon_fast_path(input, &mut i, &mut n_newlines);
+        let (mut i, mut n_newlines) = self.data_state_neon_fast_path(input);
 
         // Process any remaining bytes (less than STRIDE)
         while let Some(c) = input.as_bytes().get(i) {
@@ -1960,7 +1957,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[target_feature(enable = "sse2")]
-    unsafe fn data_state_sse2_fast_path(&self, input: &mut StrTendril, i: &mut usize, n_newlines: &mut u64) {
+    /// Implements the [data state] with SSE2 instructions for x86/x86_64.
+    /// Returns a pair of the number of bytes processed and the number of newlines found.
+    ///
+    /// ### SAFETY:
+    /// Calling this function on a CPU that does not support NEON causes undefined behaviour.
+    ///
+    /// [data state]: https://html.spec.whatwg.org/#data-state
+    unsafe fn data_state_sse2_fast_path(&self, input: &mut StrTendril) -> (usize, u64) {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::{
             __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_or_si128,
@@ -1984,11 +1988,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let start = raw_bytes.as_ptr();
 
         const STRIDE: usize = 16;
-        *i = 0;
-        *n_newlines = 0;
-        while *i + STRIDE <= raw_bytes.len() {
+        let mut i = 0;
+        let mut n_newlines = 0;
+        while i + STRIDE <= raw_bytes.len() {
             // Load a 16 byte chunk from the input
-            let data = _mm_loadu_si128(start.add(*i) as *const __m128i);
+            let data = _mm_loadu_si128(start.add(i) as *const __m128i);
 
             // Compare the chunk against each mask
             let quotes = _mm_cmpeq_epi8(data, quote_mask);
@@ -2014,29 +2018,29 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     bitmask.leading_zeros() as usize
                 };
 
-                *n_newlines += (newline_mask & ((1 << position) - 1)).count_ones() as u64;
-                *i += position;
+                n_newlines += (newline_mask & ((1 << position) - 1)).count_ones() as u64;
+                i += position;
                 break;
             } else {
-                *n_newlines += newline_mask.count_ones() as u64;
+                n_newlines += newline_mask.count_ones() as u64;
             }
 
-            *i += STRIDE;
+            i += STRIDE;
         }
+
+        (i, n_newlines)
     }
 
     #[cfg(target_arch = "aarch64")]
     #[target_feature(enable = "neon")]
     /// Implements the [data state] with NEON SIMD instructions for AArch64.
-    ///
-    /// The algorithm implemented is the naive SIMD approach described [here].
+    /// Returns a pair of the number of bytes processed and the number of newlines found.
     ///
     /// ### SAFETY:
     /// Calling this function on a CPU that does not support NEON causes undefined behaviour.
     ///
     /// [data state]: https://html.spec.whatwg.org/#data-state
-    /// [here]: https://lemire.me/blog/2024/06/08/scan-html-faster-with-simd-instructions-chrome-edition/
-    unsafe fn data_state_neon_fast_path(&self, input: &mut StrTendril, i: &mut usize, n_newlines: &mut u64) {
+    unsafe fn data_state_neon_fast_path(&self, input: &mut StrTendril) -> (usize, u64) {
         use std::arch::aarch64::{
             vceqq_u8, vdupq_n_u8, vld1q_u8, vmaxvq_u8, vorrq_u8,
         };
@@ -2053,11 +2057,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let start = raw_bytes.as_ptr();
 
         const STRIDE: usize = 16;
-        *i = 0;
-        *n_newlines = 0;
-        while *i + STRIDE <= raw_bytes.len() {
+        let mut i = 0;
+        let mut n_newlines = 0;
+        while i + STRIDE <= raw_bytes.len() {
             // Load a 16 byte chunk from the input
-            let data = vld1q_u8(start.add(*i));
+            let data = vld1q_u8(start.add(i));
 
             // Compare the chunk against each mask
             let quotes = vceqq_u8(data, quote_mask);
@@ -2076,31 +2080,33 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             let newline_mask = vmaxvq_u8(newlines);
             if bitmask != 0 {
                 // We have reached one of the characters that cause the state machine to transition
-                let chunk_bytes = std::slice::from_raw_parts(start.add(*i), STRIDE);
+                let chunk_bytes = std::slice::from_raw_parts(start.add(i), STRIDE);
                 let position = chunk_bytes
                     .iter()
                     .position(|&b| matches!(b, b'<' | b'&' | b'\r' | b'\0'))
                     .unwrap();
 
-                *n_newlines += chunk_bytes[..position]
+                n_newlines += chunk_bytes[..position]
                     .iter()
                     .filter(|&&b| b == b'\n')
                     .count() as u64;
 
-                *i += position;
+                i += position;
                 break;
             } else {
                 if newline_mask != 0 {
-                    let chunk_bytes = std::slice::from_raw_parts(start.add(*i), STRIDE);
-                    *n_newlines += chunk_bytes
+                    let chunk_bytes = std::slice::from_raw_parts(start.add(i), STRIDE);
+                    n_newlines += chunk_bytes
                         .iter()
                         .filter(|&&b| b == b'\n')
                         .count() as u64;
                 }
             }
 
-            *i += STRIDE;
+            i += STRIDE;
         }
+
+        (i, n_newlines)
     }
 }
 
