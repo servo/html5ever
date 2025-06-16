@@ -12,11 +12,9 @@ mod interface;
 mod qname;
 pub mod states;
 
-pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
-pub use self::interface::{CommentToken, DoctypeToken, PIToken, TagToken};
-pub use self::interface::{Doctype, Pi};
-pub use self::interface::{EmptyTag, EndTag, ShortTag, StartTag};
-pub use self::interface::{ParseError, Tag, TagKind, Token, TokenSink};
+pub use self::interface::{
+    Doctype, EmptyTag, EndTag, Pi, ShortTag, StartTag, Tag, TagKind, Token, TokenSink,
+};
 pub use crate::{LocalName, Namespace, Prefix};
 
 use crate::tendril::StrTendril;
@@ -397,7 +395,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_char(&self, c: char) {
-        self.process_token(CharacterTokens(StrTendril::from_char(match c {
+        self.process_token(Token::Characters(StrTendril::from_char(match c {
             '\0' => '\u{FFFD}',
             c => c,
         })));
@@ -445,7 +443,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
         }
 
-        let token = TagToken(Tag {
+        let token = Token::Tag(Tag {
             kind: self.current_tag_kind.get(),
             name: qname,
             attrs: self.current_tag_attrs.take(),
@@ -456,12 +454,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     // The string must not contain '\0'!
     fn emit_chars(&self, b: StrTendril) {
-        self.process_token(CharacterTokens(b));
+        self.process_token(Token::Characters(b));
     }
 
     // Emits the current Processing Instruction
     fn emit_pi(&self) -> ProcessResult<<Sink as TokenSink>::Handle> {
-        let token = PIToken(Pi {
+        let token = Token::ProcessingInstruction(Pi {
             target: replace(&mut *self.current_pi_target.borrow_mut(), StrTendril::new()),
             data: replace(&mut *self.current_pi_data.borrow_mut(), StrTendril::new()),
         });
@@ -476,21 +474,21 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_eof(&self) {
-        self.process_token(EOFToken);
+        self.process_token(Token::EndOfFile);
     }
 
     fn emit_error(&self, error: Cow<'static, str>) {
-        self.process_token(ParseError(error));
+        self.process_token(Token::ParseError(error));
     }
 
     fn emit_current_comment(&self) {
         let comment = self.current_comment.take();
-        self.process_token(CommentToken(comment));
+        self.process_token(Token::Comment(comment));
     }
 
     fn emit_current_doctype(&self) {
         let doctype = self.current_doctype.take();
-        self.process_token(DoctypeToken(doctype));
+        self.process_token(Token::Doctype(doctype));
     }
 
     fn doctype_id(&self, kind: DoctypeKind) -> RefMut<'_, Option<StrTendril>> {

@@ -410,18 +410,18 @@ where
     fn process_token(&self, token: tokenizer::Token) -> ProcessResult<Self::Handle> {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
-            tokenizer::ParseError(e) => {
+            tokenizer::Token::ParseError(e) => {
                 self.sink.parse_error(e);
                 return ProcessResult::Done;
             },
 
-            tokenizer::DoctypeToken(d) => Token::Doctype(d),
-            tokenizer::PIToken(instruction) => Token::Pi(instruction),
-            tokenizer::TagToken(x) => Token::Tag(x),
-            tokenizer::CommentToken(x) => Token::Comment(x),
-            tokenizer::NullCharacterToken => Token::NullCharacter,
-            tokenizer::EOFToken => Token::Eof,
-            tokenizer::CharacterTokens(x) => Token::Characters(x),
+            tokenizer::Token::Doctype(d) => Token::Doctype(d),
+            tokenizer::Token::ProcessingInstruction(instruction) => Token::Pi(instruction),
+            tokenizer::Token::Tag(x) => Token::Tag(x),
+            tokenizer::Token::Comment(x) => Token::Comment(x),
+            tokenizer::Token::NullCharacter => Token::NullCharacter,
+            tokenizer::Token::EndOfFile => Token::Eof,
+            tokenizer::Token::Characters(x) => Token::Characters(x),
         };
 
         self.process_to_completion(token)

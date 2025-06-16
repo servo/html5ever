@@ -14,8 +14,6 @@ use crate::tokenizer::ProcessResult;
 use crate::{Attribute, QualName};
 
 pub use self::TagKind::{EmptyTag, EndTag, ShortTag, StartTag};
-pub use self::Token::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
-pub use self::Token::{CommentToken, DoctypeToken, PIToken, TagToken};
 
 /// Tag kind denotes which kind of tag did we encounter.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -87,20 +85,20 @@ pub struct Pi {
 #[derive(PartialEq, Eq, Debug)]
 pub enum Token {
     /// Doctype token
-    DoctypeToken(Doctype),
+    Doctype(Doctype),
     /// Token tag founds. This token applies to all
     /// possible kinds of tags (like start, end, empty tag, etc.).
-    TagToken(Tag),
+    Tag(Tag),
     /// Processing Instruction token
-    PIToken(Pi),
+    ProcessingInstruction(Pi),
     /// Comment token.
-    CommentToken(StrTendril),
+    Comment(StrTendril),
     /// Token that represents a series of characters.
-    CharacterTokens(StrTendril),
+    Characters(StrTendril),
     /// End of File found.
-    EOFToken,
+    EndOfFile,
     /// NullCharacter encountered.
-    NullCharacterToken,
+    NullCharacter,
     /// Error happened
     ParseError(Cow<'static, str>),
 }
