@@ -34,6 +34,59 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
+macro_rules! tag {
+    ($( $tag:tt )|+) => {
+        $(tag!(__inner:$tag))|+
+    };
+    // Named end tag
+    (__inner:[/$tag:tt]) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, name: local_name!($tag), .. }
+    };
+    // Named start tag
+    (__inner:[$tag:tt]) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, name: local_name!($tag), .. }
+    };
+}
+
+macro_rules! is_not_tag {
+    ($input:ident, $( $tag:tt )|+) => {
+        !matches!($input, $(tag!(__inner:$tag))|+)
+    };
+}
+
+macro_rules! tag_token {
+    ($id:ident @ $( $tag:tt )|+) => {
+        crate::tree_builder::types::Token::Tag(
+            $id @ ( tag!($($tag)|+) )
+        )
+    };
+    ($($tag:tt)|+) => {
+        crate::tree_builder::types::Token::Tag(
+            tag!($($tag)|+)
+        )
+    };
+}
+
+macro_rules! any_end_tag {
+    () => {
+        crate::tokenizer::Tag {
+            kind: crate::tokenizer::EndTag,
+            ..
+        }
+    };
+}
+
+macro_rules! any_end_tag_token {
+    () => {
+        any_end_tag_token!(_)
+    };
+    ($tag:ident) => {
+        crate::tree_builder::types::Token::Tag(
+            $tag @ any_end_tag!()
+        )
+    };
+}
+
 #[doc(hidden)]
 impl<Handle, Sink> TreeBuilder<Handle, Sink>
 where
@@ -45,8 +98,10 @@ where
 
         match mode {
             //§ the-initial-insertion-mode
-            InsertionMode::Initial => match_token!(token {
-                Token::Characters(SplitStatus::NotSplit, text) => ProcessResult::SplitWhitespace(text),
+            InsertionMode::Initial => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
                 Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                 Token::Comment(text) => self.append_comment_to_doc(text),
                 token => {
@@ -55,30 +110,53 @@ where
                         self.set_quirks_mode(Quirks);
                     }
                     ProcessResult::Reprocess(InsertionMode::BeforeHtml, token)
-                }
-            }),
+                },
+            },
 
             //§ the-before-html-insertion-mode
-            InsertionMode::BeforeHtml => match_token!(token {
-                Token::Characters(SplitStatus::NotSplit, text) => ProcessResult::SplitWhitespace(text),
+            // InsertionMode::BeforeHtml => match_token!(token {
+            //     Token::Characters(SplitStatus::NotSplit, text) => ProcessResult::SplitWhitespace(text),
+            //     Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
+            //     Token::Comment(text) => self.append_comment_to_doc(text),
+
+            //     tag @ <html> => {
+            //         self.create_root(tag.attrs);
+            //         self.mode.set(InsertionMode::BeforeHead);
+            //         ProcessResult::Done
+            //     }
+
+            //     </head> </body> </html> </br> => else,
+
+            //     tag @ </_> => self.unexpected(&tag),
+
+            //     token => {
+            //         self.create_root(vec!());
+            //         ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
+            //     }
+            // }),
+
+            //§ the-before-html-insertion-mode
+            InsertionMode::BeforeHtml => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
                 Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                 Token::Comment(text) => self.append_comment_to_doc(text),
-
-                tag @ <html> => {
+                // Token::Tag(tag @ tag!(["html"] | [/"body"])) => {
+                tag_token!(tag @ ["html"] | [/"body"]) => {
                     self.create_root(tag.attrs);
                     self.mode.set(InsertionMode::BeforeHead);
                     ProcessResult::Done
-                }
-
-                </head> </body> </html> </br> => else,
-
-                tag @ </_> => self.unexpected(&tag),
-
+                },
+                // Token::Tag(tag @ any_end_tag!()) if !matches!(tag, tag!([/"head"] | [/"body"] | [/"html"] | [/"br"])) =>
+                any_end_tag_token!(tag) if is_not_tag!(tag, [/"head"] | [/"body"] | [/"html"] | [/"br"]) => {
+                    self.unexpected(&tag)
+                },
                 token => {
-                    self.create_root(vec!());
+                    self.create_root(vec![]);
                     ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
-                }
-            }),
+                },
+            },
 
             //§ the-before-head-insertion-mode
             InsertionMode::BeforeHead => match_token!(token {
