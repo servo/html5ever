@@ -20,7 +20,7 @@ Add html5ever as a dependency in your [`Cargo.toml`](https://crates.io/) file:
 
 ```toml
 [dependencies]
-html5ever = "0.31"
+html5ever = "0.32"
 ```
 
 You should also take a look at [`examples/html2html.rs`], [`examples/print-rcdom.rs`], and the [API documentation][].
