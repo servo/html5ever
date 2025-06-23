@@ -20,4 +20,4 @@ phf = "0.11"
 
 [build-dependencies]
 string_cache_codegen = "0.5.4"
-phf_codegen = "0.11"
+phf_codegen = "0.12"
