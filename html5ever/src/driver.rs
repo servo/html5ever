@@ -61,12 +61,19 @@ pub fn parse_fragment<Sink>(
     opts: ParseOpts,
     context_name: QualName,
     context_attrs: Vec<Attribute>,
+    context_element_allows_scripting: bool,
 ) -> Parser<Sink>
 where
     Sink: TreeSink,
 {
     let context_elem = create_element(&sink, context_name, context_attrs);
-    parse_fragment_for_element(sink, opts, context_elem, None)
+    parse_fragment_for_element(
+        sink,
+        opts,
+        context_elem,
+        context_element_allows_scripting,
+        None,
+    )
 }
 
 /// Like `parse_fragment`, but with an existing context element
@@ -75,19 +82,23 @@ pub fn parse_fragment_for_element<Sink>(
     sink: Sink,
     opts: ParseOpts,
     context_element: Sink::Handle,
+    context_element_allows_scripting: bool,
     form_element: Option<Sink::Handle>,
 ) -> Parser<Sink>
 where
     Sink: TreeSink,
 {
-    let tb = TreeBuilder::new_for_fragment(sink, context_element, form_element, opts.tree_builder);
-    let tok_opts = TokenizerOpts {
-        initial_state: Some(tb.tokenizer_state_for_context_elem()),
+    let tree_builder =
+        TreeBuilder::new_for_fragment(sink, context_element, form_element, opts.tree_builder);
+    let tokenizer_options = TokenizerOpts {
+        initial_state: Some(
+            tree_builder.tokenizer_state_for_context_elem(context_element_allows_scripting),
+        ),
         ..opts.tokenizer
     };
-    let tok = Tokenizer::new(tb, tok_opts);
+    let tokenizer = Tokenizer::new(tree_builder, tokenizer_options);
     Parser {
-        tokenizer: tok,
+        tokenizer,
         input_buffer: BufferQueue::default(),
     }
 }

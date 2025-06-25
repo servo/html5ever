@@ -225,7 +225,7 @@ fn make_test_desc_with_scripting_flag(
                     }
                 },
                 Some(ref context) => {
-                    let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![])
+                    let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![], true)
                         .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
