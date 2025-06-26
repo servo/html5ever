@@ -58,9 +58,6 @@ pub struct TreeBuilderOpts {
     /// Should we drop the DOCTYPE (if any) from the tree?
     pub drop_doctype: bool,
 
-    /// Obsolete, ignored.
-    pub ignore_missing_rules: bool,
-
     /// Initial TreeBuilder quirks mode. Default: NoQuirks
     pub quirks_mode: QuirksMode,
 }
@@ -72,7 +69,6 @@ impl Default for TreeBuilderOpts {
             scripting_enabled: true,
             iframe_srcdoc: false,
             drop_doctype: false,
-            ignore_missing_rules: false,
             quirks_mode: NoQuirks,
         }
     }
