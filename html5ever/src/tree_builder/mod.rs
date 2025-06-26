@@ -1492,9 +1492,9 @@ where
         tag: &Tag,
         shadow_host: &Handle,
         template: &Handle,
-    ) -> Result<(), String> {
+    ) -> bool {
         self.sink
-            .attach_declarative_shadow(shadow_host, template, tag.attrs.clone())
+            .attach_declarative_shadow(shadow_host, template, &tag.attrs)
     }
 
     fn create_formatting_element_for(&self, tag: Tag) -> Handle {

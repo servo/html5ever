@@ -173,7 +173,8 @@ where
 
                         // Step 3 - 8.
                         // Attach a shadow root with declarative shadow host element, mode, clonable, serializable, delegatesFocus, and "named".
-                        if self.attach_declarative_shadow(&tag, &shadow_host, &template).is_err() {
+                        let succeeded = self.attach_declarative_shadow(&tag, &shadow_host, &template);
+                        if !succeeded {
                             // Step 8.1.1. Insert an element at the adjusted insertion location with template.
                             // Pop the current template element created in step 2 first.
                             self.pop();
