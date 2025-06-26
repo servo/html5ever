@@ -22,11 +22,11 @@ use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts}
 use html5ever::{ns, Attribute, LocalName, QualName};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
+use std::char;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::char;
 
 use util::runner::{run_all, Test};
 
