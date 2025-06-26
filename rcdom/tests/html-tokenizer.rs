@@ -26,7 +26,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::{char, env};
+use std::char;
 
 use util::runner::{run_all, Test};
 
@@ -478,5 +478,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    run_all(tests(Path::new("./")));
 }

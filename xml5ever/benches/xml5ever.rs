@@ -26,7 +26,7 @@ impl TokenSink for Sink {
 }
 
 fn run_bench(c: &mut Criterion, name: &str) {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut path = PathBuf::from("./");
     path.push("data/bench/");
     path.push(name);
     let mut file = fs::File::open(&path).expect("can't open file");

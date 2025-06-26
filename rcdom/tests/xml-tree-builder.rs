@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::path::Path;
-use std::{env, fs, io, iter, mem};
+use std::{fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::{run_all, Test};
 use xml5ever::driver::parse_document;
@@ -224,7 +224,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
 }
 
 fn main() {
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src_dir = Path::new("./");
     let mut ignores = HashSet::new();
     if let Ok(f) = fs::File::open(src_dir.join("data/test/ignore")) {
         let r = io::BufReader::new(f);
