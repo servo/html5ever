@@ -56,7 +56,9 @@ pub struct TreeBuilderOpts {
     ///   - If scriping is **not** enabled then the contents of a `<noscript>` element are parsed as a normal tree of nodes
     pub scripting_enabled: bool,
 
-    /// Is this an `iframe srcdoc` document?
+    /// Is this document being parsed from the `srcdoc` attribute of an `<iframe>` element?
+    ///
+    /// This affects heuristics that infer `QuirksMode` from `<!DOCTYPE>`.
     pub iframe_srcdoc: bool,
 
     /// Should we drop the DOCTYPE (if any) from the tree?
