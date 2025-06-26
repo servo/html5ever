@@ -46,10 +46,14 @@ mod types;
 #[derive(Copy, Clone)]
 pub struct TreeBuilderOpts {
     /// Report all parse errors described in the spec, at some
-    /// performance penalty?  Default: false
+    /// performance penalty? Default: false
     pub exact_errors: bool,
 
     /// Is scripting enabled?
+    ///
+    /// This affects how `<noscript>` elements are parsed:
+    ///   - If scripting **is** enabled then the contents of a `<noscript>` element are parsed as a single text node
+    ///   - If scriping is **not** enabled then the contents of a `<noscript>` element are parsed as a normal tree of nodes
     pub scripting_enabled: bool,
 
     /// Is this an `iframe srcdoc` document?
