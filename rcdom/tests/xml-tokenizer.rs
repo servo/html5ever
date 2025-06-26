@@ -10,7 +10,6 @@
 use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
 use std::cell::RefCell;
-use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
@@ -371,5 +370,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    run_all(tests(Path::new("./")));
 }
