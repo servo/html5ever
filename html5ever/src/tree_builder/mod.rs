@@ -223,7 +223,10 @@ where
 
     // https://html.spec.whatwg.org/multipage/#concept-frag-parse-context
     // Step 4. Set the state of the HTML parser's tokenization stage as follows:
-    pub fn tokenizer_state_for_context_elem(&self) -> tok_state::State {
+    pub fn tokenizer_state_for_context_elem(
+        &self,
+        context_element_allows_scripting: bool,
+    ) -> tok_state::State {
         let context_elem = self.context_elem.borrow();
         let elem = context_elem.as_ref().expect("no context element");
         let elem_name = self.sink.elem_name(elem);
@@ -246,7 +249,7 @@ where
             local_name!("script") => tok_state::RawData(tok_state::ScriptData),
 
             local_name!("noscript") => {
-                if self.opts.scripting_enabled {
+                if context_element_allows_scripting {
                     tok_state::RawData(tok_state::Rawtext)
                 } else {
                     tok_state::Data

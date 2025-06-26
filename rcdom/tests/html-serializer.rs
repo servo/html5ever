@@ -94,6 +94,7 @@ fn parse_and_serialize(input: StrTendril) -> StrTendril {
         ParseOpts::default(),
         QualName::new(None, ns!(html), local_name!("body")),
         vec![],
+        true,
     )
     .one(input);
     let inner: SerializableHandle = dom.document.children.borrow()[0].clone().into();
@@ -252,6 +253,7 @@ fn deep_tree() {
         ParseOpts::default(),
         QualName::new(None, ns!(html), local_name!("div")),
         vec![],
+        true,
     );
     let src = "<b>".repeat(60_000);
     let dom = parser.one(src);
