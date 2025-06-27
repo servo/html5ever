@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "web_atoms",
     "markup5ever",
@@ -8,11 +9,40 @@ members = [
     "match_token"
 ]
 
-resolver = "2"
-
 [workspace.package]
+version = "0.35.0"
+license = "MIT OR Apache-2.0"
+authors = [ "The html5ever Project Developers" ]
+repository = "https://github.com/servo/html5ever"
+edition = "2021"
 rust-version = "1.70.0"
 
 [workspace.dependencies]
-match_token = { version = "0.2.0", path = "match_token" }
+# Repo dependencies
+web_atoms = { version = "0.1", path = "web_atoms" }
+match_token = { version = "0.35.0", path = "match_token" }
+markup5ever = { version = "0.35.0", path = "markup5ever" }
+xml5ever = { version = "0.35.0", path = "xml5ever" }
+html5ever = { version = "0.35.0", path = "html5ever" }
+
+# External dependencies
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+log = "0.4"
+mac = "0.1"
+tendril = "0.4"
+string_cache = "0.8.8"
+string_cache_codegen = "0.5.4"
+phf = "0.11"
+phf_codegen = "0.11"
+
+# Dev dependencies
+criterion = "0.6"
+libtest-mimic = "0.8.1"
+serde_json = "1.0"
+env_logger = "0.10"
+typed-arena = "2.0.2"
+
+
 
