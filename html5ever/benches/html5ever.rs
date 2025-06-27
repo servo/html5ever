@@ -5,10 +5,10 @@ extern crate html5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::Criterion;
+use criterion::{BatchSize, Criterion};
 
-use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
+use html5ever::{tendril::*, TokenizerResult};
 
 struct Sink;
 
@@ -51,19 +51,25 @@ fn run_bench(c: &mut Criterion, name: &str) {
 
     let test_name = format!("html tokenizing {name}");
 
+    // Construct a buffer queue to feed to the tokenizer
+    let buffer_queue = BufferQueue::default();
+    for buf in input.into_iter() {
+        buffer_queue.push_back(buf);
+    }
+
     c.bench_function(&test_name, move |b| {
-        b.iter(|| {
-            let tok = Tokenizer::new(Sink, Default::default());
-            let buffer = BufferQueue::default();
-            // We are doing clone inside the bench function, this is not ideal, but possibly
-            // necessary since our iterator consumes the underlying buffer.
-            for buf in input.clone().into_iter() {
-                buffer.push_back(buf);
-                let _ = tok.feed(&buffer);
-            }
-            let _ = tok.feed(&buffer);
-            tok.end();
-        })
+        b.iter_batched(
+            || buffer_queue.clone(),
+            |buffer_queue| {
+                let tok = Tokenizer::new(Sink, Default::default());
+
+                // Tokenize the entire input, ignoring any <script> elements we find along the way
+                while tok.feed(&buffer_queue) != TokenizerResult::Done {}
+
+                tok.end();
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 

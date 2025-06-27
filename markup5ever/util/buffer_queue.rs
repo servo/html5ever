@@ -47,7 +47,7 @@ pub enum SetResult {
 /// Internally it uses [`VecDeque`] and has the same complexity properties.
 ///
 /// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: RefCell<VecDeque<StrTendril>>,

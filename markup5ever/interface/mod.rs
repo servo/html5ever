@@ -61,7 +61,7 @@ impl fmt::Debug for ExpandedName<'_> {
 }
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenizerResult<Handle> {
     Done,
     Script(Handle),
