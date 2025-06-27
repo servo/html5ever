@@ -2097,11 +2097,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
                 i += position;
                 break;
-            } else {
-                if newline_mask != 0 {
-                    let chunk_bytes = std::slice::from_raw_parts(start.add(i), STRIDE);
-                    n_newlines += chunk_bytes.iter().filter(|&&b| b == b'\n').count() as u64;
-                }
+            } else if newline_mask != 0 {
+                let chunk_bytes = std::slice::from_raw_parts(start.add(i), STRIDE);
+                n_newlines += chunk_bytes.iter().filter(|&&b| b == b'\n').count() as u64;
             }
 
             i += STRIDE;
