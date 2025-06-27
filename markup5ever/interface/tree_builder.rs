@@ -249,16 +249,16 @@ pub trait TreeSink {
         true
     }
 
-    /// Attach declarative shadow
+    /// Attempt to attach a declarative shadow root at the given location.
+    ///
+    /// Returns a boolean indicating whether the operation succeeded or not.
     fn attach_declarative_shadow(
         &self,
         _location: &Self::Handle,
         _template: &Self::Handle,
-        _attrs: Vec<Attribute>,
-    ) -> Result<(), String> {
-        Err(String::from(
-            "No implementation for attach_declarative_shadow",
-        ))
+        _attrs: &[Attribute],
+    ) -> bool {
+        false
     }
 }
 
