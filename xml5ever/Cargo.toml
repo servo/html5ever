@@ -20,7 +20,7 @@ trace_tokenizer = []
 [dependencies]
 log = "0.4"
 mac = "0.1"
-markup5ever = { version = "0.16", path = "../markup5ever" }
+markup5ever = { version = "0.17", path = "../markup5ever" }
 
 [dev-dependencies]
 criterion = "0.6"
