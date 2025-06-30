@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#[macro_export]
 macro_rules! unwrap_or_return {
     ($opt:expr) => {{
         let Some(x) = $opt else {
@@ -22,12 +23,12 @@ macro_rules! unwrap_or_return {
     }};
 }
 
+#[macro_export]
 macro_rules! time {
     ($e:expr) => {{
-        let now = ::std::time::Instant::now();
+        let t0 = ::std::time::Instant::now();
         let result = $e;
-        let d = now.elapsed();
-        let dt = d.as_secs() * 1_000_000_000 + u64::from(d.subsec_nanos());
+        let dt = t0.elapsed().as_nanos() as u64;
         (result, dt)
     }};
 }

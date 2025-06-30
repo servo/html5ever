@@ -12,6 +12,7 @@ use crate::data;
 use crate::tendril::StrTendril;
 use log::debug;
 use markup5ever::buffer_queue::BufferQueue;
+use markup5ever::unwrap_or_return;
 use std::borrow::Cow::{self, Borrowed};
 use std::char::from_u32;
 

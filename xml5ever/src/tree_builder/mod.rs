@@ -10,8 +10,7 @@
 mod types;
 
 use log::{debug, warn};
-use mac::unwrap_or_return;
-use markup5ever::{local_name, namespace_prefix, ns};
+use markup5ever::{local_name, namespace_prefix, ns, unwrap_or_return};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::cell::{Cell, Ref, RefCell};

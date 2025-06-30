@@ -20,8 +20,9 @@ pub use crate::{LocalName, Namespace, Prefix};
 use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
-use mac::unwrap_or_return;
-use markup5ever::{local_name, namespace_prefix, ns, small_char_set, TokenizerResult};
+use markup5ever::{
+    local_name, namespace_prefix, ns, small_char_set, time, unwrap_or_return, TokenizerResult,
+};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;

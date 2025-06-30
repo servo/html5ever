@@ -24,7 +24,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use crate::util::str::lower_ascii_letter;
 
 use log::{debug, trace};
-use markup5ever::{ns, small_char_set, TokenizerResult};
+use markup5ever::{ns, small_char_set, time, unwrap_or_return, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
