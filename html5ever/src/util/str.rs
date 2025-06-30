@@ -29,14 +29,24 @@ pub(crate) fn lower_ascii_letter(c: char) -> Option<char> {
 #[allow(non_snake_case)]
 mod test {
     use super::lower_ascii_letter;
-    use mac::test_eq;
 
-    test_eq!(lower_letter_a_is_a, lower_ascii_letter('a'), Some('a'));
-    test_eq!(lower_letter_A_is_a, lower_ascii_letter('A'), Some('a'));
-    test_eq!(lower_letter_symbol_is_None, lower_ascii_letter('!'), None);
-    test_eq!(
-        lower_letter_nonascii_is_None,
-        lower_ascii_letter('\u{a66e}'),
-        None
-    );
+    #[test]
+    fn lower_letter_a_is_a() {
+        assert_eq!(lower_ascii_letter('a'), Some('a'));
+    }
+
+    #[test]
+    fn lower_letter_A_is_a() {
+        assert_eq!(lower_ascii_letter('A'), Some('a'));
+    }
+
+    #[test]
+    fn lower_letter_symbol_is_None() {
+        assert_eq!(lower_ascii_letter('!'), None);
+    }
+
+    #[test]
+    fn lower_letter_nonascii_is_None() {
+        assert_eq!(lower_ascii_letter('\u{a66e}'), None);
+    }
 }
