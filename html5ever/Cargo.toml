@@ -17,7 +17,6 @@ trace_tokenizer = []
 
 [dependencies]
 log = "0.4"
-mac = "0.1"
 markup5ever = { version = "0.17", path = "../markup5ever" }
 match_token = { workspace = true }
 

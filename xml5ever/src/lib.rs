@@ -35,14 +35,7 @@
 
 pub use markup5ever::*;
 
-macro_rules! time {
-    ($e:expr) => {{
-        let t0 = ::std::time::Instant::now();
-        let result = $e;
-        let dt = t0.elapsed().as_nanos() as u64;
-        (result, dt)
-    }};
-}
+pub(crate) mod macros;
 
 /// Driver
 pub mod driver;

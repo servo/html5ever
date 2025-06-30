@@ -17,10 +17,10 @@ pub use self::interface::{
 };
 pub use crate::{LocalName, Namespace, Prefix};
 
+use crate::macros::{time, unwrap_or_return};
 use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
-use mac::{format_if, unwrap_or_return};
 use markup5ever::{local_name, namespace_prefix, ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
@@ -233,7 +233,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         if self.ignore_lf.get() {
             self.ignore_lf.set(false);
             if c == '\n' {
-                c = unwrap_or_return!(input.next(), None);
+                c = input.next()?;
             }
         }
 
@@ -265,12 +265,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn bad_eof_error(&self) {
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Unexpected EOF",
-            "Saw EOF in state {:?}",
-            self.state
-        );
+        let msg = if self.opts.exact_errors {
+            Cow::from(format!("Saw EOF in state {:?}", self.state))
+        } else {
+            Cow::from("Unexpected EOF")
+        };
         self.emit_error(msg);
     }
 
@@ -365,13 +364,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn bad_char_error(&self) {
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Bad character",
-            "Saw {} in state {:?}",
-            self.current_char.get(),
-            self.state.get()
-        );
+        let msg = if self.opts.exact_errors {
+            let c = self.current_char.get();
+            let state = self.state.get();
+            Cow::from(format!("Saw {c} in state {state:?}"))
+        } else {
+            Cow::from("Bad character")
+        };
         self.emit_error(msg);
     }
 
