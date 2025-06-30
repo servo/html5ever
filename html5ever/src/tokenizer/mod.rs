@@ -24,13 +24,14 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use crate::util::str::lower_ascii_letter;
 
 use log::{debug, trace};
-use markup5ever::{ns, small_char_set, time, unwrap_or_return, TokenizerResult};
+use markup5ever::{ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::mem;
 
 pub use crate::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
+use crate::macros::{time, unwrap_or_return};
 use crate::tendril::StrTendril;
 use crate::{Attribute, LocalName, QualName, SmallCharSet};
 

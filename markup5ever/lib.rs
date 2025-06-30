@@ -51,7 +51,6 @@ pub mod interface;
 pub mod serialize;
 mod util {
     pub mod buffer_queue;
-    mod macros;
     pub mod smallcharset;
 }
 

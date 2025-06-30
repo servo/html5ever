@@ -10,7 +10,7 @@
 mod types;
 
 use log::{debug, warn};
-use markup5ever::{local_name, namespace_prefix, ns, unwrap_or_return};
+use markup5ever::{local_name, namespace_prefix, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::cell::{Cell, Ref, RefCell};
@@ -23,6 +23,7 @@ pub use self::interface::{ElemName, NodeOrText, Tracer, TreeSink};
 use self::types::*;
 use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
 use crate::interface::{AppendText, ExpandedName};
+use crate::macros::unwrap_or_return;
 use crate::tokenizer::{self, EndTag, ProcessResult, StartTag, Tag, TokenSink};
 use crate::tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
 use crate::{LocalName, Namespace, Prefix};

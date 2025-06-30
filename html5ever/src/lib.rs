@@ -22,6 +22,8 @@ mod util {
     pub(crate) mod str;
 }
 
+pub(crate) mod macros;
+
 pub mod driver;
 pub mod serialize;
 pub mod tokenizer;

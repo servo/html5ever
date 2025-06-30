@@ -35,6 +35,8 @@
 
 pub use markup5ever::*;
 
+pub(crate) mod macros;
+
 /// Driver
 pub mod driver;
 /// Serializer for XML5.
