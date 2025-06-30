@@ -491,13 +491,9 @@ where
 
                 </form> => {
                     if !self.in_html_elem_named(local_name!("template")) {
-                        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-                        let node = match self.form_elem.take() {
-                            None => {
-                                self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
-                                return ProcessResult::Done;
-                            }
-                            Some(x) => x,
+                        let Some(node) = self.form_elem.take() else {
+                            self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
+                            return ProcessResult::Done;
                         };
                         if !self.in_scope(default_scope, |n| self.sink.same_node(&node, &n)) {
                             self.sink.parse_error(Borrowed("Form element not in scope on </form>"));

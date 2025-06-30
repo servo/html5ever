@@ -22,7 +22,7 @@ use crate::tokenizer;
 use crate::tokenizer::states as tok_state;
 use crate::tokenizer::{Doctype, EndTag, StartTag, Tag, TokenSink, TokenSinkResult};
 
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, Ref, RefCell};
 use std::collections::VecDeque;
 use std::iter::{Enumerate, Rev};
@@ -32,7 +32,6 @@ use crate::tokenizer::states::RawKind;
 use crate::tree_builder::tag_sets::*;
 use crate::util::str::to_escaped_string;
 use log::{debug, log_enabled, warn, Level};
-use mac::format_if;
 use markup5ever::{expanded_name, local_name, namespace_prefix, ns};
 
 #[macro_use]
@@ -488,12 +487,11 @@ where
                 if self.mode.get() == InsertionMode::Initial {
                     let (err, quirk) = data::doctype_error_and_quirks(&dt, self.opts.iframe_srcdoc);
                     if err {
-                        self.sink.parse_error(format_if!(
-                            self.opts.exact_errors,
-                            "Bad DOCTYPE",
-                            "Bad DOCTYPE: {:?}",
-                            dt
-                        ));
+                        self.sink.parse_error(if self.opts.exact_errors {
+                            Cow::from(format!("Bad DOCTYPE: {dt:?}"))
+                        } else {
+                            Cow::from("Bad DOCTYPE")
+                        });
                     }
                     let Doctype {
                         name,
@@ -513,12 +511,11 @@ where
                     self.mode.set(InsertionMode::BeforeHtml);
                     return tokenizer::TokenSinkResult::Continue;
                 } else {
-                    self.sink.parse_error(format_if!(
-                        self.opts.exact_errors,
-                        "DOCTYPE in body",
-                        "DOCTYPE in insertion mode {:?}",
-                        self.mode.get()
-                    ));
+                    self.sink.parse_error(if self.opts.exact_errors {
+                        Cow::from(format!("DOCTYPE in insertion mode {:?}", self.mode.get()))
+                    } else {
+                        Cow::from("DOCTYPE in body")
+                    });
                     return tokenizer::TokenSinkResult::Continue;
                 }
             },
@@ -618,13 +615,15 @@ where
     Sink: TreeSink<Handle = Handle>,
 {
     fn unexpected<T: fmt::Debug>(&self, _thing: &T) -> ProcessResult<Handle> {
-        self.sink.parse_error(format_if!(
-            self.opts.exact_errors,
-            "Unexpected token",
-            "Unexpected token {} in insertion mode {:?}",
-            to_escaped_string(_thing),
-            self.mode.get()
-        ));
+        self.sink.parse_error(if self.opts.exact_errors {
+            Cow::from(format!(
+                "Unexpected token {} in insertion mode {:?}",
+                to_escaped_string(_thing),
+                self.mode.get()
+            ))
+        } else {
+            Cow::from("Unexpected token")
+        });
         ProcessResult::Done
     }
 
@@ -1053,20 +1052,19 @@ where
             "thead" "tr" "body" "html");
 
         for elem in self.open_elems.borrow().iter() {
-            let error;
-            {
+            let error = {
                 let elem_name = self.sink.elem_name(elem);
                 let name = elem_name.expanded();
                 if body_end_ok(name) {
                     continue;
                 }
-                error = format_if!(
-                    self.opts.exact_errors,
-                    "Unexpected open tag at end of body",
-                    "Unexpected open tag {:?} at end of body",
-                    name
-                );
-            }
+
+                if self.opts.exact_errors {
+                    Cow::from(format!("Unexpected open tag {name:?} at end of body"))
+                } else {
+                    Cow::from("Unexpected open tag at end of body")
+                }
+            };
             self.sink.parse_error(error);
             // FIXME: Do we keep checking after finding one bad tag?
             // The spec suggests not.
@@ -1193,12 +1191,11 @@ where
     /// Signal an error if it was not the first one.
     fn expect_to_close(&self, name: LocalName) {
         if self.pop_until_named(name.clone()) != 1 {
-            self.sink.parse_error(format_if!(
-                self.opts.exact_errors,
-                "Unexpected open element",
-                "Unexpected open element while closing {:?}",
-                name
-            ));
+            self.sink.parse_error(if self.opts.exact_errors {
+                Cow::from(format!("Unexpected open element while closing {name:?}"))
+            } else {
+                Cow::from("Unexpected open element")
+            });
         }
     }
 
@@ -1242,12 +1239,14 @@ where
             self.orig_mode.set(Some(self.mode.get()));
             ProcessResult::Reprocess(InsertionMode::InTableText, token)
         } else {
-            self.sink.parse_error(format_if!(
-                self.opts.exact_errors,
-                "Unexpected characters in table",
-                "Unexpected characters {} in table",
-                to_escaped_string(&token)
-            ));
+            self.sink.parse_error(if self.opts.exact_errors {
+                Cow::from(format!(
+                    "Unexpected characters {} in table",
+                    to_escaped_string(&token)
+                ))
+            } else {
+                Cow::from("Unexpected characters in table")
+            });
             self.foster_parent_in_body(token)
         }
     }
@@ -1553,15 +1552,11 @@ where
             }
         }
 
-        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-        let match_idx = match match_idx {
-            None => {
-                // I believe this is impossible, because the root
-                // <html> element is in special_tag.
-                self.unexpected(&tag);
-                return;
-            },
-            Some(x) => x,
+        let Some(match_idx) = match_idx else {
+            // I believe this is impossible, because the root
+            // <html> element is in special_tag.
+            self.unexpected(&tag);
+            return;
         };
 
         self.generate_implied_end_except(tag.name.clone());

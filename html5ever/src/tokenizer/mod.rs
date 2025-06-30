@@ -24,7 +24,6 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use crate::util::str::lower_ascii_letter;
 
 use log::{debug, trace};
-use mac::format_if;
 use markup5ever::{ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
@@ -376,13 +375,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         #[cfg(feature = "trace_tokenizer")]
         trace!("  error");
 
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Bad character",
-            "Saw {} in state {:?}",
-            self.current_char.get(),
-            self.state.get()
-        );
+        let msg = if self.opts.exact_errors {
+            Cow::from("Bad character")
+        } else {
+            let c = self.current_char.get();
+            let state = self.state.get();
+            Cow::from(format!("Saw {c} in state {state:?}"))
+        };
         self.emit_error(msg);
     }
 
@@ -391,12 +390,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         #[cfg(feature = "trace_tokenizer")]
         trace!("  error_eof");
 
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Unexpected EOF",
-            "Saw EOF in state {:?}",
-            self.state.get()
-        );
+        let msg = if self.opts.exact_errors {
+            Cow::from("Unexpected EOF")
+        } else {
+            let state = self.state.get();
+            Cow::from(format!("Saw EOF in state {state:?}"))
+        };
         self.emit_error(msg);
     }
 

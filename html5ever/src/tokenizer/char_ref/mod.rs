@@ -13,8 +13,7 @@ use crate::data;
 use crate::tendril::StrTendril;
 
 use log::debug;
-use mac::format_if;
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::{self, Borrowed};
 use std::char::from_u32;
 
 use self::State::*;
@@ -257,12 +256,14 @@ impl CharRefTokenizer {
         };
 
         if error {
-            let msg = format_if!(
-                tokenizer.opts.exact_errors,
-                "Invalid numeric character reference",
-                "Invalid numeric character reference value 0x{:06X}",
-                self.num
-            );
+            let msg = if tokenizer.opts.exact_errors {
+                Cow::from(format!(
+                    "Invalid numeric character reference value 0x{:06X}",
+                    self.num
+                ))
+            } else {
+                Cow::from("Invalid numeric character reference")
+            };
             tokenizer.emit_error(msg);
         }
 
@@ -299,12 +300,11 @@ impl CharRefTokenizer {
     }
 
     fn emit_name_error<Sink: TokenSink>(&mut self, tokenizer: &Tokenizer<Sink>) {
-        let msg = format_if!(
-            tokenizer.opts.exact_errors,
-            "Invalid character reference",
-            "Invalid character reference &{}",
-            self.name_buf()
-        );
+        let msg = if tokenizer.opts.exact_errors {
+            Cow::from(format!("Invalid character reference &{}", self.name_buf()))
+        } else {
+            Cow::from("Invalid character reference")
+        };
         tokenizer.emit_error(msg);
     }
 
