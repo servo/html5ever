@@ -234,7 +234,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         if self.ignore_lf.get() {
             self.ignore_lf.set(false);
             if c == '\n' {
-                c = unwrap_or_return!(input.next(), None);
+                c = input.next()?;
             }
         }
 
