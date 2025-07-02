@@ -15,9 +15,9 @@ rust-version.workspace = true
 path = "lib.rs"
 
 [dependencies]
-string_cache = "0.8.8"
-phf = "0.11"
+string_cache = { workspace = true }
+phf = { workspace = true }
 
 [build-dependencies]
-string_cache_codegen = "0.5.4"
-phf_codegen = "0.11"
+string_cache_codegen = { workspace = true }
+phf_codegen = { workspace = true }

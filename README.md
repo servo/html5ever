@@ -16,11 +16,10 @@ html5ever is written in [Rust][], therefore it avoids the notorious security pro
 
 ## Getting started in Rust
 
-Add html5ever as a dependency in your [`Cargo.toml`](https://crates.io/) file:
+Add html5ever as a dependency:
 
-```toml
-[dependencies]
-html5ever = "0.34"
+```bash
+cargo add html5ever
 ```
 
 You should also take a look at [`examples/html2html.rs`], [`examples/print-rcdom.rs`], and the [API documentation][].
