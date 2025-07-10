@@ -16,9 +16,6 @@ use log::debug;
 use std::borrow::Cow::{self, Borrowed};
 use std::char::from_u32;
 
-use self::State::*;
-pub(super) use self::Status::*;
-
 //§ tokenizing-character-references
 pub(super) struct CharRef {
     /// The resulting character(s)
@@ -63,7 +60,7 @@ impl CharRefTokenizer {
     pub(super) fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
         CharRefTokenizer {
             is_consumed_in_attribute,
-            state: Begin,
+            state: State::Begin,
             result: None,
             num: 0,
             num_too_big: false,
@@ -98,7 +95,7 @@ impl CharRefTokenizer {
             chars: ['\0', '\0'],
             num_chars: 0,
         });
-        Done
+        Status::Done
     }
 
     fn finish_one(&mut self, c: char) -> Status {
@@ -106,7 +103,7 @@ impl CharRefTokenizer {
             chars: [c, '\0'],
             num_chars: 1,
         });
-        Done
+        Status::Done
     }
 }
 
@@ -117,17 +114,17 @@ impl CharRefTokenizer {
         input: &BufferQueue,
     ) -> Status {
         if self.result.is_some() {
-            return Done;
+            return Status::Done;
         }
 
         debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
-            Begin => self.do_begin(tokenizer, input),
-            Octothorpe => self.do_octothorpe(tokenizer, input),
-            Numeric(base) => self.do_numeric(tokenizer, input, base),
-            NumericSemicolon => self.do_numeric_semicolon(tokenizer, input),
-            Named => self.do_named(tokenizer, input),
-            BogusName => self.do_bogus_name(tokenizer, input),
+            State::Begin => self.do_begin(tokenizer, input),
+            State::Octothorpe => self.do_octothorpe(tokenizer, input),
+            State::Numeric(base) => self.do_numeric(tokenizer, input, base),
+            State::NumericSemicolon => self.do_numeric_semicolon(tokenizer, input),
+            State::Named => self.do_named(tokenizer, input),
+            State::BogusName => self.do_bogus_name(tokenizer, input),
         }
     }
 
@@ -138,17 +135,17 @@ impl CharRefTokenizer {
     ) -> Status {
         match tokenizer.peek(input) {
             Some('a'..='z' | 'A'..='Z' | '0'..='9') => {
-                self.state = Named;
+                self.state = State::Named;
                 self.name_buf_opt = Some(StrTendril::new());
-                Progress
+                Status::Progress
             },
             Some('#') => {
                 tokenizer.discard_char(input);
-                self.state = Octothorpe;
-                Progress
+                self.state = State::Octothorpe;
+                Status::Progress
             },
             Some(_) => self.finish_none(),
-            None => Stuck,
+            None => Status::Stuck,
         }
     }
 
@@ -161,15 +158,15 @@ impl CharRefTokenizer {
             Some(c @ ('x' | 'X')) => {
                 tokenizer.discard_char(input);
                 self.hex_marker = Some(c);
-                self.state = Numeric(16);
+                self.state = State::Numeric(16);
             },
             Some(_) => {
                 self.hex_marker = None;
-                self.state = Numeric(10);
+                self.state = State::Numeric(10);
             },
-            None => return Stuck,
+            None => return Status::Stuck,
         }
-        Progress
+        Status::Progress
     }
 
     fn do_numeric<Sink: TokenSink>(
@@ -179,7 +176,7 @@ impl CharRefTokenizer {
         base: u32,
     ) -> Status {
         let Some(c) = tokenizer.peek(input) else {
-            return Stuck;
+            return Status::Stuck;
         };
         match c.to_digit(base) {
             Some(n) => {
@@ -192,14 +189,14 @@ impl CharRefTokenizer {
                 }
                 self.num = self.num.wrapping_add(n);
                 self.seen_digit = true;
-                Progress
+                Status::Progress
             },
 
             None if !self.seen_digit => self.unconsume_numeric(tokenizer, input),
 
             None => {
-                self.state = NumericSemicolon;
-                Progress
+                self.state = State::NumericSemicolon;
+                Status::Progress
             },
         }
     }
@@ -214,7 +211,7 @@ impl CharRefTokenizer {
             Some(_) => tokenizer.emit_error(Borrowed(
                 "Semicolon missing after numeric character reference",
             )),
-            None => return Stuck,
+            None => return Status::Stuck,
         };
         self.finish_numeric(tokenizer)
     }
@@ -278,7 +275,7 @@ impl CharRefTokenizer {
         // peek + discard skips over newline normalization, therefore making it easier to
         // un-consume
         let Some(c) = tokenizer.peek(input) else {
-            return Stuck;
+            return Status::Stuck;
         };
         tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
@@ -291,7 +288,7 @@ impl CharRefTokenizer {
                     self.name_len = self.name_buf().len();
                 }
                 // Otherwise we just have a prefix match.
-                Progress
+                Status::Progress
             },
 
             // Can't continue the match.
@@ -324,8 +321,8 @@ impl CharRefTokenizer {
                     Some(c) if c.is_ascii_alphanumeric() => {
                         // Keep looking for a semicolon, to determine whether
                         // we emit a parse error.
-                        self.state = BogusName;
-                        return Progress;
+                        self.state = State::BogusName;
+                        return Status::Progress;
                     },
 
                     // Check length because &; is not a parse error.
@@ -390,7 +387,7 @@ impl CharRefTokenizer {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
                     });
-                    Done
+                    Status::Done
                 }
             },
         }
@@ -404,12 +401,12 @@ impl CharRefTokenizer {
         // peek + discard skips over newline normalization, therefore making it easier to
         // un-consume
         let Some(c) = tokenizer.peek(input) else {
-            return Stuck;
+            return Status::Stuck;
         };
         tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match c {
-            _ if c.is_ascii_alphanumeric() => return Progress,
+            _ if c.is_ascii_alphanumeric() => return Status::Progress,
             ';' => self.emit_name_error(tokenizer),
             _ => (),
         }
@@ -424,23 +421,20 @@ impl CharRefTokenizer {
     ) {
         while self.result.is_none() {
             match self.state {
-                Begin => drop(self.finish_none()),
-
-                Numeric(_) if !self.seen_digit => drop(self.unconsume_numeric(tokenizer, input)),
-
-                Numeric(_) | NumericSemicolon => {
+                State::Begin => drop(self.finish_none()),
+                State::Numeric(_) if !self.seen_digit => {
+                    self.unconsume_numeric(tokenizer, input);
+                },
+                State::Numeric(_) | State::NumericSemicolon => {
                     tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
                     self.finish_numeric(tokenizer);
                 },
-
-                Named => drop(self.finish_named(tokenizer, input, None)),
-
-                BogusName => {
+                State::Named => drop(self.finish_named(tokenizer, input, None)),
+                State::BogusName => {
                     self.unconsume_name(input);
                     self.finish_none();
                 },
-
-                Octothorpe => {
+                State::Octothorpe => {
                     input.push_front(StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     self.finish_none();
