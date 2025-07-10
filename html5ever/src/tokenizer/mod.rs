@@ -1666,13 +1666,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let outcome = tok.step(self, input);
 
         let progress = match outcome {
-            char_ref::Done => {
+            char_ref::Status::Done => {
                 self.process_char_ref(tok.get_result());
                 return ProcessResult::Continue;
             },
 
-            char_ref::Stuck => ProcessResult::Suspend,
-            char_ref::Progress => ProcessResult::Continue,
+            char_ref::Status::Stuck => ProcessResult::Suspend,
+            char_ref::Status::Progress => ProcessResult::Continue,
         };
 
         *self.char_ref_tokenizer.borrow_mut() = Some(tok);
