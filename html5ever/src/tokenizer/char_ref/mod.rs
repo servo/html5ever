@@ -55,6 +55,13 @@ pub(super) struct CharRefTokenizer {
     name_len: usize,
 }
 
+impl CharRef {
+    const EMPTY: CharRef = CharRef {
+        chars: ['\0', '\0'],
+        num_chars: 0,
+    };
+}
+
 impl CharRefTokenizer {
     pub(super) fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
         CharRefTokenizer {
@@ -80,13 +87,6 @@ impl CharRefTokenizer {
         self.name_buf_opt
             .as_mut()
             .expect("name_buf missing in named character reference")
-    }
-
-    fn finish_none(&mut self) -> Status {
-        Status::Done(CharRef {
-            chars: ['\0', '\0'],
-            num_chars: 0,
-        })
     }
 
     fn finish_one(&mut self, c: char) -> Status {
@@ -130,7 +130,7 @@ impl CharRefTokenizer {
                 self.state = State::Octothorpe;
                 Status::Progress
             },
-            Some(_) => self.finish_none(),
+            Some(_) => Status::Done(CharRef::EMPTY),
             None => Status::Stuck,
         }
     }
@@ -214,7 +214,7 @@ impl CharRefTokenizer {
 
         input.push_front(unconsume);
         tokenizer.emit_error(Borrowed("Numeric character reference without digits"));
-        self.finish_none()
+        Status::Done(CharRef::EMPTY)
     }
 
     fn finish_numeric<Sink: TokenSink>(&mut self, tokenizer: &Tokenizer<Sink>) -> Status {
@@ -317,7 +317,7 @@ impl CharRefTokenizer {
                     _ => (),
                 }
                 self.unconsume_name(input);
-                self.finish_none()
+                Status::Done(CharRef::EMPTY)
             },
 
             Some((c1, c2)) => {
@@ -365,7 +365,7 @@ impl CharRefTokenizer {
 
                 if unconsume_all {
                     self.unconsume_name(input);
-                    self.finish_none()
+                    Status::Done(CharRef::EMPTY)
                 } else {
                     input.push_front(StrTendril::from_slice(&self.name_buf()[name_len..]));
                     tokenizer.ignore_lf.set(false);
@@ -396,7 +396,7 @@ impl CharRefTokenizer {
             _ => (),
         }
         self.unconsume_name(input);
-        self.finish_none()
+        Status::Done(CharRef::EMPTY)
     }
 
     pub(super) fn end_of_file<Sink: TokenSink>(
@@ -406,7 +406,7 @@ impl CharRefTokenizer {
     ) -> CharRef {
         loop {
             let status = match self.state {
-                State::Begin => self.finish_none(),
+                State::Begin => Status::Done(CharRef::EMPTY),
                 State::Numeric(_) if !self.seen_digit => self.unconsume_numeric(tokenizer, input),
                 State::Numeric(_) | State::NumericSemicolon => {
                     tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
@@ -415,12 +415,12 @@ impl CharRefTokenizer {
                 State::Named => self.finish_named(tokenizer, input, None),
                 State::BogusName => {
                     self.unconsume_name(input);
-                    self.finish_none()
+                    Status::Done(CharRef::EMPTY)
                 },
                 State::Octothorpe => {
                     input.push_front(StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
-                    self.finish_none()
+                    Status::Done(CharRef::EMPTY)
                 },
             };
 
@@ -429,10 +429,7 @@ impl CharRefTokenizer {
                     return char_ref;
                 },
                 Status::Stuck => {
-                    return CharRef {
-                        chars: ['\0', '\0'],
-                        num_chars: 0,
-                    };
+                    return CharRef::EMPTY;
                 },
                 Status::Progress => {},
             }
