@@ -28,7 +28,7 @@ pub(super) struct CharRef {
 pub(super) enum Status {
     Stuck,
     Progress,
-    Done,
+    Done(CharRef),
 }
 
 #[derive(Debug)]
@@ -43,7 +43,6 @@ enum State {
 
 pub(super) struct CharRefTokenizer {
     state: State,
-    result: Option<CharRef>,
     is_consumed_in_attribute: bool,
 
     num: u32,
@@ -61,7 +60,6 @@ impl CharRefTokenizer {
         CharRefTokenizer {
             is_consumed_in_attribute,
             state: State::Begin,
-            result: None,
             num: 0,
             num_too_big: false,
             seen_digit: false,
@@ -70,12 +68,6 @@ impl CharRefTokenizer {
             name_match: None,
             name_len: 0,
         }
-    }
-
-    // A CharRefTokenizer can only tokenize one character reference,
-    // so this method consumes the tokenizer.
-    pub(super) fn get_result(self) -> CharRef {
-        self.result.expect("get_result called before done")
     }
 
     fn name_buf(&self) -> &StrTendril {
@@ -91,19 +83,17 @@ impl CharRefTokenizer {
     }
 
     fn finish_none(&mut self) -> Status {
-        self.result = Some(CharRef {
+        Status::Done(CharRef {
             chars: ['\0', '\0'],
             num_chars: 0,
-        });
-        Status::Done
+        })
     }
 
     fn finish_one(&mut self, c: char) -> Status {
-        self.result = Some(CharRef {
+        Status::Done(CharRef {
             chars: [c, '\0'],
             num_chars: 1,
-        });
-        Status::Done
+        })
     }
 }
 
@@ -113,10 +103,6 @@ impl CharRefTokenizer {
         tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        if self.result.is_some() {
-            return Status::Done;
-        }
-
         debug!("char ref tokenizer stepping in state {:?}", self.state);
         match self.state {
             State::Begin => self.do_begin(tokenizer, input),
@@ -383,11 +369,10 @@ impl CharRefTokenizer {
                 } else {
                     input.push_front(StrTendril::from_slice(&self.name_buf()[name_len..]));
                     tokenizer.ignore_lf.set(false);
-                    self.result = Some(CharRef {
+                    Status::Done(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
                         num_chars: if c2 == 0 { 1 } else { 2 },
-                    });
-                    Status::Done
+                    })
                 }
             },
         }
@@ -418,27 +403,38 @@ impl CharRefTokenizer {
         &mut self,
         tokenizer: &Tokenizer<Sink>,
         input: &BufferQueue,
-    ) {
-        while self.result.is_none() {
-            match self.state {
-                State::Begin => drop(self.finish_none()),
-                State::Numeric(_) if !self.seen_digit => {
-                    self.unconsume_numeric(tokenizer, input);
-                },
+    ) -> CharRef {
+        loop {
+            let status = match self.state {
+                State::Begin => self.finish_none(),
+                State::Numeric(_) if !self.seen_digit => self.unconsume_numeric(tokenizer, input),
                 State::Numeric(_) | State::NumericSemicolon => {
                     tokenizer.emit_error(Borrowed("EOF in numeric character reference"));
-                    self.finish_numeric(tokenizer);
+                    self.finish_numeric(tokenizer)
                 },
-                State::Named => drop(self.finish_named(tokenizer, input, None)),
+                State::Named => self.finish_named(tokenizer, input, None),
                 State::BogusName => {
                     self.unconsume_name(input);
-                    self.finish_none();
+                    self.finish_none()
                 },
                 State::Octothorpe => {
                     input.push_front(StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
-                    self.finish_none();
+                    self.finish_none()
                 },
+            };
+
+            match status {
+                Status::Done(char_ref) => {
+                    return char_ref;
+                },
+                Status::Stuck => {
+                    return CharRef {
+                        chars: ['\0', '\0'],
+                        num_chars: 0,
+                    };
+                },
+                Status::Progress => {},
             }
         }
     }
