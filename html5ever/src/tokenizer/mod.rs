@@ -108,7 +108,7 @@ pub struct Tokenizer<Sink> {
 
     /// Tokenizer for character references, if we're tokenizing
     /// one at the moment.
-    char_ref_tokenizer: RefCell<Option<Box<CharRefTokenizer>>>,
+    char_ref_tokenizer: RefCell<Option<CharRefTokenizer>>,
 
     /// Current input character.  Just consumed, may reconsume.
     current_char: Cell<char>,
@@ -558,11 +558,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
     }
 
-    fn consume_char_ref(&self) {
-        *self.char_ref_tokenizer.borrow_mut() = Some(Box::new(CharRefTokenizer::new(matches!(
-            self.state.get(),
-            states::AttributeValue(_)
-        ))));
+    fn start_consuming_character_reference(&self) {
+        debug_assert!(
+            self.char_ref_tokenizer.borrow().is_none(),
+            "Nested character references are impossible"
+        );
+
+        let is_in_attribute = matches!(self.state.get(), states::AttributeValue(_));
+        *self.char_ref_tokenizer.borrow_mut() = Some(CharRefTokenizer::new(is_in_attribute));
     }
 
     fn emit_eof(&self) {
@@ -651,7 +654,7 @@ macro_rules! go (
     ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume.set(true); go!($me: to $s $k1);     });
     ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume.set(true); go!($me: to $s $k1 $k2); });
 
-    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(); return ProcessResult::Continue;         });
+    ( $me:ident : consume_char_ref             ) => ({ $me.start_consuming_character_reference(); return ProcessResult::Continue;         });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
@@ -1660,14 +1663,11 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn step_char_ref_tokenizer(&self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
-        // FIXME HACK: Take and replace the tokenizer so we don't
-        // double-mut-borrow self.  This is why it's boxed.
-        let mut tok = self.char_ref_tokenizer.take().unwrap();
-        let outcome = tok.step(self, input);
-
-        let progress = match outcome {
-            char_ref::Status::Done => {
-                self.process_char_ref(tok.get_result());
+        let mut char_ref_tokenizer = self.char_ref_tokenizer.borrow_mut();
+        let progress = match char_ref_tokenizer.as_mut().unwrap().step(self, input) {
+            char_ref::Status::Done(char_ref) => {
+                self.process_char_ref(char_ref);
+                *char_ref_tokenizer = None;
                 return ProcessResult::Continue;
             },
 
@@ -1675,7 +1675,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             char_ref::Status::Progress => ProcessResult::Continue,
         };
 
-        *self.char_ref_tokenizer.borrow_mut() = Some(tok);
         progress
     }
 
@@ -1712,9 +1711,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let input = BufferQueue::default();
         match self.char_ref_tokenizer.take() {
             None => (),
-            Some(mut tok) => {
-                tok.end_of_file(self, &input);
-                self.process_char_ref(tok.get_result());
+            Some(mut tokenizer) => {
+                self.process_char_ref(tokenizer.end_of_file(self, &input));
             },
         }
 
