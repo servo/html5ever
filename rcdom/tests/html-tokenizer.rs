@@ -19,6 +19,7 @@ use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseE
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
+use html5ever::TokenizerResult;
 use html5ever::{ns, Attribute, LocalName, QualName};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
@@ -147,15 +148,19 @@ impl TokenSink for TokenLogger {
 
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
-    let tok = Tokenizer::new(sink, opts);
+    let tokenizer = Tokenizer::new(sink, opts);
+
     let buffer = BufferQueue::default();
     for chunk in input.into_iter() {
         buffer.push_back(chunk);
-        let _ = tok.feed(&buffer);
     }
-    let _ = tok.feed(&buffer);
-    tok.end();
-    tok.sink.get_tokens()
+
+    while tokenizer.feed(&buffer) != TokenizerResult::Done {
+        // Ignore any script tags...
+    }
+
+    tokenizer.end();
+    tokenizer.sink.get_tokens()
 }
 
 trait JsonExt: Sized {
