@@ -238,14 +238,6 @@ impl DafsaBuilder {
     /// Computes all numbers needed for minimal perfect hashing
     fn compute_numbers(&mut self) {
         self.compute_numbers_for(0);
-        // // Compute numbers for all nodes except the root node
-        // for edge in self.nodes[0].edges {
-        //     let Some(edge) = edge else {
-        //         continue;
-        //     };
-
-        //     self.compute_numbers_for(edge);
-        // }
     }
 
     /// Returns the perfect hash value for the input, or `None` if
@@ -343,18 +335,8 @@ fn main() {
     )
     .unwrap();
 
-    // Define the root node
-    write!(
-        &mut result,
-        "Node {{
-        code_point: 0,
-        first_child_index: 1,
-        is_last_child: true,
-        is_terminal: false,
-        num_nodes: 0
-    }},"
-    )
-    .unwrap();
+    // Define all nodes by traversing the DAFSA graph
+    write!(&mut result, "Node::new(0, 0, false, true, 1),").unwrap();
     while let Some(handle) = stack.pop_front() {
         let node = &dafsa_builder.nodes[handle];
         let num_children = node.edges().count();
@@ -389,13 +371,7 @@ fn main() {
 
             write!(
                 &mut result,
-                "Node {{
-                code_point: {code_point},
-                first_child_index: {first_child_index},
-                is_last_child: {is_last_child},
-                is_terminal: {is_terminal},
-                num_nodes: {hash_value}
-            }},",
+                "Node::new({code_point}, {hash_value}, {is_terminal}, {is_last_child}, {first_child_index}),",
                 is_terminal = child.is_terminal,
                 hash_value = child.num_nodes
             )

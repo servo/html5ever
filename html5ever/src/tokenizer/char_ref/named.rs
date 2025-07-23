@@ -80,7 +80,7 @@ impl NamedReferenceTokenizerState {
                 next_node = Some(child);
                 break;
             } else {
-                self.hash_value += child.num_nodes() as usize;
+                self.hash_value += child.hash_value() as usize;
             }
         }
 
