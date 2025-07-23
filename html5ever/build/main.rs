@@ -10,7 +10,7 @@
 //! Generates a DAFSA at compile time for resolving named character references
 
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
     env, fmt,
     fs::File,
     io::{BufReader, BufWriter, Write},
@@ -144,41 +144,6 @@ impl DafsaBuilder {
                     Some(*equal_minimized_node);
             } else {
                 self.minimized_nodes.push(transition.to);
-            }
-        }
-    }
-
-    fn generate(self) -> String {
-        return format!("graph TB");
-    }
-
-    fn generate_mermaid_graph<W: fmt::Write>(&self, writer: &mut W) {
-        let _ = writeln!(writer, "graph TB");
-
-        let mut stack = vec![0];
-        let mut completed_nodes = HashSet::new();
-
-        while let Some(handle) = stack.pop() {
-            for (index, edge) in self.nodes[handle].edges.iter().enumerate() {
-                let Some(edge) = edge else {
-                    continue;
-                };
-
-                if completed_nodes.insert(edge) {
-                    stack.push(*edge)
-                }
-
-                let character = char::from_u32(index as u32).unwrap();
-
-                let start_node_expr = if self.nodes[handle].is_terminal {
-                    "dbl-circ"
-                } else {
-                    "circ"
-                };
-                let _ = writeln!(
-                    writer,
-                    "\tNode{handle}@{{ shape: {start_node_expr}}}-- {character} -->Node{edge}"
-                );
             }
         }
     }
