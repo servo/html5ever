@@ -40,7 +40,6 @@ pub use web_atoms::{
 
 pub mod data {
     pub use web_atoms::C1_REPLACEMENTS;
-    pub use web_atoms::NAMED_ENTITIES;
 }
 #[macro_use]
 pub mod interface;
