@@ -57,13 +57,6 @@ pub(super) struct CharRefTokenizer {
     hex_marker: Option<char>,
 }
 
-impl CharRef {
-    const EMPTY: CharRef = CharRef {
-        chars: ['\0', '\0'],
-        num_chars: 0,
-    };
-}
-
 impl CharRefTokenizer {
     pub(super) fn new(is_consumed_in_attribute: bool) -> CharRefTokenizer {
         CharRefTokenizer {

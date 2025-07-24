@@ -7,20 +7,29 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use super::codegen::{resolve_unique_hash_value, Node, DAFSA_NODES};
+mod codegen;
+
+use codegen::{resolve_unique_hash_value, Node, DAFSA_NODES};
 use super::{CharRef, Status};
-use crate::tokenizer::TokenSink;
-use crate::tokenizer::Tokenizer;
-use markup5ever::buffer_queue::BufferQueue;
-use markup5ever::tendril::StrTendril;
+use crate::buffer_queue::BufferQueue;
+use crate::tendril::StrTendril;
 
 use std::borrow::Cow;
 use std::mem;
+
+type EmitErrorFn = Fn(&str);
 
 #[derive(Clone, Debug)]
 pub(crate) struct Match {
     hash_value: usize,
     matched_text: StrTendril,
+}
+
+impl CharRef {
+    pub const EMPTY: CharRef = CharRef {
+        chars: ['\0', '\0'],
+        num_chars: 0,
+    };
 }
 
 #[derive(Clone, Debug)]
@@ -62,15 +71,15 @@ impl NamedReferenceTokenizerState {
         }
     }
 
-    fn feed_character<Sink: TokenSink>(
+    fn feed_character(
         &mut self,
         c: char,
-        tokenizer: &Tokenizer<Sink>,
+        error_callback: EmitErrorFn,
         input: &BufferQueue,
     ) -> NamedReferenceTokenizationResult {
         self.name_buffer.push_char(c);
         if !c.is_ascii_alphanumeric() && c != ';' {
-            return self.did_find_invalid_character(tokenizer, input);
+            return self.did_find_invalid_character(error_callback, input);
         }
 
         let code_point = c as u32 as u8;
@@ -85,7 +94,7 @@ impl NamedReferenceTokenizerState {
         }
 
         let Some(next_node) = next_node else {
-            return self.did_find_invalid_character(tokenizer, input);
+            return self.did_find_invalid_character(error_callback, input);
         };
 
         self.current_node = next_node;
@@ -101,24 +110,24 @@ impl NamedReferenceTokenizerState {
         NamedReferenceTokenizationResult::Continue
     }
 
-    fn did_find_invalid_character<Sink: TokenSink>(
+    fn did_find_invalid_character(
         &mut self,
-        tokenizer: &Tokenizer<Sink>,
+        error_callback: EmitErrorFn,
         input: &BufferQueue,
     ) -> NamedReferenceTokenizationResult {
         if let Some(last_match) = self.last_match.take() {
             input.push_front(self.name_buffer.clone());
             return NamedReferenceTokenizationResult::Success {
-                reference: self.finish_matching_reference(last_match, tokenizer, input),
+                reference: self.finish_matching_reference(last_match, error_callback, input),
             };
         }
 
         NamedReferenceTokenizationResult::Failed
     }
 
-    pub(crate) fn step<Sink: TokenSink>(
+    pub(crate) fn step(
         &mut self,
-        tokenizer: &Tokenizer<Sink>,
+        error_callback: EmitErrorFn,
         input: &BufferQueue,
     ) -> Result<Status, StrTendril> {
         loop {
@@ -139,18 +148,18 @@ impl NamedReferenceTokenizerState {
         }
     }
 
-    pub(crate) fn notify_end_of_file<Sink: TokenSink>(
+    pub(crate) fn notify_end_of_file(
         &mut self,
-        tokenizer: &Tokenizer<Sink>,
+        error_callback: EmitErrorFn,
         input: &BufferQueue,
     ) -> Option<CharRef> {
         input.push_front(self.name_buffer.clone());
         if let Some(last_match) = self.last_match.take() {
-            Some(self.finish_matching_reference(last_match, tokenizer, input))
+            Some(self.finish_matching_reference(last_match, error_callback, input))
         } else {
             if self.name_buffer.ends_with(';') {
                 println!("end of file and last is semicolon");
-                emit_name_error(mem::take(&mut self.name_buffer), tokenizer);
+                emit_name_error(mem::take(&mut self.name_buffer), error_callback);
             }
             None
         }
@@ -159,10 +168,10 @@ impl NamedReferenceTokenizerState {
     /// Called whenever the tokenizer has finished matching a named reference.
     ///
     /// This method takes care of emitting appropriate errors and implement some legacy quirks.
-    pub(crate) fn finish_matching_reference<Sink: TokenSink>(
+    pub(crate) fn finish_matching_reference(
         &self,
         matched: Match,
-        tokenizer: &Tokenizer<Sink>,
+        error_callback: EmitErrorFn,
         input: &BufferQueue,
     ) -> CharRef {
         let char_ref = resolve_unique_hash_value(matched.hash_value);
@@ -190,19 +199,17 @@ impl NamedReferenceTokenizerState {
         // (;), then this is a missing-semicolon-after-character-reference parse
         // error.
         if last_matched_codepoint != ';' {
-            tokenizer.emit_error(Cow::Borrowed(
-                "Character reference does not end with semicolon",
-            ));
+            error_callback("Character reference does not end with semicolon");
         }
         char_ref
     }
 }
 
-pub(crate) fn emit_name_error<Sink: TokenSink>(name: StrTendril, tokenizer: &Tokenizer<Sink>) {
-    let msg = if tokenizer.opts.exact_errors {
-        Cow::from(format!("Invalid character reference &{}", name))
-    } else {
-        Cow::from("Invalid character reference")
-    };
-    tokenizer.emit_error(msg);
-}
+// pub(crate) fn emit_name_error(name: StrTendril, tokenizer: &Tokenizer<Sink>) {
+//     let msg = if tokenizer.opts.exact_errors {
+//         Cow::from(format!("Invalid character reference &{}", name))
+//     } else {
+//         Cow::from("Invalid character reference")
+//     };
+//     tokenizer.emit_error(msg);
+// }
