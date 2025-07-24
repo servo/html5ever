@@ -23,7 +23,6 @@ pub use self::interface::{ElemName, NodeOrText, Tracer, TreeSink};
 use self::types::*;
 use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
 use crate::interface::{AppendText, ExpandedName};
-use crate::macros::unwrap_or_return;
 use crate::tokenizer::{self, EndTag, ProcessResult, StartTag, Tag, TokenSink};
 use crate::tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
 use crate::{LocalName, Namespace, Prefix};
@@ -385,7 +384,10 @@ where
             #[allow(clippy::unused_unit)]
             match self.step(phase, token) {
                 XmlProcessResult::Done => {
-                    token = unwrap_or_return!(more_tokens.pop_front(), ProcessResult::Continue);
+                    let Some(popped_token) = more_tokens.pop_front() else {
+                        return ProcessResult::Continue;
+                    };
+                    token = popped_token;
                 },
                 XmlProcessResult::Reprocess(m, t) => {
                     self.phase.set(m);

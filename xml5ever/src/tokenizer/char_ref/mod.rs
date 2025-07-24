@@ -9,7 +9,6 @@
 
 use super::{TokenSink, XmlTokenizer};
 use crate::data;
-use crate::macros::unwrap_or_return;
 use crate::tendril::StrTendril;
 use log::debug;
 use markup5ever::buffer_queue::BufferQueue;
@@ -138,21 +137,20 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            '\t' | '\n' | '\x0C' | ' ' | '<' | '&' => self.finish_none(),
-            c if Some(c) == self.addnl_allowed => self.finish_none(),
-
-            '#' => {
+        match tokenizer.peek(input) {
+            Some('\t' | '\n' | '\x0C' | ' ' | '<' | '&') => self.finish_none(),
+            Some(c) if Some(c) == self.addnl_allowed => self.finish_none(),
+            Some('#') => {
                 tokenizer.discard_char(input);
                 self.state = Octothorpe;
                 Progress
             },
-
-            _ => {
+            Some(_) => {
                 self.state = Named;
                 self.name_buf_opt = Some(StrTendril::new());
                 Progress
             },
+            None => Stuck,
         }
     }
 
@@ -161,18 +159,17 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
-        match c {
-            'x' | 'X' => {
+        match tokenizer.peek(input) {
+            Some(c @ ('x' | 'X')) => {
                 tokenizer.discard_char(input);
                 self.hex_marker = Some(c);
                 self.state = Numeric(16);
             },
-
-            _ => {
+            Some(_) => {
                 self.hex_marker = None;
                 self.state = Numeric(10);
             },
+            None => return Stuck,
         }
         Progress
     }
@@ -183,7 +180,9 @@ impl CharRefTokenizer {
         base: u32,
         input: &BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.peek(input), Stuck);
+        let Some(c) = tokenizer.peek(input) else {
+            return Stuck;
+        };
         match c.to_digit(base) {
             Some(n) => {
                 tokenizer.discard_char(input);
@@ -212,11 +211,12 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        match unwrap_or_return!(tokenizer.peek(input), Stuck) {
-            ';' => tokenizer.discard_char(input),
-            _ => tokenizer.emit_error(Borrowed(
+        match tokenizer.peek(input) {
+            Some(';') => tokenizer.discard_char(input),
+            Some(_) => tokenizer.emit_error(Borrowed(
                 "Semicolon missing after numeric character reference",
             )),
+            None => return Stuck,
         };
         self.finish_numeric(tokenizer)
     }
@@ -277,7 +277,9 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
+        let Some(c) = tokenizer.get_char(input) else {
+            return Stuck;
+        };
         self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
             // We have either a full match or a prefix of one.
@@ -407,7 +409,9 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        let c = unwrap_or_return!(tokenizer.get_char(input), Stuck);
+        let Some(c) = tokenizer.get_char(input) else {
+            return Stuck;
+        };
         self.name_buf_mut().push_char(c);
         match c {
             _ if c.is_ascii_alphanumeric() => return Progress,
