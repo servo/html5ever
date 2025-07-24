@@ -47,14 +47,12 @@ impl NamespaceMapStack {
         self.0.push(map);
     }
 
-    #[doc(hidden)]
-    pub fn pop(&mut self) {
+    fn pop(&mut self) {
         self.0.pop();
     }
 }
 
-#[doc(hidden)]
-pub struct NamespaceMap {
+pub(crate) struct NamespaceMap {
     // Map that maps prefixes to URI.
     //
     // Key denotes namespace prefix, and value denotes
@@ -77,8 +75,7 @@ impl Debug for NamespaceMap {
 
 impl NamespaceMap {
     // Returns an empty namespace.
-    #[doc(hidden)]
-    pub fn empty() -> NamespaceMap {
+    pub(crate) fn empty() -> NamespaceMap {
         NamespaceMap {
             scope: BTreeMap::new(),
         }
@@ -96,18 +93,15 @@ impl NamespaceMap {
         }
     }
 
-    #[doc(hidden)]
-    pub fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
+    pub(crate) fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
     }
 
-    #[doc(hidden)]
-    pub fn get_scope_iter(&self) -> Iter<'_, Option<Prefix>, Option<Namespace>> {
+    pub(crate) fn get_scope_iter(&self) -> Iter<'_, Option<Prefix>, Option<Namespace>> {
         self.scope.iter()
     }
 
-    #[doc(hidden)]
-    pub fn insert(&mut self, name: &QualName) {
+    pub(crate) fn insert(&mut self, name: &QualName) {
         let prefix = name.prefix.as_ref().cloned();
         let namespace = Some(Namespace::from(&*name.ns));
         self.scope.insert(prefix, namespace);
@@ -438,7 +432,6 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
-#[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 where
     Handle: Clone,
@@ -607,7 +600,6 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
         .all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
 }
 
-#[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 where
     Handle: Clone,
