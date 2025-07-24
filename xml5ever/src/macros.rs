@@ -7,22 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-macro_rules! unwrap_or_return {
-    ($opt:expr) => {{
-        let Some(x) = $opt else {
-            return;
-        };
-        x
-    }};
-    ($opt:expr, $retval:expr) => {{
-        let Some(x) = $opt else {
-            return $retval;
-        };
-        x
-    }};
-}
-pub(crate) use unwrap_or_return;
-
 macro_rules! time {
     ($e:expr) => {{
         let t0 = ::std::time::Instant::now();

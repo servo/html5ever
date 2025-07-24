@@ -17,7 +17,7 @@ pub use self::interface::{
 };
 pub use crate::{LocalName, Namespace, Prefix};
 
-use crate::macros::{time, unwrap_or_return};
+use crate::macros::time;
 use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
@@ -627,17 +627,26 @@ macro_rules! go (
 
 // This is a macro because it can cause early return
 // from the function where it is used.
-macro_rules! get_char ( ($me:expr, $input:expr) => (
-    unwrap_or_return!($me.get_char($input), ProcessResult::Done)
-));
+macro_rules! get_char ( ($me:expr, $input:expr) => {{
+    let Some(character) = $me.get_char($input) else {
+        return ProcessResult::Done;
+    };
+    character
+}});
 
-macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($input, $set), ProcessResult::Done)
-));
+macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => {{
+    let Some(popped_element) = $me.pop_except_from($input, $set) else {
+        return ProcessResult::Done;
+    };
+    popped_element
+}});
 
-macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($input, $pat), ProcessResult::Done)
-));
+macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => {{
+    let Some(value) = $me.eat($input, $pat) else {
+        return ProcessResult::Done;
+    };
+    value
+}});
 
 /// The result of a single tokenization operation
 pub enum ProcessResult<Handle> {
