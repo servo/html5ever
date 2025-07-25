@@ -12,19 +12,19 @@
 //! This is public for use by the tokenizer tests.  Other library
 //! users should not have to care about this.
 
-pub use self::AttrValueKind::*;
-pub use self::DoctypeKind::*;
-pub use self::XmlState::*;
+#![allow(missing_docs)] // FIXME
+
+pub use AttrValueKind::*;
+pub use DoctypeKind::*;
+pub use XmlState::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
-#[doc(hidden)]
 pub enum DoctypeKind {
     Public,
     System,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
-#[doc(hidden)]
 pub enum XmlState {
     Data,
     TagState,
@@ -73,7 +73,6 @@ pub enum XmlState {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Debug)]
-#[doc(hidden)]
 pub enum AttrValueKind {
     Unquoted,
     SingleQuoted,
