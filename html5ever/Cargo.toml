@@ -11,6 +11,7 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+build = "build/main.rs"
 
 [features]
 trace_tokenizer = []
@@ -23,6 +24,10 @@ log = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 typed-arena = { workspace = true }
+
+[build-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [[bench]]
 name = "html5ever"
