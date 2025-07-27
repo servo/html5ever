@@ -168,7 +168,6 @@ pub mod tree_builder;
 /// NOTE: `Prefix`, `LocalName` and `Prefix` all implement `Deref<str>`.
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
     /// The prefix of qualified (e.g. `furn` in `<furn:table>` above).
     /// Optional (since some namespaces can be empty or inferred), and
