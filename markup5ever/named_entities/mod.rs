@@ -100,7 +100,7 @@ impl NamedReferenceTokenizerState {
                 next_node = Some(child);
                 break;
             } else {
-                self.hash_value += child.hash_value() as usize;
+                self.hash_value += child.hash_value();
             }
         }
 
@@ -204,5 +204,5 @@ impl NamedReferenceTokenizerState {
 }
 
 pub fn format_name_error(name: StrTendril) -> String {
-    format!("Invalid character reference: &{}", name)
+    format!("Invalid character reference: &{name}")
 }

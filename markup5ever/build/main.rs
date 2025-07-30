@@ -222,7 +222,7 @@ impl DafsaBuilder {
                 let Some(edge) = edge else {
                     continue;
                 };
-                index += self.nodes[*edge as usize].num_nodes;
+                index += self.nodes[*edge].num_nodes;
             }
 
             current = &self.nodes[next_node];
@@ -262,7 +262,7 @@ fn main() {
 
     // Build the DAFSA of all named references
     let mut dafsa_builder = DafsaBuilder::default();
-    for (name, _) in &named_entities {
+    for name in named_entities.keys() {
         let name = name.strip_prefix('&').unwrap();
         dafsa_builder.insert(name.to_string());
     }
@@ -271,7 +271,7 @@ fn main() {
 
     // Assert that there are no collisions in the perfect hash map, as a sanity check.
     let mut seen_indices = HashMap::new();
-    for (name, _) in &named_entities {
+    for name in named_entities.keys() {
         let name = name.strip_prefix('&').unwrap();
 
         let previous_value = seen_indices.insert(
@@ -298,7 +298,7 @@ fn main() {
     let mut result = BufWriter::new(File::create(destination_path).unwrap());
     writeln!(
         &mut result,
-        "pub(crate) const DAFSA_NODES: [Node; 3872] = ["
+        "pub(crate) static DAFSA_NODES: [Node; 3872] = ["
     )
     .unwrap();
 
@@ -360,13 +360,13 @@ fn main() {
 
         references[unique_index] = (
             entity.codepoints[0],
-            entity.codepoints.get(1).copied().unwrap_or_default() as u32,
+            entity.codepoints.get(1).copied().unwrap_or_default(),
         );
     }
 
     writeln!(
         &mut result,
-        "pub(crate) const REFERENCES: [(u32, u32); {}] = {references:?};",
+        "pub(crate) static REFERENCES: [(u32, u32); {}] = {references:?};",
         num_entities + 1
     )
     .unwrap();
