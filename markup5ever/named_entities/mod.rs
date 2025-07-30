@@ -9,15 +9,21 @@
 
 mod codegen;
 
-use codegen::{resolve_unique_hash_value, Node, DAFSA_NODES};
-use super::{CharRef, Status};
 use crate::buffer_queue::BufferQueue;
 use crate::tendril::StrTendril;
+use codegen::{resolve_unique_hash_value, Node, DAFSA_NODES};
 
 use std::borrow::Cow;
 use std::mem;
 
-type EmitErrorFn = Fn(&str);
+#[derive(Clone, Copy, Debug)]
+pub struct CharRef {
+    /// The resulting character(s)
+    pub chars: [char; 2],
+
+    /// How many slots in `chars` are valid?
+    pub num_chars: u8,
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Match {
@@ -33,7 +39,7 @@ impl CharRef {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct NamedReferenceTokenizerState {
+pub struct NamedReferenceTokenizerState {
     current_node: &'static Node,
     /// Contains all characters that the tokenizer has consumed since the last match.
     ///
@@ -50,18 +56,20 @@ pub(crate) struct NamedReferenceTokenizerState {
     is_in_attribute: bool,
 }
 
-pub(crate) enum NamedReferenceTokenizationResult {
+pub enum NamedReferenceTokenizationResult {
     /// Tokenization is complete.
     Success { reference: CharRef },
     /// The provided characters do not form a valid named reference and there is no
     /// valid continuation that would change that.
-    Failed,
+    ///
+    /// Contains all the characters that have been tokenized so far.
+    Failed(StrTendril),
     /// The tokenizer expects more input.
     Continue,
 }
 
 impl NamedReferenceTokenizerState {
-    pub(crate) fn new(is_in_attribute: bool) -> Self {
+    pub fn new(is_in_attribute: bool) -> Self {
         Self {
             current_node: &DAFSA_NODES[0],
             name_buffer: Default::default(),
@@ -71,12 +79,15 @@ impl NamedReferenceTokenizerState {
         }
     }
 
-    fn feed_character(
+    pub fn feed_character<E>(
         &mut self,
         c: char,
-        error_callback: EmitErrorFn,
         input: &BufferQueue,
-    ) -> NamedReferenceTokenizationResult {
+        error_callback: E,
+    ) -> NamedReferenceTokenizationResult
+    where
+        E: FnOnce(Cow<'static, str>),
+    {
         self.name_buffer.push_char(c);
         if !c.is_ascii_alphanumeric() && c != ';' {
             return self.did_find_invalid_character(error_callback, input);
@@ -110,11 +121,14 @@ impl NamedReferenceTokenizerState {
         NamedReferenceTokenizationResult::Continue
     }
 
-    fn did_find_invalid_character(
+    fn did_find_invalid_character<E>(
         &mut self,
-        error_callback: EmitErrorFn,
+        error_callback: E,
         input: &BufferQueue,
-    ) -> NamedReferenceTokenizationResult {
+    ) -> NamedReferenceTokenizationResult
+    where
+        E: FnOnce(Cow<'static, str>),
+    {
         if let Some(last_match) = self.last_match.take() {
             input.push_front(self.name_buffer.clone());
             return NamedReferenceTokenizationResult::Success {
@@ -122,44 +136,25 @@ impl NamedReferenceTokenizerState {
             };
         }
 
-        NamedReferenceTokenizationResult::Failed
+        NamedReferenceTokenizationResult::Failed(mem::take(&mut self.name_buffer))
     }
 
-    pub(crate) fn step(
+    pub fn notify_end_of_file<E>(
         &mut self,
-        error_callback: EmitErrorFn,
+        error_callback: E,
         input: &BufferQueue,
-    ) -> Result<Status, StrTendril> {
-        loop {
-            let Some(c) = tokenizer.peek(input) else {
-                return Ok(Status::Stuck);
-            };
-            tokenizer.discard_char(input);
-
-            match self.feed_character(c, tokenizer, input) {
-                NamedReferenceTokenizationResult::Success { reference } => {
-                    return Ok(Status::Done(reference));
-                },
-                NamedReferenceTokenizationResult::Failed => {
-                    return Err(mem::take(&mut self.name_buffer));
-                },
-                NamedReferenceTokenizationResult::Continue => {},
-            }
-        }
-    }
-
-    pub(crate) fn notify_end_of_file(
-        &mut self,
-        error_callback: EmitErrorFn,
-        input: &BufferQueue,
-    ) -> Option<CharRef> {
+    ) -> Option<CharRef>
+    where
+        E: FnOnce(Cow<'static, str>),
+    {
         input.push_front(self.name_buffer.clone());
         if let Some(last_match) = self.last_match.take() {
             Some(self.finish_matching_reference(last_match, error_callback, input))
         } else {
             if self.name_buffer.ends_with(';') {
-                println!("end of file and last is semicolon");
-                emit_name_error(mem::take(&mut self.name_buffer), error_callback);
+                error_callback(Cow::from(format_name_error(mem::take(
+                    &mut self.name_buffer,
+                ))));
             }
             None
         }
@@ -168,12 +163,15 @@ impl NamedReferenceTokenizerState {
     /// Called whenever the tokenizer has finished matching a named reference.
     ///
     /// This method takes care of emitting appropriate errors and implement some legacy quirks.
-    pub(crate) fn finish_matching_reference(
+    pub(crate) fn finish_matching_reference<E>(
         &self,
         matched: Match,
-        error_callback: EmitErrorFn,
+        error_callback: E,
         input: &BufferQueue,
-    ) -> CharRef {
+    ) -> CharRef
+    where
+        E: FnOnce(Cow<'static, str>),
+    {
         let char_ref = resolve_unique_hash_value(matched.hash_value);
         let last_matched_codepoint = matched
             .matched_text
@@ -199,17 +197,12 @@ impl NamedReferenceTokenizerState {
         // (;), then this is a missing-semicolon-after-character-reference parse
         // error.
         if last_matched_codepoint != ';' {
-            error_callback("Character reference does not end with semicolon");
+            error_callback(Cow::from("Character reference does not end with semicolon"));
         }
         char_ref
     }
 }
 
-// pub(crate) fn emit_name_error(name: StrTendril, tokenizer: &Tokenizer<Sink>) {
-//     let msg = if tokenizer.opts.exact_errors {
-//         Cow::from(format!("Invalid character reference &{}", name))
-//     } else {
-//         Cow::from("Invalid character reference")
-//     };
-//     tokenizer.emit_error(msg);
-// }
+pub fn format_name_error(name: StrTendril) -> String {
+    format!("Invalid character reference: &{}", name)
+}

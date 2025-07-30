@@ -7,29 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-mod codegen;
-mod named;
-
 use super::{TokenSink, Tokenizer};
 use crate::buffer_queue::BufferQueue;
 use crate::data;
 use crate::tendril::StrTendril;
-use crate::tokenizer::char_ref::named::emit_name_error;
-use named::NamedReferenceTokenizerState;
+
+use markup5ever::named_entities::{
+    format_name_error, CharRef, NamedReferenceTokenizationResult, NamedReferenceTokenizerState,
+};
 
 use log::debug;
 use std::borrow::Cow::{self, Borrowed};
 use std::char::from_u32;
 use std::mem;
-
-#[derive(Clone, Copy, Debug)]
-pub(super) struct CharRef {
-    /// The resulting character(s)
-    pub(super) chars: [char; 2],
-
-    /// How many slots in `chars` are valid?
-    pub(super) num_chars: u8,
-}
 
 pub(super) enum Status {
     Stuck,
@@ -89,12 +79,23 @@ impl CharRefTokenizer {
             State::Octothorpe => self.do_octothorpe(tokenizer, input),
             State::Numeric(base) => self.do_numeric(tokenizer, input, base),
             State::NumericSemicolon => self.do_numeric_semicolon(tokenizer, input),
-            State::Named(ref mut named_tokenizer) => match named_tokenizer.step(tokenizer, input) {
-                Ok(status) => status,
-                Err(error) => {
-                    self.state = State::BogusName(error);
-                    Status::Progress
-                },
+            State::Named(ref mut named_tokenizer) => loop {
+                let Some(c) = tokenizer.peek(input) else {
+                    return Status::Stuck;
+                };
+                tokenizer.discard_char(input);
+
+                match named_tokenizer.feed_character(c, input, |error| tokenizer.emit_error(error))
+                {
+                    NamedReferenceTokenizationResult::Success { reference } => {
+                        return Status::Done(reference);
+                    },
+                    NamedReferenceTokenizationResult::Failed(characters) => {
+                        self.state = State::BogusName(characters);
+                        return Status::Progress;
+                    },
+                    NamedReferenceTokenizationResult::Continue => {},
+                }
             },
             State::BogusName(ref mut invalid_name) => {
                 let Some(c) = tokenizer.peek(input) else {
@@ -105,7 +106,7 @@ impl CharRefTokenizer {
                 match c {
                     _ if c.is_ascii_alphanumeric() => return Status::Progress,
                     ';' => {
-                        emit_name_error(invalid_name.clone(), tokenizer);
+                        tokenizer.emit_error(Cow::from(format_name_error(invalid_name.clone())));
                     },
                     _ => (),
                 }
@@ -270,7 +271,7 @@ impl CharRefTokenizer {
                 },
                 State::Named(state) => {
                     return state
-                        .notify_end_of_file(tokenizer, input)
+                        .notify_end_of_file(|error| tokenizer.emit_error(error), input)
                         .unwrap_or(CharRef::EMPTY)
                 },
                 State::Octothorpe => {
@@ -281,7 +282,7 @@ impl CharRefTokenizer {
                 State::BogusName(bogus_name) => {
                     input.push_front(bogus_name.clone());
                     if bogus_name.ends_with(';') {
-                        emit_name_error(mem::take(bogus_name), tokenizer);
+                        tokenizer.emit_error(Cow::from(format_name_error(mem::take(bogus_name))));
                     }
                     Status::Done(CharRef::EMPTY)
                 },

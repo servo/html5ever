@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::tokenizer::CharRef;
+use super::CharRef;
 
 include!(concat!(env!("OUT_DIR"), "/named_entities_graph.rs"));
 

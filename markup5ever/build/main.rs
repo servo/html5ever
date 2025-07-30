@@ -253,6 +253,8 @@ struct NamedEntity {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build/");
+
     // Parse the list of named entities from https://html.spec.whatwg.org/entities.json
     let input_file = BufReader::new(File::open("build/entities.json").unwrap());
     let named_entities: BTreeMap<String, NamedEntity> =
