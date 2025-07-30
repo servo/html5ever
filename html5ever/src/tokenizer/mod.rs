@@ -19,7 +19,8 @@ use self::states::{DoubleEscaped, Escaped};
 use self::states::{DoubleQuoted, SingleQuoted, Unquoted};
 use self::states::{Rawtext, Rcdata, ScriptData, ScriptDataEscaped};
 
-use self::char_ref::{CharRef, CharRefTokenizer};
+use self::char_ref::CharRefTokenizer;
+use markup5ever::named_entities::CharRef;
 
 use crate::util::str::lower_ascii_letter;
 

@@ -10,13 +10,10 @@
 extern crate phf_codegen;
 extern crate string_cache_codegen;
 
-use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-
-mod entities;
 
 static NAMESPACES: &[(&str, &str)] = &[
     ("", ""),
@@ -32,8 +29,6 @@ static NAMESPACES: &[(&str, &str)] = &[
 fn main() {
     let generated = Path::new(&env::var("OUT_DIR").unwrap()).join("generated.rs");
     let mut generated = BufWriter::new(File::create(generated).unwrap());
-
-    named_entities_to_phf(&Path::new(&env::var("OUT_DIR").unwrap()).join("named_entities.rs"));
 
     // Create a string cache for local names
     let local_names = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("local_names.txt");
@@ -65,7 +60,7 @@ fn main() {
     writeln!(
         generated,
         r#"
-        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to
         /// the output of [`namespace_url!`](macro.namespace_url.html).
         ///
         #[macro_export] macro_rules! ns {{
@@ -80,51 +75,4 @@ fn main() {
         .unwrap();
     }
     writeln!(generated, "}}").unwrap();
-}
-
-fn named_entities_to_phf(to: &Path) {
-    let mut entities: BTreeMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
-        .iter()
-        .map(|(name, cp1, cp2)| {
-            assert!(name.starts_with('&'));
-            (&name[1..], (*cp1, *cp2))
-        })
-        .collect();
-
-    // Add every missing prefix of those keys, mapping to NULL characters.
-    for key in entities.keys().cloned().collect::<Vec<_>>() {
-        for n in 1..key.len() {
-            entities.entry(&key[..n]).or_insert((0, 0));
-        }
-    }
-    entities.insert("", (0, 0));
-
-    let mut phf_map = phf_codegen::Map::new();
-    for (key, value) in entities {
-        phf_map.entry(key, &format!("{value:?}"));
-    }
-
-    let mut file = File::create(to).unwrap();
-    writeln!(
-        &mut file,
-        r#"
-/// A map of entity names to their codepoints. The second codepoint will
-/// be 0 if the entity contains a single codepoint. Entities have their preceding '&' removed.
-///
-/// # Examples
-///
-/// ```
-/// use web_atoms::NAMED_ENTITIES;
-///
-/// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
-/// ```
-"#
-    )
-    .unwrap();
-    writeln!(
-        &mut file,
-        "pub static NAMED_ENTITIES: Map<&'static str, (u32, u32)> = {};",
-        phf_map.build(),
-    )
-    .unwrap();
 }

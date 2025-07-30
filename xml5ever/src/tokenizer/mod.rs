@@ -27,12 +27,12 @@ use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::mem::replace;
 
-use self::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
-use self::char_ref::{CharRef, CharRefTokenizer};
-use self::qname::QualNameTokenizer;
-use self::states::XmlState;
-use self::states::{DoctypeKind, Public, System};
-use self::states::{DoubleQuoted, SingleQuoted, Unquoted};
+use buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
+use char_ref::CharRefTokenizer;
+use qname::QualNameTokenizer;
+use states::{AttrValueKind::*, DoctypeKind, DoctypeKind::*, XmlState};
+
+use markup5ever::named_entities::CharRef;
 
 /// Copy of Tokenizer options, with an impl for `Default`.
 #[derive(Copy, Clone)]
@@ -51,7 +51,7 @@ pub struct XmlTokenizerOpts {
 
     /// Initial state override.  Only the test runner should use
     /// a non-`None` value!
-    pub initial_state: Option<states::XmlState>,
+    pub initial_state: Option<XmlState>,
 }
 
 fn process_qname(tag_name: StrTendril) -> QualName {
@@ -104,7 +104,7 @@ pub struct XmlTokenizer<Sink> {
     pub sink: Sink,
 
     /// The abstract machine state as described in the spec.
-    state: Cell<states::XmlState>,
+    state: Cell<XmlState>,
 
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
@@ -158,7 +158,7 @@ pub struct XmlTokenizer<Sink> {
     current_pi_data: RefCell<StrTendril>,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
-    state_profile: RefCell<BTreeMap<states::XmlState, u64>>,
+    state_profile: RefCell<BTreeMap<XmlState, u64>>,
 
     /// Record of how many ns we spent in the token sink.
     time_in_sink: Cell<u64>,
@@ -171,7 +171,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             panic!("Can't profile tokenizer when built as a C library");
         }
 
-        let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
+        let state = *opts.initial_state.as_ref().unwrap_or(&XmlState::Data);
         let discard_bom = opts.discard_bom;
         XmlTokenizer {
             opts,
@@ -578,9 +578,9 @@ macro_rules! go (
 
     // These can only come at the end.
 
-    ( $me:ident : to $s:ident                    ) => ({ $me.state.set(states::$s); return ProcessResult::Continue;           });
-    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state.set(states::$s($k1)); return ProcessResult::Continue;      });
-    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state.set(states::$s($k1($k2))); return ProcessResult::Continue; });
+    ( $me:ident : to $s:ident                    ) => ({ $me.state.set(XmlState::$s); return ProcessResult::Continue;           });
+    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state.set(XmlState::$s($k1)); return ProcessResult::Continue;      });
+    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state.set(XmlState::$s($k1($k2))); return ProcessResult::Continue; });
 
     ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume.set(true); go!($me: to $s);         });
     ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume.set(true); go!($me: to $s $k1);     });
@@ -591,28 +591,28 @@ macro_rules! go (
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
-        $me.state.set(states::$s);
+        $me.state.set(XmlState::$s);
         return $me.emit_current_tag();
     });
 
     // We have a special when dealing with empty and short tags in Xml
     ( $me:ident : emit_short_tag $s:ident ) => ({
-        $me.state.set(states::$s);
+        $me.state.set(XmlState::$s);
         return $me.emit_short_tag();
     });
 
     ( $me:ident : emit_empty_tag $s:ident ) => ({
-        $me.state.set(states::$s);
+        $me.state.set(XmlState::$s);
         return $me.emit_empty_tag();
     });
 
     ( $me:ident : emit_start_tag $s:ident ) => ({
-        $me.state.set(states::$s);
+        $me.state.set(XmlState::$s);
         return $me.emit_start_tag();
     });
 
     ( $me:ident : emit_pi $s:ident ) => ({
-        $me.state.set(states::$s);
+        $me.state.set(XmlState::$s);
         return $me.emit_pi();
     });
 
@@ -1137,7 +1137,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     #[cfg(not(for_c))]
     fn dump_profile(&self) {
-        let mut results: Vec<(states::XmlState, u64)> = self
+        let mut results: Vec<(XmlState, u64)> = self
             .state_profile
             .borrow()
             .iter()
@@ -1225,9 +1225,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         for i in 0..num_chars {
             let c = chars[i as usize];
             match self.state.get() {
-                states::Data | states::Cdata => go!(self: emit c),
+                XmlState::Data | XmlState::Cdata => go!(self: emit c),
 
-                states::TagAttrValue(_) => go!(self: push_value c),
+                XmlState::TagAttrValue(_) => go!(self: push_value c),
 
                 _ => panic!(
                     "state {:?} should not be reachable in process_char_ref",
