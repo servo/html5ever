@@ -28,9 +28,11 @@ use std::collections::BTreeMap;
 use std::mem::replace;
 
 use buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
-use char_ref::{CharRef, CharRefTokenizer};
+use char_ref::CharRefTokenizer;
 use qname::QualNameTokenizer;
 use states::{AttrValueKind::*, DoctypeKind, DoctypeKind::*, XmlState};
+
+use markup5ever::named_entities::CharRef;
 
 /// Copy of Tokenizer options, with an impl for `Default`.
 #[derive(Copy, Clone)]
