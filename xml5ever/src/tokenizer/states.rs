@@ -9,10 +9,6 @@
 
 //! Tokenizer states.
 
-pub use AttrValueKind::*;
-pub use DoctypeKind::*;
-pub use XmlState::*;
-
 /// Specifies either the public or system identifier from a [Document Type Declaration] (DTD).
 ///
 /// [Document Type Declaration]: https://en.wikipedia.org/wiki/Document_type_declaration
