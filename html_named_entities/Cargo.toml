@@ -1,0 +1,17 @@
+[package]
+name = "html_named_entities"
+description = "Parser for HTML named entities"
+categories = [ "parser-implementations", "web-programming" ]
+version = "0.1.0"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build/main.rs"
+
+[dependencies]
+
+[build-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

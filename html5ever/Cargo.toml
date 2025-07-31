@@ -18,6 +18,7 @@ trace_tokenizer = []
 [dependencies]
 markup5ever = { workspace = true }
 match_token = { workspace = true }
+html_named_entities = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]

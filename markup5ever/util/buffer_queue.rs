@@ -265,6 +265,12 @@ impl BufferQueue {
     }
 }
 
+impl html_named_entities::InputSource for BufferQueue {
+    fn push_front(&self, value: String) {
+        self.push_front(value.into());
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {

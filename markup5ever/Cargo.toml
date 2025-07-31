@@ -9,7 +9,6 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-build = "build/main.rs"
 
 [lib]
 path = "lib.rs"
@@ -18,7 +17,4 @@ path = "lib.rs"
 web_atoms = { workspace = true }
 tendril = { workspace = true }
 log = { workspace = true }
-
-[build-dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
+html_named_entities = { workspace = true }

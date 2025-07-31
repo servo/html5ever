@@ -32,7 +32,7 @@ use char_ref::CharRefTokenizer;
 use qname::QualNameTokenizer;
 use states::{AttrValueKind::*, DoctypeKind, DoctypeKind::*, XmlState};
 
-use markup5ever::named_entities::CharRef;
+use html_named_entities::CharRef;
 
 /// Copy of Tokenizer options, with an impl for `Default`.
 #[derive(Copy, Clone)]

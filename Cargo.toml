@@ -7,7 +7,7 @@ members = [
     "rcdom",
     "xml5ever",
     "match_token"
-]
+, "html_named_entities"]
 
 [workspace.package]
 version = "0.35.0"
@@ -24,6 +24,7 @@ match_token = { version = "0.35.0", path = "match_token" }
 markup5ever = { version = "0.35.0", path = "markup5ever" }
 xml5ever = { version = "0.35.0", path = "xml5ever" }
 html5ever = { version = "0.35.0", path = "html5ever" }
+html_named_entities = { version = "0.1", path = "html_named_entities"}
 
 # External dependencies
 syn = { version = "2", features = ["full"] }

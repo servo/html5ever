@@ -12,7 +12,7 @@ use crate::buffer_queue::BufferQueue;
 use crate::data;
 use crate::tendril::StrTendril;
 
-use markup5ever::named_entities::{
+use html_named_entities::{
     format_name_error, CharRef, NamedReferenceTokenizationResult, NamedReferenceTokenizerState,
 };
 
@@ -87,11 +87,11 @@ impl CharRefTokenizer {
 
                 match named_tokenizer.feed_character(c, input, |error| tokenizer.emit_error(error))
                 {
-                    NamedReferenceTokenizationResult::Success { reference } => {
+                    NamedReferenceTokenizationResult::Success(reference) => {
                         return Status::Done(reference);
                     },
                     NamedReferenceTokenizationResult::Failed(characters) => {
-                        self.state = State::BogusName(characters);
+                        self.state = State::BogusName(characters.into());
                         return Status::Progress;
                     },
                     NamedReferenceTokenizationResult::Continue => {},
@@ -106,7 +106,7 @@ impl CharRefTokenizer {
                 match c {
                     _ if c.is_ascii_alphanumeric() => return Status::Progress,
                     ';' => {
-                        tokenizer.emit_error(Cow::from(format_name_error(invalid_name.clone())));
+                        tokenizer.emit_error(Cow::from(format_name_error(&invalid_name)));
                     },
                     _ => (),
                 }
@@ -271,7 +271,7 @@ impl CharRefTokenizer {
                 },
                 State::Named(state) => {
                     return state
-                        .notify_end_of_file(|error| tokenizer.emit_error(error), input)
+                        .notify_end_of_file(input, |error| tokenizer.emit_error(error))
                         .unwrap_or(CharRef::EMPTY)
                 },
                 State::Octothorpe => {
@@ -282,7 +282,7 @@ impl CharRefTokenizer {
                 State::BogusName(bogus_name) => {
                     input.push_front(bogus_name.clone());
                     if bogus_name.ends_with(';') {
-                        tokenizer.emit_error(Cow::from(format_name_error(mem::take(bogus_name))));
+                        tokenizer.emit_error(Cow::from(format_name_error(&bogus_name)));
                     }
                     Status::Done(CharRef::EMPTY)
                 },

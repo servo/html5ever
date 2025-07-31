@@ -52,5 +52,3 @@ mod util {
 pub use interface::{Attribute, ExpandedName, QualName, TokenizerResult};
 pub use util::smallcharset::SmallCharSet;
 pub use util::*;
-
-pub mod named_entities;
