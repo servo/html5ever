@@ -21,6 +21,13 @@ The **web_atoms** crate is on a separate cycle as it needs frequent releases but
 - Publish the new version of **web_atoms**
 - Optionally: publish a new version of the other crates to match
 
+## Making a release of **web_atoms**:
+
+- Bump the version in `html_named_entities/Cargo.toml`
+- Update the version **html_named_entities** in the workspace `Cargo.toml`'s `[workspace.dependencies]` section to match
+- Publish the new version of **html_named_entities**
+- Optionally: publish a new version of the other crates to match
+
 ## Making a release of all other crates
 
 In the workspace `Cargo.toml`:
