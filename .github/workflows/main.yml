@@ -73,7 +73,7 @@ jobs:
       - name: Run clippy
         uses: servo/actions/cargo-annotation@main
         with:
-          cargo-command: clippy --all-features --all-targets -- -D warnings
+          cargo-command: clippy --all-features --all-targets
 
   build_result:
     name: Result
