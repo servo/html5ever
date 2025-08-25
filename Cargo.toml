@@ -34,7 +34,7 @@ mac = "0.1"
 tendril = "0.4"
 string_cache = "0.8.8"
 string_cache_codegen = "0.5.4"
-phf = "0.11"
+phf = "0.13"
 phf_codegen = "0.11"
 
 # Dev dependencies
