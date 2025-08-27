@@ -65,7 +65,7 @@ fn main() {
     writeln!(
         generated,
         r#"
-        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to
         /// the output of [`namespace_url!`](macro.namespace_url.html).
         ///
         #[macro_export] macro_rules! ns {{
@@ -101,7 +101,7 @@ fn named_entities_to_phf(to: &Path) {
 
     let mut phf_map = phf_codegen::Map::new();
     for (key, value) in entities {
-        phf_map.entry(key, &format!("{value:?}"));
+        phf_map.entry(key, format!("{value:?}"));
     }
 
     let mut file = File::create(to).unwrap();
