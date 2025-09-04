@@ -35,34 +35,90 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
 }
 
 macro_rules! tag {
-    ($( $tag:tt )|+) => {
-        $(tag!(__inner:$tag))|+
+    // Any start tag
+    (<>) => {
+        crate::tokenizer::Tag {
+            kind: crate::tokenizer::StartTag,
+            ..
+        }
     };
+
+    // Any end tag
+    (</>) => {
+        crate::tokenizer::Tag {
+            kind: crate::tokenizer::EndTag,
+            ..
+        }
+    };
+
     // Named end tag
-    (__inner:[/$tag:tt]) => {
-        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, name: local_name!($tag), .. }
+    (<$tag:tt>) => {
+        crate::tokenizer::Tag {
+            kind: crate::tokenizer::StartTag,
+            name: local_name!($tag),
+            ..
+        }
     };
+
     // Named start tag
-    (__inner:[$tag:tt]) => {
-        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, name: local_name!($tag), .. }
+    (</$tag:tt>) => {
+        crate::tokenizer::Tag {
+            kind: crate::tokenizer::EndTag,
+            name: local_name!($tag),
+            ..
+        }
+    };
+}
+
+macro_rules! tags {
+    // Any start tag
+    (<>) => {
+        tag!(<>)
+    };
+    (<>|$($tail:tt)*) => {
+        tag!(<>) | tags!($($tail)*)
+    };
+
+    // Any end tag
+    (</>) => {
+        tag!(</>)
+    };
+    (</>|$($tail:tt)*) => {
+        tag!(</>) | tags!($($tail)*)
+    };
+
+    // Named start tag
+    (<$tag:tt>) => {
+        tag!(<$tag>)
+    };
+    (<$tag:tt>|$($tail:tt)*) => {
+        tag!(<$tag>) | tags!($($tail)*)
+    };
+
+    // Named end tag
+    (</$tag:tt>) => {
+        tag!(</$tag>)
+    };
+    (</$tag:tt>|$($tail:tt)*) => {
+        tag!(</$tag>) | tags!($($tail)*)
     };
 }
 
 macro_rules! is_not_tag {
-    ($input:ident, $( $tag:tt )|+) => {
-        !matches!($input, $(tag!(__inner:$tag))|+)
+    ($input:ident, $($tail:tt)*) => {
+        !matches!($input, tags!($($tail)*))
     };
 }
 
 macro_rules! tag_token {
-    ($id:ident @ $( $tag:tt )|+) => {
+    ($id:ident @ $($tail:tt)*) => {
         crate::tree_builder::types::Token::Tag(
-            $id @ ( tag!($($tag)|+) )
+            $id @ ( tags!($($tail)*) )
         )
     };
-    ($($tag:tt)|+) => {
+    ($($tail:tt)*) => {
         crate::tree_builder::types::Token::Tag(
-            tag!($($tag)|+)
+            tags!($($tail)*)
         )
     };
 }
@@ -142,16 +198,19 @@ where
                 },
                 Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                 Token::Comment(text) => self.append_comment_to_doc(text),
-                // Token::Tag(tag @ tag!(["html"] | [/"body"])) => {
-                tag_token!(tag @ ["html"] | [/"body"]) => {
+
+                // tag_token!(tag @ <"html"> | </"body">) => {
+                Token::Tag(tag @ tags!(<"html"> | </"body">)) => {
                     self.create_root(tag.attrs);
                     self.mode.set(InsertionMode::BeforeHead);
                     ProcessResult::Done
                 },
-                // Token::Tag(tag @ any_end_tag!()) if !matches!(tag, tag!([/"head"] | [/"body"] | [/"html"] | [/"br"])) =>
-                any_end_tag_token!(tag) if is_not_tag!(tag, [/"head"] | [/"body"] | [/"html"] | [/"br"]) => {
+
+                // any_end_tag_token!(tag) if !matches(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
+                Token::Tag(tag @ tag!(</>)) if is_not_tag!(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
                     self.unexpected(&tag)
                 },
+
                 token => {
                     self.create_root(vec![]);
                     ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
