@@ -9,6 +9,8 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
+#![allow(unused_macros)]
+
 use crate::interface::Quirks;
 use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
@@ -33,6 +35,7 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
 fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
+
 
 macro_rules! tag {
     // Any start tag
