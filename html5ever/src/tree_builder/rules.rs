@@ -36,112 +36,54 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
+#[rustfmt::skip]
 macro_rules! tag {
     // Any start tag
     (<>) => {
-        crate::tokenizer::Tag {
-            kind: crate::tokenizer::StartTag,
-            ..
-        }
-    };
-
-    // Any end tag
-    (</>) => {
-        crate::tokenizer::Tag {
-            kind: crate::tokenizer::EndTag,
-            ..
-        }
-    };
-
-    // Named end tag
-    (<$tag:tt>) => {
-        crate::tokenizer::Tag {
-            kind: crate::tokenizer::StartTag,
-            name: local_name!($tag),
-            ..
-        }
-    };
-
-    // Named start tag
-    (</$tag:tt>) => {
-        crate::tokenizer::Tag {
-            kind: crate::tokenizer::EndTag,
-            name: local_name!($tag),
-            ..
-        }
-    };
-}
-
-macro_rules! tags {
-    // Any start tag
-    (<>) => {
-        tag!(<>)
+        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, .. }
     };
     (<>|$($tail:tt)*) => {
-        tag!(<>) | tags!($($tail)*)
+        tag!(<>) | tag!($($tail)*)
     };
 
     // Any end tag
     (</>) => {
-        tag!(</>)
+        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, .. }
     };
     (</>|$($tail:tt)*) => {
-        tag!(</>) | tags!($($tail)*)
+        tag!(</>) | tag!($($tail)*)
     };
 
     // Named start tag
     (<$tag:tt>) => {
-        tag!(<$tag>)
+        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, name: local_name!($tag), .. }
     };
     (<$tag:tt>|$($tail:tt)*) => {
-        tag!(<$tag>) | tags!($($tail)*)
+        tag!(<$tag>) | tag!($($tail)*)
     };
 
     // Named end tag
     (</$tag:tt>) => {
-        tag!(</$tag>)
+        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, name: local_name!($tag), .. }
     };
     (</$tag:tt>|$($tail:tt)*) => {
-        tag!(</$tag>) | tags!($($tail)*)
+        tag!(</$tag>) | tag!($($tail)*)
     };
 }
 
 macro_rules! is_not_tag {
     ($input:ident, $($tail:tt)*) => {
-        !matches!($input, tags!($($tail)*))
+        !matches!($input, tag!($($tail)*))
     };
 }
 
+#[rustfmt::skip]
 macro_rules! tag_token {
     ($id:ident @ $($tail:tt)*) => {
-        crate::tree_builder::types::Token::Tag(
-            $id @ ( tags!($($tail)*) )
-        )
+        crate::tree_builder::types::Token::Tag($id @ ( tag!($($tail)*) ) )
     };
     ($($tail:tt)*) => {
-        crate::tree_builder::types::Token::Tag(
-            tags!($($tail)*)
-        )
-    };
-}
-
-macro_rules! any_end_tag {
-    () => {
-        crate::tokenizer::Tag {
-            kind: crate::tokenizer::EndTag,
-            ..
-        }
-    };
-}
-
-macro_rules! any_end_tag_token {
-    () => {
-        any_end_tag_token!(_)
-    };
-    ($tag:ident) => {
-        crate::tree_builder::types::Token::Tag(
-            $tag @ any_end_tag!()
-        )
+        crate::tree_builder::types::Token::Tag( tag!($($tail)*) )
     };
 }
 
@@ -172,28 +114,6 @@ where
             },
 
             //§ the-before-html-insertion-mode
-            // InsertionMode::BeforeHtml => match_token!(token {
-            //     Token::Characters(SplitStatus::NotSplit, text) => ProcessResult::SplitWhitespace(text),
-            //     Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
-            //     Token::Comment(text) => self.append_comment_to_doc(text),
-
-            //     tag @ <html> => {
-            //         self.create_root(tag.attrs);
-            //         self.mode.set(InsertionMode::BeforeHead);
-            //         ProcessResult::Done
-            //     }
-
-            //     </head> </body> </html> </br> => else,
-
-            //     tag @ </_> => self.unexpected(&tag),
-
-            //     token => {
-            //         self.create_root(vec!());
-            //         ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
-            //     }
-            // }),
-
-            //§ the-before-html-insertion-mode
             InsertionMode::BeforeHtml => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -201,14 +121,13 @@ where
                 Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                 Token::Comment(text) => self.append_comment_to_doc(text),
 
-                // tag_token!(tag @ <"html"> | </"body">) => {
-                Token::Tag(tag @ tags!(<html> | </body>)) => {
+                Token::Tag(tag @ tag!(<html>)) => {
                     self.create_root(tag.attrs);
                     self.mode.set(InsertionMode::BeforeHead);
                     ProcessResult::Done
                 },
 
-                // any_end_tag_token!(tag) if !matches(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
+                // tag_token!(</>) if !matches(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
                 Token::Tag(tag @ tag!(</>)) if is_not_tag!(tag, </head> | </body> | </html> | </br>) => {
                     self.unexpected(&tag)
                 },
