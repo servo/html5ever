@@ -36,7 +36,6 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
-
 macro_rules! tag {
     // Any start tag
     (<>) => {
@@ -203,14 +202,14 @@ where
                 Token::Comment(text) => self.append_comment_to_doc(text),
 
                 // tag_token!(tag @ <"html"> | </"body">) => {
-                Token::Tag(tag @ tags!(<"html"> | </"body">)) => {
+                Token::Tag(tag @ tags!(<html> | </body>)) => {
                     self.create_root(tag.attrs);
                     self.mode.set(InsertionMode::BeforeHead);
                     ProcessResult::Done
                 },
 
                 // any_end_tag_token!(tag) if !matches(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
-                Token::Tag(tag @ tag!(</>)) if is_not_tag!(tag, </"head"> | </"body"> | </"html"> | </"br">) => {
+                Token::Tag(tag @ tag!(</>)) if is_not_tag!(tag, </head> | </body> | </html> | </br>) => {
                     self.unexpected(&tag)
                 },
 
