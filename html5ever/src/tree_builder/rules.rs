@@ -1375,14 +1375,19 @@ where
 
             // § parsing-main-inselectintable
             // TODO: not in spec?
-            InsertionMode::InSelectInTable => match_token!(token {
-                Token::Tag(tag!(<caption> | <table> | <tbody> | <tfoot> | <thead> | <tr> | <td> | <th>)) => {
+            InsertionMode::InSelectInTable => match token {
+                Token::Tag(
+                    tag!(<caption> | <table> | <tbody> | <tfoot> | <thead> | <tr> | <td> | <th>),
+                ) => {
                     self.unexpected(&token);
                     self.pop_until_named(local_name!("select"));
                     ProcessResult::Reprocess(self.reset_insertion_mode(), token)
-                }
+                },
 
-                Token::Tag(tag @ tag!(</caption> | </table> | </tbody> | </tfoot> | </thead> | </tr> | </td> | </th>)) => {
+                Token::Tag(
+                    tag @
+                    tag!(</caption> | </table> | </tbody> | </tfoot> | </thead> | </tr> | </td> | </th>),
+                ) => {
                     self.unexpected(&tag);
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_named(local_name!("select"));
@@ -1390,10 +1395,10 @@ where
                     } else {
                         ProcessResult::Done
                     }
-                }
+                },
 
                 token => self.step(InsertionMode::InSelect, token),
-            }),
+            },
 
             // § parsing-main-intemplate
             // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate>
