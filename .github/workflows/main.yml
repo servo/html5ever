@@ -75,6 +75,25 @@ jobs:
         with:
           cargo-command: clippy --all-features --all-targets
 
+  ensure-counter-styles-up-to-date:
+    name: Ensure counter styles up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python ./web_atoms/update_predefined_counter_styles.py
+          git update-index --really-refresh
+          if git diff-index --quiet HEAD
+          then
+            echo "Predefined counter styles are up to date"
+            exit 0
+          else
+            echo "Predefined counter styles are out of date"
+            echo "Run python ./web_atoms/update_predefined_counter_styles.py to update them"
+            exit 1
+          fi
+
+
   build_result:
     name: Result
     runs-on: ubuntu-latest
