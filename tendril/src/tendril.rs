@@ -1155,7 +1155,7 @@ where
                         self,
                         unsafe_slice(buf.data(), offset as usize, self.len32() as usize),
                     )
-                }
+                },
             }
         }
     }
@@ -1173,7 +1173,7 @@ where
                     let (mut buf, _, offset) = self.assume_buf();
                     let len = self.len32() as usize;
                     copy_lifetime_mut(self, unsafe_slice_mut(buf.data_mut(), offset as usize, len))
-                }
+                },
             }
         }
     }
@@ -1301,10 +1301,10 @@ where
                         if let Some((n, _)) = iter.next() {
                             skip = n as u32;
                         }
-                    }
+                    },
                     None => {
                         next_char = None;
-                    }
+                    },
                 }
             }
 
@@ -1346,7 +1346,7 @@ where
                 let t = self.clone();
                 self.clear();
                 Some((t, class))
-            }
+            },
         }
     }
 
@@ -1400,13 +1400,13 @@ where
                 Ok(0) => {
                     ret = Ok(len - start_len);
                     break;
-                }
+                },
                 Ok(n) => len += n,
-                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {},
                 Err(e) => {
                     ret = Err(e);
                     break;
-                }
+                },
             }
         }
 
@@ -1999,7 +1999,7 @@ mod test {
                     let (rt, rc) = res.unwrap();
                     assert_eq!(es, &*rt);
                     assert_eq!(ec, rc);
-                }
+                },
             }
         }
     }

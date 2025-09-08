@@ -39,7 +39,7 @@ fn fuzz() {
                 buf_string.push_str(snip);
                 buf_tendril.push_slice(snip);
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             16..=31 => {
                 let (start, end) = random_slice(&mut rng, &buf_string);
@@ -47,21 +47,21 @@ fn fuzz() {
                 buf_string.push_str(&snip);
                 buf_tendril.push_slice(&snip);
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             32..=47 => {
                 let lenstr = format!("[length = {}]", buf_tendril.len());
                 buf_string.push_str(&lenstr);
                 buf_tendril.push_slice(&lenstr);
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             48..=63 => {
                 let n = random_boundary(&mut rng, &buf_string);
                 buf_tendril.pop_front(n as u32);
                 buf_string = buf_string[n..].to_owned();
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             64..=79 => {
                 let new_len = random_boundary(&mut rng, &buf_string);
@@ -69,27 +69,27 @@ fn fuzz() {
                 buf_string.truncate(new_len);
                 buf_tendril.pop_back(n as u32);
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             80..=90 => {
                 let (start, end) = random_slice(&mut rng, &buf_string);
                 buf_string = buf_string[start..end].to_owned();
                 buf_tendril = buf_tendril.subtendril(start as u32, (end - start) as u32);
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             91..=96 => {
                 let c = rng.gen();
                 buf_string.push(c);
                 assert!(buf_tendril.try_push_char(c).is_ok());
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             97 => {
                 buf_string.truncate(0);
                 buf_tendril.clear();
                 assert_eq!(&*buf_string, &*buf_tendril);
-            }
+            },
 
             _ => {
                 let (start, end) = random_slice(&mut rng, &buf_string);
@@ -100,7 +100,7 @@ fn fuzz() {
                     .iter()
                     .zip(tendril_slices.iter())
                     .all(|(s, t)| **s == **t));
-            }
+            },
         }
     }
 }

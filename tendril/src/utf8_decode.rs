@@ -27,7 +27,7 @@ where
                     debug_assert!(s.as_ptr() == self.as_ptr());
                     debug_assert!(s.len() == self.len());
                     Ok(())
-                }
+                },
                 Err(utf8::DecodeError::Invalid {
                     valid_prefix,
                     invalid_sequence,
@@ -39,7 +39,7 @@ where
                         valid_prefix.len(),
                         Err(valid_prefix.len() + invalid_sequence.len()),
                     ))
-                }
+                },
                 Err(utf8::DecodeError::Incomplete {
                     valid_prefix,
                     incomplete_suffix,
@@ -47,13 +47,13 @@ where
                     debug_assert!(valid_prefix.as_ptr() == self.as_ptr());
                     debug_assert!(valid_prefix.len() <= self.len());
                     Err((valid_prefix.len(), Ok(incomplete_suffix)))
-                }
+                },
             };
             match unborrowed_result {
                 Ok(()) => {
                     unsafe { push_utf8(self.reinterpret_without_validating()) }
                     return None;
-                }
+                },
                 Err((valid_len, and_then)) => {
                     if valid_len > 0 {
                         let subtendril = self.subtendril(0, valid_len as u32);
@@ -64,9 +64,9 @@ where
                         Err(offset) => {
                             push_utf8(Tendril::from_slice(utf8::REPLACEMENT_CHARACTER));
                             self.pop_front(offset as u32)
-                        }
+                        },
                     }
-                }
+                },
             }
         }
     }
@@ -90,7 +90,7 @@ impl IncompleteUtf8 {
                     result.unwrap_or(utf8::REPLACEMENT_CHARACTER),
                 ));
                 resume_at = input.len() - rest.len();
-            }
+            },
         }
         input.pop_front(resume_at as u32);
         Ok(input)

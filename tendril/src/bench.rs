@@ -20,10 +20,10 @@ fn index_words_string(input: &String) -> HashMap<char, Vec<String>> {
             Entry::Occupied(mut e) => {
                 let x: &mut Vec<String> = e.get_mut();
                 x.push(word);
-            }
+            },
             Entry::Vacant(e) => {
                 e.insert(vec![word]);
-            }
+            },
         }
     }
     index
@@ -39,10 +39,10 @@ fn index_words_tendril(input: &StrTendril) -> HashMap<char, Vec<StrTendril>> {
             Some((word, true)) => match index.entry(word.chars().next().unwrap()) {
                 Entry::Occupied(mut e) => {
                     e.get_mut().push(word);
-                }
+                },
                 Entry::Vacant(e) => {
                     e.insert(vec![word]);
-                }
+                },
             },
         }
     }
