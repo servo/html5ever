@@ -33,6 +33,20 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
+/// Helper macro that generates a [pattern](https://doc.rust-lang.org/reference/patterns.html) representing
+/// a [`Tag`] to make matching on [`Tag`]s less verbose.
+///
+/// This macro accepts 4 forms:
+///
+/// - `tag!(<div>)` where `div` can be any valid tag name. This matches a start tag where the tag name is "div".
+///   If the tag name contains characters other than [a-zA-Z0-9_] then it should be quoted a `<"div">`.
+/// - `tag!(</div>)` where `div` can be any valid tag name. This matches a end tag where the tag name is "div".
+///   If the tag name contains characters other than [a-zA-Z0-9_] then it should be quoted a `</"div">`.
+/// - `tag!(<>)`. This matches any start tag (regardless of tag name).
+/// - `tag!(</>)`. This matches any end tag (regardless of tag name).
+///
+/// Additionally any of the above can be freely combined with `|` to create an "or" match pattern.
+/// For example `tag!(<head> | </>)` will match a "head" start tag or any end tag.
 #[rustfmt::skip]
 macro_rules! tag {
     // Any start tag
