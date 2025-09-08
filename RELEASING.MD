@@ -11,6 +11,8 @@ published to crates.io.
 
 The **web_atoms** crate is on a separate cycle as it needs frequent releases but these rarely contain breaking changes.
 
+The **tendril** crate is on a separate cycle as it is a utility crate that is rarely updated.
+
 ## Making a release of **web_atoms**:
 
 - Bump the version in `web_atoms/Cargo.toml`
@@ -18,6 +20,13 @@ The **web_atoms** crate is on a separate cycle as it needs frequent releases but
    - If upgrading `phf` version the minor version should be bumped as this is breaking
 - Update the version **web_atoms** in the workspace `Cargo.toml`'s `[workspace.dependencies]` section to match
 - Publish the new version of **web_atoms**
+- Optionally: publish a new version of the other crates to match
+
+## Making a release of **tendril**:
+
+- Bump the version in `tendril/Cargo.toml`
+- Update the version **tendril** in the workspace `Cargo.toml`'s `[workspace.dependencies]` section to match
+- Publish the new version of **tendril**
 - Optionally: publish a new version of the other crates to match
 
 ## Making a release of all other crates
