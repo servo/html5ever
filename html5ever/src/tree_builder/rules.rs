@@ -9,8 +9,6 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
-#![allow(unused_macros)]
-
 use crate::interface::Quirks;
 use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
@@ -68,22 +66,6 @@ macro_rules! tag {
     };
     (</$tag:tt>|$($tail:tt)*) => {
         tag!(</$tag>) | tag!($($tail)*)
-    };
-}
-
-macro_rules! is_not_tag {
-    ($input:ident, $($tail:tt)*) => {
-        !matches!($input, tag!($($tail)*))
-    };
-}
-
-#[rustfmt::skip]
-macro_rules! tag_token {
-    ($id:ident @ $($tail:tt)*) => {
-        crate::tree_builder::types::Token::Tag($id @ ( tag!($($tail)*) ) )
-    };
-    ($($tail:tt)*) => {
-        crate::tree_builder::types::Token::Tag( tag!($($tail)*) )
     };
 }
 
