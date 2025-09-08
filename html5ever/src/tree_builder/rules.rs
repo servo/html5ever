@@ -120,57 +120,28 @@ where
             // § the-before-html-insertion-mode
             // <https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode>
             InsertionMode::BeforeHtml => {
-                // Anything else
                 let anything_else = |token: Token| {
-                    // Create an html element whose node document is the Document object. Append it to the Document object.
-                    // Put this element in the stack of open elements.
                     self.create_root(vec![]);
-                    // Switch the insertion mode to "before head", then reprocess the token.
                     ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
                 };
 
                 match token {
-                    // A comment token
-                    Token::Comment(text) => {
-                        // Insert a comment as the last child of the Document object.
-                        self.append_comment_to_doc(text)
-                    },
+                    Token::Comment(text) => self.append_comment_to_doc(text),
 
-                    // TODO: why this case? Internal html5ever detail?
                     Token::Characters(SplitStatus::NotSplit, text) => {
                         ProcessResult::SplitWhitespace(text)
                     },
 
-                    // A character token that is one of U+0009 CHARACTER TABULATION, U+000A LINE FEED (LF),
-                    // U+000C FORM FEED (FF), U+000D CARRIAGE RETURN (CR), or U+0020 SPACE
-                    Token::Characters(SplitStatus::Whitespace, _) => {
-                        // Ignore the token.
-                        ProcessResult::Done
-                    },
-
-                    // A start tag whose tag name is "html"
+                    Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                     Token::Tag(tag @ tag!(<html>)) => {
-                        // Create an element for the token in the HTML namespace, with the Document as the intended parent.
-                        // Append it to the Document object. Put this element in the stack of open elements.
                         self.create_root(tag.attrs);
-                        // Switch the insertion mode to "before head".
                         self.mode.set(InsertionMode::BeforeHead);
                         ProcessResult::Done
                     },
 
-                    // An end tag whose tag name is one of: "head", "body", "html", "br"
-                    Token::Tag(tag!(</head> | </body> | </html> | </br>)) => {
-                        // Act as described in the "anything else" entry below.
-                        anything_else(token)
-                    },
+                    Token::Tag(tag!(</head> | </body> | </html> | </br>)) => anything_else(token),
+                    Token::Tag(tag @ tag!(</>)) => self.unexpected(&tag),
 
-                    // Any other end tag
-                    Token::Tag(tag @ tag!(</>)) => {
-                        // Parse error. Ignore the token.
-                        self.unexpected(&tag)
-                    },
-
-                    // Anything else
                     token => anything_else(token),
                 }
             },
