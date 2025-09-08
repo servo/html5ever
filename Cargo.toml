@@ -29,7 +29,6 @@ html5ever = { version = "0.35.0", path = "html5ever" }
 encoding = "0.2"
 encoding_rs = "0.8.12"
 log = "0.4"
-mac = "0.1"
 new_debug_unreachable = "1.0.2"
 phf = "0.13"
 phf_codegen = "0.13"

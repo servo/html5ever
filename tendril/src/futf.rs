@@ -140,12 +140,6 @@ unsafe fn unsafe_slice<'a>(buf: &'a [u8], start: usize, new_len: usize) -> &'a [
     slice::from_raw_parts(buf.as_ptr().offset(start as isize), new_len)
 }
 
-macro_rules! otry {
-    ($x:expr) => {
-        unwrap_or_return!($x, None)
-    };
-}
-
 /// Describes the UTF-8 codepoint containing the byte at index `idx` within
 /// `buf`.
 ///
@@ -159,7 +153,7 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
 
     unsafe {
         let x = *buf.get_unchecked(idx);
-        match otry!(Byte::classify(x)) {
+        match Byte::classify(x)? {
             Byte::Ascii => Some(Codepoint {
                 bytes: unsafe_slice(buf, idx, 1),
                 rewind: 0,
@@ -172,7 +166,7 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                     if !all_cont(unsafe_slice(bytes, 1, n - 1)) {
                         return None;
                     }
-                    let meaning = otry!(decode(bytes));
+                    let meaning = decode(bytes)?;
                     Some(Codepoint {
                         bytes: bytes,
                         rewind: 0,
@@ -201,7 +195,7 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
 
                     start -= 1;
                     checked += 1;
-                    match otry!(Byte::classify(*buf.get_unchecked(start))) {
+                    match Byte::classify(*buf.get_unchecked(start))? {
                         Byte::Cont => (),
                         Byte::Start(n) => {
                             let avail = buf.len() - start;
@@ -212,7 +206,7 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                                         return None;
                                     }
                                 }
-                                let meaning = otry!(decode(bytes));
+                                let meaning = decode(bytes)?;
                                 return Some(Codepoint {
                                     bytes: bytes,
                                     rewind: idx - start,

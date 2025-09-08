@@ -39,8 +39,6 @@ extern crate debug_unreachable;
 pub extern crate encoding;
 #[cfg(feature = "encoding_rs")]
 pub extern crate encoding_rs;
-#[macro_use]
-extern crate mac;
 extern crate utf8;
 
 pub use fmt::Format;

@@ -1331,7 +1331,7 @@ where
         let (class, first_mismatch);
         {
             let mut chars = unsafe { F::char_indices(self.as_byte_slice()) };
-            let (_, first) = unwrap_or_return!(chars.next(), None);
+            let (_, first) = chars.next()?;
             class = classify(first);
             first_mismatch = chars.find(|&(_, ch)| &classify(ch) != &class);
         }
