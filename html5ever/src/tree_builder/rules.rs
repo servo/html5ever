@@ -23,7 +23,6 @@ use markup5ever::{expanded_name, local_name, ns};
 use std::borrow::Cow::Borrowed;
 
 use crate::tendril::SliceExt;
-use match_token::match_token;
 
 fn any_not_whitespace(x: &StrTendril) -> bool {
     // FIXME: this might be much faster as a byte scan
