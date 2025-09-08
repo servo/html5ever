@@ -30,8 +30,8 @@ proc-macro2 = "1"
 log = "0.4"
 mac = "0.1"
 tendril = "0.4"
-string_cache = { git = "https://github.com/servo/string-cache", rev = "d142c1bc7dec456a952f6df5e238a69cd5a22823" }
-string_cache_codegen = {  git = "https://github.com/servo/string-cache", rev = "d142c1bc7dec456a952f6df5e238a69cd5a22823" }
+string_cache = "0.9.0"
+string_cache_codegen = "0.6.1"
 phf = "0.13"
 phf_codegen = "0.13"
 
