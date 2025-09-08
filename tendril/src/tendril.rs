@@ -1655,10 +1655,6 @@ where
     }
 }
 
-#[cfg(all(test, feature = "bench"))]
-#[path = "bench.rs"]
-mod bench;
-
 #[cfg(test)]
 mod test {
     use super::{

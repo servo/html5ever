@@ -22,6 +22,15 @@ utf-8 = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
+criterion = { workspace = true }
+tendril = { workspace = true }
 
-[features]
-bench = []
+[[bench]]
+name = "futf"
+harness = false
+
+[[bench]]
+name = "tendril"
+harness = false
+
+

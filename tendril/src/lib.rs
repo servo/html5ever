@@ -4,7 +4,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(all(test, feature = "bench"), feature(test))]
 //#![cfg_attr(test, deny(warnings))]
 #![allow(unnecessary_transmutes)]
 #![allow(bare_trait_objects)]
@@ -40,8 +39,6 @@ extern crate debug_unreachable;
 pub extern crate encoding;
 #[cfg(feature = "encoding_rs")]
 pub extern crate encoding_rs;
-#[cfg(all(test, feature = "bench"))]
-extern crate test;
 #[macro_use]
 extern crate mac;
 extern crate utf8;
@@ -56,9 +53,12 @@ pub mod fmt;
 pub mod stream;
 
 mod buf32;
-mod futf;
 mod tendril;
 mod utf8_decode;
 mod util;
+
+// Exposed for benchmarking purposes only
+#[doc(hidden)]
+pub mod futf;
 
 static OFLOW: &'static str = "tendril: overflow in buffer arithmetic";
