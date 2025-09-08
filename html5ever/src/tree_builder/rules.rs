@@ -90,13 +90,13 @@ where
 {
     /// Process an HTML content token
     ///
-    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml>
+    /// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml
     pub(crate) fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
             // § The "initial" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode>
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
             InsertionMode::Initial => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -113,7 +113,7 @@ where
             },
 
             // § The "before html" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode>
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
             InsertionMode::BeforeHtml => {
                 let anything_else = |token: Token| {
                     self.create_root(vec![]);
@@ -142,7 +142,7 @@ where
             },
 
             // § The "before head" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode>
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode
             InsertionMode::BeforeHead => {
                 let anything_else = |token: Token| {
                     *self.head_elem.borrow_mut() = Some(self.insert_phantom(local_name!("head")));
@@ -172,7 +172,7 @@ where
             },
 
             // § The "in head" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
             InsertionMode::InHead => {
                 let anything_else = |token: Token| {
                     self.pop();
@@ -288,7 +288,7 @@ where
             },
 
             // § The "in head noscript" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inheadnoscript>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inheadnoscript
             InsertionMode::InHeadNoscript => {
                 let anything_else = |token: Token| {
                     self.unexpected(&token);
@@ -326,7 +326,7 @@ where
             },
 
             // § The "after head" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode>
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode
             InsertionMode::AfterHead => {
                 let anything_else = |token: Token| {
                     self.insert_phantom(local_name!("body"));
@@ -384,7 +384,7 @@ where
             },
 
             // § The "in body" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
             InsertionMode::InBody => match token {
                 Token::NullCharacter => self.unexpected(&token),
 
@@ -891,7 +891,7 @@ where
             },
 
             // § The "text" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
             InsertionMode::Text => match token {
                 Token::Characters(_, text) => self.append_text(text),
 
@@ -921,7 +921,7 @@ where
             },
 
             // § The "in table" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable
             InsertionMode::InTable => match token {
                 Token::NullCharacter | Token::Characters(..) => self.process_chars_in_table(token),
 
@@ -1021,7 +1021,7 @@ where
             },
 
             // § The "in table text" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intabletext>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intabletext
             InsertionMode::InTableText => match token {
                 Token::NullCharacter => self.unexpected(&token),
 
@@ -1057,7 +1057,7 @@ where
             },
 
             // § The "in caption" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incaption>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incaption
             InsertionMode::InCaption => match token {
                 Token::Tag(
                     tag @ tag!(<caption> | <col> | <colgroup> | <tbody> | <td> | <tfoot> |
@@ -1093,7 +1093,7 @@ where
             },
 
             // § The "in column group" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incolgroup>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incolgroup
             InsertionMode::InColumnGroup => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -1137,7 +1137,7 @@ where
             },
 
             // § The "in table body" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
             InsertionMode::InTableBody => match token {
                 Token::Tag(tag @ tag!(<tr>)) => {
                     self.pop_until_current(table_body_context);
@@ -1185,7 +1185,7 @@ where
             },
 
             // § The "in row" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intr>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intr
             InsertionMode::InRow => match token {
                 Token::Tag(tag @ tag!(<th> | <td>)) => {
                     self.pop_until_current(table_row_context);
@@ -1245,7 +1245,7 @@ where
             },
 
             // § The "in cell" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intd>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intd
             InsertionMode::InCell => match token {
                 Token::Tag(tag @ tag!(</td> | </th>)) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
@@ -1414,7 +1414,7 @@ where
             },
 
             // § The "in template" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate
             InsertionMode::InTemplate => match token {
                 Token::Characters(_, _) => self.step(InsertionMode::InBody, token),
                 Token::Comment(_) => self.step(InsertionMode::InBody, token),
@@ -1477,7 +1477,7 @@ where
             },
 
             // § The "after body" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody
             InsertionMode::AfterBody => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -1507,7 +1507,7 @@ where
             },
 
             // § The "in frameset" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inframeset>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inframeset
             InsertionMode::InFrameset => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -1576,7 +1576,7 @@ where
             },
 
             // § The "after after body" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
             InsertionMode::AfterAfterBody => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -1597,7 +1597,7 @@ where
             },
 
             // § The "after after frameset" insertion mode
-            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset>
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
             InsertionMode::AfterAfterFrameset => match token {
                 Token::Characters(SplitStatus::NotSplit, text) => {
                     ProcessResult::SplitWhitespace(text)
@@ -1619,7 +1619,7 @@ where
     }
 
     /// § The rules for parsing tokens in foreign content
-    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset>
+    /// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
     pub(crate) fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
         match token {
             Token::NullCharacter => {
