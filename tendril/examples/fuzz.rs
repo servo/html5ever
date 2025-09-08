@@ -7,6 +7,9 @@
 //! A simple fuzz tester for the library.
 
 #![deny(warnings)]
+#![allow(clippy::redundant_static_lifetimes)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::borrow_deref_ref)]
 
 extern crate rand;
 extern crate tendril;
