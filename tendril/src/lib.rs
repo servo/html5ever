@@ -15,7 +15,6 @@
 #![allow(clippy::transmute_bytes_to_str)]
 #![allow(clippy::unusual_byte_groupings)]
 #![allow(clippy::mutable_key_type)]
-#![allow(clippy::manual_repeat_n)]
 
 #[macro_use]
 extern crate debug_unreachable;
