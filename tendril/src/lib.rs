@@ -5,7 +5,6 @@
 // except according to those terms.
 
 //#![cfg_attr(test, deny(warnings))]
-#![allow(unnecessary_transmutes)]
 #![allow(bare_trait_objects)]
 #![allow(clippy::ptr_offset_with_cast)]
 #![allow(clippy::needless_lifetimes)]

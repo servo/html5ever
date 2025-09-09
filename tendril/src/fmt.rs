@@ -30,7 +30,7 @@ use futf::{self, Codepoint, Meaning};
 /// a new format.
 pub mod imp {
     use std::default::Default;
-    use std::{iter, mem, slice};
+    use std::{iter, slice};
 
     /// Describes how to fix up encodings when concatenating.
     ///
@@ -55,11 +55,6 @@ pub mod imp {
         }
     }
 
-    #[inline(always)]
-    unsafe fn from_u32_unchecked(n: u32) -> char {
-        mem::transmute(n)
-    }
-
     pub struct SingleByteCharIndices<'a> {
         inner: iter::Enumerate<slice::Iter<'a, u8>>,
     }
@@ -71,7 +66,7 @@ pub mod imp {
         fn next(&mut self) -> Option<(usize, char)> {
             self.inner
                 .next()
-                .map(|(i, &b)| unsafe { (i, from_u32_unchecked(b as u32)) })
+                .map(|(i, &b)| unsafe { (i, char::from_u32_unchecked(b as u32)) })
         }
     }
 
