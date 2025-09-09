@@ -153,10 +153,6 @@ pub enum XmlState {
     /// Indicates that the parser is currently parsing an ill-formed comment, such as
     /// `<? this is not what a comment should look like! >`.
     BogusComment,
-    /// Interrupts the tokenizer for one single call to `step`.
-    ///
-    /// It is unclear whether this is still necessary ([#649](https://github.com/servo/html5ever/issues/649)).
-    Quiescent,
 }
 
 /// Specifies how an attribute value is quoted, if at all.

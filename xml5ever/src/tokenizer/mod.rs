@@ -667,10 +667,6 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
         debug!("processing in state {:?}", self.state);
         match self.state.get() {
-            XmlState::Quiescent => {
-                self.state.set(XmlState::Data);
-                ProcessResult::Done
-            },
             //§ data-state
             XmlState::Data => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '&' '<')) {
@@ -1163,7 +1159,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     fn eof_step(&self) -> ProcessResult<Sink::Handle> {
         debug!("processing EOF in state {:?}", self.state.get());
         match self.state.get() {
-            XmlState::Data | XmlState::Quiescent => go!(self: eof),
+            XmlState::Data => go!(self: eof),
             XmlState::CommentStart | XmlState::CommentLessThan | XmlState::CommentLessThanBang => {
                 go!(self: reconsume Comment)
             },
