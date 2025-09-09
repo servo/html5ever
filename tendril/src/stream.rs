@@ -273,7 +273,7 @@ where
 {
     Utf8(Utf8LossyDecoder<Sink, A>),
     #[cfg(feature = "encoding")]
-    Encoding(Box<encoding::RawDecoder>, Sink),
+    Encoding(Box<dyn encoding::RawDecoder>, Sink),
     #[cfg(feature = "encoding_rs")]
     EncodingRs(encoding_rs::Decoder, Sink),
 }
