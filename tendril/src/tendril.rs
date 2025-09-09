@@ -1476,7 +1476,7 @@ where
         trap: DecoderTrap,
     ) -> Result<Tendril<fmt::UTF8, A>, ::std::borrow::Cow<'static, str>> {
         let mut ret = Tendril::new();
-        encoding.decode_to(&*self, trap, &mut ret).map(|_| ret)
+        encoding.decode_to(self, trap, &mut ret).map(|_| ret)
     }
 
     /// Push "uninitialized bytes" onto the end.
@@ -1566,7 +1566,7 @@ where
         trap: EncoderTrap,
     ) -> Result<Tendril<fmt::Bytes, A>, ::std::borrow::Cow<'static, str>> {
         let mut ret = Tendril::new();
-        encoding.encode_to(&*self, trap, &mut ret).map(|_| ret)
+        encoding.encode_to(self, trap, &mut ret).map(|_| ret)
     }
 
     /// Push a character onto the end.
