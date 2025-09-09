@@ -960,9 +960,7 @@ where
         } else {
             self.make_owned_with_capacity(new_len);
             let (owned, _, _) = self.assume_buf();
-            let mut dest = owned
-                .data_ptr()
-                .offset((owned.len as usize - drop_left) as isize);
+            let mut dest = owned.data_ptr().add(owned.len as usize - drop_left);
             copy_and_advance(
                 &mut dest,
                 unsafe_slice(&insert_bytes, 0, insert_len as usize),

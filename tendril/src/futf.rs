@@ -137,7 +137,7 @@ unsafe fn decode(buf: &[u8]) -> Option<Meaning> {
 unsafe fn unsafe_slice(buf: &[u8], start: usize, new_len: usize) -> &[u8] {
     debug_assert!(start <= buf.len());
     debug_assert!(new_len <= (buf.len() - start));
-    slice::from_raw_parts(buf.as_ptr().offset(start as isize), new_len)
+    slice::from_raw_parts(buf.as_ptr().add(start), new_len)
 }
 
 /// Describes the UTF-8 codepoint containing the byte at index `idx` within

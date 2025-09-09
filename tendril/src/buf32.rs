@@ -57,7 +57,7 @@ impl<H> Buf32<H> {
 
     #[inline(always)]
     pub unsafe fn data_ptr(&self) -> *mut u8 {
-        (self.ptr as *mut u8).offset(mem::size_of::<H>() as isize)
+        (self.ptr as *mut u8).add(mem::size_of::<H>())
     }
 
     #[inline(always)]
