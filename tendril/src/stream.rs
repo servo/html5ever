@@ -352,7 +352,7 @@ where
     #[inline]
     fn process(&mut self, t: Tendril<fmt::Bytes, A>) {
         match self.inner {
-            LossyDecoderInner::Utf8(ref mut utf8) => return utf8.process(t),
+            LossyDecoderInner::Utf8(ref mut utf8) => utf8.process(t),
             #[cfg(feature = "encoding")]
             LossyDecoderInner::Encoding(ref mut decoder, ref mut sink) => {
                 let mut out = Tendril::new();
@@ -399,7 +399,7 @@ where
     #[inline]
     fn finish(self) -> Sink::Output {
         match self.inner {
-            LossyDecoderInner::Utf8(utf8) => return utf8.finish(),
+            LossyDecoderInner::Utf8(utf8) => utf8.finish(),
             #[cfg(feature = "encoding")]
             LossyDecoderInner::Encoding(mut decoder, mut sink) => {
                 let mut out = Tendril::new();
