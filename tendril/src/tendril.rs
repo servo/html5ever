@@ -15,7 +15,7 @@ use std::num::NonZeroUsize;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::atomic::{self, AtomicUsize};
-use std::{hash, io, mem, ptr, str, u32};
+use std::{hash, io, mem, ptr, str};
 
 #[cfg(feature = "encoding")]
 use encoding::{self, DecoderTrap, EncoderTrap, EncodingRef};

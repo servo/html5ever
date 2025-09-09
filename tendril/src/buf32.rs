@@ -6,7 +6,7 @@
 
 //! Provides an unsafe owned buffer type, used in implementing `Tendril`.
 
-use std::{mem, ptr, slice, u32};
+use std::{mem, ptr, slice};
 
 use OFLOW;
 

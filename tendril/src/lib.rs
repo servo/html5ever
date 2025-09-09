@@ -14,7 +14,6 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::missing_transmute_annotations)]
 #![allow(clippy::partialeq_ne_impl)]
-#![allow(clippy::legacy_numeric_constants)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::len_zero)]
