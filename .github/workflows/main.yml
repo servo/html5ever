@@ -34,6 +34,10 @@ jobs:
         if: matrix.version != 'nightly'
         run: cargo test --all
 
+      - name: Test tendril w/encoding feature
+        if: matrix.version != 'nightly'
+        run: cargo test -p tendril --features 'encoding encoding_rs'
+
       - name: Cargo doc
         if: matrix.version == 'nightly'
         run: cargo doc
