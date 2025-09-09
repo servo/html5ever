@@ -1144,7 +1144,7 @@ where
     }
 
     #[inline]
-    fn as_byte_slice<'a>(&'a self) -> &'a [u8] {
+    fn as_byte_slice(&self) -> &[u8] {
         unsafe {
             match self.ptr.get().get() {
                 EMPTY_TAG => &[],
@@ -1163,7 +1163,7 @@ where
     // There's no need to worry about locking on an atomic Tendril, because it makes it unique as
     // soon as you do that.
     #[inline]
-    fn as_mut_byte_slice<'a>(&'a mut self) -> &'a mut [u8] {
+    fn as_mut_byte_slice(&mut self) -> &mut [u8] {
         unsafe {
             match self.ptr.get().get() {
                 EMPTY_TAG => &mut [],
@@ -1283,7 +1283,7 @@ where
 {
     /// Remove and return the first character, if any.
     #[inline]
-    pub fn pop_front_char<'a>(&'a mut self) -> Option<char> {
+    pub fn pop_front_char(&mut self) -> Option<char> {
         unsafe {
             let next_char; // first char in iterator
             let mut skip = 0; // number of bytes to skip, or 0 to clear
@@ -1323,7 +1323,7 @@ where
     ///
     /// Returns `None` on an empty string.
     #[inline]
-    pub fn pop_front_char_run<'a, C, R>(&'a mut self, mut classify: C) -> Option<(Tendril<F, A>, R)>
+    pub fn pop_front_char_run<C, R>(&mut self, mut classify: C) -> Option<(Tendril<F, A>, R)>
     where
         C: FnMut(char) -> R,
         R: PartialEq,
@@ -1603,7 +1603,7 @@ macro_rules! format_tendril {
     ($($arg:tt)*) => ($crate::StrTendril::format(format_args!($($arg)*)))
 }
 
-impl<'a, F, A> From<&'a F::Slice> for Tendril<F, A>
+impl<F, A> From<&F::Slice> for Tendril<F, A>
 where
     F: fmt::SliceFormat,
     A: Atomicity,

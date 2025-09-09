@@ -6,7 +6,6 @@
 
 //#![cfg_attr(test, deny(warnings))]
 #![allow(clippy::ptr_offset_with_cast)]
-#![allow(clippy::needless_lifetimes)]
 #![allow(clippy::needless_late_init)]
 #![allow(clippy::explicit_auto_deref)]
 #![allow(clippy::result_unit_err)]

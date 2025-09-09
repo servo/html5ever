@@ -134,7 +134,7 @@ unsafe fn decode(buf: &[u8]) -> Option<Meaning> {
 }
 
 #[inline(always)]
-unsafe fn unsafe_slice<'a>(buf: &'a [u8], start: usize, new_len: usize) -> &'a [u8] {
+unsafe fn unsafe_slice(buf: &[u8], start: usize, new_len: usize) -> &[u8] {
     debug_assert!(start <= buf.len());
     debug_assert!(new_len <= (buf.len() - start));
     slice::from_raw_parts(buf.as_ptr().offset(start as isize), new_len)
