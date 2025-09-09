@@ -1333,7 +1333,7 @@ where
             let mut chars = unsafe { F::char_indices(self.as_byte_slice()) };
             let (_, first) = chars.next()?;
             class = classify(first);
-            first_mismatch = chars.find(|&(_, ch)| &classify(ch) != &class);
+            first_mismatch = chars.find(|&(_, ch)| classify(ch) != class);
         }
 
         match first_mismatch {

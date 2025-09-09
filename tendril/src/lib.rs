@@ -7,7 +7,6 @@
 //#![cfg_attr(test, deny(warnings))]
 #![allow(clippy::ptr_offset_with_cast)]
 #![allow(clippy::result_unit_err)]
-#![allow(clippy::op_ref)]
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::missing_transmute_annotations)]
 #![allow(clippy::partialeq_ne_impl)]
