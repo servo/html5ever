@@ -16,7 +16,6 @@
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::transmute_bytes_to_str)]
 #![allow(clippy::redundant_static_lifetimes)]
-#![allow(clippy::redundant_field_names)]
 #![allow(clippy::unusual_byte_groupings)]
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::manual_repeat_n)]

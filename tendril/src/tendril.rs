@@ -1087,7 +1087,7 @@ where
             Buf32 {
                 ptr: header,
                 len: offset + self.len32(),
-                cap: cap,
+                cap,
             },
             shared,
             offset,

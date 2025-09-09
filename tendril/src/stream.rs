@@ -139,7 +139,7 @@ where
     #[inline]
     pub fn new(inner_sink: Sink) -> Self {
         Utf8LossyDecoder {
-            inner_sink: inner_sink,
+            inner_sink,
             incomplete: None,
             marker: PhantomData,
         }

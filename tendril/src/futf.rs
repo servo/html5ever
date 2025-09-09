@@ -168,9 +168,9 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                     }
                     let meaning = decode(bytes)?;
                     Some(Codepoint {
-                        bytes: bytes,
+                        bytes,
                         rewind: 0,
-                        meaning: meaning,
+                        meaning,
                     })
                 } else {
                     Some(Codepoint {
@@ -208,9 +208,9 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                                 }
                                 let meaning = decode(bytes)?;
                                 return Some(Codepoint {
-                                    bytes: bytes,
+                                    bytes,
                                     rewind: idx - start,
-                                    meaning: meaning,
+                                    meaning,
                                 });
                             } else {
                                 return Some(Codepoint {

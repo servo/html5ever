@@ -43,11 +43,7 @@ impl<H> Buf32<H> {
         mem::forget(vec);
         ptr::write(ptr, h);
 
-        Buf32 {
-            ptr: ptr,
-            len: 0,
-            cap: cap,
-        }
+        Buf32 { ptr, len: 0, cap }
     }
 
     #[inline]
