@@ -29,7 +29,6 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::manual_repeat_n)]
 #![allow(clippy::map_clone)]
-#![allow(clippy::useless_conversion)]
 
 #[macro_use]
 extern crate debug_unreachable;

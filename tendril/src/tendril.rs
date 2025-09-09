@@ -2279,7 +2279,7 @@ mod test {
 
         // Tendril<F>
         let mut t = "Hello".to_tendril();
-        t.extend(None::<&Tendril<_>>.into_iter());
+        t.extend(None::<&Tendril<_>>);
         assert_eq!("Hello", &*t);
         t.extend(&[", ".to_tendril(), "world".to_tendril(), "!".to_tendril()]);
         assert_eq!("Hello, world!", &*t);
@@ -2297,7 +2297,7 @@ mod test {
 
         // &str
         let mut t = "Hello".to_tendril();
-        t.extend(None::<&str>.into_iter());
+        t.extend(None::<&str>);
         assert_eq!("Hello", &*t);
         t.extend([", ", "world", "!"].iter().map(|&s| s));
         assert_eq!("Hello, world!", &*t);
@@ -2311,7 +2311,7 @@ mod test {
 
         // &[u8]
         let mut t = b"Hello".to_tendril();
-        t.extend(None::<&[u8]>.into_iter());
+        t.extend(None::<&[u8]>);
         assert_eq!(b"Hello", &*t);
         t.extend(
             [b", ".as_ref(), b"world".as_ref(), b"!".as_ref()]
