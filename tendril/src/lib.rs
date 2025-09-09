@@ -15,7 +15,6 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::transmute_bytes_to_str)]
-#![allow(clippy::match_like_matches_macro)]
 #![allow(clippy::redundant_static_lifetimes)]
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::unusual_byte_groupings)]

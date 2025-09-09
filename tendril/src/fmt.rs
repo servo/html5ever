@@ -291,13 +291,13 @@ unsafe impl Format for UTF8 {
         if buf.is_empty() {
             return true;
         }
-        match futf::classify(buf, buf.len() - 1) {
+        matches!(
+            futf::classify(buf, buf.len() - 1),
             Some(Codepoint {
                 meaning: Meaning::Whole(_),
                 ..
-            }) => true,
-            _ => false,
-        }
+            })
+        )
     }
 
     #[inline]
@@ -305,13 +305,13 @@ unsafe impl Format for UTF8 {
         if buf.is_empty() {
             return true;
         }
-        match futf::classify(buf, 0) {
+        matches!(
+            futf::classify(buf, 0),
             Some(Codepoint {
                 meaning: Meaning::Whole(_),
                 ..
-            }) => true,
-            _ => false,
-        }
+            })
+        )
     }
 
     #[inline]
@@ -369,10 +369,10 @@ pub struct WTF8;
 
 #[inline]
 fn wtf8_meaningful(m: Meaning) -> bool {
-    match m {
-        Meaning::Whole(_) | Meaning::LeadSurrogate(_) | Meaning::TrailSurrogate(_) => true,
-        _ => false,
-    }
+    matches!(
+        m,
+        Meaning::Whole(_) | Meaning::LeadSurrogate(_) | Meaning::TrailSurrogate(_)
+    )
 }
 
 unsafe impl Format for WTF8 {
