@@ -4,9 +4,6 @@
 // // option. This file may not be copied, modified, or distributed
 // // except according to those terms.
 
-// use std::borrow::ToOwned;
-// use std::collections::hash_map::{Entry, HashMap};
-
 #![allow(clippy::manual_pattern_char_comparison)]
 
 extern crate criterion;
