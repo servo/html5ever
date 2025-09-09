@@ -22,7 +22,7 @@ use encoding::{self, DecoderTrap, EncoderTrap, EncodingRef};
 
 use crate::buf32::{self, Buf32};
 use crate::fmt::imp::Fixup;
-use crate::fmt::{self, Slice};
+use crate::fmt::{self, Slice, ASCII, UTF8};
 use crate::util::{
     copy_and_advance, copy_lifetime, copy_lifetime_mut, unsafe_slice, unsafe_slice_mut,
 };
@@ -465,6 +465,20 @@ where
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_byte_slice() == other.as_byte_slice()
+    }
+}
+
+impl<A: Atomicity> PartialEq<str> for Tendril<ASCII, A> {
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        self.as_byte_slice() == other.as_bytes()
+    }
+}
+
+impl<A: Atomicity> PartialEq<str> for Tendril<UTF8, A> {
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        self.as_byte_slice() == other.as_bytes()
     }
 }
 
@@ -2333,19 +2347,22 @@ mod test {
         let bytes_expected = bytes.to_tendril();
 
         // char
-        assert_eq!(string_expected, string.chars().collect());
+        assert_eq!(string_expected, string.chars().collect::<Tendril<_>>());
         let mut tendril = StrTendril::new();
         tendril.extend(string.chars());
         assert_eq!(string_expected, tendril);
 
         // &u8
-        assert_eq!(bytes_expected, bytes.iter().collect());
+        assert_eq!(bytes_expected, bytes.iter().collect::<Tendril<_>>());
         let mut tendril = ByteTendril::new();
         tendril.extend(bytes);
         assert_eq!(bytes_expected, tendril);
 
         // u8
-        assert_eq!(bytes_expected, bytes.iter().copied().collect());
+        assert_eq!(
+            bytes_expected,
+            bytes.iter().copied().collect::<Tendril<_>>()
+        );
         let mut tendril = ByteTendril::new();
         tendril.extend(bytes.iter().copied());
         assert_eq!(bytes_expected, tendril);
