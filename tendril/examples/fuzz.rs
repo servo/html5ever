@@ -7,12 +7,6 @@
 //! A simple fuzz tester for the library.
 
 #![deny(warnings)]
-#![allow(clippy::redundant_static_lifetimes)]
-#![allow(clippy::needless_borrow)]
-#![allow(clippy::borrow_deref_ref)]
-
-extern crate rand;
-extern crate tendril;
 
 use std::borrow::ToOwned;
 
@@ -48,8 +42,8 @@ fn fuzz() {
             16..=31 => {
                 let (start, end) = random_slice(&mut rng, &buf_string);
                 let snip = &buf_string[start..end].to_owned();
-                buf_string.push_str(&snip);
-                buf_tendril.push_slice(&snip);
+                buf_string.push_str(snip);
+                buf_tendril.push_slice(snip);
                 assert_eq!(&*buf_string, &*buf_tendril);
             },
 
@@ -132,8 +126,7 @@ fn random_slice<R: Rng>(rng: &mut R, text: &str) -> (usize, usize) {
     }
 }
 
-static TEXT: &'static str =
-    "It was from the artists and poets that the pertinent answers came, and I \
+static TEXT: &str = "It was from the artists and poets that the pertinent answers came, and I \
      know that panic would have broken loose had they been able to compare notes. \
      As it was, lacking their original letters, I half suspected the compiler of \
      having asked leading questions, or of having edited the correspondence in \

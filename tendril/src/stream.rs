@@ -6,8 +6,8 @@
 
 //! Streams of tendrils.
 
-use fmt;
-use tendril::{Atomicity, NonAtomic, Tendril};
+use crate::fmt;
+use crate::{Atomicity, NonAtomic, Tendril};
 
 use std::borrow::Cow;
 use std::fs::File;
@@ -139,7 +139,7 @@ where
     #[inline]
     pub fn new(inner_sink: Sink) -> Self {
         Utf8LossyDecoder {
-            inner_sink: inner_sink,
+            inner_sink,
             incomplete: None,
             marker: PhantomData,
         }
@@ -273,7 +273,7 @@ where
 {
     Utf8(Utf8LossyDecoder<Sink, A>),
     #[cfg(feature = "encoding")]
-    Encoding(Box<encoding::RawDecoder>, Sink),
+    Encoding(Box<dyn encoding::RawDecoder>, Sink),
     #[cfg(feature = "encoding_rs")]
     EncodingRs(encoding_rs::Decoder, Sink),
 }
@@ -352,24 +352,19 @@ where
     #[inline]
     fn process(&mut self, t: Tendril<fmt::Bytes, A>) {
         match self.inner {
-            LossyDecoderInner::Utf8(ref mut utf8) => return utf8.process(t),
+            LossyDecoderInner::Utf8(ref mut utf8) => utf8.process(t),
             #[cfg(feature = "encoding")]
             LossyDecoderInner::Encoding(ref mut decoder, ref mut sink) => {
                 let mut out = Tendril::new();
                 let mut t = t;
-                loop {
-                    match decoder.raw_feed(&*t, &mut out) {
-                        (_, Some(err)) => {
-                            out.push_char('\u{fffd}');
-                            sink.error(err.cause);
-                            debug_assert!(err.upto >= 0);
-                            t.pop_front(err.upto as u32);
-                            // continue loop and process remainder of t
-                        },
-                        (_, None) => break,
-                    }
+                while let (_, Some(err)) = decoder.raw_feed(&t, &mut out) {
+                    out.push_char('\u{fffd}');
+                    sink.error(err.cause);
+                    debug_assert!(err.upto >= 0);
+                    t.pop_front(err.upto as u32);
+                    // continue loop and process remainder of t
                 }
-                if out.len() > 0 {
+                if !out.is_empty() {
                     sink.process(out);
                 }
             },
@@ -399,7 +394,7 @@ where
     #[inline]
     fn finish(self) -> Sink::Output {
         match self.inner {
-            LossyDecoderInner::Utf8(utf8) => return utf8.finish(),
+            LossyDecoderInner::Utf8(utf8) => utf8.finish(),
             #[cfg(feature = "encoding")]
             LossyDecoderInner::Encoding(mut decoder, mut sink) => {
                 let mut out = Tendril::new();
@@ -407,7 +402,7 @@ where
                     out.push_char('\u{fffd}');
                     sink.error(err.cause);
                 }
-                if out.len() > 0 {
+                if !out.is_empty() {
                     sink.process(out);
                 }
                 sink.finish()
@@ -465,14 +460,14 @@ fn decode_to_sink<Sink, A>(
 #[cfg(test)]
 mod test {
     use super::{TendrilSink, Utf8LossyDecoder};
-    use fmt;
+    use crate::fmt;
+    use crate::{Atomicity, NonAtomic, Tendril};
     use std::borrow::Cow;
-    use tendril::{Atomicity, NonAtomic, Tendril};
 
     #[cfg(any(feature = "encoding", feature = "encoding_rs"))]
     use super::LossyDecoder;
     #[cfg(any(feature = "encoding", feature = "encoding_rs"))]
-    use tendril::SliceExt;
+    use crate::SliceExt;
 
     #[cfg(feature = "encoding")]
     use encoding::all as enc;

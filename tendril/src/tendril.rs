@@ -15,16 +15,18 @@ use std::num::NonZeroUsize;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::atomic::{self, AtomicUsize};
-use std::{hash, io, mem, ptr, str, u32};
+use std::{hash, io, mem, ptr, str};
 
 #[cfg(feature = "encoding")]
 use encoding::{self, DecoderTrap, EncoderTrap, EncodingRef};
 
-use buf32::{self, Buf32};
-use fmt::imp::Fixup;
-use fmt::{self, Slice};
-use util::{copy_and_advance, copy_lifetime, copy_lifetime_mut, unsafe_slice, unsafe_slice_mut};
-use OFLOW;
+use crate::buf32::{self, Buf32};
+use crate::fmt::imp::Fixup;
+use crate::fmt::{self, Slice};
+use crate::util::{
+    copy_and_advance, copy_lifetime, copy_lifetime_mut, unsafe_slice, unsafe_slice_mut,
+};
+use crate::OFLOW;
 
 const MAX_INLINE_LEN: usize = 8;
 const MAX_INLINE_TAG: usize = 0xF;
@@ -463,11 +465,6 @@ where
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_byte_slice() == other.as_byte_slice()
-    }
-
-    #[inline]
-    fn ne(&self, other: &Self) -> bool {
-        self.as_byte_slice() != other.as_byte_slice()
     }
 }
 
@@ -960,9 +957,7 @@ where
         } else {
             self.make_owned_with_capacity(new_len);
             let (owned, _, _) = self.assume_buf();
-            let mut dest = owned
-                .data_ptr()
-                .offset((owned.len as usize - drop_left) as isize);
+            let mut dest = owned.data_ptr().add(owned.len as usize - drop_left);
             copy_and_advance(
                 &mut dest,
                 unsafe_slice(&insert_bytes, 0, insert_len as usize),
@@ -1087,7 +1082,7 @@ where
             Buf32 {
                 ptr: header,
                 len: offset + self.len32(),
-                cap: cap,
+                cap,
             },
             shared,
             offset,
@@ -1144,7 +1139,7 @@ where
     }
 
     #[inline]
-    fn as_byte_slice<'a>(&'a self) -> &'a [u8] {
+    fn as_byte_slice(&self) -> &[u8] {
         unsafe {
             match self.ptr.get().get() {
                 EMPTY_TAG => &[],
@@ -1163,7 +1158,7 @@ where
     // There's no need to worry about locking on an atomic Tendril, because it makes it unique as
     // soon as you do that.
     #[inline]
-    fn as_mut_byte_slice<'a>(&'a mut self) -> &'a mut [u8] {
+    fn as_mut_byte_slice(&mut self) -> &mut [u8] {
         unsafe {
             match self.ptr.get().get() {
                 EMPTY_TAG => &mut [],
@@ -1283,7 +1278,7 @@ where
 {
     /// Remove and return the first character, if any.
     #[inline]
-    pub fn pop_front_char<'a>(&'a mut self) -> Option<char> {
+    pub fn pop_front_char(&mut self) -> Option<char> {
         unsafe {
             let next_char; // first char in iterator
             let mut skip = 0; // number of bytes to skip, or 0 to clear
@@ -1323,7 +1318,7 @@ where
     ///
     /// Returns `None` on an empty string.
     #[inline]
-    pub fn pop_front_char_run<'a, C, R>(&'a mut self, mut classify: C) -> Option<(Tendril<F, A>, R)>
+    pub fn pop_front_char_run<C, R>(&mut self, mut classify: C) -> Option<(Tendril<F, A>, R)>
     where
         C: FnMut(char) -> R,
         R: PartialEq,
@@ -1333,7 +1328,7 @@ where
             let mut chars = unsafe { F::char_indices(self.as_byte_slice()) };
             let (_, first) = chars.next()?;
             class = classify(first);
-            first_mismatch = chars.find(|&(_, ch)| &classify(ch) != &class);
+            first_mismatch = chars.find(|&(_, ch)| classify(ch) != class);
         }
 
         match first_mismatch {
@@ -1476,7 +1471,7 @@ where
         trap: DecoderTrap,
     ) -> Result<Tendril<fmt::UTF8, A>, ::std::borrow::Cow<'static, str>> {
         let mut ret = Tendril::new();
-        encoding.decode_to(&*self, trap, &mut ret).map(|_| ret)
+        encoding.decode_to(self, trap, &mut ret).map(|_| ret)
     }
 
     /// Push "uninitialized bytes" onto the end.
@@ -1566,7 +1561,7 @@ where
         trap: EncoderTrap,
     ) -> Result<Tendril<fmt::Bytes, A>, ::std::borrow::Cow<'static, str>> {
         let mut ret = Tendril::new();
-        encoding.encode_to(&*self, trap, &mut ret).map(|_| ret)
+        encoding.encode_to(self, trap, &mut ret).map(|_| ret)
     }
 
     /// Push a character onto the end.
@@ -1603,7 +1598,7 @@ macro_rules! format_tendril {
     ($($arg:tt)*) => ($crate::StrTendril::format(format_args!($($arg)*)))
 }
 
-impl<'a, F, A> From<&'a F::Slice> for Tendril<F, A>
+impl<F, A> From<&F::Slice> for Tendril<F, A>
 where
     F: fmt::SliceFormat,
     A: Atomicity,
@@ -1631,7 +1626,7 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &F::Slice {
-        &**self
+        self
     }
 }
 
@@ -1660,7 +1655,7 @@ mod test {
     use super::{
         Atomic, ByteTendril, Header, NonAtomic, ReadExt, SendTendril, SliceExt, StrTendril, Tendril,
     };
-    use fmt;
+    use crate::fmt;
     use std::iter;
     use std::thread;
 
@@ -2279,7 +2274,7 @@ mod test {
 
         // Tendril<F>
         let mut t = "Hello".to_tendril();
-        t.extend(None::<&Tendril<_>>.into_iter());
+        t.extend(None::<&Tendril<_>>);
         assert_eq!("Hello", &*t);
         t.extend(&[", ".to_tendril(), "world".to_tendril(), "!".to_tendril()]);
         assert_eq!("Hello, world!", &*t);
@@ -2297,26 +2292,26 @@ mod test {
 
         // &str
         let mut t = "Hello".to_tendril();
-        t.extend(None::<&str>.into_iter());
+        t.extend(None::<&str>);
         assert_eq!("Hello", &*t);
-        t.extend([", ", "world", "!"].iter().map(|&s| s));
+        t.extend([", ", "world", "!"].iter().copied());
         assert_eq!("Hello, world!", &*t);
         assert_eq!(
             "Hello, world!",
             &*["Hello", ", ", "world", "!"]
                 .iter()
-                .map(|&s| s)
+                .copied()
                 .collect::<StrTendril>()
         );
 
         // &[u8]
         let mut t = b"Hello".to_tendril();
-        t.extend(None::<&[u8]>.into_iter());
+        t.extend(None::<&[u8]>);
         assert_eq!(b"Hello", &*t);
         t.extend(
             [b", ".as_ref(), b"world".as_ref(), b"!".as_ref()]
                 .iter()
-                .map(|&s| s),
+                .copied(),
         );
         assert_eq!(b"Hello, world!", &*t);
         assert_eq!(
@@ -2328,7 +2323,7 @@ mod test {
                 b"!".as_ref()
             ]
             .iter()
-            .map(|&s| s)
+            .copied()
             .collect::<ByteTendril>()
         );
 
@@ -2350,9 +2345,9 @@ mod test {
         assert_eq!(bytes_expected, tendril);
 
         // u8
-        assert_eq!(bytes_expected, bytes.iter().map(|&b| b).collect());
+        assert_eq!(bytes_expected, bytes.iter().copied().collect());
         let mut tendril = ByteTendril::new();
-        tendril.extend(bytes.iter().map(|&b| b));
+        tendril.extend(bytes.iter().copied());
         assert_eq!(bytes_expected, tendril);
     }
 

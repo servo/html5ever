@@ -1,6 +1,3 @@
-extern crate criterion;
-extern crate tendril;
-
 use criterion::{criterion_group, criterion_main, Bencher, Criterion};
 use tendril::futf::classify;
 

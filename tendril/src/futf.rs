@@ -4,6 +4,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use debug_unreachable::debug_unreachable;
 use std::{char, slice};
 
 /// Meaning of a complete or partial UTF-8 codepoint.
@@ -134,10 +135,10 @@ unsafe fn decode(buf: &[u8]) -> Option<Meaning> {
 }
 
 #[inline(always)]
-unsafe fn unsafe_slice<'a>(buf: &'a [u8], start: usize, new_len: usize) -> &'a [u8] {
+unsafe fn unsafe_slice(buf: &[u8], start: usize, new_len: usize) -> &[u8] {
     debug_assert!(start <= buf.len());
     debug_assert!(new_len <= (buf.len() - start));
-    slice::from_raw_parts(buf.as_ptr().offset(start as isize), new_len)
+    slice::from_raw_parts(buf.as_ptr().add(start), new_len)
 }
 
 /// Describes the UTF-8 codepoint containing the byte at index `idx` within
@@ -168,9 +169,9 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                     }
                     let meaning = decode(bytes)?;
                     Some(Codepoint {
-                        bytes: bytes,
+                        bytes,
                         rewind: 0,
-                        meaning: meaning,
+                        meaning,
                     })
                 } else {
                     Some(Codepoint {
@@ -208,9 +209,9 @@ pub fn classify<'a>(buf: &'a [u8], idx: usize) -> Option<Codepoint<'a>> {
                                 }
                                 let meaning = decode(bytes)?;
                                 return Some(Codepoint {
-                                    bytes: bytes,
+                                    bytes,
                                     rewind: idx - start,
-                                    meaning: meaning,
+                                    meaning,
                                 });
                             } else {
                                 return Some(Codepoint {
@@ -355,7 +356,7 @@ mod tests {
         }
     }
 
-    static JUNK: &'static [u8] = b"\
+    static JUNK: &[u8] = b"\
         \xf8\x0d\x07\x25\xa6\x7b\x95\xeb\x47\x01\x7f\xee\
         \x3b\x00\x60\x57\x1d\x9e\x5d\x0a\x0b\x0a\x7c\x75\
         \x13\xa1\x82\x46\x27\x34\xe9\x52\x61\x0d\xec\x10\

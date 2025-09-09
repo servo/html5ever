@@ -6,12 +6,11 @@
 
 //! Provides an unsafe owned buffer type, used in implementing `Tendril`.
 
-use std::{mem, ptr, slice, u32};
+use std::{mem, ptr, slice};
 
-use OFLOW;
+use crate::OFLOW;
 
 pub const MIN_CAP: u32 = 16;
-
 pub const MAX_LEN: usize = u32::MAX as usize;
 
 /// A buffer points to a header of type `H`, which is followed by `MIN_CAP` or more
@@ -43,11 +42,7 @@ impl<H> Buf32<H> {
         mem::forget(vec);
         ptr::write(ptr, h);
 
-        Buf32 {
-            ptr: ptr,
-            len: 0,
-            cap: cap,
-        }
+        Buf32 { ptr, len: 0, cap }
     }
 
     #[inline]
@@ -61,7 +56,7 @@ impl<H> Buf32<H> {
 
     #[inline(always)]
     pub unsafe fn data_ptr(&self) -> *mut u8 {
-        (self.ptr as *mut u8).offset(mem::size_of::<H>() as isize)
+        (self.ptr as *mut u8).add(mem::size_of::<H>())
     }
 
     #[inline(always)]
