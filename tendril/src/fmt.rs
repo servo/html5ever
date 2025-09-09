@@ -427,7 +427,7 @@ unsafe impl Format for WTF8 {
 
     #[inline]
     unsafe fn fixup(lhs: &[u8], rhs: &[u8]) -> imp::Fixup {
-        const ERR: &'static str = "WTF8: internal error";
+        const ERR: &str = "WTF8: internal error";
 
         if lhs.len() >= 3 && rhs.len() >= 3 {
             if let (

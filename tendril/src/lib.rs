@@ -15,7 +15,6 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::transmute_bytes_to_str)]
-#![allow(clippy::redundant_static_lifetimes)]
 #![allow(clippy::unusual_byte_groupings)]
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::manual_repeat_n)]
@@ -46,4 +45,4 @@ mod util;
 #[doc(hidden)]
 pub mod futf;
 
-static OFLOW: &'static str = "tendril: overflow in buffer arithmetic";
+static OFLOW: &str = "tendril: overflow in buffer arithmetic";
