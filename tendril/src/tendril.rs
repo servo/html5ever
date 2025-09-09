@@ -2299,13 +2299,13 @@ mod test {
         let mut t = "Hello".to_tendril();
         t.extend(None::<&str>);
         assert_eq!("Hello", &*t);
-        t.extend([", ", "world", "!"].iter().map(|&s| s));
+        t.extend([", ", "world", "!"].iter().copied());
         assert_eq!("Hello, world!", &*t);
         assert_eq!(
             "Hello, world!",
             &*["Hello", ", ", "world", "!"]
                 .iter()
-                .map(|&s| s)
+                .copied()
                 .collect::<StrTendril>()
         );
 
@@ -2316,7 +2316,7 @@ mod test {
         t.extend(
             [b", ".as_ref(), b"world".as_ref(), b"!".as_ref()]
                 .iter()
-                .map(|&s| s),
+                .copied(),
         );
         assert_eq!(b"Hello, world!", &*t);
         assert_eq!(
@@ -2328,7 +2328,7 @@ mod test {
                 b"!".as_ref()
             ]
             .iter()
-            .map(|&s| s)
+            .copied()
             .collect::<ByteTendril>()
         );
 
@@ -2350,9 +2350,9 @@ mod test {
         assert_eq!(bytes_expected, tendril);
 
         // u8
-        assert_eq!(bytes_expected, bytes.iter().map(|&b| b).collect());
+        assert_eq!(bytes_expected, bytes.iter().copied().collect());
         let mut tendril = ByteTendril::new();
-        tendril.extend(bytes.iter().map(|&b| b));
+        tendril.extend(bytes.iter().copied());
         assert_eq!(bytes_expected, tendril);
     }
 
