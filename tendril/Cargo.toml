@@ -16,7 +16,6 @@ edition = "2015"
 [dependencies]
 encoding = { workspace = true, optional = true}
 encoding_rs = { workspace = true, optional = true}
-mac = { workspace = true }
 new_debug_unreachable = { workspace = true }
 utf-8 = { workspace = true }
 

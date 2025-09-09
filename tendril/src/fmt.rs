@@ -386,7 +386,9 @@ unsafe impl Format for WTF8 {
         let mut i = 0;
         let mut prev_lead = false;
         while i < buf.len() {
-            let codept = unwrap_or_return!(futf::classify(buf, i), false);
+            let Some(codept) = futf::classify(buf, i) else {
+                return false;
+            };
             if !wtf8_meaningful(codept.meaning) {
                 return false;
             }
