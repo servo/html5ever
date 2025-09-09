@@ -464,11 +464,6 @@ where
     fn eq(&self, other: &Self) -> bool {
         self.as_byte_slice() == other.as_byte_slice()
     }
-
-    #[inline]
-    fn ne(&self, other: &Self) -> bool {
-        self.as_byte_slice() != other.as_byte_slice()
-    }
 }
 
 impl<F, A> Eq for Tendril<F, A>

@@ -8,7 +8,6 @@
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::missing_transmute_annotations)]
-#![allow(clippy::partialeq_ne_impl)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::transmute_bytes_to_str)]
