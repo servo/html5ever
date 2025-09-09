@@ -357,17 +357,12 @@ where
             LossyDecoderInner::Encoding(ref mut decoder, ref mut sink) => {
                 let mut out = Tendril::new();
                 let mut t = t;
-                loop {
-                    match decoder.raw_feed(&t, &mut out) {
-                        (_, Some(err)) => {
-                            out.push_char('\u{fffd}');
-                            sink.error(err.cause);
-                            debug_assert!(err.upto >= 0);
-                            t.pop_front(err.upto as u32);
-                            // continue loop and process remainder of t
-                        },
-                        (_, None) => break,
-                    }
+                while let (_, Some(err)) = decoder.raw_feed(&t, &mut out) {
+                    out.push_char('\u{fffd}');
+                    sink.error(err.cause);
+                    debug_assert!(err.upto >= 0);
+                    t.pop_front(err.upto as u32);
+                    // continue loop and process remainder of t
                 }
                 if !out.is_empty() {
                     sink.process(out);
