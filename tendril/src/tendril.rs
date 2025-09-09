@@ -1631,7 +1631,7 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &F::Slice {
-        &**self
+        self
     }
 }
 

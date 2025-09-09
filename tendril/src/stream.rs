@@ -358,7 +358,7 @@ where
                 let mut out = Tendril::new();
                 let mut t = t;
                 loop {
-                    match decoder.raw_feed(&*t, &mut out) {
+                    match decoder.raw_feed(&t, &mut out) {
                         (_, Some(err)) => {
                             out.push_char('\u{fffd}');
                             sink.error(err.cause);
