@@ -4,6 +4,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use debug_unreachable::debug_unreachable;
 use std::{char, slice};
 
 /// Meaning of a complete or partial UTF-8 codepoint.

@@ -10,8 +10,8 @@ authors = [
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+edition.workspace = true
 readme = "README.md"
-edition = "2015"
 
 [dependencies]
 encoding = { workspace = true, optional = true}

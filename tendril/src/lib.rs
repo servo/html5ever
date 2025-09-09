@@ -14,14 +14,6 @@
 #![allow(clippy::unusual_byte_groupings)]
 #![allow(clippy::mutable_key_type)]
 
-#[macro_use]
-extern crate debug_unreachable;
-#[cfg(feature = "encoding")]
-pub extern crate encoding;
-#[cfg(feature = "encoding_rs")]
-pub extern crate encoding_rs;
-extern crate utf8;
-
 pub use fmt::Format;
 pub use stream::TendrilSink;
 pub use tendril::{Atomic, Atomicity, NonAtomic, SendTendril};

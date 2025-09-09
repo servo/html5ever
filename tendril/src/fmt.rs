@@ -22,7 +22,7 @@
 use std::default::Default;
 use std::{char, mem, str};
 
-use futf::{self, Codepoint, Meaning};
+use crate::futf::{self, Codepoint, Meaning};
 
 /// Implementation details.
 ///

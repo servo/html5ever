@@ -20,11 +20,13 @@ use std::{hash, io, mem, ptr, str};
 #[cfg(feature = "encoding")]
 use encoding::{self, DecoderTrap, EncoderTrap, EncodingRef};
 
-use buf32::{self, Buf32};
-use fmt::imp::Fixup;
-use fmt::{self, Slice};
-use util::{copy_and_advance, copy_lifetime, copy_lifetime_mut, unsafe_slice, unsafe_slice_mut};
-use OFLOW;
+use crate::buf32::{self, Buf32};
+use crate::fmt::imp::Fixup;
+use crate::fmt::{self, Slice};
+use crate::util::{
+    copy_and_advance, copy_lifetime, copy_lifetime_mut, unsafe_slice, unsafe_slice_mut,
+};
+use crate::OFLOW;
 
 const MAX_INLINE_LEN: usize = 8;
 const MAX_INLINE_TAG: usize = 0xF;
@@ -1653,7 +1655,7 @@ mod test {
     use super::{
         Atomic, ByteTendril, Header, NonAtomic, ReadExt, SendTendril, SliceExt, StrTendril, Tendril,
     };
-    use fmt;
+    use crate::fmt;
     use std::iter;
     use std::thread;
 

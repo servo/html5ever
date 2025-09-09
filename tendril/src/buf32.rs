@@ -8,10 +8,9 @@
 
 use std::{mem, ptr, slice};
 
-use OFLOW;
+use crate::OFLOW;
 
 pub const MIN_CAP: u32 = 16;
-
 pub const MAX_LEN: usize = u32::MAX as usize;
 
 /// A buffer points to a header of type `H`, which is followed by `MIN_CAP` or more

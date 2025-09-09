@@ -6,8 +6,6 @@
 
 #![allow(clippy::manual_pattern_char_comparison)]
 
-extern crate criterion;
-extern crate tendril;
 use std::collections::{hash_map::Entry, HashMap};
 
 use criterion::{criterion_group, criterion_main, Bencher, Criterion};
