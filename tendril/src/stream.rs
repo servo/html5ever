@@ -369,7 +369,7 @@ where
                         (_, None) => break,
                     }
                 }
-                if out.len() > 0 {
+                if !out.is_empty() {
                     sink.process(out);
                 }
             },
@@ -407,7 +407,7 @@ where
                     out.push_char('\u{fffd}');
                     sink.error(err.cause);
                 }
-                if out.len() > 0 {
+                if !out.is_empty() {
                     sink.process(out);
                 }
                 sink.finish()

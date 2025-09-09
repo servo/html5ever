@@ -288,7 +288,7 @@ unsafe impl Format for UTF8 {
 
     #[inline]
     fn validate_prefix(buf: &[u8]) -> bool {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return true;
         }
         match futf::classify(buf, buf.len() - 1) {
@@ -302,7 +302,7 @@ unsafe impl Format for UTF8 {
 
     #[inline]
     fn validate_suffix(buf: &[u8]) -> bool {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return true;
         }
         match futf::classify(buf, 0) {
@@ -400,7 +400,7 @@ unsafe impl Format for WTF8 {
 
     #[inline]
     fn validate_prefix(buf: &[u8]) -> bool {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return true;
         }
         match futf::classify(buf, buf.len() - 1) {
@@ -411,7 +411,7 @@ unsafe impl Format for WTF8 {
 
     #[inline]
     fn validate_suffix(buf: &[u8]) -> bool {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return true;
         }
         match futf::classify(buf, 0) {

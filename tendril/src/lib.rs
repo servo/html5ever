@@ -14,7 +14,6 @@
 #![allow(clippy::partialeq_ne_impl)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::wrong_self_convention)]
-#![allow(clippy::len_zero)]
 #![allow(clippy::transmute_bytes_to_str)]
 #![allow(clippy::match_like_matches_macro)]
 #![allow(clippy::redundant_static_lifetimes)]
