@@ -8,12 +8,12 @@ on:
     types: [checks_requested]
 
 jobs:
-  ci:
+  build-and-test:
     name: CI
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [stable, beta, nightly]
+        version: [stable, beta]
     steps:
       - uses: actions/checkout@v4
 
@@ -25,22 +25,48 @@ jobs:
       - name: Init submodules
         run: git submodule update --init
 
-      - name: Cargo bench
-        run: cargo bench --all
-        env:
-          RUSTFLAGS: --cfg bench
+      - name: Cargo build
+        run: cargo build --all
 
       - name: Cargo test
-        if: matrix.version != 'nightly'
         run: cargo test --all
 
       - name: Test tendril w/encoding feature
-        if: matrix.version != 'nightly'
         run: cargo test -p tendril --features 'encoding encoding_rs'
 
-      - name: Cargo doc
-        if: matrix.version == 'nightly'
-        run: cargo doc
+  doc:
+    name: Cargo doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set toolchain
+        run: |
+          rustup set profile minimal
+          rustup override set nightly
+      - run: cargo doc
+        env:
+          RUSTFLAGS: --cfg bench
+
+  bench-html5ever:
+    name: Bench html5ever
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo bench -p html5ever
+        env:
+          RUSTFLAGS: --cfg bench
+
+  bench-tendril:
+    name: Bench tendril
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo bench -p tendril --bench tendril -- --quick --significance-level 0.01
+        env:
+          RUSTFLAGS: --cfg bench
+      - run: cargo bench -p tendril --bench futf -- --quick --significance-level 0.01
+        env:
+          RUSTFLAGS: --cfg bench
 
   msrv:
     name: MSRV
@@ -83,9 +109,12 @@ jobs:
     name: Result
     runs-on: ubuntu-latest
     needs:
-      - ci
+      - build-and-test
+      - doc
       - lint
       - msrv
+      - bench-html5ever
+      - bench-tendril
 
     steps:
       - name: Success
