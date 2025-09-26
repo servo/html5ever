@@ -37,7 +37,7 @@ string_cache_codegen = "0.6.1"
 utf-8 = "0.7"
 
 # Dev dependencies
-criterion = "0.6"
+criterion = "0.7"
 env_logger = "0.10"
 libtest-mimic = "0.8.1"
 rand = "0.9"
