@@ -754,19 +754,40 @@ where
                 },
 
                 Token::Tag(
-                    tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr> | <input>),
+                    tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr>),
                 ) => {
-                    let keep_frameset_ok = match tag.name {
-                        local_name!("input") => self.is_type_hidden(&tag),
-                        _ => false,
-                    };
                     self.reconstruct_active_formatting_elements();
                     self.insert_and_pop_element_for(tag);
-                    if !keep_frameset_ok {
-                        self.frameset_ok.set(false);
-                    }
+                    self.frameset_ok.set(false);
                     ProcessResult::DoneAckSelfClosing
                 },
+
+                Token::Tag(tag @ tag!(<input>)) => {
+                    if self.is_fragment()
+                        && self.html_elem_named(
+                            self.context_elem.borrow().as_ref().unwrap(),
+                            local_name!("select"),
+                        )
+                    {
+                        self.unexpected(&tag);
+                    }
+
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.unexpected(&tag);
+                        self.pop_until_named(local_name!("select"));
+                    }
+
+                    let is_type_hidden = self.is_type_hidden(&tag);
+
+                    self.reconstruct_active_formatting_elements();
+                    self.insert_and_pop_element_for(tag);
+
+                    if !is_type_hidden {
+                        self.frameset_ok.set(false);
+                    }
+
+                    ProcessResult::DoneAckSelfClosing
+                }
 
                 Token::Tag(tag @ tag!(<param> | <source> | <track>)) => {
                     self.insert_and_pop_element_for(tag);
