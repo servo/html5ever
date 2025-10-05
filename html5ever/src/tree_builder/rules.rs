@@ -776,8 +776,8 @@ where
                 Token::Tag(tag @ tag!(<hr>)) => {
                     self.close_p_element_in_button_scope();
                     if self.in_scope_named(default_scope, local_name!("select")) {
-                        self.generate_implied_end_except(local_name!("optgroup"));
-                        if self.in_scope_named(default_scope, local_name!("option")) {
+                        self.generate_implied_end_tags(cursory_implied_end);
+                        if self.in_scope_named(default_scope, local_name!("option")) || self.in_scope_named(default_scope, local_name!("optgroup")) {
                             self.sink.parse_error(Borrowed("hr in option"));
                         }
                     }
@@ -841,9 +841,9 @@ where
                         if self.current_node_named(local_name!("option")) {
                             self.pop();
                         }
-                        self.reconstruct_active_formatting_elements();
                     }
 
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     ProcessResult::Done
                 }
@@ -859,9 +859,9 @@ where
                         if self.current_node_named(local_name!("option")) {
                             self.pop();
                         }
-                        self.reconstruct_active_formatting_elements();
                     }
 
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     ProcessResult::Done
                 },
