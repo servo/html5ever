@@ -861,7 +861,6 @@ where
                 Token::Tag(tag @ tag!(<optgroup>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end_tags(cursory_implied_end);
-                        // XXX: perf
                         if self.in_scope_named(default_scope, local_name!("option"))
                             || self.in_scope_named(default_scope, local_name!("optgroup"))
                         {
