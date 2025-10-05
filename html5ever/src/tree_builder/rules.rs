@@ -820,14 +820,17 @@ where
 
                 // <noscript> handled in wildcard case below
                 Token::Tag(tag @ tag!(<select>)) => {
-                    if self.in_scope_named(default_scope, local_name!("select")) {
-                        self.sink.parse_error(Borrowed("nested select"));
+                    if self.is_fragment() && self.html_elem_named(self.context_elem.borrow().as_ref().unwrap(), local_name!("select")) {
+                        self.unexpected(&tag);
+                    } else if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.unexpected(&tag);
                         self.pop_until_named(local_name!("select"));
+                    } else {
+                        self.reconstruct_active_formatting_elements();
+                        self.insert_element_for(tag);
+                        self.frameset_ok.set(false);
                     }
 
-                    self.reconstruct_active_formatting_elements();
-                    self.insert_element_for(tag);
-                    self.frameset_ok.set(false);
                     ProcessResult::Done
                 },
 
