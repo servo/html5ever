@@ -777,7 +777,9 @@ where
                     self.close_p_element_in_button_scope();
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end_tags(cursory_implied_end);
-                        if self.in_scope_named(default_scope, local_name!("option")) || self.in_scope_named(default_scope, local_name!("optgroup")) {
+                        if self.in_scope_named(default_scope, local_name!("option"))
+                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        {
                             self.sink.parse_error(Borrowed("hr in option"));
                         }
                     }
@@ -820,7 +822,12 @@ where
 
                 // <noscript> handled in wildcard case below
                 Token::Tag(tag @ tag!(<select>)) => {
-                    if self.is_fragment() && self.html_elem_named(self.context_elem.borrow().as_ref().unwrap(), local_name!("select")) {
+                    if self.is_fragment()
+                        && self.html_elem_named(
+                            self.context_elem.borrow().as_ref().unwrap(),
+                            local_name!("select"),
+                        )
+                    {
                         self.unexpected(&tag);
                     } else if self.in_scope_named(default_scope, local_name!("select")) {
                         self.unexpected(&tag);
@@ -849,13 +856,15 @@ where
                     self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     ProcessResult::Done
-                }
+                },
 
                 Token::Tag(tag @ tag!(<optgroup>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end_tags(cursory_implied_end);
                         // XXX: perf
-                        if self.in_scope_named(default_scope, local_name!("option")) || self.in_scope_named(default_scope, local_name!("optgroup")) {
+                        if self.in_scope_named(default_scope, local_name!("option"))
+                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        {
                             self.sink.parse_error(Borrowed("nested options"));
                         }
                     } else {
