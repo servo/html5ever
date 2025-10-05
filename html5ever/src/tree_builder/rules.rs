@@ -841,7 +841,7 @@ where
                         if self.current_node_named(local_name!("option")) {
                             self.pop();
                         }
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                     }
 
                     self.insert_element_for(tag);
@@ -850,7 +850,7 @@ where
 
                 Token::Tag(tag @ tag!(<optgroup>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         // XXX: perf
                         if self.in_scope_named(default_scope, local_name!("option")) || self.in_scope_named(default_scope, local_name!("optgroup")) {
                             self.sink.parse_error(Borrowed("nested options"));
@@ -859,7 +859,7 @@ where
                         if self.current_node_named(local_name!("option")) {
                             self.pop();
                         }
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                     }
 
                     self.insert_element_for(tag);
