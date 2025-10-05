@@ -7,13 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use markup5ever::{namespace_url, ns};
+use markup5ever::ns;
 use markup5ever_rcdom::*;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::path::Path;
-use std::{env, fs, io, iter, mem};
+use std::{fs, io, iter, mem};
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::{run_all, Test};
 use xml5ever::driver::parse_document;
@@ -70,7 +70,7 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push('|');
-    buf.extend(iter::repeat(" ").take(indent));
+    buf.extend(iter::repeat_n(" ", indent));
 
     let node = handle;
     match &node.data {
@@ -84,7 +84,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
+                buf.push_str(&format!(" \"{public_id}\" \"{system_id}\""));
             }
             buf.push_str(">\n");
         },
@@ -132,7 +132,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
             for attr in attrs.into_iter() {
                 buf.push('|');
-                buf.extend(iter::repeat(" ").take(indent + 2));
+                buf.extend(iter::repeat_n(" ", indent + 2));
 
                 if !attr.name.ns.is_empty() {
                     buf.push('{');
@@ -172,7 +172,7 @@ fn make_xml_test(
 
     let data = get_field("data");
     let expected = get_field("document");
-    let name = format!("tb: {}-{}", filename, idx);
+    let name = format!("tb: {filename}-{idx}");
     let skip = ignores.contains(&name) || IGNORE_SUBSTRS.iter().any(|&ig| data.contains(ig));
 
     tests.push(Test {
@@ -190,10 +190,7 @@ fn make_xml_test(
             result.truncate(len - 1); // drop the trailing newline
 
             if result != expected {
-                panic!(
-                    "\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
-                    data, result, expected
-                );
+                panic!("\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n");
             }
         }),
     });
@@ -227,7 +224,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
 }
 
 fn main() {
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src_dir = Path::new("./");
     let mut ignores = HashSet::new();
     if let Ok(f) = fs::File::open(src_dir.join("data/test/ignore")) {
         let r = io::BufReader::new(f);

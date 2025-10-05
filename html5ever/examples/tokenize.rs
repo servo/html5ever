@@ -71,11 +71,11 @@ impl TokenSink for TokenPrinter {
             },
             ParseError(err) => {
                 self.is_char(false);
-                println!("ERROR: {}", err);
+                println!("ERROR: {err}");
             },
             _ => {
                 self.is_char(false);
-                println!("OTHER: {:?}", token);
+                println!("OTHER: {token:?}");
             },
         }
         TokenSinkResult::Continue

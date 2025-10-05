@@ -44,7 +44,7 @@ impl TreeSink for Sink {
     }
 
     fn parse_error(&self, msg: Cow<'static, str>) {
-        println!("Parse error: {}", msg);
+        println!("Parse error: {msg}");
     }
 
     fn get_document(&self) -> usize {
@@ -62,7 +62,7 @@ impl TreeSink for Sink {
     }
 
     fn set_quirks_mode(&self, mode: QuirksMode) {
-        println!("Set quirks mode to {:?}", mode);
+        println!("Set quirks mode to {mode:?}");
     }
 
     fn same_node(&self, x: &usize, y: &usize) -> bool {
@@ -77,7 +77,7 @@ impl TreeSink for Sink {
 
     fn create_element(&self, name: QualName, _: Vec<Attribute>, _: ElementFlags) -> usize {
         let id = self.get_id();
-        println!("Created {:?} as {}", name, id);
+        println!("Created {name:?} as {id}");
         // N.B. We intentionally leak memory here to minimize the implementation complexity
         //      of this example code. A real implementation would either want to use a real
         //      real DOM tree implentation, or else use an arena as the backing store for
@@ -101,14 +101,14 @@ impl TreeSink for Sink {
 
     fn append(&self, parent: &usize, child: NodeOrText<usize>) {
         match child {
-            AppendNode(n) => println!("Append node {} to {}", n, parent),
+            AppendNode(n) => println!("Append node {n} to {parent}"),
             AppendText(t) => println!("Append text to {}: \"{}\"", parent, t.escape_default()),
         }
     }
 
     fn append_before_sibling(&self, sibling: &usize, new_node: NodeOrText<usize>) {
         match new_node {
-            AppendNode(n) => println!("Append node {} before {}", n, sibling),
+            AppendNode(n) => println!("Append node {n} before {sibling}"),
             AppendText(t) => println!("Append text before {}: \"{}\"", sibling, t.escape_default()),
         }
     }
@@ -128,12 +128,12 @@ impl TreeSink for Sink {
         public_id: StrTendril,
         system_id: StrTendril,
     ) {
-        println!("Append doctype: {} {} {}", name, public_id, system_id);
+        println!("Append doctype: {name} {public_id} {system_id}");
     }
 
     fn add_attrs_if_missing(&self, target: &usize, attrs: Vec<Attribute>) {
         assert!(self.names.borrow().contains_key(target), "not an element");
-        println!("Add missing attributes to {}:", target);
+        println!("Add missing attributes to {target}:");
         for attr in attrs.into_iter() {
             println!("    {:?} = {}", attr.name, attr.value);
         }
@@ -149,23 +149,23 @@ impl TreeSink for Sink {
     }
 
     fn remove_from_parent(&self, target: &usize) {
-        println!("Remove {} from parent", target);
+        println!("Remove {target} from parent");
     }
 
     fn reparent_children(&self, node: &usize, new_parent: &usize) {
-        println!("Move children from {} to {}", node, new_parent);
+        println!("Move children from {node} to {new_parent}");
     }
 
     fn mark_script_already_started(&self, node: &usize) {
-        println!("Mark script {} as already started", node);
+        println!("Mark script {node} as already started");
     }
 
     fn set_current_line(&self, line_number: u64) {
-        println!("Set current line to {}", line_number);
+        println!("Set current line to {line_number}");
     }
 
     fn pop(&self, elem: &usize) {
-        println!("Popped element {}", elem);
+        println!("Popped element {elem}");
     }
 }
 

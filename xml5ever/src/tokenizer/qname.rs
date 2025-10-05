@@ -20,8 +20,8 @@ pub struct QualNameTokenizer<'a> {
     curr_ind: usize,
 }
 
-impl<'a> QualNameTokenizer<'a> {
-    pub fn new(tag: &[u8]) -> QualNameTokenizer {
+impl QualNameTokenizer<'_> {
+    pub fn new(tag: &[u8]) -> QualNameTokenizer<'_> {
         QualNameTokenizer {
             state: QualNameState::BeforeName,
             slice: tag,

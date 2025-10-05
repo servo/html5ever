@@ -7,10 +7,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub use self::Token::*;
-pub use self::XmlPhase::*;
-pub use self::XmlProcessResult::*;
-
 use crate::tendril::StrTendril;
 use crate::tokenizer::{Doctype, Pi, Tag};
 
@@ -21,7 +17,7 @@ pub enum XmlPhase {
     End,
 }
 
-/// A subset/refinement of `tokenizer::XToken`.  Everything else is handled
+/// A subset/refinement of `tokenizer::Token`.  Everything else is handled
 /// specially at the beginning of `process_token`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Token {
@@ -34,7 +30,8 @@ pub enum Token {
     Eof,
 }
 
-pub enum XmlProcessResult {
+pub enum XmlProcessResult<Handle> {
     Done,
     Reprocess(XmlPhase, Token),
+    Script(Handle),
 }

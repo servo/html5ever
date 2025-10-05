@@ -10,22 +10,21 @@
 use serde_json::{Map, Value};
 use std::borrow::Cow::Borrowed;
 use std::cell::RefCell;
-use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
+use xml5ever::tokenizer::ProcessResult;
 
 use util::find_tests::foreach_xml5lib_test;
 use util::runner::{run_all, Test};
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{SliceExt, StrTendril};
-use xml5ever::tokenizer::{CharacterTokens, Token, TokenSink};
-use xml5ever::tokenizer::{CommentToken, EmptyTag, EndTag, ShortTag, StartTag, Tag};
-use xml5ever::tokenizer::{Doctype, DoctypeToken, PIToken, Pi};
-use xml5ever::tokenizer::{EOFToken, XmlTokenizer, XmlTokenizerOpts};
-use xml5ever::tokenizer::{NullCharacterToken, ParseError, TagToken};
-use xml5ever::{namespace_url, ns, Attribute, LocalName, QualName};
+use xml5ever::tokenizer::{
+    Doctype, EmptyTag, EndTag, Pi, ShortTag, StartTag, Tag, Token, TokenSink, XmlTokenizer,
+    XmlTokenizerOpts,
+};
+use xml5ever::{ns, Attribute, LocalName, QualName};
 
 mod util {
     pub mod find_tests;
@@ -78,9 +77,9 @@ impl TokenLogger {
     }
 
     fn finish_str(&self) {
-        if self.current_str.borrow().len() > 0 {
+        if !self.current_str.borrow().is_empty() {
             let s = self.current_str.take();
-            self.tokens.borrow_mut().push(CharacterTokens(s));
+            self.tokens.borrow_mut().push(Token::Characters(s));
         }
     }
 
@@ -91,23 +90,24 @@ impl TokenLogger {
 }
 
 impl TokenSink for TokenLogger {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
-            CharacterTokens(b) => {
-                self.current_str.borrow_mut().push_slice(&b);
+            Token::Characters(characters) => {
+                self.current_str.borrow_mut().push_slice(&characters);
             },
 
-            NullCharacterToken => {
+            Token::NullCharacter => {
                 self.current_str.borrow_mut().push_char('\0');
             },
 
-            ParseError(_) => {
+            Token::ParseError(_) => {
                 if self.exact_errors {
-                    self.push(ParseError(Borrowed("")));
+                    self.push(Token::ParseError(Borrowed("")));
                 }
             },
-
-            TagToken(mut t) => {
+            Token::Tag(mut t) => {
                 // The spec seems to indicate that one can emit
                 // erroneous end tags with attrs, but the test
                 // cases don't contain them.
@@ -117,13 +117,12 @@ impl TokenSink for TokenLogger {
                     },
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
-                self.push(TagToken(t));
+                self.push(Token::Tag(t));
             },
-
-            EOFToken => (),
-
+            Token::EndOfFile => (),
             _ => self.push(token),
-        }
+        };
+        ProcessResult::Continue
     }
 }
 
@@ -134,9 +133,9 @@ fn tokenize_xml(input: Vec<StrTendril>, opts: XmlTokenizerOpts) -> Vec<Token> {
 
     for chunk in input.into_iter() {
         buf.push_back(chunk);
-        tok.feed(&buf);
+        let _ = tok.feed(&buf);
     }
-    tok.feed(&buf);
+    let _ = tok.feed(&buf);
     tok.end();
     tok.sink.get_tokens()
 }
@@ -207,7 +206,7 @@ fn json_to_token(js: &Value) -> Token {
     // Collect refs here so we don't have to use "ref" in all the patterns below.
     let args: Vec<&Value> = parts[1..].iter().collect();
     match &*parts[0].get_str() {
-        "StartTag" => TagToken(Tag {
+        "StartTag" => Token::Tag(Tag {
             kind: StartTag,
             name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1]
@@ -220,19 +219,19 @@ fn json_to_token(js: &Value) -> Token {
                 .collect(),
         }),
 
-        "EndTag" => TagToken(Tag {
+        "EndTag" => Token::Tag(Tag {
             kind: EndTag,
             name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec![],
         }),
 
-        "ShortTag" => TagToken(Tag {
+        "ShortTag" => Token::Tag(Tag {
             kind: ShortTag,
             name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: vec![],
         }),
 
-        "EmptyTag" => TagToken(Tag {
+        "EmptyTag" => Token::Tag(Tag {
             kind: EmptyTag,
             name: QualName::new(None, ns!(), LocalName::from(args[0].get_str())),
             attrs: args[1]
@@ -245,16 +244,16 @@ fn json_to_token(js: &Value) -> Token {
                 .collect(),
         }),
 
-        "Comment" => CommentToken(args[0].get_tendril()),
+        "Comment" => Token::Comment(args[0].get_tendril()),
 
-        "Character" => CharacterTokens(args[0].get_tendril()),
+        "Character" => Token::Characters(args[0].get_tendril()),
 
-        "PI" => PIToken(Pi {
+        "PI" => Token::ProcessingInstruction(Pi {
             target: args[0].get_tendril(),
             data: args[1].get_tendril(),
         }),
 
-        "DOCTYPE" => DoctypeToken(Doctype {
+        "DOCTYPE" => Token::Doctype(Doctype {
             name: args[0].get_nullable_tendril(),
             public_id: args[1].get_nullable_tendril(),
             system_id: args[2].get_nullable_tendril(),
@@ -262,7 +261,7 @@ fn json_to_token(js: &Value) -> Token {
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
-        _ => panic!("don't understand token {:?}", parts),
+        _ => panic!("don't understand token {parts:?}"),
     }
 }
 
@@ -274,9 +273,11 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     for tok in js.as_array().unwrap().iter() {
         match *tok {
             Value::String(ref s) if &s[..] == "ParseError" => {
-                sink.process_token(ParseError(Borrowed("")))
+                let _ = sink.process_token(Token::ParseError(Borrowed("")));
             },
-            _ => sink.process_token(json_to_token(tok)),
+            _ => {
+                let _ = sink.process_token(json_to_token(tok));
+            },
         }
     }
     sink.get_tokens()
@@ -297,10 +298,7 @@ fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpt
                 let output = tokenize_xml(input.clone(), opts);
                 let expect = json_to_tokens(&expect, opts.exact_errors);
                 if output != expect {
-                    panic!(
-                        "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect
-                    );
+                    panic!("\ninput: {input:?}\ngot: {output:?}\nexpected: {expect:?}");
                 }
             }
         }),
@@ -320,10 +318,10 @@ fn mk_xml_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             if let Some(s) = state {
-                newdesc = format!("{} (in state {:?})", newdesc, s)
+                newdesc = format!("{newdesc} (in state {s:?})")
             };
             if exact_errors {
-                newdesc = format!("{} (exact errors)", newdesc);
+                newdesc = format!("{newdesc} (exact errors)");
             }
 
             tests.push(mk_xml_test(
@@ -372,5 +370,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    run_all(tests(Path::new("./")));
 }

@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::path::Path;
-use std::{env, fs, io, iter, mem};
+use std::{fs, io, iter, mem};
 
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{parse_document, parse_fragment, ParseOpts};
@@ -76,7 +76,7 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
 
 fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     buf.push('|');
-    buf.extend(iter::repeat(" ").take(indent));
+    buf.extend(iter::repeat_n(" ", indent));
 
     let node = handle;
     match node.data {
@@ -90,7 +90,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str("<!DOCTYPE ");
             buf.push_str(name);
             if !public_id.is_empty() || !system_id.is_empty() {
-                buf.push_str(&format!(" \"{}\" \"{}\"", public_id, system_id));
+                buf.push_str(&format!(" \"{public_id}\" \"{system_id}\""));
             }
             buf.push_str(">\n");
         },
@@ -127,7 +127,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
 
             for attr in attrs.into_iter() {
                 buf.push('|');
-                buf.extend(iter::repeat(" ").take(indent + 2));
+                buf.extend(iter::repeat_n(" ", indent + 2));
                 match attr.name.ns {
                     ns!(xlink) => buf.push_str("xlink "),
                     ns!(xml) => buf.push_str("xml "),
@@ -152,7 +152,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
     {
         if let Some(ref content) = &*template_contents.borrow() {
             buf.push('|');
-            buf.extend(iter::repeat(" ").take(indent + 2));
+            buf.extend(iter::repeat_n(" ", indent + 2));
             buf.push_str("content\n");
             for child in content.children.borrow().iter() {
                 serialize(buf, indent + 4, child.clone());
@@ -176,7 +176,7 @@ fn make_test(
     } else {
         &scripting_flags[0..2]
     };
-    let name = format!("tb: {}-{}", filename, idx);
+    let name = format!("tb: {filename}-{idx}");
     for scripting_enabled in scripting_flags {
         let test = make_test_desc_with_scripting_flag(ignores, &name, &fields, *scripting_enabled);
         tests.push(test);
@@ -227,7 +227,7 @@ fn make_test_desc_with_scripting_flag(
                     }
                 },
                 Some(ref context) => {
-                    let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![])
+                    let dom = parse_fragment(RcDom::default(), opts, context.clone(), vec![], true)
                         .one(data.clone());
                     // fragment case: serialize children of the html element
                     // rather than children of the document
@@ -242,10 +242,7 @@ fn make_test_desc_with_scripting_flag(
             result.truncate(len - 1); // drop the trailing newline
 
             if result != expected {
-                panic!(
-                    "\ninput: {}\ngot:\n{}\nexpected:\n{}\n",
-                    data, result, expected
-                );
+                panic!("\ninput: {data}\ngot:\n{result}\nexpected:\n{expected}\n");
             }
         }),
     }
@@ -289,7 +286,7 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
 }
 
 fn main() {
-    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src_dir = Path::new("./");
     let mut ignores = HashSet::new();
     {
         let f = fs::File::open(src_dir.join("data/test/ignore")).unwrap();

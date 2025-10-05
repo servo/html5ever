@@ -11,11 +11,11 @@
 use std::cell::Ref;
 use std::fmt;
 use tendril::StrTendril;
+use web_atoms::{LocalName, Namespace, Prefix};
 
 pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlags, NodeOrText};
-pub use self::tree_builder::{ElemName, NextParserState, Tracer, TreeSink};
+pub use self::tree_builder::{ElemName, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
-use super::{LocalName, Namespace, Prefix};
 
 /// An [expanded name], containing the tag and the namespace.
 ///
@@ -26,7 +26,7 @@ pub struct ExpandedName<'a> {
     pub local: &'a LocalName,
 }
 
-impl<'a> ElemName for ExpandedName<'a> {
+impl ElemName for ExpandedName<'_> {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         self.ns
@@ -50,7 +50,7 @@ impl<'a> ElemName for Ref<'a, ExpandedName<'a>> {
     }
 }
 
-impl<'a> fmt::Debug for ExpandedName<'a> {
+impl fmt::Debug for ExpandedName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.ns.is_empty() {
             write!(f, "{}", self.local)
@@ -58,6 +58,13 @@ impl<'a> fmt::Debug for ExpandedName<'a> {
             write!(f, "{{{}}}:{}", self.ns, self.local)
         }
     }
+}
+
+#[must_use]
+#[derive(Debug, PartialEq)]
+pub enum TokenizerResult<Handle> {
+    Done,
+    Script(Handle),
 }
 
 /// Helper to quickly create an expanded name.
@@ -158,11 +165,9 @@ pub mod tree_builder;
 ///  prefix (when resolved gives namespace_url `https://furniture.rs`)
 /// ```
 ///
-/// NOTE: `Prefix`, `LocalName` and `Prefix` are all derivative of
-/// `string_cache::atom::Atom` and `Atom` implements `Deref<str>`.
+/// NOTE: `Prefix`, `LocalName` and `Prefix` all implement `Deref<str>`.
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
     /// The prefix of qualified (e.g. `furn` in `<furn:table>` above).
     /// Optional (since some namespaces can be empty or inferred), and
@@ -266,7 +271,7 @@ pub struct QualName {
     pub local: LocalName,
 }
 
-impl<'a> ElemName for Ref<'a, QualName> {
+impl ElemName for Ref<'_, QualName> {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         &self.ns
@@ -278,7 +283,7 @@ impl<'a> ElemName for Ref<'a, QualName> {
     }
 }
 
-impl<'a> ElemName for &'a QualName {
+impl ElemName for &QualName {
     #[inline(always)]
     fn ns(&self) -> &Namespace {
         &self.ns
@@ -370,7 +375,7 @@ impl QualName {
     /// ```
     ///
     #[inline]
-    pub fn expanded(&self) -> ExpandedName {
+    pub fn expanded(&self) -> ExpandedName<'_> {
         ExpandedName {
             ns: &self.ns,
             local: &self.local,
@@ -394,7 +399,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    use super::Namespace;
+    use web_atoms::{ns, Namespace};
 
     #[test]
     fn ns_macro() {

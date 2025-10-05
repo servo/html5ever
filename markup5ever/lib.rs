@@ -7,9 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(unexpected_cfgs)]
-
 pub use tendril;
+
+#[macro_use]
+extern crate web_atoms;
 
 /// Create a [`SmallCharSet`], with each space-separated number stored in the set.
 ///
@@ -32,9 +33,15 @@ macro_rules! small_char_set ( ($($e:expr)+) => (
     }
 ));
 
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+pub use web_atoms::{
+    local_name, namespace_prefix, namespace_url, ns, LocalName, LocalNameStaticSet, Namespace,
+    NamespaceStaticSet, Prefix, PrefixStaticSet,
+};
 
-pub mod data;
+pub mod data {
+    pub use web_atoms::C1_REPLACEMENTS;
+    pub use web_atoms::NAMED_ENTITIES;
+}
 #[macro_use]
 pub mod interface;
 pub mod serialize;
@@ -43,6 +50,6 @@ mod util {
     pub mod smallcharset;
 }
 
-pub use interface::{Attribute, ExpandedName, QualName};
+pub use interface::{Attribute, ExpandedName, QualName, TokenizerResult};
 pub use util::smallcharset::SmallCharSet;
 pub use util::*;

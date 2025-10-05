@@ -12,7 +12,7 @@ use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope}
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use html5ever::{parse_document, parse_fragment, serialize, QualName};
-use markup5ever::{local_name, namespace_url, ns};
+use markup5ever::{local_name, ns};
 use markup5ever_rcdom::{RcDom, SerializableHandle};
 
 use std::cell::RefCell;
@@ -94,6 +94,7 @@ fn parse_and_serialize(input: StrTendril) -> StrTendril {
         ParseOpts::default(),
         QualName::new(None, ns!(html), local_name!("body")),
         vec![],
+        true,
     )
     .one(input);
     let inner: SerializableHandle = dom.document.children.borrow()[0].clone().into();
@@ -252,6 +253,7 @@ fn deep_tree() {
         ParseOpts::default(),
         QualName::new(None, ns!(html), local_name!("div")),
         vec![],
+        true,
     );
     let src = "<b>".repeat(60_000);
     let dom = parser.one(src);

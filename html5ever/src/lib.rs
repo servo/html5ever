@@ -18,12 +18,11 @@ pub use markup5ever::*;
 
 pub use serialize::serialize;
 
-#[macro_use]
-mod macros;
-
 mod util {
     pub(crate) mod str;
 }
+
+pub(crate) mod macros;
 
 pub mod driver;
 pub mod serialize;

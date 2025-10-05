@@ -16,46 +16,46 @@ use std::io;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::{ByteTendril, ReadExt};
-use xml5ever::tokenizer::{CharacterTokens, NullCharacterToken, TagToken};
-use xml5ever::tokenizer::{CommentToken, PIToken, Pi};
-use xml5ever::tokenizer::{Doctype, DoctypeToken, EOFToken};
-use xml5ever::tokenizer::{ParseError, Token, TokenSink, XmlTokenizer};
+use xml5ever::tokenizer::{Doctype, Pi, ProcessResult, Token, TokenSink, XmlTokenizer};
 
 struct SimpleTokenPrinter;
 
 impl TokenSink for SimpleTokenPrinter {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         match token {
-            CharacterTokens(b) => {
+            Token::Characters(b) => {
                 println!("TEXT: {}", &*b);
             },
-            NullCharacterToken => print!("NULL"),
-            TagToken(tag) => {
+            Token::NullCharacter => print!("NULL"),
+            Token::Tag(tag) => {
                 println!("{:?} {} ", tag.kind, &*tag.name.local);
             },
-            ParseError(err) => {
-                println!("ERROR: {}", err);
+            Token::ParseError(err) => {
+                println!("ERROR: {err}");
             },
-            PIToken(Pi {
+            Token::ProcessingInstruction(Pi {
                 ref target,
                 ref data,
             }) => {
-                println!("PI : <?{} {}?>", target, data);
+                println!("PI : <?{target} {data}?>");
             },
-            CommentToken(ref comment) => {
-                println!("<!--{:?}-->", comment);
+            Token::Comment(ref comment) => {
+                println!("<!--{comment:?}-->");
             },
-            EOFToken => {
+            Token::EndOfFile => {
                 println!("EOF");
             },
-            DoctypeToken(Doctype {
+            Token::Doctype(Doctype {
                 ref name,
                 ref public_id,
                 ..
             }) => {
-                println!("<!DOCTYPE {:?} {:?}>", name, public_id);
+                println!("<!DOCTYPE {name:?} {public_id:?}>");
             },
-        }
+        };
+        ProcessResult::Continue
     }
 }
 
@@ -76,6 +76,6 @@ fn main() {
     input_buffer.push_back(input.try_reinterpret().unwrap());
     // Here we create and run tokenizer
     let tok = XmlTokenizer::new(sink, Default::default());
-    tok.feed(&input_buffer);
+    let _ = tok.feed(&input_buffer);
     tok.end();
 }

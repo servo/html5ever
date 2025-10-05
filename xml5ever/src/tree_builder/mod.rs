@@ -10,8 +10,7 @@
 mod types;
 
 use log::{debug, warn};
-use mac::unwrap_or_return;
-use markup5ever::{local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{local_name, namespace_prefix, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::cell::{Cell, Ref, RefCell};
@@ -20,12 +19,11 @@ use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
 
-pub use self::interface::{ElemName, NextParserState, NodeOrText, Tracer, TreeSink};
+pub use self::interface::{ElemName, NodeOrText, Tracer, TreeSink};
 use self::types::*;
 use crate::interface::{self, create_element, AppendNode, Attribute, QualName};
 use crate::interface::{AppendText, ExpandedName};
-use crate::tokenizer::states::Quiescent;
-use crate::tokenizer::{self, EndTag, StartTag, Tag, TokenSink};
+use crate::tokenizer::{self, EndTag, ProcessResult, StartTag, Tag, TokenSink};
 use crate::tokenizer::{Doctype, EmptyTag, Pi, ShortTag};
 use crate::{LocalName, Namespace, Prefix};
 
@@ -48,14 +46,12 @@ impl NamespaceMapStack {
         self.0.push(map);
     }
 
-    #[doc(hidden)]
-    pub fn pop(&mut self) {
+    fn pop(&mut self) {
         self.0.pop();
     }
 }
 
-#[doc(hidden)]
-pub struct NamespaceMap {
+pub(crate) struct NamespaceMap {
     // Map that maps prefixes to URI.
     //
     // Key denotes namespace prefix, and value denotes
@@ -70,7 +66,7 @@ impl Debug for NamespaceMap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "\nNamespaceMap[")?;
         for (key, value) in &self.scope {
-            writeln!(f, "   {:?} : {:?}", key, value)?;
+            writeln!(f, "   {key:?} : {value:?}")?;
         }
         write!(f, "]")
     }
@@ -78,8 +74,7 @@ impl Debug for NamespaceMap {
 
 impl NamespaceMap {
     // Returns an empty namespace.
-    #[doc(hidden)]
-    pub fn empty() -> NamespaceMap {
+    pub(crate) fn empty() -> NamespaceMap {
         NamespaceMap {
             scope: BTreeMap::new(),
         }
@@ -97,18 +92,15 @@ impl NamespaceMap {
         }
     }
 
-    #[doc(hidden)]
-    pub fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
+    pub(crate) fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
     }
 
-    #[doc(hidden)]
-    pub fn get_scope_iter(&self) -> Iter<Option<Prefix>, Option<Namespace>> {
+    pub(crate) fn get_scope_iter(&self) -> Iter<'_, Option<Prefix>, Option<Namespace>> {
         self.scope.iter()
     }
 
-    #[doc(hidden)]
-    pub fn insert(&mut self, name: &QualName) {
+    pub(crate) fn insert(&mut self, name: &QualName) {
         let prefix = name.prefix.as_ref().cloned();
         let namespace = Some(Namespace::from(&*name.ns));
         self.scope.insert(prefix, namespace);
@@ -182,9 +174,6 @@ pub struct XmlTreeBuilder<Handle, Sink> {
     /// The document node, which is created by the sink.
     doc_handle: Handle,
 
-    /// Next state change for the tokenizer, if any.
-    next_tokenizer_state: Cell<Option<tokenizer::states::XmlState>>,
-
     /// Stack of open elements, most recently added at end.
     open_elems: RefCell<Vec<Handle>>,
 
@@ -214,12 +203,11 @@ where
             _opts: opts,
             sink,
             doc_handle,
-            next_tokenizer_state: Cell::new(None),
             open_elems: RefCell::new(vec![]),
             curr_elem: RefCell::new(None),
             namespace_stack: RefCell::new(NamespaceMapStack::new()),
             current_namespace: RefCell::new(NamespaceMap::empty()),
-            phase: Cell::new(Start),
+            phase: Cell::new(XmlPhase::Start),
         }
     }
 
@@ -239,7 +227,7 @@ where
     #[cfg(not(for_c))]
     #[allow(dead_code)]
     fn dump_state(&self, label: String) {
-        debug!("dump_state on {}", label);
+        debug!("dump_state on {label}");
         debug!("    open_elems:");
         for node in self.open_elems.borrow().iter() {
             debug!(" {:?}", self.sink.elem_name(node));
@@ -376,7 +364,10 @@ where
         }
     }
 
-    fn process_to_completion(&self, mut token: Token) {
+    fn process_to_completion(
+        &self,
+        mut token: Token,
+    ) -> ProcessResult<<Self as TokenSink>::Handle> {
         // Queue of additional tokens yet to be processed.
         // This stays empty in the common case where we don't split whitespace.
         let mut more_tokens = VecDeque::new();
@@ -386,12 +377,19 @@ where
 
             #[allow(clippy::unused_unit)]
             match self.step(phase, token) {
-                Done => {
-                    token = unwrap_or_return!(more_tokens.pop_front(), ());
+                XmlProcessResult::Done => {
+                    let Some(popped_token) = more_tokens.pop_front() else {
+                        return ProcessResult::Continue;
+                    };
+                    token = popped_token;
                 },
-                Reprocess(m, t) => {
+                XmlProcessResult::Reprocess(m, t) => {
                     self.phase.set(m);
                     token = t;
+                },
+                XmlProcessResult::Script(node) => {
+                    assert!(more_tokens.is_empty());
+                    return ProcessResult::Script(node);
                 },
             }
         }
@@ -403,24 +401,26 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn process_token(&self, token: tokenizer::Token) {
+    type Handle = Handle;
+
+    fn process_token(&self, token: tokenizer::Token) -> ProcessResult<Self::Handle> {
         // Handle `ParseError` and `DoctypeToken`; convert everything else to the local `Token` type.
         let token = match token {
-            tokenizer::ParseError(e) => {
+            tokenizer::Token::ParseError(e) => {
                 self.sink.parse_error(e);
-                return;
+                return ProcessResult::Done;
             },
 
-            tokenizer::DoctypeToken(d) => Doctype(d),
-            tokenizer::PIToken(x) => Pi(x),
-            tokenizer::TagToken(x) => Tag(x),
-            tokenizer::CommentToken(x) => Comment(x),
-            tokenizer::NullCharacterToken => NullCharacter,
-            tokenizer::EOFToken => Eof,
-            tokenizer::CharacterTokens(x) => Characters(x),
+            tokenizer::Token::Doctype(d) => Token::Doctype(d),
+            tokenizer::Token::ProcessingInstruction(instruction) => Token::Pi(instruction),
+            tokenizer::Token::Tag(x) => Token::Tag(x),
+            tokenizer::Token::Comment(x) => Token::Comment(x),
+            tokenizer::Token::NullCharacter => Token::NullCharacter,
+            tokenizer::Token::EndOfFile => Token::Eof,
+            tokenizer::Token::Characters(x) => Token::Characters(x),
         };
 
-        self.process_to_completion(token);
+        self.process_to_completion(token)
     }
 
     fn end(&self) {
@@ -428,23 +428,18 @@ where
             self.sink.pop(&node);
         }
     }
-
-    fn query_state_change(&self) -> Option<tokenizer::states::XmlState> {
-        self.next_tokenizer_state.take()
-    }
 }
 
 fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
-#[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn current_node(&self) -> Ref<Handle> {
+    fn current_node(&self) -> Ref<'_, Handle> {
         Ref::map(self.open_elems.borrow(), |elems| {
             elems.last().expect("no current element")
         })
@@ -456,17 +451,17 @@ where
         self.sink.append(target, child);
     }
 
-    fn insert_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn insert_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         let child = create_element(&self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.add_to_open_elems(child)
     }
 
-    fn append_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn append_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         let child = create_element(&self.sink, tag.name, tag.attrs);
         self.insert_appropriately(AppendNode(child.clone()));
         self.sink.pop(&child);
-        Done
+        XmlProcessResult::Done
     }
 
     fn append_tag_to_doc(&self, tag: Tag) -> Handle {
@@ -477,27 +472,27 @@ where
         child
     }
 
-    fn add_to_open_elems(&self, el: Handle) -> XmlProcessResult {
+    fn add_to_open_elems(&self, el: Handle) -> XmlProcessResult<Handle> {
         self.open_elems.borrow_mut().push(el);
 
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_comment_to_doc(&self, text: StrTendril) -> XmlProcessResult {
+    fn append_comment_to_doc(&self, text: StrTendril) -> XmlProcessResult<Handle> {
         let comment = self.sink.create_comment(text);
         self.sink.append(&self.doc_handle, AppendNode(comment));
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_comment_to_tag(&self, text: StrTendril) -> XmlProcessResult {
+    fn append_comment_to_tag(&self, text: StrTendril) -> XmlProcessResult<Handle> {
         let open_elems = self.open_elems.borrow();
         let target = current_node(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_doctype_to_doc(&self, doctype: Doctype) -> XmlProcessResult {
+    fn append_doctype_to_doc(&self, doctype: Doctype) -> XmlProcessResult<Handle> {
         fn get_tendril(opt: Option<StrTendril>) -> StrTendril {
             match opt {
                 Some(expr) => expr,
@@ -509,26 +504,26 @@ where
             get_tendril(doctype.public_id),
             get_tendril(doctype.system_id),
         );
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_pi_to_doc(&self, pi: Pi) -> XmlProcessResult {
+    fn append_pi_to_doc(&self, pi: Pi) -> XmlProcessResult<Handle> {
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(&self.doc_handle, AppendNode(pi));
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_pi_to_tag(&self, pi: Pi) -> XmlProcessResult {
+    fn append_pi_to_tag(&self, pi: Pi) -> XmlProcessResult<Handle> {
         let open_elems = self.open_elems.borrow();
         let target = current_node(&open_elems);
         let pi = self.sink.create_pi(pi.target, pi.data);
         self.sink.append(target, AppendNode(pi));
-        Done
+        XmlProcessResult::Done
     }
 
-    fn append_text(&self, chars: StrTendril) -> XmlProcessResult {
+    fn append_text(&self, chars: StrTendril) -> XmlProcessResult<Handle> {
         self.insert_appropriately(AppendText(chars));
-        Done
+        XmlProcessResult::Done
     }
 
     fn tag_in_open_elems(&self, tag: &Tag) -> bool {
@@ -538,8 +533,7 @@ where
             .any(|a| self.sink.elem_name(a).expanded() == tag.name.expanded())
     }
 
-    // Pop elements until an element from the set has been popped.  Returns the
-    // number of elements popped.
+    // Pop elements until an element from the set has been popped.
     fn pop_until<P>(&self, pred: P)
     where
         P: Fn(ExpandedName) -> bool,
@@ -560,7 +554,7 @@ where
         set(self.sink.elem_name(&self.current_node()).expanded())
     }
 
-    fn close_tag(&self, tag: Tag) -> XmlProcessResult {
+    fn close_tag(&self, tag: Tag) -> XmlProcessResult<Handle> {
         debug!(
             "Close tag: current_node.name {:?} \n Current tag {:?}",
             self.sink.elem_name(&self.current_node()),
@@ -579,7 +573,7 @@ where
             self.pop();
         }
 
-        Done
+        XmlProcessResult::Done
     }
 
     fn no_open_elems(&self) -> bool {
@@ -597,17 +591,9 @@ where
         node
     }
 
-    fn stop_parsing(&self) -> XmlProcessResult {
+    fn stop_parsing(&self) -> XmlProcessResult<Handle> {
         warn!("stop_parsing for XML5 not implemented, full speed ahead!");
-        Done
-    }
-
-    fn complete_script(&self) {
-        let open_elems = self.open_elems.borrow();
-        let current = current_node(&open_elems);
-        if self.sink.complete_script(current) == NextParserState::Suspend {
-            self.next_tokenizer_state.set(Some(Quiescent));
-        }
+        XmlProcessResult::Done
     }
 }
 
@@ -616,18 +602,17 @@ fn any_not_whitespace(x: &StrTendril) -> bool {
         .all(|b| matches!(b, b'\t' | b'\r' | b'\n' | b'\x0C' | b' '))
 }
 
-#[doc(hidden)]
 impl<Handle, Sink> XmlTreeBuilder<Handle, Sink>
 where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    fn step(&self, mode: XmlPhase, token: Token) -> XmlProcessResult {
+    fn step(&self, mode: XmlPhase, token: Token) -> XmlProcessResult<<Self as TokenSink>::Handle> {
         self.debug_step(mode, &token);
 
         match mode {
-            Start => match token {
-                Tag(Tag {
+            XmlPhase::Start => match token {
+                Token::Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -641,11 +626,11 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase.set(Main);
+                    self.phase.set(XmlPhase::Main);
                     let handle = self.append_tag_to_doc(tag);
                     self.add_to_open_elems(handle)
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -659,32 +644,34 @@ where
                         self.process_namespaces(&mut tag);
                         tag
                     };
-                    self.phase.set(End);
+                    self.phase.set(XmlPhase::End);
                     let handle = self.append_tag_to_doc(tag);
                     self.sink.pop(&handle);
-                    Done
+                    XmlProcessResult::Done
                 },
-                Comment(comment) => self.append_comment_to_doc(comment),
-                Pi(pi) => self.append_pi_to_doc(pi),
-                Characters(ref chars) if !any_not_whitespace(chars) => Done,
-                Eof => {
+                Token::Comment(comment) => self.append_comment_to_doc(comment),
+                Token::Pi(pi) => self.append_pi_to_doc(pi),
+                Token::Characters(ref chars) if !any_not_whitespace(chars) => {
+                    XmlProcessResult::Done
+                },
+                Token::Eof => {
                     self.sink
                         .parse_error(Borrowed("Unexpected EOF in start phase"));
-                    Reprocess(End, Eof)
+                    XmlProcessResult::Reprocess(XmlPhase::End, Token::Eof)
                 },
-                Doctype(d) => {
+                Token::Doctype(d) => {
                     self.append_doctype_to_doc(d);
-                    Done
+                    XmlProcessResult::Done
                 },
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in start phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
-            Main => match token {
-                Characters(chs) => self.append_text(chs),
-                Tag(Tag {
+            XmlPhase::Main => match token {
+                Token::Characters(chs) => self.append_text(chs),
+                Token::Tag(Tag {
                     kind: StartTag,
                     name,
                     attrs,
@@ -700,7 +687,7 @@ where
                     };
                     self.insert_tag(tag)
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EmptyTag,
                     name,
                     attrs,
@@ -716,13 +703,14 @@ where
                     };
                     if tag.name.local == local_name!("script") {
                         self.insert_tag(tag.clone());
-                        self.complete_script();
-                        self.close_tag(tag)
+                        let script = current_node(&self.open_elems.borrow()).clone();
+                        self.close_tag(tag);
+                        XmlProcessResult::Script(script)
                     } else {
                         self.append_tag(tag)
                     }
                 },
-                Tag(Tag {
+                Token::Tag(Tag {
                     kind: EndTag,
                     name,
                     attrs,
@@ -737,39 +725,48 @@ where
                         tag
                     };
                     if tag.name.local == local_name!("script") {
-                        self.complete_script();
+                        let script = current_node(&self.open_elems.borrow()).clone();
+                        self.close_tag(tag);
+                        if self.no_open_elems() {
+                            self.phase.set(XmlPhase::End);
+                        }
+                        return XmlProcessResult::Script(script);
                     }
                     let retval = self.close_tag(tag);
                     if self.no_open_elems() {
-                        self.phase.set(End);
+                        self.phase.set(XmlPhase::End);
                     }
                     retval
                 },
-                Tag(Tag { kind: ShortTag, .. }) => {
+                Token::Tag(Tag { kind: ShortTag, .. }) => {
                     self.pop();
                     if self.no_open_elems() {
-                        self.phase.set(End);
+                        self.phase.set(XmlPhase::End);
                     }
-                    Done
+                    XmlProcessResult::Done
                 },
-                Comment(comment) => self.append_comment_to_tag(comment),
-                Pi(pi) => self.append_pi_to_tag(pi),
-                Eof | NullCharacter => Reprocess(End, Eof),
-                Doctype(_) => {
+                Token::Comment(comment) => self.append_comment_to_tag(comment),
+                Token::Pi(pi) => self.append_pi_to_tag(pi),
+                Token::Eof | Token::NullCharacter => {
+                    XmlProcessResult::Reprocess(XmlPhase::End, Token::Eof)
+                },
+                Token::Doctype(_) => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in main phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
-            End => match token {
-                Comment(comment) => self.append_comment_to_doc(comment),
-                Pi(pi) => self.append_pi_to_doc(pi),
-                Characters(ref chars) if !any_not_whitespace(chars) => Done,
-                Eof => self.stop_parsing(),
+            XmlPhase::End => match token {
+                Token::Comment(comment) => self.append_comment_to_doc(comment),
+                Token::Pi(pi) => self.append_pi_to_doc(pi),
+                Token::Characters(ref chars) if !any_not_whitespace(chars) => {
+                    XmlProcessResult::Done
+                },
+                Token::Eof => self.stop_parsing(),
                 _ => {
                     self.sink
                         .parse_error(Borrowed("Unexpected element in end phase"));
-                    Done
+                    XmlProcessResult::Done
                 },
             },
         }

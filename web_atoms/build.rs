@@ -10,7 +10,7 @@
 extern crate phf_codegen;
 extern crate string_cache_codegen;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -65,7 +65,7 @@ fn main() {
     writeln!(
         generated,
         r#"
-        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to 
+        /// Maps the input of [`namespace_prefix!`](macro.namespace_prefix.html) to
         /// the output of [`namespace_url!`](macro.namespace_url.html).
         ///
         #[macro_export] macro_rules! ns {{
@@ -75,8 +75,7 @@ fn main() {
     for &(prefix, url) in NAMESPACES {
         writeln!(
             generated,
-            "({}) => {{ namespace_url!({:?}) }};",
-            prefix, url
+            "({prefix}) => {{ $crate::namespace_url!({url:?}) }};"
         )
         .unwrap();
     }
@@ -84,7 +83,7 @@ fn main() {
 }
 
 fn named_entities_to_phf(to: &Path) {
-    let mut entities: HashMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
+    let mut entities: BTreeMap<&str, (u32, u32)> = entities::NAMED_ENTITIES
         .iter()
         .map(|(name, cp1, cp2)| {
             assert!(name.starts_with('&'));
@@ -102,7 +101,7 @@ fn named_entities_to_phf(to: &Path) {
 
     let mut phf_map = phf_codegen::Map::new();
     for (key, value) in entities {
-        phf_map.entry(key, &format!("{:?}", value));
+        phf_map.entry(key, format!("{value:?}"));
     }
 
     let mut file = File::create(to).unwrap();
@@ -115,7 +114,7 @@ fn named_entities_to_phf(to: &Path) {
 /// # Examples
 ///
 /// ```
-/// use markup5ever::data::NAMED_ENTITIES;
+/// use web_atoms::NAMED_ENTITIES;
 ///
 /// assert_eq!(NAMED_ENTITIES.get("gt;").unwrap(), &(62, 0));
 /// ```

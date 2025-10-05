@@ -19,14 +19,15 @@ use html5ever::tokenizer::{CharacterTokens, EOFToken, NullCharacterToken, ParseE
 use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
-use html5ever::{namespace_url, ns, Attribute, LocalName, QualName};
+use html5ever::TokenizerResult;
+use html5ever::{ns, Attribute, LocalName, QualName};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
+use std::char;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::{char, env};
 
 use util::runner::{run_all, Test};
 
@@ -92,7 +93,7 @@ impl TokenLogger {
     }
 
     fn finish_str(&self) {
-        if self.current_str.borrow().len() > 0 {
+        if !self.current_str.borrow().is_empty() {
             let s = self.current_str.take();
             self.tokens.borrow_mut().push(CharacterTokens(s));
         }
@@ -147,15 +148,19 @@ impl TokenSink for TokenLogger {
 
 fn tokenize(input: Vec<StrTendril>, opts: TokenizerOpts) -> (Vec<Token>, Vec<TestError>) {
     let sink = TokenLogger::new(opts.exact_errors);
-    let tok = Tokenizer::new(sink, opts);
+    let tokenizer = Tokenizer::new(sink, opts);
+
     let buffer = BufferQueue::default();
     for chunk in input.into_iter() {
         buffer.push_back(chunk);
-        let _ = tok.feed(&buffer);
     }
-    let _ = tok.feed(&buffer);
-    tok.end();
-    tok.sink.get_tokens()
+
+    while tokenizer.feed(&buffer) != TokenizerResult::Done {
+        // Ignore any script tags...
+    }
+
+    tokenizer.end();
+    tokenizer.sink.get_tokens()
 }
 
 trait JsonExt: Sized {
@@ -260,7 +265,7 @@ fn json_to_token(js: &Value) -> Token {
 
         // We don't need to produce NullCharacterToken because
         // the TokenLogger will convert them to CharacterTokens.
-        _ => panic!("don't understand token {:?}", parts),
+        _ => panic!("don't understand token {parts:?}"),
     }
 }
 
@@ -355,10 +360,7 @@ fn mk_test(
                 let output = tokenize(input.clone(), opts.clone());
                 let expect_toks = json_to_tokens(&expect, &expect_errors, opts.exact_errors);
                 if output != expect_toks {
-                    panic!(
-                        "\ninput: {:?}\ngot: {:?}\nexpected: {:?}",
-                        input, output, expect_toks
-                    );
+                    panic!("\ninput: {input:?}\ngot: {output:?}\nexpected: {expect_toks:?}");
                 }
             }
         }),
@@ -380,7 +382,7 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
     // the input and output.
     if obj
         .get(&"doubleEscaped".to_string())
-        .map_or(false, |j| j.get_bool())
+        .is_some_and(|j| j.get_bool())
     {
         match unescape(&input) {
             None => return,
@@ -404,7 +406,7 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
                     "Script data state" => RawData(ScriptData),
                     "CDATA section state" => CdataSection,
                     "Data state" => Data,
-                    s => panic!("don't know state {}", s),
+                    s => panic!("don't know state {s}"),
                 })
             })
             .collect(),
@@ -417,10 +419,10 @@ fn mk_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
         for &exact_errors in [false, true].iter() {
             let mut newdesc = desc.clone();
             if let Some(s) = state {
-                newdesc = format!("{} (in state {:?})", newdesc, s)
+                newdesc = format!("{newdesc} (in state {s:?})")
             };
             if exact_errors {
-                newdesc = format!("{} (exact errors)", newdesc);
+                newdesc = format!("{newdesc} (exact errors)");
             }
 
             tests.push(mk_test(
@@ -481,5 +483,5 @@ fn tests(src_dir: &Path) -> Vec<Test> {
 }
 
 fn main() {
-    run_all(tests(Path::new(env!("CARGO_MANIFEST_DIR"))));
+    run_all(tests(Path::new("./")));
 }

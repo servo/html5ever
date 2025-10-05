@@ -34,11 +34,10 @@ templates. XML5 tries to handle most common errors, in a manner similar to HTML5
 
 # Installation
 
-Add xml5ever as a dependency in your project manifest:
+Add xml5ever as a dependency:
 
-```toml
-    [dependencies]
-    xml5ever = "0.18"
+```bash
+cargo add xml5ever
 ```
 
 # Getting started

@@ -10,7 +10,7 @@
 // The tree builder rules, as a single, enormous nested match expression.
 
 use crate::interface::Quirks;
-use crate::tokenizer::states::{Plaintext, Rawtext, Rcdata, ScriptData};
+use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
@@ -19,10 +19,8 @@ use crate::tree_builder::{
     TreeSink,
 };
 use crate::QualName;
-use markup5ever::{expanded_name, local_name, namespace_prefix, namespace_url, ns};
+use markup5ever::{expanded_name, local_name, ns};
 use std::borrow::Cow::Borrowed;
-
-use std::borrow::ToOwned;
 
 use crate::tendril::SliceExt;
 
@@ -35,351 +33,491 @@ fn current_node<Handle>(open_elems: &[Handle]) -> &Handle {
     open_elems.last().expect("no current element")
 }
 
+/// Helper macro that generates a [pattern](https://doc.rust-lang.org/reference/patterns.html) representing
+/// a [`Tag`] to make matching on [`Tag`]s less verbose.
+///
+/// This macro accepts 4 forms:
+///
+/// - `tag!(<div>)` where `div` can be any valid tag name. This matches a start tag where the tag name is "div".
+///   If the tag name contains characters other than [a-zA-Z0-9_] then it should be quoted a `<"div">`.
+/// - `tag!(</div>)` where `div` can be any valid tag name. This matches a end tag where the tag name is "div".
+///   If the tag name contains characters other than [a-zA-Z0-9_] then it should be quoted a `</"div">`.
+/// - `tag!(<>)`. This matches any start tag (regardless of tag name).
+/// - `tag!(</>)`. This matches any end tag (regardless of tag name).
+///
+/// Additionally any of the above can be freely combined with `|` to create an "or" match pattern.
+/// For example `tag!(<head> | </>)` will match a "head" start tag or any end tag.
+#[rustfmt::skip]
+macro_rules! tag {
+    // Any start tag
+    (<>) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, .. }
+    };
+    (<>|$($tail:tt)*) => {
+        tag!(<>) | tag!($($tail)*)
+    };
+
+    // Any end tag
+    (</>) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, .. }
+    };
+    (</>|$($tail:tt)*) => {
+        tag!(</>) | tag!($($tail)*)
+    };
+
+    // Named start tag
+    (<$tag:tt>) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::StartTag, name: local_name!($tag), .. }
+    };
+    (<$tag:tt>|$($tail:tt)*) => {
+        tag!(<$tag>) | tag!($($tail)*)
+    };
+
+    // Named end tag
+    (</$tag:tt>) => {
+        crate::tokenizer::Tag { kind: crate::tokenizer::EndTag, name: local_name!($tag), .. }
+    };
+    (</$tag:tt>|$($tail:tt)*) => {
+        tag!(</$tag>) | tag!($($tail)*)
+    };
+}
+
 #[doc(hidden)]
 impl<Handle, Sink> TreeBuilder<Handle, Sink>
 where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
+    /// Process an HTML content token
+    ///
+    /// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml
     pub(crate) fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
         match mode {
-            //§ the-initial-insertion-mode
-            Initial => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => self.append_comment_to_doc(text),
+            // § The "initial" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
+            InsertionMode::Initial => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
+                Token::Comment(text) => self.append_comment_to_doc(text),
                 token => {
                     if !self.opts.iframe_srcdoc {
                         self.unexpected(&token);
                         self.set_quirks_mode(Quirks);
                     }
-                    Reprocess(BeforeHtml, token)
+                    ProcessResult::Reprocess(InsertionMode::BeforeHtml, token)
+                },
+            },
+
+            // § The "before html" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
+            InsertionMode::BeforeHtml => {
+                let anything_else = |token: Token| {
+                    self.create_root(vec![]);
+                    ProcessResult::Reprocess(InsertionMode::BeforeHead, token)
+                };
+
+                match token {
+                    Token::Comment(text) => self.append_comment_to_doc(text),
+
+                    Token::Characters(SplitStatus::NotSplit, text) => {
+                        ProcessResult::SplitWhitespace(text)
+                    },
+
+                    Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
+                    Token::Tag(tag @ tag!(<html>)) => {
+                        self.create_root(tag.attrs);
+                        self.mode.set(InsertionMode::BeforeHead);
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag!(</head> | </body> | </html> | </br>)) => anything_else(token),
+                    Token::Tag(tag @ tag!(</>)) => self.unexpected(&tag),
+
+                    token => anything_else(token),
                 }
-            }),
+            },
 
-            //§ the-before-html-insertion-mode
-            BeforeHtml => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => self.append_comment_to_doc(text),
-
-                tag @ <html> => {
-                    self.create_root(tag.attrs);
-                    self.mode.set(BeforeHead);
-                    Done
-                }
-
-                </head> </body> </html> </br> => else,
-
-                tag @ </_> => self.unexpected(&tag),
-
-                token => {
-                    self.create_root(vec!());
-                    Reprocess(BeforeHead, token)
-                }
-            }),
-
-            //§ the-before-head-insertion-mode
-            BeforeHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => Done,
-                CommentToken(text) => self.append_comment(text),
-
-                <html> => self.step(InBody, token),
-
-                tag @ <head> => {
-                    *self.head_elem.borrow_mut() = Some(self.insert_element_for(tag));
-                    self.mode.set(InHead);
-                    Done
-                }
-
-                </head> </body> </html> </br> => else,
-
-                tag @ </_> => self.unexpected(&tag),
-
-                token => {
+            // § The "before head" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode
+            InsertionMode::BeforeHead => {
+                let anything_else = |token: Token| {
                     *self.head_elem.borrow_mut() = Some(self.insert_phantom(local_name!("head")));
-                    Reprocess(InHead, token)
+                    ProcessResult::Reprocess(InsertionMode::InHead, token)
+                };
+                match token {
+                    Token::Characters(SplitStatus::NotSplit, text) => {
+                        ProcessResult::SplitWhitespace(text)
+                    },
+                    Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
+                    Token::Comment(text) => self.append_comment(text),
+
+                    Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
+
+                    Token::Tag(tag @ tag!(<head>)) => {
+                        *self.head_elem.borrow_mut() = Some(self.insert_element_for(tag));
+                        self.mode.set(InsertionMode::InHead);
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag!(</head> | </body> | </html> | </br>)) => anything_else(token),
+
+                    Token::Tag(tag @ tag!(</>)) => self.unexpected(&tag),
+
+                    token => anything_else(token),
                 }
-            }),
+            },
 
-            //§ parsing-main-inhead
-            InHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
-
-                <html> => self.step(InBody, token),
-
-                tag @ <base> <basefont> <bgsound> <link> <meta> => {
-                    // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
-                    self.insert_and_pop_element_for(tag);
-                    DoneAckSelfClosing
-                }
-
-                tag @ <title> => {
-                    self.parse_raw_data(tag, Rcdata)
-                }
-
-                tag @ <noframes> <style> <noscript> => {
-                    if (!self.opts.scripting_enabled) && (tag.name == local_name!("noscript")) {
-                        self.insert_element_for(tag);
-                        self.mode.set(InHeadNoscript);
-                        Done
-                    } else {
-                        self.parse_raw_data(tag, Rawtext)
-                    }
-                }
-
-                tag @ <script> => {
-                    let elem = create_element(
-                        &self.sink, QualName::new(None, ns!(html), local_name!("script")),
-                        tag.attrs);
-                    if self.is_fragment() {
-                        self.sink.mark_script_already_started(&elem);
-                    }
-                    self.insert_appropriately(AppendNode(elem.clone()), None);
-                    self.open_elems.borrow_mut().push(elem);
-                    self.to_raw_text_mode(ScriptData)
-                }
-
-                </head> => {
+            // § The "in head" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
+            InsertionMode::InHead => {
+                let anything_else = |token: Token| {
                     self.pop();
-                    self.mode.set(AfterHead);
-                    Done
+                    ProcessResult::Reprocess(InsertionMode::AfterHead, token)
+                };
+
+                match token {
+                    Token::Characters(SplitStatus::NotSplit, text) => {
+                        ProcessResult::SplitWhitespace(text)
+                    },
+                    Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
+                    Token::Comment(text) => self.append_comment(text),
+
+                    Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
+
+                    Token::Tag(tag @ tag!(<base> | <basefont> | <bgsound> | <link> | <meta>)) => {
+                        // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
+                        self.insert_and_pop_element_for(tag);
+                        ProcessResult::DoneAckSelfClosing
+                    },
+
+                    Token::Tag(tag @ tag!(<title>)) => self.parse_raw_data(tag, Rcdata),
+
+                    Token::Tag(tag @ tag!(<noframes> | <style> | <noscript>)) => {
+                        if (!self.opts.scripting_enabled) && (tag.name == local_name!("noscript")) {
+                            self.insert_element_for(tag);
+                            self.mode.set(InsertionMode::InHeadNoscript);
+                            ProcessResult::Done
+                        } else {
+                            self.parse_raw_data(tag, Rawtext)
+                        }
+                    },
+
+                    Token::Tag(tag @ tag!(<script>)) => {
+                        let elem = create_element(
+                            &self.sink,
+                            QualName::new(None, ns!(html), local_name!("script")),
+                            tag.attrs,
+                        );
+                        if self.is_fragment() {
+                            self.sink.mark_script_already_started(&elem);
+                        }
+                        self.insert_appropriately(AppendNode(elem.clone()), None);
+                        self.open_elems.borrow_mut().push(elem);
+                        self.to_raw_text_mode(ScriptData)
+                    },
+
+                    Token::Tag(tag!(</head>)) => {
+                        self.pop();
+                        self.mode.set(InsertionMode::AfterHead);
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag!(</body> | </html> | </br>)) => anything_else(token),
+
+                    Token::Tag(tag @ tag!(<template>)) => {
+                        self.active_formatting
+                            .borrow_mut()
+                            .push(FormatEntry::Marker);
+                        self.frameset_ok.set(false);
+                        self.mode.set(InsertionMode::InTemplate);
+                        self.template_modes
+                            .borrow_mut()
+                            .push(InsertionMode::InTemplate);
+
+                        if (self.should_attach_declarative_shadow(&tag)) {
+                            // Attach shadow path
+
+                            // Step 1. Let declarative shadow host element be adjusted current node.
+                            let mut shadow_host = self.open_elems.borrow().last().unwrap().clone();
+                            if self.is_fragment() && self.open_elems.borrow().len() == 1 {
+                                shadow_host = self.context_elem.borrow().clone().unwrap();
+                            }
+
+                            // Step 2. Let template be the result of insert a foreign element for template start tag, with HTML namespace and true.
+                            let template =
+                                self.insert_foreign_element(tag.clone(), ns!(html), true);
+
+                            // Step 3 - 8.
+                            // Attach a shadow root with declarative shadow host element, mode, clonable, serializable, delegatesFocus, and "named".
+                            let succeeded =
+                                self.attach_declarative_shadow(&tag, &shadow_host, &template);
+                            if !succeeded {
+                                // Step 8.1.1. Insert an element at the adjusted insertion location with template.
+                                // Pop the current template element created in step 2 first.
+                                self.pop();
+                                self.insert_element_for(tag);
+                            }
+                        } else {
+                            self.insert_element_for(tag);
+                        }
+
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag @ tag!(</template>)) => {
+                        if !self.in_html_elem_named(local_name!("template")) {
+                            self.unexpected(&tag);
+                        } else {
+                            self.generate_implied_end_tags(thorough_implied_end);
+                            self.expect_to_close(local_name!("template"));
+                            self.clear_active_formatting_to_marker();
+                            self.template_modes.borrow_mut().pop();
+                            self.mode.set(self.reset_insertion_mode());
+                        }
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag!(<head> | </>)) => self.unexpected(&token),
+
+                    token => anything_else(token),
                 }
+            },
 
-                </body> </html> </br> => else,
-
-                tag @ <template> => {
-                    self.insert_element_for(tag);
-                    self.active_formatting.borrow_mut().push(Marker);
-                    self.frameset_ok.set(false);
-                    self.mode.set(InTemplate);
-                    self.template_modes.borrow_mut().push(InTemplate);
-                    Done
-                }
-
-                tag @ </template> => {
-                    if !self.in_html_elem_named(local_name!("template")) {
-                        self.unexpected(&tag);
-                    } else {
-                        self.generate_implied_end(thorough_implied_end);
-                        self.expect_to_close(local_name!("template"));
-                        self.clear_active_formatting_to_marker();
-                        self.template_modes.borrow_mut().pop();
-                        self.mode.set(self.reset_insertion_mode());
-                    }
-                    Done
-                }
-
-                <head> => self.unexpected(&token),
-                tag @ </_> => self.unexpected(&tag),
-
-                token => {
-                    self.pop();
-                    Reprocess(AfterHead, token)
-                }
-            }),
-
-            //§ parsing-main-inheadnoscript
-            InHeadNoscript => match_token!(token {
-                <html> => self.step(InBody, token),
-
-                </noscript> => {
-                    self.pop();
-                    self.mode.set(InHead);
-                    Done
-                },
-
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => self.step(InHead, token),
-
-                CommentToken(_) => self.step(InHead, token),
-
-                <basefont> <bgsound> <link> <meta> <noframes> <style>
-                    => self.step(InHead, token),
-
-                </br> => else,
-
-                <head> <noscript> => self.unexpected(&token),
-                tag @ </_> => self.unexpected(&tag),
-
-                token => {
+            // § The "in head noscript" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inheadnoscript
+            InsertionMode::InHeadNoscript => {
+                let anything_else = |token: Token| {
                     self.unexpected(&token);
                     self.pop();
-                    Reprocess(InHead, token)
-                },
-            }),
+                    ProcessResult::Reprocess(InsertionMode::InHead, token)
+                };
+                match token {
+                    Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-            //§ the-after-head-insertion-mode
-            AfterHead => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
+                    Token::Tag(tag!(</noscript>)) => {
+                        self.pop();
+                        self.mode.set(InsertionMode::InHead);
+                        ProcessResult::Done
+                    },
 
-                <html> => self.step(InBody, token),
+                    Token::Characters(SplitStatus::NotSplit, text) => {
+                        ProcessResult::SplitWhitespace(text)
+                    },
+                    Token::Characters(SplitStatus::Whitespace, _) => {
+                        self.step(InsertionMode::InHead, token)
+                    },
 
-                tag @ <body> => {
-                    self.insert_element_for(tag);
-                    self.frameset_ok.set(false);
-                    self.mode.set(InBody);
-                    Done
+                    Token::Comment(_) => self.step(InsertionMode::InHead, token),
+
+                    Token::Tag(
+                        tag!(<basefont> | <bgsound> | <link> | <meta> | <noframes> | <style>),
+                    ) => self.step(InsertionMode::InHead, token),
+
+                    Token::Tag(tag!(</br>)) => anything_else(token),
+
+                    Token::Tag(tag!(<head> | <noscript> | </>)) => self.unexpected(&token),
+
+                    token => anything_else(token),
                 }
+            },
 
-                tag @ <frameset> => {
-                    self.insert_element_for(tag);
-                    self.mode.set(InFrameset);
-                    Done
-                }
-
-                <base> <basefont> <bgsound> <link> <meta>
-                      <noframes> <script> <style> <template> <title> => {
-                    self.unexpected(&token);
-                    let head = self.head_elem.borrow().as_ref().expect("no head element").clone();
-                    self.push(&head);
-                    let result = self.step(InHead, token);
-                    self.remove_from_stack(&head);
-                    result
-                }
-
-                </template> => self.step(InHead, token),
-
-                </body> </html> </br> => else,
-
-                <head> => self.unexpected(&token),
-                tag @ </_> => self.unexpected(&tag),
-
-                token => {
+            // § The "after head" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode
+            InsertionMode::AfterHead => {
+                let anything_else = |token: Token| {
                     self.insert_phantom(local_name!("body"));
-                    Reprocess(InBody, token)
+                    ProcessResult::Reprocess(InsertionMode::InBody, token)
+                };
+
+                match token {
+                    Token::Characters(SplitStatus::NotSplit, text) => {
+                        ProcessResult::SplitWhitespace(text)
+                    },
+                    Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
+                    Token::Comment(text) => self.append_comment(text),
+
+                    Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
+
+                    Token::Tag(tag @ tag!(<body>)) => {
+                        self.insert_element_for(tag);
+                        self.frameset_ok.set(false);
+                        self.mode.set(InsertionMode::InBody);
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(tag @ tag!(<frameset>)) => {
+                        self.insert_element_for(tag);
+                        self.mode.set(InsertionMode::InFrameset);
+                        ProcessResult::Done
+                    },
+
+                    Token::Tag(
+                        tag!(<base> | <basefont> | <bgsound> | <link> | <meta> |
+                                <noframes> | <script> | <style> | <template> | <title>
+                        ),
+                    ) => {
+                        self.unexpected(&token);
+                        let head = self
+                            .head_elem
+                            .borrow()
+                            .as_ref()
+                            .expect("no head element")
+                            .clone();
+                        self.push(&head);
+                        let result = self.step(InsertionMode::InHead, token);
+                        self.remove_from_stack(&head);
+                        result
+                    },
+
+                    Token::Tag(tag!(</template>)) => self.step(InsertionMode::InHead, token),
+
+                    Token::Tag(tag!(</body> | </html> | </br>)) => anything_else(token),
+
+                    Token::Tag(tag!(<head> | </>)) => self.unexpected(&token),
+
+                    token => anything_else(token),
                 }
-            }),
+            },
 
-            //§ parsing-main-inbody
-            InBody => match_token!(token {
-                NullCharacterToken => self.unexpected(&token),
+            // § The "in body" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
+            InsertionMode::InBody => match token {
+                Token::NullCharacter => self.unexpected(&token),
 
-                CharacterTokens(_, text) => {
-                    self.reconstruct_formatting();
+                Token::Characters(_, text) => {
+                    self.reconstruct_active_formatting_elements();
                     if any_not_whitespace(&text) {
                         self.frameset_ok.set(false);
                     }
                     self.append_text(text)
-                }
+                },
 
-                CommentToken(text) => self.append_comment(text),
+                Token::Comment(text) => self.append_comment(text),
 
-                tag @ <html> => {
+                Token::Tag(tag @ tag!(<html>)) => {
                     self.unexpected(&tag);
                     if !self.in_html_elem_named(local_name!("template")) {
                         let open_elems = self.open_elems.borrow();
                         let top = html_elem(&open_elems);
                         self.sink.add_attrs_if_missing(top, tag.attrs);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                <base> <basefont> <bgsound> <link> <meta> <noframes>
-                  <script> <style> <template> <title> </template> => {
-                    self.step(InHead, token)
-                }
+                Token::Tag(
+                    tag!(<base> | <basefont> | <bgsound> | <link> | <meta> | <noframes>
+                            | <script> | <style> | <template> | <title> | </template>),
+                ) => self.step(InsertionMode::InHead, token),
 
-                tag @ <body> => {
+                Token::Tag(tag @ tag!(<body>)) => {
                     self.unexpected(&tag);
                     let body_elem = self.body_elem().as_deref().cloned();
                     match body_elem {
-                        Some(ref node) if self.open_elems.borrow().len() != 1 &&
-                                          !self.in_html_elem_named(local_name!("template")) => {
+                        Some(ref node)
+                            if self.open_elems.borrow().len() != 1
+                                && !self.in_html_elem_named(local_name!("template")) =>
+                        {
                             self.frameset_ok.set(false);
                             self.sink.add_attrs_if_missing(node, tag.attrs)
                         },
-                        _ => {}
+                        _ => {},
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <frameset> => {
+                Token::Tag(tag @ tag!(<frameset>)) => {
                     self.unexpected(&tag);
-                    if !self.frameset_ok.get() { return Done; }
+                    if !self.frameset_ok.get() {
+                        return ProcessResult::Done;
+                    }
 
-                    let body = unwrap_or_return!(self.body_elem(), Done).clone();
+                    let Some(body) = self.body_elem().map(|b| b.clone()) else {
+                        return ProcessResult::Done;
+                    };
                     self.sink.remove_from_parent(&body);
 
                     // FIXME: can we get here in the fragment case?
                     // What to do with the first element then?
                     self.open_elems.borrow_mut().truncate(1);
                     self.insert_element_for(tag);
-                    self.mode.set(InFrameset);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InFrameset);
+                    ProcessResult::Done
+                },
 
-                EOFToken => {
+                Token::Eof => {
                     if !self.template_modes.borrow().is_empty() {
-                        self.step(InTemplate, token)
+                        self.step(InsertionMode::InTemplate, token)
                     } else {
                         self.check_body_end();
                         self.stop_parsing()
                     }
-                }
+                },
 
-                </body> => {
+                Token::Tag(tag!(</body>)) => {
                     if self.in_scope_named(default_scope, local_name!("body")) {
                         self.check_body_end();
-                        self.mode.set(AfterBody);
+                        self.mode.set(InsertionMode::AfterBody);
                     } else {
-                        self.sink.parse_error(Borrowed("</body> with no <body> in scope"));
+                        self.sink
+                            .parse_error(Borrowed("</body> with no <body> in scope"));
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </html> => {
+                Token::Tag(tag!(</html>)) => {
                     if self.in_scope_named(default_scope, local_name!("body")) {
                         self.check_body_end();
-                        Reprocess(AfterBody, token)
+                        ProcessResult::Reprocess(InsertionMode::AfterBody, token)
                     } else {
-                        self.sink.parse_error(Borrowed("</html> with no <body> in scope"));
-                        Done
+                        self.sink
+                            .parse_error(Borrowed("</html> with no <body> in scope"));
+                        ProcessResult::Done
                     }
-                }
+                },
 
-                tag @ <address> <article> <aside> <blockquote> <center> <details> <dialog>
-                  <dir> <div> <dl> <fieldset> <figcaption> <figure> <footer> <header>
-                  <hgroup> <main> <nav> <ol> <p> <search> <section> <summary> <ul> => {
+                Token::Tag(
+                    tag @
+                    tag!(<address> | <article> | <aside> | <blockquote> | <center> | <details> | <dialog> |
+                          <dir> | <div> | <dl> | <fieldset> | <figcaption> | <figure> | <footer> | <header> |
+                          <hgroup> | <main> | <nav> | <ol> | <p> | <search> | <section> | <summary> | <ul>),
+                ) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <menu> => {
+                Token::Tag(tag @ tag!(<menu>)) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <h1> <h2> <h3> <h4> <h5> <h6> => {
+                Token::Tag(tag @ tag!(<h1> | <h2> | <h3> | <h4> | <h5> | <h6>)) => {
                     self.close_p_element_in_button_scope();
                     if self.current_node_in(heading_tag) {
                         self.sink.parse_error(Borrowed("nested heading tags"));
                         self.pop();
                     }
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <pre> <listing> => {
+                Token::Tag(tag @ tag!(<pre> | <listing>)) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
                     self.ignore_lf.set(true);
                     self.frameset_ok.set(false);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <form> => {
-                    if self.form_elem.borrow().is_some() &&
-                       !self.in_html_elem_named(local_name!("template")) {
+                Token::Tag(tag @ tag!(<form>)) => {
+                    if self.form_elem.borrow().is_some()
+                        && !self.in_html_elem_named(local_name!("template"))
+                    {
                         self.sink.parse_error(Borrowed("nested forms"));
                     } else {
                         self.close_p_element_in_button_scope();
@@ -388,10 +526,10 @@ where
                             *self.form_elem.borrow_mut() = Some(elem);
                         }
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <li> <dd> <dt> => {
+                Token::Tag(tag @ tag!(<li> | <dd> | <dt>)) => {
                     declare_tag_set!(close_list = "li");
                     declare_tag_set!(close_defn = "dd" "dt");
                     declare_tag_set!(extra_special = [special_tag] - "address" "div" "p");
@@ -421,94 +559,95 @@ where
                         }
                     }
 
-                    match to_close {
-                        Some(name) => {
-                            self.generate_implied_end_except(name.clone());
-                            self.expect_to_close(name);
-                        }
-                        None => (),
+                    if let Some(name) = to_close {
+                        self.generate_implied_end_except(name.clone());
+                        self.expect_to_close(name);
                     }
 
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <plaintext> => {
+                Token::Tag(tag @ tag!(<plaintext>)) => {
                     self.close_p_element_in_button_scope();
                     self.insert_element_for(tag);
-                    ToPlaintext
-                }
+                    ProcessResult::ToPlaintext
+                },
 
-                tag @ <button> => {
+                Token::Tag(tag @ tag!(<button>)) => {
                     if self.in_scope_named(default_scope, local_name!("button")) {
                         self.sink.parse_error(Borrowed("nested buttons"));
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.pop_until_named(local_name!("button"));
                     }
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ </address> </article> </aside> </blockquote> </button> </center>
-                  </details> </dialog> </dir> </div> </dl> </fieldset> </figcaption>
-                  </figure> </footer> </header> </hgroup> </listing> </main> </menu>
-                  </nav> </ol> </pre> </search> </section> </summary> </ul> => {
+                Token::Tag(
+                    tag @
+                    tag!(</address> | </article> | </aside> | </blockquote> | </button> | </center> |
+                              </details> | </dialog> | </dir> | </div> | </dl> | </fieldset> | </figcaption> |
+                              </figure> | </footer> | </header> | </hgroup> | </listing> | </main> | </menu> |
+                              </nav> | </ol> | </pre> | </search> | </section> | </summary> | </ul>),
+                ) => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </form> => {
+                Token::Tag(tag!(</form>)) => {
                     if !self.in_html_elem_named(local_name!("template")) {
-                        // Can't use unwrap_or_return!() due to rust-lang/rust#16617.
-                        let node = match self.form_elem.take() {
-                            None => {
-                                self.sink.parse_error(Borrowed("Null form element pointer on </form>"));
-                                return Done;
-                            }
-                            Some(x) => x,
+                        let Some(node) = self.form_elem.take() else {
+                            self.sink
+                                .parse_error(Borrowed("Null form element pointer on </form>"));
+                            return ProcessResult::Done;
                         };
                         if !self.in_scope(default_scope, |n| self.sink.same_node(&node, &n)) {
-                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
-                            return Done;
+                            self.sink
+                                .parse_error(Borrowed("Form element not in scope on </form>"));
+                            return ProcessResult::Done;
                         }
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         let current = self.current_node().clone();
                         self.remove_from_stack(&node);
                         if !self.sink.same_node(&current, &node) {
-                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                            self.sink
+                                .parse_error(Borrowed("Bad open element on </form>"));
                         }
                     } else {
                         if !self.in_scope_named(default_scope, local_name!("form")) {
-                            self.sink.parse_error(Borrowed("Form element not in scope on </form>"));
-                            return Done;
+                            self.sink
+                                .parse_error(Borrowed("Form element not in scope on </form>"));
+                            return ProcessResult::Done;
                         }
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         if !self.current_node_named(local_name!("form")) {
-                            self.sink.parse_error(Borrowed("Bad open element on </form>"));
+                            self.sink
+                                .parse_error(Borrowed("Bad open element on </form>"));
                         }
                         self.pop_until_named(local_name!("form"));
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </p> => {
+                Token::Tag(tag!(</p>)) => {
                     if !self.in_scope_named(button_scope, local_name!("p")) {
                         self.sink.parse_error(Borrowed("No <p> tag to close"));
                         self.insert_phantom(local_name!("p"));
                     }
                     self.close_p_element();
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ </li> </dd> </dt> => {
+                Token::Tag(tag @ tag!(</li> | </dd> | </dt>)) => {
                     let in_scope = if tag.name == local_name!("li") {
                         self.in_scope_named(list_item_scope, tag.name.clone())
                     } else {
@@ -520,12 +659,12 @@ where
                     } else {
                         self.sink.parse_error(Borrowed("No matching tag to close"));
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ </h1> </h2> </h3> </h4> </h5> </h6> => {
+                Token::Tag(tag @ tag!(</h1> | </h2> | </h3> | </h4> | </h5> | </h6>)) => {
                     if self.in_scope(default_scope, |n| self.elem_in(&n, heading_tag)) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         if !self.current_node_named(tag.name) {
                             self.sink.parse_error(Borrowed("Closing wrong heading tag"));
                         }
@@ -533,96 +672,108 @@ where
                     } else {
                         self.sink.parse_error(Borrowed("No heading tag to close"));
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <a> => {
+                Token::Tag(tag @ tag!(<a>)) => {
                     self.handle_misnested_a_tags(&tag);
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.create_formatting_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <b> <big> <code> <em> <font> <i> <s> <small> <strike> <strong> <tt> <u> => {
-                    self.reconstruct_formatting();
+                Token::Tag(
+                    tag @
+                    tag!(<b> | <big> | <code> | <em> | <font> | <i> | <s> | <small> | <strike> | <strong> | <tt> | <u>),
+                ) => {
+                    self.reconstruct_active_formatting_elements();
                     self.create_formatting_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <nobr> => {
-                    self.reconstruct_formatting();
+                Token::Tag(tag @ tag!(<nobr>)) => {
+                    self.reconstruct_active_formatting_elements();
                     if self.in_scope_named(default_scope, local_name!("nobr")) {
                         self.sink.parse_error(Borrowed("Nested <nobr>"));
                         self.adoption_agency(local_name!("nobr"));
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                     }
                     self.create_formatting_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ </a> </b> </big> </code> </em> </font> </i> </nobr>
-                  </s> </small> </strike> </strong> </tt> </u> => {
+                Token::Tag(
+                    tag @ tag!(</a> | </b> | </big> | </code> | </em> | </font> | </i> | </nobr> |
+                                </s> | </small> | </strike> | </strong> | </tt> | </u>),
+                ) => {
                     self.adoption_agency(tag.name);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <applet> <marquee> <object> => {
-                    self.reconstruct_formatting();
+                Token::Tag(tag @ tag!(<applet> | <marquee> | <object>)) => {
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
-                    self.active_formatting.borrow_mut().push(Marker);
+                    self.active_formatting
+                        .borrow_mut()
+                        .push(FormatEntry::Marker);
                     self.frameset_ok.set(false);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ </applet> </marquee> </object> => {
+                Token::Tag(tag @ tag!(</applet> | </marquee> | </object>)) => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <table> => {
+                Token::Tag(tag @ tag!(<table>)) => {
                     if self.quirks_mode.get() != Quirks {
                         self.close_p_element_in_button_scope();
                     }
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
-                    self.mode.set(InTable);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InTable);
+                    ProcessResult::Done
+                },
 
-                tag @ </br> => {
+                Token::Tag(tag @ tag!(</br>)) => {
                     self.unexpected(&tag);
-                    self.step(InBody, TagToken(Tag {
-                        kind: StartTag,
-                        attrs: vec!(),
-                        ..tag
-                    }))
-                }
+                    self.step(
+                        InsertionMode::InBody,
+                        Token::Tag(Tag {
+                            kind: StartTag,
+                            attrs: vec![],
+                            ..tag
+                        }),
+                    )
+                },
 
-                tag @ <area> <br> <embed> <img> <keygen> <wbr> <input> => {
+                Token::Tag(
+                    tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr> | <input>),
+                ) => {
                     let keep_frameset_ok = match tag.name {
                         local_name!("input") => self.is_type_hidden(&tag),
                         _ => false,
                     };
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_and_pop_element_for(tag);
                     if !keep_frameset_ok {
                         self.frameset_ok.set(false);
                     }
-                    DoneAckSelfClosing
-                }
+                    ProcessResult::DoneAckSelfClosing
+                },
 
-                tag @ <param> <source> <track> => {
+                Token::Tag(tag @ tag!(<param> | <source> | <track>)) => {
                     self.insert_and_pop_element_for(tag);
-                    DoneAckSelfClosing
-                }
+                    ProcessResult::DoneAckSelfClosing
+                },
 
-                tag @ <hr> => {
+                Token::Tag(tag @ tag!(<hr>)) => {
                     self.close_p_element_in_button_scope();
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end_except(local_name!("optgroup"));
@@ -633,54 +784,54 @@ where
 
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok.set(false);
-                    DoneAckSelfClosing
-                }
+                    ProcessResult::DoneAckSelfClosing
+                },
 
-                tag @ <image> => {
+                Token::Tag(tag @ tag!(<image>)) => {
                     self.unexpected(&tag);
-                    self.step(InBody, TagToken(Tag {
-                        name: local_name!("img"),
-                        ..tag
-                    }))
-                }
+                    self.step(
+                        InsertionMode::InBody,
+                        Token::Tag(Tag {
+                            name: local_name!("img"),
+                            ..tag
+                        }),
+                    )
+                },
 
-                tag @ <textarea> => {
+                Token::Tag(tag @ tag!(<textarea>)) => {
                     self.ignore_lf.set(true);
                     self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rcdata)
-                }
+                },
 
-                tag @ <xmp> => {
+                Token::Tag(tag @ tag!(<xmp>)) => {
                     self.close_p_element_in_button_scope();
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rawtext)
-                }
+                },
 
-                tag @ <iframe> => {
+                Token::Tag(tag @ tag!(<iframe>)) => {
                     self.frameset_ok.set(false);
                     self.parse_raw_data(tag, Rawtext)
-                }
+                },
 
-                tag @ <noembed> => {
-                    self.parse_raw_data(tag, Rawtext)
-                }
+                Token::Tag(tag @ tag!(<noembed>)) => self.parse_raw_data(tag, Rawtext),
 
                 // <noscript> handled in wildcard case below
-
-                tag @ <select> => {
+                Token::Tag(tag @ tag!(<select>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.sink.parse_error(Borrowed("nested select"));
                         self.pop_until_named(local_name!("select"));
                     }
 
-                    self.reconstruct_formatting();
+                    self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     self.frameset_ok.set(false);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <option> => {
+                Token::Tag(tag @ tag!(<option>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end_except(local_name!("optgroup"));
                         if self.in_scope_named(default_scope, local_name!("option")) {
@@ -694,10 +845,10 @@ where
                     }
 
                     self.insert_element_for(tag);
-                    Done
+                    ProcessResult::Done
                 }
 
-                tag @ <optgroup> => {
+                Token::Tag(tag @ tag!(<optgroup>)) => {
                     if self.in_scope_named(default_scope, local_name!("select")) {
                         self.generate_implied_end(cursory_implied_end);
                         // XXX: perf
@@ -712,66 +863,67 @@ where
                     }
 
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <rb> <rtc> => {
+                Token::Tag(tag @ tag!(<rb> | <rtc>)) => {
                     if self.in_scope_named(default_scope, local_name!("ruby")) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                     }
                     if !self.current_node_named(local_name!("ruby")) {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <rp> <rt> => {
+                Token::Tag(tag @ tag!(<rp> | <rt>)) => {
                     if self.in_scope_named(default_scope, local_name!("ruby")) {
                         self.generate_implied_end_except(local_name!("rtc"));
                     }
-                    if !self.current_node_named(local_name!("rtc")) && !self.current_node_named(local_name!("ruby")) {
+                    if !self.current_node_named(local_name!("rtc"))
+                        && !self.current_node_named(local_name!("ruby"))
+                    {
                         self.unexpected(&tag);
                     }
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <math> => self.enter_foreign(tag, ns!(mathml)),
+                Token::Tag(tag @ tag!(<math>)) => self.enter_foreign(tag, ns!(mathml)),
 
-                tag @ <svg> => self.enter_foreign(tag, ns!(svg)),
+                Token::Tag(tag @ tag!(<svg>)) => self.enter_foreign(tag, ns!(svg)),
 
-                <caption> <col> <colgroup> <frame> <head>
-                  <tbody> <td> <tfoot> <th> <thead> <tr> => {
+                Token::Tag(
+                    tag!(<caption> | <col> | <colgroup> | <frame> | <head> |
+                                <tbody> | <td> | <tfoot> | <th> | <thead> | <tr>),
+                ) => {
                     self.unexpected(&token);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <_> => {
+                Token::Tag(tag @ tag!(<>)) => {
                     if self.opts.scripting_enabled && tag.name == local_name!("noscript") {
                         self.parse_raw_data(tag, Rawtext)
                     } else {
-                        self.reconstruct_formatting();
+                        self.reconstruct_active_formatting_elements();
                         self.insert_element_for(tag);
-                        Done
+                        ProcessResult::Done
                     }
-                }
+                },
 
-                tag @ </_> => {
+                Token::Tag(tag @ tag!(</>)) => {
                     self.process_end_tag_in_body(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
+            },
 
-                // FIXME: This should be unreachable, but match_token requires a
-                // catch-all case.
-                _ => panic!("impossible case in InBody mode"),
-            }),
+            // § The "text" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
+            InsertionMode::Text => match token {
+                Token::Characters(_, text) => self.append_text(text),
 
-            //§ parsing-main-incdata
-            Text => match_token!(token {
-                CharacterTokens(_, text) => self.append_text(text),
-
-                EOFToken => {
+                Token::Eof => {
                     self.unexpected(&token);
                     if self.current_node_named(local_name!("script")) {
                         let open_elems = self.open_elems.borrow();
@@ -779,143 +931,146 @@ where
                         self.sink.mark_script_already_started(current);
                     }
                     self.pop();
-                    Reprocess(self.orig_mode.take().unwrap(), token)
-                }
+                    ProcessResult::Reprocess(self.orig_mode.take().unwrap(), token)
+                },
 
-                tag @ </_> => {
+                Token::Tag(tag @ tag!(</>)) => {
                     let node = self.pop();
                     self.mode.set(self.orig_mode.take().unwrap());
                     if tag.name == local_name!("script") {
-                        return Script(node);
+                        return ProcessResult::Script(node);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
                 // The spec doesn't say what to do here.
                 // Other tokens are impossible?
-                _ => panic!("impossible case in Text mode"),
-            }),
+                _ => unreachable!("impossible case in Text mode"),
+            },
 
-            //§ parsing-main-intable
-            InTable => match_token!(token {
-                // FIXME: hack, should implement pat | pat for match_token instead
-                NullCharacterToken => self.process_chars_in_table(token),
+            // § The "in table" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable
+            InsertionMode::InTable => match token {
+                Token::NullCharacter | Token::Characters(..) => self.process_chars_in_table(token),
 
-                CharacterTokens(..) => self.process_chars_in_table(token),
+                Token::Comment(text) => self.append_comment(text),
 
-                CommentToken(text) => self.append_comment(text),
-
-                tag @ <caption> => {
+                Token::Tag(tag @ tag!(<caption>)) => {
                     self.pop_until_current(table_scope);
-                    self.active_formatting.borrow_mut().push(Marker);
+                    self.active_formatting
+                        .borrow_mut()
+                        .push(FormatEntry::Marker);
                     self.insert_element_for(tag);
-                    self.mode.set(InCaption);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InCaption);
+                    ProcessResult::Done
+                },
 
-                tag @ <colgroup> => {
+                Token::Tag(tag @ tag!(<colgroup>)) => {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
-                    self.mode.set(InColumnGroup);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InColumnGroup);
+                    ProcessResult::Done
+                },
 
-                <col> => {
+                Token::Tag(tag!(<col>)) => {
                     self.pop_until_current(table_scope);
                     self.insert_phantom(local_name!("colgroup"));
-                    Reprocess(InColumnGroup, token)
-                }
+                    ProcessResult::Reprocess(InsertionMode::InColumnGroup, token)
+                },
 
-                tag @ <tbody> <tfoot> <thead> => {
+                Token::Tag(tag @ tag!(<tbody> | <tfoot> | <thead>)) => {
                     self.pop_until_current(table_scope);
                     self.insert_element_for(tag);
-                    self.mode.set(InTableBody);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InTableBody);
+                    ProcessResult::Done
+                },
 
-                <td> <th> <tr> => {
+                Token::Tag(tag!(<td> | <th> | <tr>)) => {
                     self.pop_until_current(table_scope);
                     self.insert_phantom(local_name!("tbody"));
-                    Reprocess(InTableBody, token)
-                }
+                    ProcessResult::Reprocess(InsertionMode::InTableBody, token)
+                },
 
-                <table> => {
+                Token::Tag(tag!(<table>)) => {
                     self.unexpected(&token);
                     if self.in_scope_named(table_scope, local_name!("table")) {
                         self.pop_until_named(local_name!("table"));
-                        Reprocess(self.reset_insertion_mode(), token)
+                        ProcessResult::Reprocess(self.reset_insertion_mode(), token)
                     } else {
-                        Done
+                        ProcessResult::Done
                     }
-                }
+                },
 
-                </table> => {
+                Token::Tag(tag!(</table>)) => {
                     if self.in_scope_named(table_scope, local_name!("table")) {
                         self.pop_until_named(local_name!("table"));
                         self.mode.set(self.reset_insertion_mode());
                     } else {
                         self.unexpected(&token);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </body> </caption> </col> </colgroup> </html>
-                  </tbody> </td> </tfoot> </th> </thead> </tr> =>
-                    self.unexpected(&token),
+                Token::Tag(
+                    tag!(</body> | </caption> | </col> | </colgroup> | </html> |
+                        </tbody> | </td> | </tfoot> | </th> | </thead> | </tr>),
+                ) => self.unexpected(&token),
 
-                <style> <script> <template> </template>
-                    => self.step(InHead, token),
+                Token::Tag(tag!(<style> | <script> | <template> | </template>)) => {
+                    self.step(InsertionMode::InHead, token)
+                },
 
-                tag @ <input> => {
+                Token::Tag(tag @ tag!(<input>)) => {
                     self.unexpected(&tag);
                     if self.is_type_hidden(&tag) {
                         self.insert_and_pop_element_for(tag);
-                        DoneAckSelfClosing
+                        ProcessResult::DoneAckSelfClosing
                     } else {
-                        self.foster_parent_in_body(TagToken(tag))
+                        self.foster_parent_in_body(Token::Tag(tag))
                     }
-                }
+                },
 
-                tag @ <form> => {
+                Token::Tag(tag @ tag!(<form>)) => {
                     self.unexpected(&tag);
-                    if !self.in_html_elem_named(local_name!("template")) && self.form_elem.borrow().is_none() {
+                    if !self.in_html_elem_named(local_name!("template"))
+                        && self.form_elem.borrow().is_none()
+                    {
                         *self.form_elem.borrow_mut() = Some(self.insert_and_pop_element_for(tag));
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                EOFToken => self.step(InBody, token),
+                Token::Eof => self.step(InsertionMode::InBody, token),
 
                 token => {
                     self.unexpected(&token);
                     self.foster_parent_in_body(token)
-                }
-            }),
+                },
+            },
 
-            //§ parsing-main-intabletext
-            InTableText => match_token!(token {
-                NullCharacterToken => self.unexpected(&token),
+            // § The "in table text" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intabletext
+            InsertionMode::InTableText => match token {
+                Token::NullCharacter => self.unexpected(&token),
 
-                CharacterTokens(split, text) => {
+                Token::Characters(split, text) => {
                     self.pending_table_text.borrow_mut().push((split, text));
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
                 token => {
                     let pending = self.pending_table_text.take();
-                    let contains_nonspace = pending.iter().any(|&(split, ref text)| {
-                        match split {
-                            Whitespace => false,
-                            NotWhitespace => true,
-                            NotSplit => any_not_whitespace(text),
-                        }
+                    let contains_nonspace = pending.iter().any(|&(split, ref text)| match split {
+                        SplitStatus::Whitespace => false,
+                        SplitStatus::NotWhitespace => true,
+                        SplitStatus::NotSplit => any_not_whitespace(text),
                     });
 
                     if contains_nonspace {
                         self.sink.parse_error(Borrowed("Non-space table text"));
                         for (split, text) in pending.into_iter() {
-                            match self.foster_parent_in_body(CharacterTokens(split, text)) {
-                                Done => (),
+                            match self.foster_parent_in_body(Token::Characters(split, text)) {
+                                ProcessResult::Done => (),
                                 _ => panic!("not prepared to handle this!"),
                             }
                         }
@@ -925,247 +1080,282 @@ where
                         }
                     }
 
-                    Reprocess(self.orig_mode.take().unwrap(), token)
-                }
-            }),
+                    ProcessResult::Reprocess(self.orig_mode.take().unwrap(), token)
+                },
+            },
 
-            //§ parsing-main-incaption
-            InCaption => match_token!(token {
-                tag @ <caption> <col> <colgroup> <tbody> <td> <tfoot>
-                  <th> <thead> <tr> </table> </caption> => {
+            // § The "in caption" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incaption
+            InsertionMode::InCaption => match token {
+                Token::Tag(
+                    tag @ tag!(<caption> | <col> | <colgroup> | <tbody> | <td> | <tfoot> |
+                                <th> | <thead> | <tr> | </table> | </caption>),
+                ) => {
                     if self.in_scope_named(table_scope, local_name!("caption")) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(local_name!("caption"));
                         self.clear_active_formatting_to_marker();
                         match tag {
-                            Tag { kind: EndTag, name: local_name!("caption"), .. } => {
-                                self.mode.set(InTable);
-                                Done
-                            }
-                            _ => Reprocess(InTable, TagToken(tag))
+                            Tag {
+                                kind: EndTag,
+                                name: local_name!("caption"),
+                                ..
+                            } => {
+                                self.mode.set(InsertionMode::InTable);
+                                ProcessResult::Done
+                            },
+                            _ => ProcessResult::Reprocess(InsertionMode::InTable, Token::Tag(tag)),
                         }
                     } else {
                         self.unexpected(&tag);
-                        Done
+                        ProcessResult::Done
                     }
-                }
+                },
 
-                </body> </col> </colgroup> </html> </tbody>
-                  </td> </tfoot> </th> </thead> </tr> => self.unexpected(&token),
+                Token::Tag(
+                    tag!(</body> | </col> | </colgroup> | </html> | </tbody> |
+                            </td> | </tfoot> | </th> | </thead> | </tr>),
+                ) => self.unexpected(&token),
 
-                token => self.step(InBody, token),
-            }),
+                token => self.step(InsertionMode::InBody, token),
+            },
 
-            //§ parsing-main-incolgroup
-            InColumnGroup => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
+            // § The "in column group" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incolgroup
+            InsertionMode::InColumnGroup => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
+                Token::Comment(text) => self.append_comment(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                tag @ <col> => {
+                Token::Tag(tag @ tag!(<col>)) => {
                     self.insert_and_pop_element_for(tag);
-                    DoneAckSelfClosing
-                }
+                    ProcessResult::DoneAckSelfClosing
+                },
 
-                </colgroup> => {
+                Token::Tag(tag!(</colgroup>)) => {
                     if self.current_node_named(local_name!("colgroup")) {
                         self.pop();
-                        self.mode.set(InTable);
+                        self.mode.set(InsertionMode::InTable);
                     } else {
                         self.unexpected(&token);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </col> => self.unexpected(&token),
+                Token::Tag(tag!(</col>)) => self.unexpected(&token),
 
-                <template> </template> => self.step(InHead, token),
+                Token::Tag(tag!(<template> | </template>)) => {
+                    self.step(InsertionMode::InHead, token)
+                },
 
-                EOFToken => self.step(InBody, token),
+                Token::Eof => self.step(InsertionMode::InBody, token),
 
                 token => {
                     if self.current_node_named(local_name!("colgroup")) {
                         self.pop();
-                        Reprocess(InTable, token)
+                        ProcessResult::Reprocess(InsertionMode::InTable, token)
                     } else {
                         self.unexpected(&token)
                     }
-                }
-            }),
+                },
+            },
 
-            //§ parsing-main-intbody
-            InTableBody => match_token!(token {
-                tag @ <tr> => {
+            // § The "in table body" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
+            InsertionMode::InTableBody => match token {
+                Token::Tag(tag @ tag!(<tr>)) => {
                     self.pop_until_current(table_body_context);
                     self.insert_element_for(tag);
-                    self.mode.set(InRow);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InRow);
+                    ProcessResult::Done
+                },
 
-                <th> <td> => {
+                Token::Tag(tag!(<th> | <td>)) => {
                     self.unexpected(&token);
                     self.pop_until_current(table_body_context);
                     self.insert_phantom(local_name!("tr"));
-                    Reprocess(InRow, token)
-                }
+                    ProcessResult::Reprocess(InsertionMode::InRow, token)
+                },
 
-                tag @ </tbody> </tfoot> </thead> => {
+                Token::Tag(tag @ tag!(</tbody> | </tfoot> | </thead>)) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
                         self.pop();
-                        self.mode.set(InTable);
+                        self.mode.set(InsertionMode::InTable);
                     } else {
                         self.unexpected(&tag);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                <caption> <col> <colgroup> <tbody> <tfoot> <thead> </table> => {
+                Token::Tag(
+                    tag!(<caption> | <col> | <colgroup> | <tbody> | <tfoot> | <thead> | </table>),
+                ) => {
                     declare_tag_set!(table_outer = "table" "tbody" "tfoot");
                     if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
                         self.pop_until_current(table_body_context);
                         self.pop();
-                        Reprocess(InTable, token)
+                        ProcessResult::Reprocess(InsertionMode::InTable, token)
                     } else {
                         self.unexpected(&token)
                     }
-                }
+                },
 
-                </body> </caption> </col> </colgroup> </html> </td> </th> </tr>
-                    => self.unexpected(&token),
+                Token::Tag(
+                    tag!(</body> | </caption> | </col> | </colgroup> | </html> | </td> | </th> | </tr>),
+                ) => self.unexpected(&token),
 
-                token => self.step(InTable, token),
-            }),
+                token => self.step(InsertionMode::InTable, token),
+            },
 
-            //§ parsing-main-intr
-            InRow => match_token!(token {
-                tag @ <th> <td> => {
+            // § The "in row" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intr
+            InsertionMode::InRow => match token {
+                Token::Tag(tag @ tag!(<th> | <td>)) => {
                     self.pop_until_current(table_row_context);
                     self.insert_element_for(tag);
-                    self.mode.set(InCell);
-                    self.active_formatting.borrow_mut().push(Marker);
-                    Done
-                }
+                    self.mode.set(InsertionMode::InCell);
+                    self.active_formatting
+                        .borrow_mut()
+                        .push(FormatEntry::Marker);
+                    ProcessResult::Done
+                },
 
-                </tr> => {
+                Token::Tag(tag!(</tr>)) => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
                         self.assert_named(&node, local_name!("tr"));
-                        self.mode.set(InTableBody);
+                        self.mode.set(InsertionMode::InTableBody);
                     } else {
                         self.unexpected(&token);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                <caption> <col> <colgroup> <tbody> <tfoot> <thead> <tr> </table> => {
+                Token::Tag(
+                    tag!(<caption> | <col> | <colgroup> | <tbody> | <tfoot> | <thead> | <tr> | </table>),
+                ) => {
                     if self.in_scope_named(table_scope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
                         self.assert_named(&node, local_name!("tr"));
-                        Reprocess(InTableBody, token)
+                        ProcessResult::Reprocess(InsertionMode::InTableBody, token)
                     } else {
                         self.unexpected(&token)
                     }
-                }
+                },
 
-                tag @ </tbody> </tfoot> </thead> => {
+                Token::Tag(tag @ tag!(</tbody> | </tfoot> | </thead>)) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         if self.in_scope_named(table_scope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
                             self.assert_named(&node, local_name!("tr"));
-                            Reprocess(InTableBody, TagToken(tag))
+                            ProcessResult::Reprocess(InsertionMode::InTableBody, Token::Tag(tag))
                         } else {
-                            Done
+                            ProcessResult::Done
                         }
                     } else {
                         self.unexpected(&tag)
                     }
-                }
+                },
 
-                </body> </caption> </col> </colgroup> </html> </td> </th>
-                    => self.unexpected(&token),
+                Token::Tag(
+                    tag!(</body> | </caption> | </col> | </colgroup> | </html> | </td> | </th>),
+                ) => self.unexpected(&token),
 
-                token => self.step(InTable, token),
-            }),
+                token => self.step(InsertionMode::InTable, token),
+            },
 
-            //§ parsing-main-intd
-            InCell => match_token!(token {
-                tag @ </td> </th> => {
+            // § The "in cell" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intd
+            InsertionMode::InCell => match token {
+                Token::Tag(tag @ tag!(</td> | </th>)) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.generate_implied_end(cursory_implied_end);
+                        self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
-                        self.mode.set(InRow);
+                        self.mode.set(InsertionMode::InRow);
                     } else {
                         self.unexpected(&tag);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                <caption> <col> <colgroup> <tbody> <td> <tfoot> <th> <thead> <tr> => {
+                Token::Tag(
+                    tag!(<caption> | <col> | <colgroup> | <tbody> | <td> | <tfoot> | <th> | <thead> | <tr>),
+                ) => {
                     if self.in_scope(table_scope, |n| self.elem_in(&n, td_th)) {
                         self.close_the_cell();
-                        Reprocess(InRow, token)
+                        ProcessResult::Reprocess(InsertionMode::InRow, token)
                     } else {
                         self.unexpected(&token)
                     }
-                }
+                },
 
-                </body> </caption> </col> </colgroup> </html>
-                    => self.unexpected(&token),
+                Token::Tag(tag!(</body> | </caption> | </col> | </colgroup> | </html>)) => {
+                    self.unexpected(&token)
+                },
 
-                tag @ </table> </tbody> </tfoot> </thead> </tr> => {
+                Token::Tag(tag @ tag!(</table> | </tbody> | </tfoot> | </thead> | </tr>)) => {
                     if self.in_scope_named(table_scope, tag.name.clone()) {
                         self.close_the_cell();
-                        Reprocess(InRow, TagToken(tag))
+                        ProcessResult::Reprocess(InsertionMode::InRow, Token::Tag(tag))
                     } else {
                         self.unexpected(&tag)
                     }
-                }
+                },
 
-                token => self.step(InBody, token),
-            }),
+                token => self.step(InsertionMode::InBody, token),
+            },
 
-            //§ parsing-main-intemplate
-            InTemplate => match_token!(token {
-                CharacterTokens(_, _) => self.step(InBody, token),
-                CommentToken(_) => self.step(InBody, token),
+            // § The "in template" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate
+            InsertionMode::InTemplate => match token {
+                Token::Characters(_, _) => self.step(InsertionMode::InBody, token),
+                Token::Comment(_) => self.step(InsertionMode::InBody, token),
 
-                <base> <basefont> <bgsound> <link> <meta> <noframes> <script>
-                <style> <template> <title> </template> => {
-                    self.step(InHead, token)
-                }
+                Token::Tag(
+                    tag!(<base> | <basefont> | <bgsound> | <link> | <meta> | <noframes> | <script> |
+                                <style> | <template> | <title> | </template>),
+                ) => self.step(InsertionMode::InHead, token),
 
-                <caption> <colgroup> <tbody> <tfoot> <thead> => {
+                Token::Tag(tag!(<caption> | <colgroup> | <tbody> | <tfoot> | <thead>)) => {
                     self.template_modes.borrow_mut().pop();
-                    self.template_modes.borrow_mut().push(InTable);
-                    Reprocess(InTable, token)
-                }
+                    self.template_modes
+                        .borrow_mut()
+                        .push(InsertionMode::InTable);
+                    ProcessResult::Reprocess(InsertionMode::InTable, token)
+                },
 
-                <col> => {
+                Token::Tag(tag!(<col>)) => {
                     self.template_modes.borrow_mut().pop();
-                    self.template_modes.borrow_mut().push(InColumnGroup);
-                    Reprocess(InColumnGroup, token)
-                }
+                    self.template_modes
+                        .borrow_mut()
+                        .push(InsertionMode::InColumnGroup);
+                    ProcessResult::Reprocess(InsertionMode::InColumnGroup, token)
+                },
 
-                <tr> => {
+                Token::Tag(tag!(<tr>)) => {
                     self.template_modes.borrow_mut().pop();
-                    self.template_modes.borrow_mut().push(InTableBody);
-                    Reprocess(InTableBody, token)
-                }
+                    self.template_modes
+                        .borrow_mut()
+                        .push(InsertionMode::InTableBody);
+                    ProcessResult::Reprocess(InsertionMode::InTableBody, token)
+                },
 
-                <td> <th> => {
+                Token::Tag(tag!(<td> | <th>)) => {
                     self.template_modes.borrow_mut().pop();
-                    self.template_modes.borrow_mut().push(InRow);
-                    Reprocess(InRow, token)
-                }
+                    self.template_modes.borrow_mut().push(InsertionMode::InRow);
+                    ProcessResult::Reprocess(InsertionMode::InRow, token)
+                },
 
-                EOFToken => {
+                Token::Eof => {
                     if !self.in_html_elem_named(local_name!("template")) {
                         self.stop_parsing()
                     } else {
@@ -1174,186 +1364,213 @@ where
                         self.clear_active_formatting_to_marker();
                         self.template_modes.borrow_mut().pop();
                         self.mode.set(self.reset_insertion_mode());
-                        Reprocess(self.reset_insertion_mode(), token)
+                        ProcessResult::Reprocess(self.reset_insertion_mode(), token)
                     }
-                }
+                },
 
-                tag @ <_> => {
+                Token::Tag(tag @ tag!(<>)) => {
                     self.template_modes.borrow_mut().pop();
-                    self.template_modes.borrow_mut().push(InBody);
-                    Reprocess(InBody, TagToken(tag))
-                }
+                    self.template_modes.borrow_mut().push(InsertionMode::InBody);
+                    ProcessResult::Reprocess(InsertionMode::InBody, Token::Tag(tag))
+                },
 
                 token => self.unexpected(&token),
-            }),
+            },
 
-            //§ parsing-main-afterbody
-            AfterBody => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => self.append_comment_to_html(text),
+            // § The "after body" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody
+            InsertionMode::AfterBody => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, _) => {
+                    self.step(InsertionMode::InBody, token)
+                },
+                Token::Comment(text) => self.append_comment_to_html(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                </html> => {
+                Token::Tag(tag!(</html>)) => {
                     if self.is_fragment() {
                         self.unexpected(&token);
                     } else {
-                        self.mode.set(AfterAfterBody);
+                        self.mode.set(InsertionMode::AfterAfterBody);
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                EOFToken => self.stop_parsing(),
+                Token::Eof => self.stop_parsing(),
 
                 token => {
                     self.unexpected(&token);
-                    Reprocess(InBody, token)
-                }
-            }),
+                    ProcessResult::Reprocess(InsertionMode::InBody, token)
+                },
+            },
 
-            //§ parsing-main-inframeset
-            InFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
+            // § The "in frameset" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inframeset
+            InsertionMode::InFrameset => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
+                Token::Comment(text) => self.append_comment(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                tag @ <frameset> => {
+                Token::Tag(tag @ tag!(<frameset>)) => {
                     self.insert_element_for(tag);
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                </frameset> => {
+                Token::Tag(tag!(</frameset>)) => {
                     if self.open_elems.borrow().len() == 1 {
                         self.unexpected(&token);
                     } else {
                         self.pop();
-                        if !self.is_fragment() && !self.current_node_named(local_name!("frameset")) {
-                            self.mode.set(AfterFrameset);
+                        if !self.is_fragment() && !self.current_node_named(local_name!("frameset"))
+                        {
+                            self.mode.set(InsertionMode::AfterFrameset);
                         }
                     }
-                    Done
-                }
+                    ProcessResult::Done
+                },
 
-                tag @ <frame> => {
+                Token::Tag(tag @ tag!(<frame>)) => {
                     self.insert_and_pop_element_for(tag);
-                    DoneAckSelfClosing
-                }
+                    ProcessResult::DoneAckSelfClosing
+                },
 
-                <noframes> => self.step(InHead, token),
+                Token::Tag(tag!(<noframes>)) => self.step(InsertionMode::InHead, token),
 
-                EOFToken => {
+                Token::Eof => {
                     if self.open_elems.borrow().len() != 1 {
                         self.unexpected(&token);
                     }
                     self.stop_parsing()
-                }
+                },
 
                 token => self.unexpected(&token),
-            }),
+            },
 
-            //§ parsing-main-afterframeset
-            AfterFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, text) => self.append_text(text),
-                CommentToken(text) => self.append_comment(text),
+            // § The "after frameset" insertion mode
+            // <html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset>
+            InsertionMode::AfterFrameset => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
+                Token::Comment(text) => self.append_comment(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                </html> => {
-                    self.mode.set(AfterAfterFrameset);
-                    Done
-                }
+                Token::Tag(tag!(</html>)) => {
+                    self.mode.set(InsertionMode::AfterAfterFrameset);
+                    ProcessResult::Done
+                },
 
-                <noframes> => self.step(InHead, token),
+                Token::Tag(tag!(<noframes>)) => self.step(InsertionMode::InHead, token),
 
-                EOFToken => self.stop_parsing(),
+                Token::Eof => self.stop_parsing(),
 
                 token => self.unexpected(&token),
-            }),
+            },
 
-            //§ the-after-after-body-insertion-mode
-            AfterAfterBody => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => self.append_comment_to_doc(text),
+            // § The "after after body" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
+            InsertionMode::AfterAfterBody => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, _) => {
+                    self.step(InsertionMode::InBody, token)
+                },
+                Token::Comment(text) => self.append_comment_to_doc(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                EOFToken => self.stop_parsing(),
+                Token::Eof => self.stop_parsing(),
 
                 token => {
                     self.unexpected(&token);
-                    Reprocess(InBody, token)
-                }
-            }),
+                    ProcessResult::Reprocess(InsertionMode::InBody, token)
+                },
+            },
 
-            //§ the-after-after-frameset-insertion-mode
-            AfterAfterFrameset => match_token!(token {
-                CharacterTokens(NotSplit, text) => SplitWhitespace(text),
-                CharacterTokens(Whitespace, _) => self.step(InBody, token),
-                CommentToken(text) => self.append_comment_to_doc(text),
+            // § The "after after frameset" insertion mode
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
+            InsertionMode::AfterAfterFrameset => match token {
+                Token::Characters(SplitStatus::NotSplit, text) => {
+                    ProcessResult::SplitWhitespace(text)
+                },
+                Token::Characters(SplitStatus::Whitespace, _) => {
+                    self.step(InsertionMode::InBody, token)
+                },
+                Token::Comment(text) => self.append_comment_to_doc(text),
 
-                <html> => self.step(InBody, token),
+                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
-                EOFToken => self.stop_parsing(),
+                Token::Eof => self.stop_parsing(),
 
-                <noframes> => self.step(InHead, token),
+                Token::Tag(tag!(<noframes>)) => self.step(InsertionMode::InHead, token),
 
                 token => self.unexpected(&token),
-            }),
-            //§ END
+            },
         }
     }
 
+    /// § The rules for parsing tokens in foreign content
+    /// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
     pub(crate) fn step_foreign(&self, token: Token) -> ProcessResult<Handle> {
-        match_token!(token {
-            NullCharacterToken => {
+        match token {
+            Token::NullCharacter => {
                 self.unexpected(&token);
                 self.append_text("\u{fffd}".to_tendril())
-            }
+            },
 
-            CharacterTokens(_, text) => {
+            Token::Characters(_, text) => {
                 if any_not_whitespace(&text) {
                     self.frameset_ok.set(false);
                 }
                 self.append_text(text)
-            }
+            },
 
-            CommentToken(text) => self.append_comment(text),
+            Token::Comment(text) => self.append_comment(text),
 
-            tag @ <b> <big> <blockquote> <body> <br> <center> <code> <dd> <div> <dl>
-                <dt> <em> <embed> <h1> <h2> <h3> <h4> <h5> <h6> <head> <hr> <i>
-                <img> <li> <listing> <menu> <meta> <nobr> <ol> <p> <pre> <ruby>
-                <s> <small> <span> <strong> <strike> <sub> <sup> <table> <tt>
-                <u> <ul> <var> </br> </p> => self.unexpected_start_tag_in_foreign_content(tag),
+            Token::Tag(
+                tag @
+                tag!(<b> | <big> | <blockquote> | <body> | <br> | <center> | <code> | <dd> | <div> | <dl> |
+                <dt> | <em> | <embed> | <h1> | <h2> | <h3> | <h4> | <h5> | <h6> | <head> | <hr> | <i> |
+                <img> | <li> | <listing> | <menu> | <meta> | <nobr> | <ol> | <p> | <pre> | <ruby> |
+                <s> | <small> | <span> | <strong> | <strike> | <sub> | <sup> | <table> | <tt> |
+                <u> | <ul> | <var> | </br> | </p>),
+            ) => self.unexpected_start_tag_in_foreign_content(tag),
 
-            tag @ <font> => {
+            Token::Tag(tag @ tag!(<font>)) => {
                 let unexpected = tag.attrs.iter().any(|attr| {
-                    matches!(attr.name.expanded(),
-                             expanded_name!("", "color") |
-                             expanded_name!("", "face") |
-                             expanded_name!("", "size"))
+                    matches!(
+                        attr.name.expanded(),
+                        expanded_name!("", "color")
+                            | expanded_name!("", "face")
+                            | expanded_name!("", "size")
+                    )
                 });
                 if unexpected {
                     self.unexpected_start_tag_in_foreign_content(tag)
                 } else {
                     self.foreign_start_tag(tag)
                 }
-            }
+            },
 
-            tag @ <_> => self.foreign_start_tag(tag),
+            Token::Tag(tag @ tag!(<>)) => self.foreign_start_tag(tag),
 
             // FIXME(#118): </script> in SVG
-
-            tag @ </_> => {
+            Token::Tag(tag @ tag!(</>)) => {
                 let mut first = true;
                 let mut stack_idx = self.open_elems.borrow().len() - 1;
                 loop {
                     if stack_idx == 0 {
-                        return Done;
+                        return ProcessResult::Done;
                     }
 
                     let html;
@@ -1366,12 +1583,12 @@ where
                     }
                     if !first && html {
                         let mode = self.mode.get();
-                        return self.step(mode, TagToken(tag));
+                        return self.step(mode, Token::Tag(tag));
                     }
 
                     if eq {
                         self.open_elems.borrow_mut().truncate(stack_idx);
-                        return Done;
+                        return ProcessResult::Done;
                     }
 
                     if first {
@@ -1380,11 +1597,10 @@ where
                     }
                     stack_idx -= 1;
                 }
-            }
+            },
 
-            // FIXME: This should be unreachable, but match_token requires a
-            // catch-all case.
-            _ => panic!("impossible case in foreign content"),
-        })
+            // FIXME: Why is this unreachable?
+            Token::Eof => panic!("impossible case in foreign content"),
+        }
     }
 }

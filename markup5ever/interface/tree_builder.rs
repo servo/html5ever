@@ -12,10 +12,10 @@
 //! It can be used by a parser to create the DOM graph structure in memory.
 
 use crate::interface::{Attribute, ExpandedName, QualName};
-use crate::{LocalName, Namespace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use tendril::StrTendril;
+use web_atoms::{LocalName, Namespace};
 
 pub use self::NodeOrText::{AppendNode, AppendText};
 pub use self::QuirksMode::{LimitedQuirks, NoQuirks, Quirks};
@@ -41,17 +41,6 @@ pub enum QuirksMode {
     LimitedQuirks,
     /// Standards mode
     NoQuirks,
-}
-
-/// Whether to interrupt further parsing of the current input until
-/// the next explicit resumption of the tokenizer, or continue without
-/// any interruption.
-#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
-pub enum NextParserState {
-    /// Stop further parsing.
-    Suspend,
-    /// Continue without interruptions.
-    Continue,
 }
 
 /// Special properties of an element, useful for tagging elements with this information.
@@ -105,7 +94,7 @@ pub trait ElemName: Debug {
     fn local_name(&self) -> &LocalName;
 
     #[inline(always)]
-    fn expanded(&self) -> ExpandedName {
+    fn expanded(&self) -> ExpandedName<'_> {
         ExpandedName {
             ns: self.ns(),
             local: self.local_name(),
@@ -256,9 +245,20 @@ pub trait TreeSink {
     /// Called whenever the line number changes.
     fn set_current_line(&self, _line_number: u64) {}
 
-    /// Indicate that a `script` element is complete.
-    fn complete_script(&self, _node: &Self::Handle) -> NextParserState {
-        NextParserState::Continue
+    fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
+        true
+    }
+
+    /// Attempt to attach a declarative shadow root at the given location.
+    ///
+    /// Returns a boolean indicating whether the operation succeeded or not.
+    fn attach_declarative_shadow(
+        &self,
+        _location: &Self::Handle,
+        _template: &Self::Handle,
+        _attrs: &[Attribute],
+    ) -> bool {
+        false
     }
 }
 

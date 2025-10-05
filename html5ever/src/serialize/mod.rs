@@ -9,7 +9,7 @@
 
 use log::warn;
 pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
-use markup5ever::{local_name, namespace_url, ns};
+use markup5ever::{local_name, ns};
 use std::io::{self, Write};
 
 use crate::{LocalName, QualName};
@@ -66,7 +66,7 @@ fn tagname(name: &QualName) -> LocalName {
         ns!(html) | ns!(mathml) | ns!(svg) => (),
         ref ns => {
             // FIXME(#122)
-            warn!("node with weird namespace {:?}", ns);
+            warn!("node with weird namespace {ns:?}");
         },
     }
 
@@ -109,7 +109,7 @@ impl<Wr: Write> HtmlSerializer<Wr> {
                 '"' if attr_mode => self.writer.write_all(b"&quot;"),
                 '<' if !attr_mode => self.writer.write_all(b"&lt;"),
                 '>' if !attr_mode => self.writer.write_all(b"&gt;"),
-                c => self.writer.write_fmt(format_args!("{}", c)),
+                c => self.writer.write_fmt(format_args!("{c}")),
             }?;
         }
         Ok(())
@@ -150,7 +150,7 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
                 ns!(xlink) => self.writer.write_all(b"xlink:")?,
                 ref ns => {
                     // FIXME(#122)
-                    warn!("attr with weird namespace {:?}", ns);
+                    warn!("attr with weird namespace {ns:?}");
                     self.writer.write_all(b"unknown_namespace:")?;
                 },
             }

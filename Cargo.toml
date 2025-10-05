@@ -1,8 +1,45 @@
 [workspace]
+resolver = "2"
 members = [
+    "web_atoms",
     "markup5ever",
     "html5ever",
     "rcdom",
-    "xml5ever"
+    "xml5ever",
+    "tendril",
 ]
-resolver = "2"
+
+[workspace.package]
+version = "0.35.0"
+license = "MIT OR Apache-2.0"
+authors = [ "The html5ever Project Developers" ]
+repository = "https://github.com/servo/html5ever"
+edition = "2021"
+rust-version = "1.70.0"
+
+[workspace.dependencies]
+# Repo dependencies
+tendril = { version = "0.4.3", path = "tendril" }
+web_atoms = { version = "0.1", path = "web_atoms" }
+markup5ever = { version = "0.35.0", path = "markup5ever" }
+xml5ever = { version = "0.35.0", path = "xml5ever" }
+html5ever = { version = "0.35.0", path = "html5ever" }
+
+# External dependencies
+encoding = "0.2"
+encoding_rs = "0.8.12"
+log = "0.4"
+new_debug_unreachable = "1.0.2"
+phf = "0.13"
+phf_codegen = "0.13"
+string_cache = "0.9.0"
+string_cache_codegen = "0.6.1"
+utf-8 = "0.7"
+
+# Dev dependencies
+criterion = "0.7"
+env_logger = "0.10"
+libtest-mimic = "0.8.1"
+rand = "0.9"
+serde_json = "1.0"
+typed-arena = "2.0.2"

@@ -12,29 +12,25 @@ mod interface;
 mod qname;
 pub mod states;
 
-pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken};
-pub use self::interface::{CommentToken, DoctypeToken, PIToken, TagToken};
-pub use self::interface::{Doctype, Pi};
-pub use self::interface::{EmptyTag, EndTag, ShortTag, StartTag};
-pub use self::interface::{ParseError, Tag, TagKind, Token, TokenSink};
+pub use self::interface::{
+    Doctype, EmptyTag, EndTag, Pi, ShortTag, StartTag, Tag, TagKind, Token, TokenSink,
+};
 pub use crate::{LocalName, Namespace, Prefix};
 
+use crate::macros::time;
 use crate::tendril::StrTendril;
 use crate::{buffer_queue, Attribute, QualName, SmallCharSet};
 use log::debug;
-use mac::{format_if, unwrap_or_return};
-use markup5ever::{local_name, namespace_prefix, namespace_url, ns, small_char_set};
+use markup5ever::{local_name, namespace_prefix, ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::mem::replace;
 
-use self::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
-use self::char_ref::{CharRef, CharRefTokenizer};
-use self::qname::QualNameTokenizer;
-use self::states::XmlState;
-use self::states::{DoctypeKind, Public, System};
-use self::states::{DoubleQuoted, SingleQuoted, Unquoted};
+use buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
+use char_ref::{CharRef, CharRefTokenizer};
+use qname::QualNameTokenizer;
+use states::{AttrValueKind::*, DoctypeKind, DoctypeKind::*, XmlState};
 
 /// Copy of Tokenizer options, with an impl for `Default`.
 #[derive(Copy, Clone)]
@@ -53,7 +49,7 @@ pub struct XmlTokenizerOpts {
 
     /// Initial state override.  Only the test runner should use
     /// a non-`None` value!
-    pub initial_state: Option<states::XmlState>,
+    pub initial_state: Option<XmlState>,
 }
 
 fn process_qname(tag_name: StrTendril) -> QualName {
@@ -62,7 +58,7 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     //     a:b
     // Since StrTendril are UTF-8, we know that minimal size in bytes must be
     // three bytes minimum.
-    let split = if (*tag_name).as_bytes().len() < 3 {
+    let split = if (*tag_name).len() < 3 {
         None
     } else {
         QualNameTokenizer::new((*tag_name).as_bytes()).run()
@@ -71,7 +67,7 @@ fn process_qname(tag_name: StrTendril) -> QualName {
     match split {
         None => QualName::new(None, ns!(), LocalName::from(&*tag_name)),
         Some(col) => {
-            let len = (*tag_name).as_bytes().len() as u32;
+            let len = (*tag_name).len() as u32;
             let prefix = tag_name.subtendril(0, col);
             let local = tag_name.subtendril(col + 1, len - col - 1);
             let ns = ns!(); // Actual namespace URL set in XmlTreeBuilder::bind_qname
@@ -106,7 +102,7 @@ pub struct XmlTokenizer<Sink> {
     pub sink: Sink,
 
     /// The abstract machine state as described in the spec.
-    state: Cell<states::XmlState>,
+    state: Cell<XmlState>,
 
     /// Are we at the end of the file, once buffers have been processed
     /// completely? This affects whether we will wait for lookahead or not.
@@ -160,7 +156,7 @@ pub struct XmlTokenizer<Sink> {
     current_pi_data: RefCell<StrTendril>,
 
     /// Record of how many ns we spent in each state, if profiling is enabled.
-    state_profile: RefCell<BTreeMap<states::XmlState, u64>>,
+    state_profile: RefCell<BTreeMap<XmlState, u64>>,
 
     /// Record of how many ns we spent in the token sink.
     time_in_sink: Cell<u64>,
@@ -173,7 +169,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             panic!("Can't profile tokenizer when built as a C library");
         }
 
-        let state = *opts.initial_state.as_ref().unwrap_or(&states::Data);
+        let state = *opts.initial_state.as_ref().unwrap_or(&XmlState::Data);
         let discard_bom = opts.discard_bom;
         XmlTokenizer {
             opts,
@@ -201,9 +197,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Feed an input string into the tokenizer.
-    pub fn feed(&self, input: &BufferQueue) {
+    pub fn feed(&self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if input.is_empty() {
-            return;
+            return TokenizerResult::Done;
         }
 
         if self.discard_bom.get() {
@@ -212,19 +208,20 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     input.next();
                 }
             } else {
-                return;
+                return TokenizerResult::Done;
             }
         };
 
-        self.run(input);
+        self.run(input)
     }
 
-    fn process_token(&self, token: Token) {
+    fn process_token(&self, token: Token) -> ProcessResult<Sink::Handle> {
         if self.opts.profile {
-            let (_, dt) = time!(self.sink.process_token(token));
+            let (result, dt) = time!(self.sink.process_token(token));
             self.time_in_sink.set(self.time_in_sink.get() + dt);
+            result
         } else {
-            self.sink.process_token(token);
+            self.sink.process_token(token)
         }
     }
 
@@ -234,7 +231,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         if self.ignore_lf.get() {
             self.ignore_lf.set(false);
             if c == '\n' {
-                c = unwrap_or_return!(input.next(), None);
+                c = input.next()?;
             }
         }
 
@@ -256,22 +253,21 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 _ => false,
             }
         {
-            let msg = format!("Bad character {}", c);
+            let msg = format!("Bad character {c}");
             self.emit_error(Cow::Owned(msg));
         }
 
-        debug!("got character {}", c);
+        debug!("got character {c}");
         self.current_char.set(c);
         Some(c)
     }
 
     fn bad_eof_error(&self) {
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Unexpected EOF",
-            "Saw EOF in state {:?}",
-            self.state
-        );
+        let msg = if self.opts.exact_errors {
+            Cow::from(format!("Saw EOF in state {:?}", self.state))
+        } else {
+            Cow::from("Unexpected EOF")
+        };
         self.emit_error(msg);
     }
 
@@ -285,7 +281,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
 
         let d = input.pop_except_from(set);
-        debug!("got characters {:?}", d);
+        debug!("got characters {d:?}");
         match d {
             Some(FromSet(c)) => self.get_preprocessed_char(c, input).map(FromSet),
 
@@ -317,7 +313,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     /// Run the state machine for as long as we can.
-    pub fn run(&self, input: &BufferQueue) {
+    pub fn run(&self, input: &BufferQueue) -> TokenizerResult<Sink::Handle> {
         if self.opts.profile {
             loop {
                 let state = self.state.get();
@@ -335,12 +331,20 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                     // do this here because of borrow shenanigans
                     self.state_profile.borrow_mut().insert(state, dt);
                 }
-                if !run {
-                    break;
+                match run {
+                    ProcessResult::Continue => continue,
+                    ProcessResult::Done => return TokenizerResult::Done,
+                    ProcessResult::Script(handle) => return TokenizerResult::Script(handle),
                 }
             }
         } else {
-            while self.step(input) {}
+            loop {
+                match self.step(input) {
+                    ProcessResult::Continue => continue,
+                    ProcessResult::Done => return TokenizerResult::Done,
+                    ProcessResult::Script(handle) => return TokenizerResult::Script(handle),
+                }
+            }
         }
     }
 
@@ -358,13 +362,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn bad_char_error(&self) {
-        let msg = format_if!(
-            self.opts.exact_errors,
-            "Bad character",
-            "Saw {} in state {:?}",
-            self.current_char.get(),
-            self.state.get()
-        );
+        let msg = if self.opts.exact_errors {
+            let c = self.current_char.get();
+            let state = self.state.get();
+            Cow::from(format!("Saw {c} in state {state:?}"))
+        } else {
+            Cow::from("Bad character")
+        };
         self.emit_error(msg);
     }
 
@@ -388,33 +392,33 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_char(&self, c: char) {
-        self.process_token(CharacterTokens(StrTendril::from_char(match c {
+        self.process_token(Token::Characters(StrTendril::from_char(match c {
             '\0' => '\u{FFFD}',
             c => c,
         })));
     }
 
-    fn emit_short_tag(&self) {
+    fn emit_short_tag(&self) -> ProcessResult<Sink::Handle> {
         self.current_tag_kind.set(ShortTag);
         *self.current_tag_name.borrow_mut() = StrTendril::new();
-        self.emit_current_tag();
+        self.emit_current_tag()
     }
 
-    fn emit_empty_tag(&self) {
+    fn emit_empty_tag(&self) -> ProcessResult<Sink::Handle> {
         self.current_tag_kind.set(EmptyTag);
-        self.emit_current_tag();
+        self.emit_current_tag()
     }
 
     fn set_empty_tag(&self) {
         self.current_tag_kind.set(EmptyTag);
     }
 
-    fn emit_start_tag(&self) {
+    fn emit_start_tag(&self) -> ProcessResult<Sink::Handle> {
         self.current_tag_kind.set(StartTag);
-        self.emit_current_tag();
+        self.emit_current_tag()
     }
 
-    fn emit_current_tag(&self) {
+    fn emit_current_tag(&self) -> ProcessResult<Sink::Handle> {
         self.finish_attribute();
 
         let qname = process_qname(replace(
@@ -436,31 +440,27 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
         }
 
-        let token = TagToken(Tag {
+        let token = Token::Tag(Tag {
             kind: self.current_tag_kind.get(),
             name: qname,
             attrs: self.current_tag_attrs.take(),
         });
-        self.process_token(token);
 
-        match self.sink.query_state_change() {
-            None => (),
-            Some(s) => self.state.set(s),
-        }
+        self.process_token(token)
     }
 
     // The string must not contain '\0'!
     fn emit_chars(&self, b: StrTendril) {
-        self.process_token(CharacterTokens(b));
+        self.process_token(Token::Characters(b));
     }
 
     // Emits the current Processing Instruction
-    fn emit_pi(&self) {
-        let token = PIToken(Pi {
+    fn emit_pi(&self) -> ProcessResult<<Sink as TokenSink>::Handle> {
+        let token = Token::ProcessingInstruction(Pi {
             target: replace(&mut *self.current_pi_target.borrow_mut(), StrTendril::new()),
             data: replace(&mut *self.current_pi_data.borrow_mut(), StrTendril::new()),
         });
-        self.process_token(token);
+        self.process_token(token)
     }
 
     fn consume_char_ref(&self, addnl_allowed: Option<char>) {
@@ -471,28 +471,28 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn emit_eof(&self) {
-        self.process_token(EOFToken);
+        self.process_token(Token::EndOfFile);
     }
 
     fn emit_error(&self, error: Cow<'static, str>) {
-        self.process_token(ParseError(error));
+        self.process_token(Token::ParseError(error));
     }
 
     fn emit_current_comment(&self) {
         let comment = self.current_comment.take();
-        self.process_token(CommentToken(comment));
+        self.process_token(Token::Comment(comment));
     }
 
     fn emit_current_doctype(&self) {
         let doctype = self.current_doctype.take();
-        self.process_token(DoctypeToken(doctype));
+        self.process_token(Token::Doctype(doctype));
     }
 
-    fn doctype_id(&self, kind: DoctypeKind) -> RefMut<Option<StrTendril>> {
+    fn doctype_id(&self, kind: DoctypeKind) -> RefMut<'_, Option<StrTendril>> {
         let current_doctype = self.current_doctype.borrow_mut();
         match kind {
-            Public => RefMut::map(current_doctype, |d| &mut d.public_id),
-            System => RefMut::map(current_doctype, |d| &mut d.system_id),
+            DoctypeKind::Public => RefMut::map(current_doctype, |d| &mut d.public_id),
+            DoctypeKind::System => RefMut::map(current_doctype, |d| &mut d.system_id),
         }
     }
 
@@ -576,50 +576,45 @@ macro_rules! go (
 
     // These can only come at the end.
 
-    ( $me:ident : to $s:ident                    ) => ({ $me.state.set(states::$s); return true;           });
-    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state.set(states::$s($k1)); return true;      });
-    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state.set(states::$s($k1($k2))); return true; });
+    ( $me:ident : to $s:ident                    ) => ({ $me.state.set(XmlState::$s); return ProcessResult::Continue;           });
+    ( $me:ident : to $s:ident $k1:expr           ) => ({ $me.state.set(XmlState::$s($k1)); return ProcessResult::Continue;      });
+    ( $me:ident : to $s:ident $k1:ident $k2:expr ) => ({ $me.state.set(XmlState::$s($k1($k2))); return ProcessResult::Continue; });
 
     ( $me:ident : reconsume $s:ident                    ) => ({ $me.reconsume.set(true); go!($me: to $s);         });
     ( $me:ident : reconsume $s:ident $k1:expr           ) => ({ $me.reconsume.set(true); go!($me: to $s $k1);     });
     ( $me:ident : reconsume $s:ident $k1:ident $k2:expr ) => ({ $me.reconsume.set(true); go!($me: to $s $k1 $k2); });
 
-    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return true;         });
-    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return true; });
+    ( $me:ident : consume_char_ref             ) => ({ $me.consume_char_ref(None); return ProcessResult::Continue;         });
+    ( $me:ident : consume_char_ref $addnl:expr ) => ({ $me.consume_char_ref(Some($addnl)); return ProcessResult::Continue; });
 
     // We have a default next state after emitting a tag, but the sink can override.
     ( $me:ident : emit_tag $s:ident ) => ({
-        $me.state.set(states::$s);
-        $me.emit_current_tag();
-        return true;
+        $me.state.set(XmlState::$s);
+        return $me.emit_current_tag();
     });
 
     // We have a special when dealing with empty and short tags in Xml
     ( $me:ident : emit_short_tag $s:ident ) => ({
-        $me.state.set(states::$s);
-        $me.emit_short_tag();
-        return true;
+        $me.state.set(XmlState::$s);
+        return $me.emit_short_tag();
     });
 
     ( $me:ident : emit_empty_tag $s:ident ) => ({
-        $me.state.set(states::$s);
-        $me.emit_empty_tag();
-        return true;
+        $me.state.set(XmlState::$s);
+        return $me.emit_empty_tag();
     });
 
     ( $me:ident : emit_start_tag $s:ident ) => ({
-        $me.state.set(states::$s);
-        $me.emit_start_tag();
-        return true;
+        $me.state.set(XmlState::$s);
+        return $me.emit_start_tag();
     });
 
     ( $me:ident : emit_pi $s:ident ) => ({
-        $me.state.set(states::$s);
-        $me.emit_pi();
-        return true;
+        $me.state.set(XmlState::$s);
+        return $me.emit_pi();
     });
 
-    ( $me:ident : eof ) => ({ $me.emit_eof(); return false; });
+    ( $me:ident : eof ) => ({ $me.emit_eof(); return ProcessResult::Done; });
 
     // If nothing else matched, it's a single command
     ( $me:ident : $($cmd:tt)+ ) => ( sh_trace!($me: $($cmd)+) );
@@ -630,34 +625,48 @@ macro_rules! go (
 
 // This is a macro because it can cause early return
 // from the function where it is used.
-macro_rules! get_char ( ($me:expr, $input:expr) => (
-    unwrap_or_return!($me.get_char($input), false)
-));
+macro_rules! get_char ( ($me:expr, $input:expr) => {{
+    let Some(character) = $me.get_char($input) else {
+        return ProcessResult::Done;
+    };
+    character
+}});
 
-macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($input, $set), false)
-));
+macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => {{
+    let Some(popped_element) = $me.pop_except_from($input, $set) else {
+        return ProcessResult::Done;
+    };
+    popped_element
+}});
 
-macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
-    unwrap_or_return!($me.eat($input, $pat), false)
-));
+macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => {{
+    let Some(value) = $me.eat($input, $pat) else {
+        return ProcessResult::Done;
+    };
+    value
+}});
+
+/// The result of a single tokenization operation
+pub enum ProcessResult<Handle> {
+    /// The tokenizer needs more input before it can continue
+    Done,
+    /// The tokenizer can be invoked again immediately
+    Continue,
+    /// The tokenizer encountered a script element that must be executed
+    /// before tokenization can continue
+    Script(Handle),
+}
 
 impl<Sink: TokenSink> XmlTokenizer<Sink> {
     // Run the state machine for a while.
-    // Return true if we should be immediately re-invoked
-    // (this just simplifies control flow vs. break / continue).
     #[allow(clippy::never_loop)]
-    fn step(&self, input: &BufferQueue) -> bool {
+    fn step(&self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
         if self.char_ref_tokenizer.borrow().is_some() {
             return self.step_char_ref_tokenizer(input);
         }
 
         debug!("processing in state {:?}", self.state);
         match self.state.get() {
-            XmlState::Quiescent => {
-                self.state.set(XmlState::Data);
-                false
-            },
             //§ data-state
             XmlState::Data => loop {
                 match pop_except_from!(self, input, small_char_set!('\r' '&' '<')) {
@@ -1100,10 +1109,12 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         // Process all remaining buffered input.
         // If we're waiting for lookahead, we're not gonna get it.
         self.at_eof.set(true);
-        self.run(&input);
+        let _ = self.run(&input);
 
-        while self.eof_step() {
-            // loop
+        loop {
+            if !matches!(self.eof_step(), ProcessResult::Continue) {
+                break;
+            }
         }
 
         self.sink.end();
@@ -1120,7 +1131,7 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 
     #[cfg(not(for_c))]
     fn dump_profile(&self) {
-        let mut results: Vec<(states::XmlState, u64)> = self
+        let mut results: Vec<(XmlState, u64)> = self
             .state_profile
             .borrow()
             .iter()
@@ -1137,18 +1148,18 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             "\n{:12}         total in token sink",
             self.time_in_sink.get()
         );
-        debug!("\n{:12}         total in tokenizer", total);
+        debug!("\n{total:12}         total in tokenizer");
 
         for (k, v) in results.into_iter() {
             let pct = 100.0 * (v as f64) / (total as f64);
-            debug!("{:12}  {:4.1}%  {:?}", v, pct, k);
+            debug!("{v:12}  {pct:4.1}%  {k:?}");
         }
     }
 
-    fn eof_step(&self) -> bool {
+    fn eof_step(&self) -> ProcessResult<Sink::Handle> {
         debug!("processing EOF in state {:?}", self.state.get());
         match self.state.get() {
-            XmlState::Data | XmlState::Quiescent => go!(self: eof),
+            XmlState::Data => go!(self: eof),
             XmlState::CommentStart | XmlState::CommentLessThan | XmlState::CommentLessThanBang => {
                 go!(self: reconsume Comment)
             },
@@ -1208,9 +1219,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         for i in 0..num_chars {
             let c = chars[i as usize];
             match self.state.get() {
-                states::Data | states::Cdata => go!(self: emit c),
+                XmlState::Data | XmlState::Cdata => go!(self: emit c),
 
-                states::TagAttrValue(_) => go!(self: push_value c),
+                XmlState::TagAttrValue(_) => go!(self: push_value c),
 
                 _ => panic!(
                     "state {:?} should not be reachable in process_char_ref",
@@ -1220,18 +1231,18 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         }
     }
 
-    fn step_char_ref_tokenizer(&self, input: &BufferQueue) -> bool {
+    fn step_char_ref_tokenizer(&self, input: &BufferQueue) -> ProcessResult<Sink::Handle> {
         let mut tok = self.char_ref_tokenizer.take().unwrap();
         let outcome = tok.step(self, input);
 
         let progress = match outcome {
             char_ref::Done => {
                 self.process_char_ref(tok.get_result());
-                return true;
+                return ProcessResult::Continue;
             },
 
-            char_ref::Stuck => false,
-            char_ref::Progress => true,
+            char_ref::Stuck => ProcessResult::Done,
+            char_ref::Progress => ProcessResult::Continue,
         };
 
         *self.char_ref_tokenizer.borrow_mut() = Some(tok);

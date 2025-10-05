@@ -6,24 +6,27 @@ extern crate xml5ever;
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 
 use markup5ever::buffer_queue::BufferQueue;
 use xml5ever::tendril::*;
-use xml5ever::tokenizer::{Token, TokenSink, XmlTokenizer};
+use xml5ever::tokenizer::{ProcessResult, Token, TokenSink, XmlTokenizer};
 
 struct Sink;
 
 impl TokenSink for Sink {
-    fn process_token(&self, token: Token) {
+    type Handle = ();
+
+    fn process_token(&self, token: Token) -> ProcessResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
-        black_box(token);
+        std::hint::black_box(token);
+        ProcessResult::Continue
     }
 }
 
 fn run_bench(c: &mut Criterion, name: &str) {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut path = PathBuf::from("./");
     path.push("data/bench/");
     path.push(name);
     let mut file = fs::File::open(&path).expect("can't open file");
@@ -48,7 +51,7 @@ fn run_bench(c: &mut Criterion, name: &str) {
         total += sz;
     }
 
-    let test_name = format!("xml tokenizing {}", name);
+    let test_name = format!("xml tokenizing {name}");
 
     c.bench_function(&test_name, move |b| {
         b.iter(|| {
@@ -58,9 +61,9 @@ fn run_bench(c: &mut Criterion, name: &str) {
             // necessary since our iterator consumes the underlying buffer.
             for buf in input.clone().into_iter() {
                 buffer.push_back(buf);
-                tok.feed(&buffer);
+                let _ = tok.feed(&buffer);
             }
-            tok.feed(&buffer);
+            let _ = tok.feed(&buffer);
             tok.end();
         })
     });

@@ -18,7 +18,11 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
-use std::{cell::RefCell, collections::VecDeque, mem};
+use std::{
+    cell::{RefCell, RefMut},
+    collections::VecDeque,
+    mem,
+};
 
 use tendril::StrTendril;
 
@@ -43,7 +47,7 @@ pub enum SetResult {
 /// Internally it uses [`VecDeque`] and has the same complexity properties.
 ///
 /// [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: RefCell<VecDeque<StrTendril>>,
@@ -245,6 +249,19 @@ impl BufferQueue {
             &mut *self.buffers.borrow_mut(),
             &mut *other.buffers.borrow_mut(),
         );
+    }
+
+    /// Return a mutable reference to the first tendril in the queue.
+    pub fn peek_front_chunk_mut(&self) -> Option<RefMut<'_, StrTendril>> {
+        let buffers = self.buffers.borrow_mut();
+        if buffers.is_empty() {
+            return None;
+        }
+
+        let front_buffer = RefMut::map(buffers, |buffers| {
+            buffers.front_mut().expect("there is at least one buffer")
+        });
+        Some(front_buffer)
     }
 }
 

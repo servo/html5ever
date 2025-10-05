@@ -7,19 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! Types used within the tree builder code.  Not exported to users.
+//! Types used within the tree builder code. Not exported to users.
 
 use crate::tokenizer::states::RawKind;
 use crate::tokenizer::Tag;
 
 use crate::tendril::StrTendril;
-
-pub(crate) use self::FormatEntry::*;
-pub(crate) use self::InsertionMode::*;
-pub(crate) use self::InsertionPoint::*;
-pub(crate) use self::ProcessResult::*;
-pub(crate) use self::SplitStatus::*;
-pub(crate) use self::Token::*;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub(crate) enum InsertionMode {
@@ -58,11 +51,11 @@ pub(crate) enum SplitStatus {
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum Token {
-    TagToken(Tag),
-    CommentToken(StrTendril),
-    CharacterTokens(SplitStatus, StrTendril),
-    NullCharacterToken,
-    EOFToken,
+    Tag(Tag),
+    Comment(StrTendril),
+    Characters(SplitStatus, StrTendril),
+    NullCharacter,
+    Eof,
 }
 
 pub(crate) enum ProcessResult<Handle> {

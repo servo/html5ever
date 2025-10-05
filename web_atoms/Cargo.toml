@@ -1,0 +1,23 @@
+[package]
+name = "web_atoms"
+version = "0.1.3"
+authors = [ "The html5ever Project Developers" ]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/servo/html5ever"
+description = "Atoms for xml5ever and html5ever"
+documentation = "https://docs.rs/web_atoms"
+build = "build.rs"
+categories = [ "web-programming" ]
+edition = "2021"
+rust-version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+string_cache = { workspace = true }
+phf = { workspace = true }
+
+[build-dependencies]
+string_cache_codegen = { workspace = true }
+phf_codegen = { workspace = true }

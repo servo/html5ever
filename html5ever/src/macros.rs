@@ -7,30 +7,28 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-macro_rules! unwrap_or_else {
-    ($opt:expr, $else_block:block) => {{
-        let Some(x) = $opt else { $else_block };
+macro_rules! unwrap_or_return {
+    ($opt:expr) => {{
+        let Some(x) = $opt else {
+            return;
+        };
+        x
+    }};
+    ($opt:expr, $retval:expr) => {{
+        let Some(x) = $opt else {
+            return $retval;
+        };
         x
     }};
 }
-
-macro_rules! unwrap_or_return {
-    ($opt:expr) => {
-        unwrap_or_else!($opt, {
-            return;
-        })
-    };
-    ($opt:expr, $retval:expr) => {
-        unwrap_or_else!($opt, { return $retval })
-    };
-}
+pub(crate) use unwrap_or_return;
 
 macro_rules! time {
     ($e:expr) => {{
-        let now = ::std::time::Instant::now();
+        let t0 = ::std::time::Instant::now();
         let result = $e;
-        let d = now.elapsed();
-        let dt = d.as_secs() * 1_000_000_000 + u64::from(d.subsec_nanos());
+        let dt = t0.elapsed().as_nanos() as u64;
         (result, dt)
     }};
 }
+pub(crate) use time;

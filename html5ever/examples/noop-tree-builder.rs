@@ -63,7 +63,7 @@ impl TreeSink for Sink {
         x == y
     }
 
-    fn elem_name(&self, target: &usize) -> ExpandedName {
+    fn elem_name(&self, target: &usize) -> ExpandedName<'_> {
         self.names
             .borrow()
             .get(target)

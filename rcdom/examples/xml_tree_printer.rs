@@ -20,7 +20,7 @@ use xml5ever::tendril::TendrilSink;
 fn walk(prefix: &str, handle: &Handle) {
     let node = handle;
 
-    print!("{}", prefix);
+    print!("{prefix}");
     match node.data {
         NodeData::Document => println!("#document"),
 
@@ -51,6 +51,8 @@ fn walk(prefix: &str, handle: &Handle) {
 }
 
 fn main() {
+    env_logger::init();
+
     let stdin = io::stdin();
 
     // To parse XML into a tree form, we need a TreeSink

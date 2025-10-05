@@ -80,7 +80,7 @@ fn write_to_buf_escaped<W: Write>(writer: &mut W, text: &str, attr_mode: bool) -
             '"' if attr_mode => writer.write_all(b"&quot;"),
             '<' if !attr_mode => writer.write_all(b"&lt;"),
             '>' if !attr_mode => writer.write_all(b"&gt;"),
-            c => writer.write_fmt(format_args!("{}", c)),
+            c => writer.write_fmt(format_args!("{c}")),
         }?;
     }
     Ok(())
@@ -152,9 +152,9 @@ impl<Wr: Write> Serializer for XmlSerializer<Wr> {
         if let Some(current_namespace) = self.namespace_stack.0.last() {
             for (prefix, url_opt) in current_namespace.get_scope_iter() {
                 self.writer.write_all(b" xmlns")?;
-                if let Some(ref p) = *prefix {
+                if let Some(ref prefix) = *prefix {
                     self.writer.write_all(b":")?;
-                    self.writer.write_all(p.as_bytes())?;
+                    self.writer.write_all(prefix.as_bytes())?;
                 }
 
                 self.writer.write_all(b"=\"")?;
