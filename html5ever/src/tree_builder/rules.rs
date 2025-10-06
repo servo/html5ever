@@ -639,16 +639,6 @@ where
                     ProcessResult::Done
                 },
 
-                Token::Tag(tag!(</select>)) => {
-                    if self.in_scope_named(default_scope, local_name!("select")) {
-                        self.generate_implied_end_tags(cursory_implied_end);
-                        self.expect_to_close(local_name!("select"));
-                    } else {
-                        self.unexpected(&token);
-                    }
-                    ProcessResult::Done
-                },
-
                 Token::Tag(tag @ tag!(</option>)) => {
                     let option_in_stack = self.open_elems.borrow()
                         .iter()
