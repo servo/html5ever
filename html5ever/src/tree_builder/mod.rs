@@ -1402,7 +1402,9 @@ where
 
         self.insert_at(insertion_point, AppendNode(elem.clone()));
 
-        if qname.local == local_name!("selectedcontent") && self.selectedcontent_elem.borrow().is_none() {
+        if qname.local == local_name!("selectedcontent")
+            && self.selectedcontent_elem.borrow().is_none()
+        {
             *self.selectedcontent_elem.borrow_mut() = Some(elem.clone());
         }
 
@@ -1597,7 +1599,8 @@ where
     }
 
     fn clone_option_into_selectedcontent(&self, option: &Handle, selectedcontent: &Handle) {
-        self.sink.reparent_children(selectedcontent, &self.sink.get_document());
+        self.sink
+            .reparent_children(selectedcontent, &self.sink.get_document());
         let cloned_option = self.sink.clone_subtree(option);
         self.sink.reparent_children(&cloned_option, selectedcontent);
     }

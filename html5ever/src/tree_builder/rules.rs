@@ -587,7 +587,6 @@ where
                     ProcessResult::Done
                 },
 
-
                 Token::Tag(
                     tag @
                     tag!(</address> | </article> | </aside> | </blockquote> | </button> | </center> |
@@ -640,7 +639,9 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</option>)) => {
-                    let option_in_stack = self.open_elems.borrow()
+                    let option_in_stack = self
+                        .open_elems
+                        .borrow()
                         .iter()
                         .find(|elem| self.html_elem_named(elem, local_name!("option")))
                         .cloned();
@@ -648,7 +649,12 @@ where
                     self.process_end_tag_in_body(tag);
 
                     if let Some(option) = option_in_stack {
-                        if !self.open_elems.borrow().iter().any(|elem| self.sink.same_node(elem, &option)) {
+                        if !self
+                            .open_elems
+                            .borrow()
+                            .iter()
+                            .any(|elem| self.sink.same_node(elem, &option))
+                        {
                             self.maybe_clone_option_into_selectedcontent(&option);
                         }
                     }
@@ -771,9 +777,7 @@ where
                     )
                 },
 
-                Token::Tag(
-                    tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr>),
-                ) => {
+                Token::Tag(tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr>)) => {
                     self.reconstruct_active_formatting_elements();
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok.set(false);
@@ -805,7 +809,7 @@ where
                     }
 
                     ProcessResult::DoneAckSelfClosing
-                }
+                },
 
                 Token::Tag(tag @ tag!(<param> | <source> | <track>)) => {
                     self.insert_and_pop_element_for(tag);

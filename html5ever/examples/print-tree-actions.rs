@@ -173,7 +173,6 @@ impl TreeSink for Sink {
         // For this example, just return a new placeholder ID
         self.get_id()
     }
-
 }
 
 /// Same example as the "noop-tree-builder", but this time every function implemented in our

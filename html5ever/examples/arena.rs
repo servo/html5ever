@@ -354,9 +354,7 @@ impl<'arena> TreeSink for Sink<'arena> {
 
         cloned_node
     }
-
 }
-
 
 /// In this example an "arena" is created and filled with the DOM nodes.
 /// "Arena" is a type of allocation in which a block of memory is allocated
@@ -387,7 +385,7 @@ fn print_node<'arena>(node: &Node<'arena>, depth: usize) {
             if !text.trim().is_empty() {
                 println!("{}\"{}\"", indent, text.trim());
             }
-        }
+        },
         NodeData::Comment { contents } => println!("{}<!-- {} -->", indent, contents),
         NodeData::Element { name, .. } => println!("{}<{}>", indent, name.local),
         NodeData::ProcessingInstruction { target, .. } => println!("{}<?{}>", indent, target),

@@ -429,7 +429,6 @@ impl TreeSink for RcDom {
         cloned_node
     }
 
-
     fn is_mathml_annotation_xml_integration_point(&self, target: &Handle) -> bool {
         if let NodeData::Element {
             mathml_annotation_xml_integration_point,

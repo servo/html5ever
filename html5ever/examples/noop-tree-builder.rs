@@ -118,7 +118,6 @@ impl TreeSink for Sink {
         // For this noop example, just return a new placeholder ID
         self.get_id()
     }
-
 }
 
 /// In this example we implement the TreeSink trait which takes each parsed elements and insert
