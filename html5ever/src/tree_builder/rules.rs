@@ -890,10 +890,8 @@ where
                         if self.in_scope_named(default_scope, local_name!("option")) {
                             self.sink.parse_error(Borrowed("nested options"));
                         }
-                    } else {
-                        if self.current_node_named(local_name!("option")) {
-                            self.pop();
-                        }
+                    } else if self.current_node_named(local_name!("option")) {
+                        self.pop();
                     }
 
                     self.reconstruct_active_formatting_elements();
@@ -909,10 +907,8 @@ where
                         {
                             self.sink.parse_error(Borrowed("nested options"));
                         }
-                    } else {
-                        if self.current_node_named(local_name!("option")) {
-                            self.pop();
-                        }
+                    } else if self.current_node_named(local_name!("option")) {
+                        self.pop();
                     }
 
                     self.reconstruct_active_formatting_elements();
