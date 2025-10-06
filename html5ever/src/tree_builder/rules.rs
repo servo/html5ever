@@ -587,6 +587,7 @@ where
                     ProcessResult::Done
                 },
 
+
                 Token::Tag(
                     tag @
                     tag!(</address> | </article> | </aside> | </blockquote> | </button> | </center> |
@@ -635,6 +636,33 @@ where
                         }
                         self.pop_until_named(local_name!("form"));
                     }
+                    ProcessResult::Done
+                },
+
+                Token::Tag(tag!(</select>)) => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_tags(cursory_implied_end);
+                        self.expect_to_close(local_name!("select"));
+                    } else {
+                        self.unexpected(&token);
+                    }
+                    ProcessResult::Done
+                },
+
+                Token::Tag(tag @ tag!(</option>)) => {
+                    let option_in_stack = self.open_elems.borrow()
+                        .iter()
+                        .find(|elem| self.html_elem_named(elem, local_name!("option")))
+                        .cloned();
+
+                    self.process_end_tag_in_body(tag);
+
+                    if let Some(option) = option_in_stack {
+                        if !self.open_elems.borrow().iter().any(|elem| self.sink.same_node(elem, &option)) {
+                            self.maybe_clone_option_into_selectedcontent(&option);
+                        }
+                    }
+
                     ProcessResult::Done
                 },
 

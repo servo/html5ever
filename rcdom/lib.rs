@@ -60,7 +60,7 @@ use markup5ever::ExpandedName;
 use markup5ever::QualName;
 
 /// The different kinds of nodes in the DOM.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NodeData {
     /// The `Document` itself - the root node of a HTML document.
     Document,
@@ -416,6 +416,19 @@ impl TreeSink for RcDom {
         }
         new_children.extend(mem::take(&mut *children));
     }
+
+    fn clone_subtree(&self, node: &Handle) -> Handle {
+        let cloned_node = Node::new(node.data.clone());
+
+        // Clone all children recursively
+        for child in node.children.borrow().iter() {
+            let cloned_child = self.clone_subtree(child);
+            append(&cloned_node, cloned_child);
+        }
+
+        cloned_node
+    }
+
 
     fn is_mathml_annotation_xml_integration_point(&self, target: &Handle) -> bool {
         if let NodeData::Element {

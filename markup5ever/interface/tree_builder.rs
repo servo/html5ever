@@ -236,6 +236,9 @@ pub trait TreeSink {
     /// Remove all the children from node and append them to new_parent.
     fn reparent_children(&self, node: &Self::Handle, new_parent: &Self::Handle);
 
+    /// Clone a node and all its descendants, returning the cloned node.
+    fn clone_subtree(&self, node: &Self::Handle) -> Self::Handle;
+
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
     fn is_mathml_annotation_xml_integration_point(&self, _handle: &Self::Handle) -> bool {

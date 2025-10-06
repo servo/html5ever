@@ -118,6 +118,9 @@ pub struct TreeBuilder<Handle, Sink> {
 
     /// Form element pointer.
     form_elem: RefCell<Option<Handle>>,
+
+    /// selectedcontent element pointer.
+    selectedcontent_elem: RefCell<Option<Handle>>,
     //§ END
     /// Frameset-ok flag.
     frameset_ok: Cell<bool>,
@@ -163,6 +166,7 @@ where
             active_formatting: Default::default(),
             head_elem: Default::default(),
             form_elem: Default::default(),
+            selectedcontent_elem: Default::default(),
             frameset_ok: Cell::new(true),
             ignore_lf: Default::default(),
             foster_parenting: Default::default(),
@@ -203,6 +207,7 @@ where
             active_formatting: Default::default(),
             head_elem: Default::default(),
             form_elem: RefCell::new(form_elem),
+            selectedcontent_elem: Default::default(),
             frameset_ok: Cell::new(true),
             ignore_lf: Default::default(),
             foster_parenting: Default::default(),
@@ -283,6 +288,10 @@ where
 
         if let Some(form_elem) = self.form_elem.borrow().as_ref() {
             tracer.trace_handle(form_elem);
+        }
+
+        if let Some(selectedcontent_elem) = self.selectedcontent_elem.borrow().as_ref() {
+            tracer.trace_handle(selectedcontent_elem);
         }
 
         if let Some(context_elem) = self.context_elem.borrow().as_ref() {
@@ -923,6 +932,7 @@ where
             .borrow_mut()
             .pop()
             .expect("no current element");
+
         self.sink.pop(&elem);
         elem
     }
@@ -1392,6 +1402,10 @@ where
 
         self.insert_at(insertion_point, AppendNode(elem.clone()));
 
+        if qname.local == local_name!("selectedcontent") && self.selectedcontent_elem.borrow().is_none() {
+            *self.selectedcontent_elem.borrow_mut() = Some(elem.clone());
+        }
+
         match push {
             PushFlag::Push => self.push(&elem),
             PushFlag::NoPush => (),
@@ -1574,6 +1588,18 @@ where
         self.position_in_active_formatting(&node)
             .map(|index| self.active_formatting.borrow_mut().remove(index));
         self.remove_from_stack(&node);
+    }
+
+    fn maybe_clone_option_into_selectedcontent(&self, option: &Handle) {
+        if let Some(selectedcontent) = self.selectedcontent_elem.borrow().as_ref().cloned() {
+            self.clone_option_into_selectedcontent(option, &selectedcontent);
+        }
+    }
+
+    fn clone_option_into_selectedcontent(&self, option: &Handle, selectedcontent: &Handle) {
+        self.sink.reparent_children(selectedcontent, &self.sink.get_document());
+        let cloned_option = self.sink.clone_subtree(option);
+        self.sink.reparent_children(&cloned_option, selectedcontent);
     }
 
     //§ tree-construction
