@@ -593,7 +593,7 @@ where
                     tag!(</address> | </article> | </aside> | </blockquote> | </button> | </center> |
                               </details> | </dialog> | </dir> | </div> | </dl> | </fieldset> | </figcaption> |
                               </figure> | </footer> | </header> | </hgroup> | </listing> | </main> | </menu> |
-                              </nav> | </ol> | </pre> | </search> | </section> | </summary> | </ul>),
+                              </nav> | </ol> | </pre> | </search> | </section> | </select> | </summary> | </ul>),
                 ) => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
