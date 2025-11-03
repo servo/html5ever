@@ -400,6 +400,10 @@ h5
 h6
 handler
 hanging
+hatch
+hatchContentUnits
+hatchUnits
+hatchpath
 head
 header
 headers
@@ -779,6 +783,7 @@ picture
 piece
 piecewise
 ping
+pitch
 placeholder
 plaintext
 plus
@@ -902,6 +907,9 @@ sizes
 slope
 slot
 small
+solid-color
+solid-opacity
+solidColor
 solidcolor
 source
 space
