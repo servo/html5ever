@@ -180,6 +180,7 @@ clip-rule
 clipPath
 clipPathUnits
 close
+closedby
 closure
 cn
 code
