@@ -794,6 +794,9 @@ pointsAtY
 pointsAtZ
 polygon
 polyline
+popover
+popovertarget
+popovertargetaction
 poster
 power
 pre
