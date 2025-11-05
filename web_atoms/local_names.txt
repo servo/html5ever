@@ -201,6 +201,8 @@ columnlines
 columnspacing
 columnspan
 columnwidth
+command
+commandfor
 compact
 complexes
 compose
