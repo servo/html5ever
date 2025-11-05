@@ -637,6 +637,7 @@ onbeforecut
 onbeforeeditfocus
 onbeforepaste
 onbeforeprint
+onbeforetoggle
 onbeforeunload
 onbeforeupdate
 onbegin
@@ -649,6 +650,7 @@ oncellchange
 onchange
 onclick
 onclose
+oncommand
 oncontextmenu
 oncontrolselect
 oncopy
