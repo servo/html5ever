@@ -1,6 +1,6 @@
 [package]
 name = "web_atoms"
-version = "0.1.4"
+version = "0.2.0"
 authors = [ "The html5ever Project Developers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/html5ever"
