@@ -16,7 +16,7 @@ path = "lib.rs"
 
 [dependencies]
 html5ever = { workspace = true }
-markup5ever = { workspace = true }
+markup5ever = { workspace = true, features = ["serde"]}
 xml5ever = { workspace = true }
 tendril = { workspace = true }
 
