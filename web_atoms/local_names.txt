@@ -530,6 +530,7 @@ markerUnits
 markerWidth
 marquee
 mask
+mask-type
 maskContentUnits
 maskUnits
 math
@@ -791,6 +792,7 @@ ping
 pitch
 placeholder
 plaintext
+playbackorder
 plus
 pointer-events
 points
@@ -1001,6 +1003,7 @@ thead
 thickmathspace
 thinmathspace
 time
+timelinebegin
 times
 title
 to
