@@ -4,7 +4,7 @@ use html5ever::tendril::StrTendril;
 use html5ever::ExpandedName;
 use html5ever::QualName;
 use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
-use markup5ever::{local_name, ns, Attribute, LocalName};
+use markup5ever::{local_name, ns, Attribute};
 use markup5ever_rcdom::{Handle, RcDom};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
