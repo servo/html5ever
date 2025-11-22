@@ -13,6 +13,9 @@ rust-version.workspace = true
 [lib]
 path = "lib.rs"
 
+[features]
+serde = ["web_atoms/serde"]
+
 [dependencies]
 web_atoms = { workspace = true }
 tendril = { workspace = true }

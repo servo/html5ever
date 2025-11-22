@@ -180,6 +180,7 @@ clip-rule
 clipPath
 clipPathUnits
 close
+closedby
 closure
 cn
 code
@@ -200,6 +201,8 @@ columnlines
 columnspacing
 columnspan
 columnwidth
+command
+commandfor
 compact
 complexes
 compose
@@ -400,6 +403,10 @@ h5
 h6
 handler
 hanging
+hatch
+hatchContentUnits
+hatchUnits
+hatchpath
 head
 header
 headers
@@ -523,6 +530,7 @@ markerUnits
 markerWidth
 marquee
 mask
+mask-type
 maskContentUnits
 maskUnits
 math
@@ -630,6 +638,7 @@ onbeforecut
 onbeforeeditfocus
 onbeforepaste
 onbeforeprint
+onbeforetoggle
 onbeforeunload
 onbeforeupdate
 onbegin
@@ -642,6 +651,7 @@ oncellchange
 onchange
 onclick
 onclose
+oncommand
 oncontextmenu
 oncontrolselect
 oncopy
@@ -779,8 +789,10 @@ picture
 piece
 piecewise
 ping
+pitch
 placeholder
 plaintext
+playbackorder
 plus
 pointer-events
 points
@@ -789,6 +801,9 @@ pointsAtY
 pointsAtZ
 polygon
 polyline
+popover
+popovertarget
+popovertargetaction
 poster
 power
 pre
@@ -903,6 +918,9 @@ sizes
 slope
 slot
 small
+solid-color
+solid-opacity
+solidColor
 solidcolor
 source
 space
@@ -986,6 +1004,7 @@ thead
 thickmathspace
 thinmathspace
 time
+timelinebegin
 times
 title
 to
