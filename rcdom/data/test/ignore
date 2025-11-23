@@ -1,1 +1,5 @@
-
+# Skipped tests for selectedcontent element
+# We do not implement the full DOM behavior of selectedcontent
+# See: https://github.com/html5lib/html5lib-tests/issues/180
+tb: webkit02.dat-44
+tb: webkit02.dat-45

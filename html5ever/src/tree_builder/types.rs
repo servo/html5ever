@@ -31,8 +31,6 @@ pub(crate) enum InsertionMode {
     InTableBody,
     InRow,
     InCell,
-    InSelect,
-    InSelectInTable,
     InTemplate,
     AfterBody,
     InFrameset,

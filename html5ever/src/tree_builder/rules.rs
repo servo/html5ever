@@ -592,7 +592,7 @@ where
                     tag!(</address> | </article> | </aside> | </blockquote> | </button> | </center> |
                               </details> | </dialog> | </dir> | </div> | </dl> | </fieldset> | </figcaption> |
                               </figure> | </footer> | </header> | </hgroup> | </listing> | </main> | </menu> |
-                              </nav> | </ol> | </pre> | </search> | </section> | </summary> | </ul>),
+                              </nav> | </ol> | </pre> | </search> | </section> | </select> | </summary> | </ul>),
                 ) => {
                     if !self.in_scope_named(default_scope, tag.name.clone()) {
                         self.unexpected(&tag);
@@ -635,6 +635,30 @@ where
                         }
                         self.pop_until_named(local_name!("form"));
                     }
+                    ProcessResult::Done
+                },
+
+                Token::Tag(tag @ tag!(</option>)) => {
+                    let option_in_stack = self
+                        .open_elems
+                        .borrow()
+                        .iter()
+                        .find(|elem| self.html_elem_named(elem, local_name!("option")))
+                        .cloned();
+
+                    self.process_end_tag_in_body(tag);
+
+                    if let Some(option) = option_in_stack {
+                        if !self
+                            .open_elems
+                            .borrow()
+                            .iter()
+                            .any(|elem| self.sink.same_node(elem, &option))
+                        {
+                            self.maybe_clone_option_into_selectedcontent(&option);
+                        }
+                    }
+
                     ProcessResult::Done
                 },
 
@@ -753,18 +777,37 @@ where
                     )
                 },
 
-                Token::Tag(
-                    tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr> | <input>),
-                ) => {
-                    let keep_frameset_ok = match tag.name {
-                        local_name!("input") => self.is_type_hidden(&tag),
-                        _ => false,
-                    };
+                Token::Tag(tag @ tag!(<area> | <br> | <embed> | <img> | <keygen> | <wbr>)) => {
                     self.reconstruct_active_formatting_elements();
                     self.insert_and_pop_element_for(tag);
-                    if !keep_frameset_ok {
+                    self.frameset_ok.set(false);
+                    ProcessResult::DoneAckSelfClosing
+                },
+
+                Token::Tag(tag @ tag!(<input>)) => {
+                    if self.is_fragment()
+                        && self.html_elem_named(
+                            self.context_elem.borrow().as_ref().unwrap(),
+                            local_name!("select"),
+                        )
+                    {
+                        self.unexpected(&tag);
+                    }
+
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.unexpected(&tag);
+                        self.pop_until_named(local_name!("select"));
+                    }
+
+                    let is_type_hidden = self.is_type_hidden(&tag);
+
+                    self.reconstruct_active_formatting_elements();
+                    self.insert_and_pop_element_for(tag);
+
+                    if !is_type_hidden {
                         self.frameset_ok.set(false);
                     }
+
                     ProcessResult::DoneAckSelfClosing
                 },
 
@@ -775,6 +818,15 @@ where
 
                 Token::Tag(tag @ tag!(<hr>)) => {
                     self.close_p_element_in_button_scope();
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_tags(cursory_implied_end);
+                        if self.in_scope_named(default_scope, local_name!("option"))
+                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        {
+                            self.sink.parse_error(Borrowed("hr in option"));
+                        }
+                    }
+
                     self.insert_and_pop_element_for(tag);
                     self.frameset_ok.set(false);
                     ProcessResult::DoneAckSelfClosing
@@ -813,26 +865,52 @@ where
 
                 // <noscript> handled in wildcard case below
                 Token::Tag(tag @ tag!(<select>)) => {
-                    self.reconstruct_active_formatting_elements();
-                    self.insert_element_for(tag);
-                    self.frameset_ok.set(false);
-                    // NB: mode == InBody but possibly self.mode != mode, if
-                    // we're processing "as in the rules for InBody".
-                    self.mode.set(match self.mode.get() {
-                        InsertionMode::InTable
-                        | InsertionMode::InCaption
-                        | InsertionMode::InTableBody
-                        | InsertionMode::InRow
-                        | InsertionMode::InCell => InsertionMode::InSelectInTable,
-                        _ => InsertionMode::InSelect,
-                    });
+                    if self.is_fragment()
+                        && self.html_elem_named(
+                            self.context_elem.borrow().as_ref().unwrap(),
+                            local_name!("select"),
+                        )
+                    {
+                        self.unexpected(&tag);
+                    } else if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.unexpected(&tag);
+                        self.pop_until_named(local_name!("select"));
+                    } else {
+                        self.reconstruct_active_formatting_elements();
+                        self.insert_element_for(tag);
+                        self.frameset_ok.set(false);
+                    }
+
                     ProcessResult::Done
                 },
 
-                Token::Tag(tag @ tag!(<optgroup> | <option>)) => {
-                    if self.current_node_named(local_name!("option")) {
+                Token::Tag(tag @ tag!(<option>)) => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_except(local_name!("optgroup"));
+                        if self.in_scope_named(default_scope, local_name!("option")) {
+                            self.sink.parse_error(Borrowed("nested options"));
+                        }
+                    } else if self.current_node_named(local_name!("option")) {
                         self.pop();
                     }
+
+                    self.reconstruct_active_formatting_elements();
+                    self.insert_element_for(tag);
+                    ProcessResult::Done
+                },
+
+                Token::Tag(tag @ tag!(<optgroup>)) => {
+                    if self.in_scope_named(default_scope, local_name!("select")) {
+                        self.generate_implied_end_tags(cursory_implied_end);
+                        if self.in_scope_named(default_scope, local_name!("option"))
+                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        {
+                            self.sink.parse_error(Borrowed("nested options"));
+                        }
+                    } else if self.current_node_named(local_name!("option")) {
+                        self.pop();
+                    }
+
                     self.reconstruct_active_formatting_elements();
                     self.insert_element_for(tag);
                     ProcessResult::Done
@@ -1284,133 +1362,6 @@ where
                 },
 
                 token => self.step(InsertionMode::InBody, token),
-            },
-
-            // § parsing-main-inselect
-            // TODO: not in spec?
-            InsertionMode::InSelect => match token {
-                Token::NullCharacter => self.unexpected(&token),
-                Token::Characters(_, text) => self.append_text(text),
-                Token::Comment(text) => self.append_comment(text),
-
-                Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
-
-                Token::Tag(tag @ tag!(<option>)) => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    ProcessResult::Done
-                },
-
-                Token::Tag(tag @ tag!(<optgroup>)) => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    ProcessResult::Done
-                },
-
-                Token::Tag(tag @ tag!(<hr>)) => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    }
-                    self.insert_element_for(tag);
-                    self.pop();
-                    ProcessResult::DoneAckSelfClosing
-                },
-
-                Token::Tag(tag!( </optgroup>)) => {
-                    if self.open_elems.borrow().len() >= 2
-                        && self.current_node_named(local_name!("option"))
-                        && self.html_elem_named(
-                            &self.open_elems.borrow()[self.open_elems.borrow().len() - 2],
-                            local_name!("optgroup"),
-                        )
-                    {
-                        self.pop();
-                    }
-                    if self.current_node_named(local_name!("optgroup")) {
-                        self.pop();
-                    } else {
-                        self.unexpected(&token);
-                    }
-                    ProcessResult::Done
-                },
-
-                Token::Tag(tag!(</option>)) => {
-                    if self.current_node_named(local_name!("option")) {
-                        self.pop();
-                    } else {
-                        self.unexpected(&token);
-                    }
-                    ProcessResult::Done
-                },
-
-                Token::Tag(tag @ tag!(<select> | </select>)) => {
-                    let in_scope = self.in_scope_named(select_scope, local_name!("select"));
-
-                    if !in_scope || tag.kind == StartTag {
-                        self.unexpected(&tag);
-                    }
-
-                    if in_scope {
-                        self.pop_until_named(local_name!("select"));
-                        self.mode.set(self.reset_insertion_mode());
-                    }
-                    ProcessResult::Done
-                },
-
-                Token::Tag(tag!(<input> | <keygen> | <textarea>)) => {
-                    self.unexpected(&token);
-                    if self.in_scope_named(select_scope, local_name!("select")) {
-                        self.pop_until_named(local_name!("select"));
-                        ProcessResult::Reprocess(self.reset_insertion_mode(), token)
-                    } else {
-                        ProcessResult::Done
-                    }
-                },
-
-                Token::Tag(tag!(<script> | <template> | </template>)) => {
-                    self.step(InsertionMode::InHead, token)
-                },
-
-                Token::Eof => self.step(InsertionMode::InBody, token),
-
-                token => self.unexpected(&token),
-            },
-
-            // § parsing-main-inselectintable
-            // TODO: not in spec?
-            InsertionMode::InSelectInTable => match token {
-                Token::Tag(
-                    tag!(<caption> | <table> | <tbody> | <tfoot> | <thead> | <tr> | <td> | <th>),
-                ) => {
-                    self.unexpected(&token);
-                    self.pop_until_named(local_name!("select"));
-                    ProcessResult::Reprocess(self.reset_insertion_mode(), token)
-                },
-
-                Token::Tag(
-                    tag @
-                    tag!(</caption> | </table> | </tbody> | </tfoot> | </thead> | </tr> | </td> | </th>),
-                ) => {
-                    self.unexpected(&tag);
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
-                        self.pop_until_named(local_name!("select"));
-                        ProcessResult::Reprocess(self.reset_insertion_mode(), Token::Tag(tag))
-                    } else {
-                        ProcessResult::Done
-                    }
-                },
-
-                token => self.step(InsertionMode::InSelect, token),
             },
 
             // § The "in template" insertion mode
