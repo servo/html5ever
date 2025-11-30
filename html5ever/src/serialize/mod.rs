@@ -107,8 +107,8 @@ impl<Wr: Write> HtmlSerializer<Wr> {
                 '&' => self.writer.write_all(b"&amp;"),
                 '\u{00A0}' => self.writer.write_all(b"&nbsp;"),
                 '"' if attr_mode => self.writer.write_all(b"&quot;"),
-                '<' if !attr_mode => self.writer.write_all(b"&lt;"),
-                '>' if !attr_mode => self.writer.write_all(b"&gt;"),
+                '<' => self.writer.write_all(b"&lt;"),
+                '>' => self.writer.write_all(b"&gt;"),
                 c => self.writer.write_fmt(format_args!("{c}")),
             }?;
         }
