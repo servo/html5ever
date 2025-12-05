@@ -111,6 +111,10 @@ impl TreeSink for LineCountingDOM {
     fn set_current_line(&self, line_number: u64) {
         self.current_line.set(line_number);
     }
+
+    fn clone_subtree(&self, node: &Self::Handle) -> Self::Handle {
+        self.rcdom.clone_subtree(node)
+    }
 }
 
 #[test]
