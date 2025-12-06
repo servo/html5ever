@@ -135,6 +135,7 @@ impl TokenSink for TokenLogger {
                     },
                     _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                 }
+                t.had_duplicate_attrs = false;
                 self.push(TagToken(t));
             },
 
@@ -250,6 +251,7 @@ fn json_to_token(js: &Value) -> Token {
                 Some(b) => b.get_bool(),
                 None => false,
             },
+            had_duplicate_attrs: false,
         }),
 
         "EndTag" => TagToken(Tag {
@@ -257,6 +259,7 @@ fn json_to_token(js: &Value) -> Token {
             name: LocalName::from(&*args[0].get_str()),
             attrs: vec![],
             self_closing: false,
+            had_duplicate_attrs: false,
         }),
 
         "Comment" => CommentToken(args[0].get_tendril()),

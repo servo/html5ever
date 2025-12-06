@@ -62,6 +62,13 @@ pub struct ElementFlags {
     ///
     /// [whatwg integration-point]: https://html.spec.whatwg.org/multipage/#html-integration-point
     pub mathml_annotation_xml_integration_point: bool,
+
+    /// Whether duplicate attributes were encountered during tokenization.
+    /// This is used for CSP nonce validation - elements with duplicate
+    /// attributes are not nonceable per the CSP spec.
+    ///
+    /// See [CSP Level 3 - Is element nonceable](https://www.w3.org/TR/CSP/#is-element-nonceable)
+    pub had_duplicate_attrs: bool,
 }
 
 /// A constructor for an element.
@@ -70,6 +77,22 @@ pub struct ElementFlags {
 ///
 /// Create an element like `<div class="test-class-name"></div>`:
 pub fn create_element<Sink>(sink: &Sink, name: QualName, attrs: Vec<Attribute>) -> Sink::Handle
+where
+    Sink: TreeSink,
+{
+    create_element_with_flags(sink, name, attrs, false)
+}
+
+/// A constructor for an element with duplicate attribute information.
+///
+/// This variant allows passing whether duplicate attributes were encountered
+/// during tokenization, which is needed for CSP nonce validation.
+pub fn create_element_with_flags<Sink>(
+    sink: &Sink,
+    name: QualName,
+    attrs: Vec<Attribute>,
+    had_duplicate_attrs: bool,
+) -> Sink::Handle
 where
     Sink: TreeSink,
 {
@@ -85,6 +108,7 @@ where
         },
         _ => {},
     }
+    flags.had_duplicate_attrs = had_duplicate_attrs;
     sink.create_element(name, attrs, flags)
 }
 
