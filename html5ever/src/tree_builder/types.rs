@@ -70,6 +70,7 @@ pub(crate) enum ProcessResult<Handle> {
     Script(Handle),
     ToPlaintext,
     ToRawData(RawKind),
+    EncodingIndicator(StrTendril),
 }
 
 pub(crate) enum FormatEntry<Handle> {

@@ -400,6 +400,9 @@ where
                     assert!(more_tokens.is_empty());
                     return tokenizer::TokenSinkResult::RawData(k);
                 },
+                ProcessResult::EncodingIndicator(encoding) => {
+                    return tokenizer::TokenSinkResult::EncodingIndicator(encoding)
+                },
             }
         }
     }

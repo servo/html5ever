@@ -9,6 +9,7 @@
 
 // The tree builder rules, as a single, enormous nested match expression.
 
+use crate::encoding::extract_a_character_encoding_from_a_meta_element;
 use crate::interface::Quirks;
 use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
@@ -189,8 +190,32 @@ where
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
                     Token::Tag(tag @ tag!(<base> | <basefont> | <bgsound> | <link> | <meta>)) => {
-                        // FIXME: handle <meta charset=...> and <meta http-equiv="Content-Type">
-                        self.insert_and_pop_element_for(tag);
+                        self.insert_and_pop_element_for(tag.clone());
+
+                        // Step 1. If the element has a charset attribute, and getting an encoding from its value
+                        // results in an encoding, and the confidence is currently tentative, then change the encoding
+                        // to the resulting encoding.
+                        // NOTE: We don't verify the validity of the encoding here. If the embedder detects the
+                        // encoding to be invalid then they can safely continue spinning the tokenizer.
+                        if let Some(charset) = tag.get_attribute(&local_name!("charset")) {
+                            return ProcessResult::EncodingIndicator(charset);
+                        }
+                        // Step 2. Otherwise, if the element has an http-equiv attribute whose value is an ASCII
+                        // case-insensitive match for the string "Content-Type", and the element has a content
+                        // attribute, and applying the algorithm for extracting a character encoding from a meta
+                        // element to that attribute's value returns an encoding, and the confidence is currently
+                        // tentative, then change the encoding to the extracted encoding.
+                        else if tag
+                            .get_attribute(&local_name!("http-equiv"))
+                            .is_some_and(|value| value.eq_ignore_ascii_case("content-type"))
+                        {
+                            if let Some(encoding) = tag
+                                .get_attribute(&local_name!("content"))
+                                .and_then(extract_a_character_encoding_from_a_meta_element)
+                            {
+                                return ProcessResult::EncodingIndicator(encoding);
+                            }
+                        }
                         ProcessResult::DoneAckSelfClosing
                     },
 
