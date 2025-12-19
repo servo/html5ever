@@ -24,7 +24,7 @@ pub unsafe fn unsafe_slice_mut(buf: &mut [u8], start: usize, new_len: usize) -> 
 #[inline(always)]
 pub unsafe fn copy_and_advance(dest: &mut *mut u8, src: &[u8]) {
     ptr::copy_nonoverlapping(src.as_ptr(), *dest, src.len());
-    *dest = dest.offset(src.len() as isize)
+    *dest = dest.add(src.len())
 }
 
 #[inline(always)]
