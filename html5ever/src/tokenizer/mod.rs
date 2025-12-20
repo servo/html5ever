@@ -43,6 +43,7 @@ pub enum ProcessResult<Handle> {
     Continue,
     Suspend,
     Script(Handle),
+    EncodingIndicator(StrTendril),
 }
 
 fn option_push(opt_str: &mut Option<StrTendril>, c: char) {
@@ -357,6 +358,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     ProcessResult::Continue => (),
                     ProcessResult::Suspend => break,
                     ProcessResult::Script(node) => return TokenizerResult::Script(node),
+                    ProcessResult::EncodingIndicator(encoding) => {
+                        return TokenizerResult::EncodingIndicator(encoding)
+                    },
                 }
             }
         } else {
@@ -365,6 +369,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     ProcessResult::Continue => (),
                     ProcessResult::Suspend => break,
                     ProcessResult::Script(node) => return TokenizerResult::Script(node),
+                    ProcessResult::EncodingIndicator(encoding) => {
+                        return TokenizerResult::EncodingIndicator(encoding)
+                    },
                 }
             }
         }
@@ -455,6 +462,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             TokenSinkResult::RawData(kind) => {
                 self.state.set(states::RawData(kind));
                 ProcessResult::Continue
+            },
+            TokenSinkResult::EncodingIndicator(encoding) => {
+                ProcessResult::EncodingIndicator(encoding)
             },
         }
     }
@@ -1726,7 +1736,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             match self.eof_step() {
                 ProcessResult::Continue => (),
                 ProcessResult::Suspend => break,
-                ProcessResult::Script(_) => unreachable!(),
+                ProcessResult::Script(_) | ProcessResult::EncodingIndicator(_) => unreachable!(),
             }
         }
 

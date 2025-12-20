@@ -65,6 +65,15 @@ impl fmt::Debug for ExpandedName<'_> {
 pub enum TokenizerResult<Handle> {
     Done,
     Script(Handle),
+    /// The document indicated that the given encoding should be used to parse it.
+    ///
+    /// HTML5-compatible implementations should parse the encoding label using the algorithm
+    /// described in <https://encoding.spec.whatwg.org/#concept-encoding-get>. The label
+    /// has not been validated by html5ever. Invalid or unknown encodings can be ignored.
+    ///
+    /// If you are confident that the current encoding is correct then you can safely
+    /// ignore this message.
+    EncodingIndicator(StrTendril),
 }
 
 /// Helper to quickly create an expanded name.
