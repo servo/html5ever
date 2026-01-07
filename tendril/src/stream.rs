@@ -309,6 +309,18 @@ where
         }
     }
 
+    /// Create a new incremental decoder using the encoding_rs crate.
+    ///
+    /// This is a more flexible version of [Self::new_encoding_rs], allowing the caller
+    /// to configure the decoder themselves.
+    #[cfg(feature = "encoding_rs")]
+    #[inline]
+    pub fn new_from_encoding_rs_decoder(decoder: encoding_rs::Decoder, sink: Sink) -> Self {
+        Self {
+            inner: LossyDecoderInner::EncodingRs(decoder, sink),
+        }
+    }
+
     /// Create a new incremental decoder for the UTF-8 encoding.
     ///
     /// This is useful for content that is known at run-time to be UTF-8
