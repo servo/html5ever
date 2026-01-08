@@ -32,7 +32,7 @@ jobs:
         run: cargo test --all
 
       - name: Test tendril w/encoding feature
-        run: cargo test -p tendril --features 'encoding encoding_rs'
+        run: cargo test -p tendril --features encoding_rs
 
   doc:
     name: Cargo doc
