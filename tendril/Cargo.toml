@@ -13,8 +13,10 @@ rust-version.workspace = true
 edition.workspace = true
 readme = "README.md"
 
+[features]
+encoding_rs = ["dep:encoding_rs"]
+
 [dependencies]
-encoding = { workspace = true, optional = true}
 encoding_rs = { workspace = true, optional = true}
 new_debug_unreachable = { workspace = true }
 utf-8 = { workspace = true }

@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use markup5ever::ns;
+
 use crate::interface::Attribute;
 use crate::tendril::StrTendril;
 use crate::tokenizer::states;
@@ -57,6 +59,13 @@ impl Tag {
 
         self_attrs == other_attrs
     }
+
+    pub(crate) fn get_attribute(&self, name: &LocalName) -> Option<StrTendril> {
+        self.attrs
+            .iter()
+            .find(|attribute| attribute.name.ns == *ns!() && attribute.name.local == *name)
+            .map(|attribute| attribute.value.clone())
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -77,6 +86,15 @@ pub enum TokenSinkResult<Handle> {
     Script(Handle),
     Plaintext,
     RawData(states::RawKind),
+    /// The document indicated that the given encoding should be used to parse it.
+    ///
+    /// HTML5-compatible implementations should parse the encoding label using the algorithm
+    /// described in <https://encoding.spec.whatwg.org/#concept-encoding-get>. The label
+    /// has not been validated by html5ever. Invalid or unknown encodings can be ignored.
+    ///
+    /// If the decoder is confident that the current encoding is correct then this message
+    /// can safely be ignored.
+    EncodingIndicator(StrTendril),
 }
 
 /// Types which can receive tokens from the tokenizer.

@@ -22,6 +22,7 @@ mod util {
     pub(crate) mod str;
 }
 
+pub(crate) mod encoding;
 pub(crate) mod macros;
 
 pub mod driver;

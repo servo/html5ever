@@ -17,9 +17,6 @@ use std::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::atomic::{self, AtomicUsize};
 use std::{hash, io, mem, ptr, str};
 
-#[cfg(feature = "encoding")]
-use encoding::{self, DecoderTrap, EncoderTrap, EncodingRef};
-
 use crate::buf32::{self, Buf32};
 use crate::fmt::imp::Fixup;
 use crate::fmt::{self, Slice, ASCII, UTF8};
@@ -1447,47 +1444,11 @@ where
     }
 }
 
-#[cfg(feature = "encoding")]
-impl<A> encoding::ByteWriter for Tendril<fmt::Bytes, A>
-where
-    A: Atomicity,
-{
-    #[inline]
-    fn write_byte(&mut self, b: u8) {
-        self.push_slice(&[b]);
-    }
-
-    #[inline]
-    fn write_bytes(&mut self, v: &[u8]) {
-        self.push_slice(v);
-    }
-
-    #[inline]
-    fn writer_hint(&mut self, additional: usize) {
-        self.reserve(::std::cmp::min(u32::MAX as usize, additional) as u32);
-    }
-}
-
 impl<F, A> Tendril<F, A>
 where
     A: Atomicity,
     F: fmt::SliceFormat<Slice = [u8]>,
 {
-    /// Decode from some character encoding into UTF-8.
-    ///
-    /// See the [rust-encoding docs](https://lifthrasiir.github.io/rust-encoding/encoding/)
-    /// for more information.
-    #[inline]
-    #[cfg(feature = "encoding")]
-    pub fn decode(
-        &self,
-        encoding: EncodingRef,
-        trap: DecoderTrap,
-    ) -> Result<Tendril<fmt::UTF8, A>, ::std::borrow::Cow<'static, str>> {
-        let mut ret = Tendril::new();
-        encoding.decode_to(self, trap, &mut ret).map(|_| ret)
-    }
-
     /// Push "uninitialized bytes" onto the end.
     ///
     /// Really, this grows the tendril without writing anything to the new area.
@@ -1538,46 +1499,10 @@ where
     }
 }
 
-#[cfg(feature = "encoding")]
-impl<A> encoding::StringWriter for Tendril<fmt::UTF8, A>
-where
-    A: Atomicity,
-{
-    #[inline]
-    fn write_char(&mut self, c: char) {
-        self.push_char(c);
-    }
-
-    #[inline]
-    fn write_str(&mut self, s: &str) {
-        self.push_slice(s);
-    }
-
-    #[inline]
-    fn writer_hint(&mut self, additional: usize) {
-        self.reserve(::std::cmp::min(u32::MAX as usize, additional) as u32);
-    }
-}
-
 impl<A> Tendril<fmt::UTF8, A>
 where
     A: Atomicity,
 {
-    /// Encode from UTF-8 into some other character encoding.
-    ///
-    /// See the [rust-encoding docs](https://lifthrasiir.github.io/rust-encoding/encoding/)
-    /// for more information.
-    #[inline]
-    #[cfg(feature = "encoding")]
-    pub fn encode(
-        &self,
-        encoding: EncodingRef,
-        trap: EncoderTrap,
-    ) -> Result<Tendril<fmt::Bytes, A>, ::std::borrow::Cow<'static, str>> {
-        let mut ret = Tendril::new();
-        encoding.encode_to(self, trap, &mut ret).map(|_| ret)
-    }
-
     /// Push a character onto the end.
     #[inline]
     pub fn push_char(&mut self, c: char) {
@@ -2059,59 +1984,6 @@ mod test {
         t.push_char('\u{1f4a9}');
         assert_eq!("xyzoő\u{a66e}\u{1f4a9}", &*t);
         assert_eq!(t.len(), 13);
-    }
-
-    #[test]
-    #[cfg(feature = "encoding")]
-    fn encode() {
-        use encoding::{all, EncoderTrap};
-
-        let t = "안녕하세요 러스트".to_tendril();
-        assert_eq!(
-            b"\xbe\xc8\xb3\xe7\xc7\xcf\xbc\xbc\xbf\xe4\x20\xb7\xaf\xbd\xba\xc6\xae",
-            &*t.encode(all::WINDOWS_949, EncoderTrap::Strict).unwrap()
-        );
-
-        let t = "Энергия пробуждения ия-я-я! \u{a66e}".to_tendril();
-        assert_eq!(
-            b"\xfc\xce\xc5\xd2\xc7\xc9\xd1 \xd0\xd2\xcf\xc2\xd5\xd6\xc4\xc5\xce\
-                     \xc9\xd1 \xc9\xd1\x2d\xd1\x2d\xd1\x21 ?",
-            &*t.encode(all::KOI8_U, EncoderTrap::Replace).unwrap()
-        );
-
-        let t = "\u{1f4a9}".to_tendril();
-        assert!(t.encode(all::WINDOWS_1252, EncoderTrap::Strict).is_err());
-    }
-
-    #[test]
-    #[cfg(feature = "encoding")]
-    fn decode() {
-        use encoding::{all, DecoderTrap};
-
-        let t = b"\xbe\xc8\xb3\xe7\xc7\xcf\xbc\xbc\
-                  \xbf\xe4\x20\xb7\xaf\xbd\xba\xc6\xae"
-            .to_tendril();
-        assert_eq!(
-            "안녕하세요 러스트",
-            &*t.decode(all::WINDOWS_949, DecoderTrap::Strict).unwrap()
-        );
-
-        let t = b"\xfc\xce\xc5\xd2\xc7\xc9\xd1 \xd0\xd2\xcf\xc2\xd5\xd6\xc4\xc5\xce\
-                  \xc9\xd1 \xc9\xd1\x2d\xd1\x2d\xd1\x21"
-            .to_tendril();
-        assert_eq!(
-            "Энергия пробуждения ия-я-я!",
-            &*t.decode(all::KOI8_U, DecoderTrap::Replace).unwrap()
-        );
-
-        let t = b"x \xff y".to_tendril();
-        assert!(t.decode(all::UTF_8, DecoderTrap::Strict).is_err());
-
-        let t = b"x \xff y".to_tendril();
-        assert_eq!(
-            "x \u{fffd} y",
-            &*t.decode(all::UTF_8, DecoderTrap::Replace).unwrap()
-        );
     }
 
     #[test]
