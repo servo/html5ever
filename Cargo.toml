@@ -26,7 +26,6 @@ xml5ever = { version = "0.37", path = "xml5ever" }
 html5ever = { version = "0.37", path = "html5ever" }
 
 # External dependencies
-encoding = "0.2"
 encoding_rs = "0.8.12"
 log = "0.4"
 new_debug_unreachable = "1.0.2"
