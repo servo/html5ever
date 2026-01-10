@@ -16,14 +16,14 @@ path = "lib.rs"
 
 [dependencies]
 html5ever = { workspace = true }
-markup5ever = { workspace = true, features = ["serde"]}
-xml5ever = { workspace = true }
+markup5ever = { workspace = true, features = ["serde"] }
 tendril = { workspace = true }
+xml5ever = { workspace = true }
 
 [dev-dependencies]
-libtest-mimic = "0.8.1"
-serde_json = "1.0"
-env_logger = "0.10"
+env_logger = { workspace = true }
+libtest-mimic = { workspace = true }
+serde_json = { workspace = true }
 
 [[test]]
 name = "html-tokenizer"
