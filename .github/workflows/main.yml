@@ -143,10 +143,10 @@ jobs:
       - name: Run cargo-semver-checks
         id: semver
         run: |
-          (cargo semver-checks --baseline-rev main && echo "label=non-breaking" >> $GITHUB_OUTPUT) || echo "label=breaking" >> $GITHUB_OUTPUT
+          (cargo semver-checks --baseline-rev main && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
       - name: Assign labels
         run: |
-          gh pr edit "$NUMBER" --remove-label breaking --remove-label non-breaking
+          gh pr edit "$NUMBER" --remove-label V-breaking --remove-label V-non-breaking
           gh pr edit "$NUMBER" --add-label "$LABELS"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
