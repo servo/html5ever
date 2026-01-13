@@ -38,8 +38,8 @@ available on a given tendril. For example, `Tendril<UTF8>` and `Tendril<Bytes>`
 can be borrowed as `&str` and `&[u8]` respectively.
 
 `Tendril` also integrates with
-[encoding_rs](https://github.com/hsivonen/encoding_rs) and has
-preliminary support for [WTF-8][] buffers.
+[encoding_rs](https://github.com/hsivonen/encoding_rs) and has preliminary
+support for [WTF-8][] buffers.
 
 ## Plans for the future
 
