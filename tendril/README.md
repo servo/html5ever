@@ -3,7 +3,7 @@
 **Warning**: This library is at a very early stage of development, and it
 contains a substantial amount of `unsafe` code. Use at your own risk!
 
-[![Build Status](https://github.com/servo/html5ever/workflows/Tendril%20CI/badge.svg)](https://github.com/servo/html5ever/actions)
+[![Build Status](https://github.com/servo/html5ever/actions/workflows/main.yml/badge.svg)](https://github.com/servo/html5ever/actions)
 
 [API Documentation](https://docs.rs/tendril)
 
