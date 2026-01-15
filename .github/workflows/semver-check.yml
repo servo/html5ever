@@ -1,0 +1,35 @@
+name: Semver Check
+
+on:
+  pull_request_target:
+
+jobs:
+  semver_check:
+    name: SemVer compatiblity check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # To add labels to PR
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch main branch for reference
+        run: |
+          git fetch origin main:main
+      - name: Install cargo-semver-checks
+        run: |
+          cargo install cargo-semver-checks --locked
+      - name: Run cargo-semver-checks
+        id: semver
+        run: |
+          (cargo semver-checks --baseline-rev main && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
+      - name: Assign labels
+        run: |
+          gh pr edit "$NUMBER" --remove-label V-breaking --remove-label V-non-breaking
+          gh pr edit "$NUMBER" --add-label "$LABELS"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          LABELS: ${{ steps.semver.outputs.label }}
