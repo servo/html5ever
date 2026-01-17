@@ -113,11 +113,24 @@ where
     pub input_buffer: BufferQueue,
 }
 
+impl<Sink: TreeSink> Parser<Sink> {
+    fn loop_until_done(&self) {
+        // FIXME: Properly support </script> and encoding indicators somehow.
+        loop {
+            if matches!(
+                self.tokenizer.feed(&self.input_buffer),
+                TokenizerResult::Done
+            ) {
+                break;
+            }
+        }
+    }
+}
+
 impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     fn process(&mut self, t: StrTendril) {
         self.input_buffer.push_back(t);
-        // FIXME: Properly support </script> somehow.
-        while let TokenizerResult::Script(_) = self.tokenizer.feed(&self.input_buffer) {}
+        self.loop_until_done();
     }
 
     // FIXME: Is it too noisy to report every character decoding error?
@@ -128,9 +141,12 @@ impl<Sink: TreeSink> TendrilSink<tendril::fmt::UTF8> for Parser<Sink> {
     type Output = Sink::Output;
 
     fn finish(self) -> Self::Output {
-        // FIXME: Properly support </script> somehow.
-        while let TokenizerResult::Script(_) = self.tokenizer.feed(&self.input_buffer) {}
-        assert!(self.input_buffer.is_empty());
+        self.loop_until_done();
+
+        assert!(
+            self.input_buffer.is_empty(),
+            "parser finished with remaining input"
+        );
         self.tokenizer.end();
         self.tokenizer.sink.sink.finish()
     }
