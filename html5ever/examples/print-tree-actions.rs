@@ -167,12 +167,6 @@ impl TreeSink for Sink {
     fn pop(&self, elem: &usize) {
         println!("Popped element {elem}");
     }
-
-    fn clone_subtree(&self, node: &Self::Handle) -> Self::Handle {
-        println!("Clone subtree for node {node}");
-        // For this example, just return a new placeholder ID
-        self.get_id()
-    }
 }
 
 /// Same example as the "noop-tree-builder", but this time every function implemented in our

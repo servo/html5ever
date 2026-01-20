@@ -339,21 +339,6 @@ impl<'arena> TreeSink for Sink<'arena> {
             new_parent.append(child)
         }
     }
-
-    fn clone_subtree(&self, node: &Self::Handle) -> Self::Handle {
-        // Allocate the new node in the arena using Clone
-        let cloned_node = self.arena.alloc(Node::new(node.data.clone()));
-
-        // Clone all children and append them
-        let mut child = node.first_child.get();
-        while let Some(current_child) = child {
-            let cloned_child = self.clone_subtree(&current_child);
-            cloned_node.append(cloned_child);
-            child = current_child.next_sibling.get();
-        }
-
-        cloned_node
-    }
 }
 
 /// In this example an "arena" is created and filled with the DOM nodes.

@@ -58,6 +58,8 @@ use markup5ever::serialize::{Serialize, Serializer};
 use markup5ever::Attribute;
 use markup5ever::ExpandedName;
 use markup5ever::QualName;
+use xml5ever::interface::ElemName;
+use xml5ever::local_name;
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug, Clone)]
@@ -121,6 +123,136 @@ impl Node {
             data,
             parent: Cell::new(None),
             children: RefCell::new(Vec::new()),
+        })
+    }
+
+    /// <https://html.spec.whatwg.org/#option-element-nearest-ancestor-select>
+    fn get_option_element_nearest_ancestor_select(&self) -> Option<Rc<Self>> {
+        // Step 1. Let ancestorOptgroup be null.
+        // NOTE: The algorithm doesn't actually need the value, so a boolean is enough.
+        let mut did_see_ancestor_optgroup = false;
+
+        // Step 2. For each ancestor of option's ancestors, in reverse tree order:
+        let mut current = self.parent().and_then(|parent| parent.upgrade())?;
+        loop {
+            if let NodeData::Element { name, .. } = &current.data {
+                // Step 2.1 If ancestor is a datalist, hr, or option element, then return null.
+                if matches!(
+                    name.local_name(),
+                    &local_name!("datalist") | &local_name!("hr") | &local_name!("option")
+                ) {
+                    return None;
+                }
+
+                // Step 2.2 If ancestor is an optgroup element:
+                if name.local_name() == &local_name!("optgroup") {
+                    // Step 2.2.1 If ancestorOptgroup is not null, then return null.
+                    if did_see_ancestor_optgroup {
+                        return None;
+                    }
+
+                    // Step 2.2.2 Set ancestorOptgroup to ancestor.
+                    did_see_ancestor_optgroup = true;
+                }
+
+                // Step 2.3 If ancestor is a select, then return ancestor.
+                if name.local_name() == &local_name!("select") {
+                    return Some(current);
+                }
+            };
+
+            // Move on to the next ancestor
+            let Some(next_ancestor) = current.parent().and_then(|parent| parent.upgrade()) else {
+                break;
+            };
+            current = next_ancestor;
+        }
+
+        // Step 3. Return null.
+        None
+    }
+
+    fn parent(&self) -> Option<Weak<Self>> {
+        let parent = self.parent.take();
+        self.parent.set(parent.clone());
+        parent
+    }
+
+    /// <https://html.spec.whatwg.org/#select-enabled-selectedcontent>
+    fn get_a_selects_enabled_selectedcontent(&self) -> Option<Rc<Self>> {
+        // Step 1. If select has the multiple attribute, then return null.
+        let NodeData::Element { name, attrs, .. } = &self.data else {
+            panic!("Trying to get selectedcontent of non-element");
+        };
+        debug_assert_eq!(name.local_name(), &local_name!("select"));
+        if attrs
+            .borrow()
+            .iter()
+            .any(|attribute| attribute.name.local == local_name!("multiple"))
+        {
+            return None;
+        }
+
+        // Step 2. Let selectedcontent be the first selectedcontent element descendant of select in tree order
+        // if any such element exists; otherwise return null.
+        // FIXME: This does not visit the nodes in tree order
+        let mut remaining = VecDeque::default();
+        remaining.extend(self.children.borrow().iter().cloned());
+        let mut selectedcontent = None;
+        while let Some(node) = remaining.pop_front() {
+            remaining.extend(node.children.borrow().iter().cloned());
+
+            let NodeData::Element { name, .. } = &self.data else {
+                continue;
+            };
+            if name.local_name() == &local_name!("selectedcontent") {
+                selectedcontent = Some(node);
+                break;
+            }
+        }
+        let selectedcontent = selectedcontent?;
+
+        // Step 3. If selectedcontent's disabled is true, then return null.
+        // FIXME: This step is unimplemented for now to reduce complexity.
+
+        // Step 4. Return selectedcontent.
+        Some(selectedcontent)
+    }
+
+    /// <https://html.spec.whatwg.org/#clone-an-option-into-a-selectedcontent>
+    fn clone_an_option_into_selectedcontent(&self, selectedcontent: Rc<Self>) {
+        // Step 1. Let documentFragment be a new DocumentFragment whose node document is option's node document.
+        // NOTE: We just remember the children of said fragment, thats good enough.
+        let mut document_fragment = Vec::new();
+
+        // Step 2. For each child of option's children:
+        for child in self.children.borrow().iter() {
+            // Step 2.1 Let childClone be the result of running clone given child with subtree set to true.
+            let child_clone = child.clone_with_subtree();
+
+            // Step 2.2 Append childClone to documentFragment.
+            document_fragment.push(child_clone);
+        }
+
+        // Step 3. Replace all with documentFragment within selectedcontent.
+        *selectedcontent.children.borrow_mut() = document_fragment;
+    }
+
+    /// Clones the node and all of its descendants, returning a handle to the new subtree.
+    ///
+    /// This function will run into infinite recursion when the DOM tree contains cycles and it makes
+    /// no attempts to guard against that.
+    fn clone_with_subtree(&self) -> Rc<Self> {
+        let children = self
+            .children
+            .borrow()
+            .iter()
+            .map(|child| child.clone_with_subtree())
+            .collect();
+        Rc::new(Self {
+            parent: Cell::new(self.parent()),
+            data: self.data.clone(),
+            children: RefCell::new(children),
         })
     }
 }
@@ -417,18 +549,6 @@ impl TreeSink for RcDom {
         new_children.extend(mem::take(&mut *children));
     }
 
-    fn clone_subtree(&self, node: &Handle) -> Handle {
-        let cloned_node = Node::new(node.data.clone());
-
-        // Clone all children recursively
-        for child in node.children.borrow().iter() {
-            let cloned_child = self.clone_subtree(child);
-            append(&cloned_node, cloned_child);
-        }
-
-        cloned_node
-    }
-
     fn is_mathml_annotation_xml_integration_point(&self, target: &Handle) -> bool {
         if let NodeData::Element {
             mathml_annotation_xml_integration_point,
@@ -438,6 +558,33 @@ impl TreeSink for RcDom {
             mathml_annotation_xml_integration_point
         } else {
             panic!("not an element!")
+        }
+    }
+
+    fn maybe_clone_an_option_into_selectedcontent(&self, option: &Self::Handle) {
+        let NodeData::Element { name, attrs, .. } = &option.data else {
+            panic!("\"maybe clone an option into selectedcontent\" called with non-element node");
+        };
+        debug_assert_eq!(name.local_name(), &local_name!("option"));
+
+        // Step 1. Let select be option's option element nearest ancestor select.
+        let select = option.get_option_element_nearest_ancestor_select();
+
+        // Step 2. If all of the following conditions are true:
+        // * select is not null;
+        // * option's selectedness is true; and
+        // * select's enabled selectedcontent is not null,
+        // then run clone an option into a selectedcontent given option and select's enabled selectedcontent.
+        if let Some(selectedcontent) =
+            select.and_then(|select| select.get_a_selects_enabled_selectedcontent())
+        {
+            if attrs
+                .borrow()
+                .iter()
+                .any(|attribute| attribute.name.local == local_name!("selected"))
+            {
+                option.clone_an_option_into_selectedcontent(selectedcontent);
+            }
         }
     }
 }

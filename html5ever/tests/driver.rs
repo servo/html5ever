@@ -99,11 +99,6 @@ impl TreeSink for Sink {
     fn remove_from_parent(&self, _target: &usize) {}
     fn reparent_children(&self, _node: &usize, _new_parent: &usize) {}
     fn mark_script_already_started(&self, _node: &usize) {}
-
-    fn clone_subtree(&self, _node: &Self::Handle) -> Self::Handle {
-        // For this noop example, just return a new placeholder ID
-        self.get_id()
-    }
 }
 
 #[test]
