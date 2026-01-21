@@ -16,26 +16,47 @@ use crate::tendril::StrTendril;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub(crate) enum InsertionMode {
+    /// <https://html.spec.whatwg.org/#the-initial-insertion-mode>
     Initial,
+    /// <https://html.spec.whatwg.org/#the-before-html-insertion-mode>
     BeforeHtml,
+    /// <https://html.spec.whatwg.org/#the-before-head-insertion-mode>
     BeforeHead,
+    /// <https://html.spec.whatwg.org/#parsing-main-inhead>
     InHead,
+    /// <https://html.spec.whatwg.org/#parsing-main-inheadnoscript>
     InHeadNoscript,
+    /// <https://html.spec.whatwg.org/#the-after-head-insertion-mode>
     AfterHead,
+    /// <https://html.spec.whatwg.org/#parsing-main-inbody>
     InBody,
+    /// <https://html.spec.whatwg.org/#parsing-main-incdata>
     Text,
+    /// <https://html.spec.whatwg.org/#parsing-main-intable>
     InTable,
+    /// <https://html.spec.whatwg.org/#parsing-main-intabletext>
     InTableText,
+    /// <https://html.spec.whatwg.org/#parsing-main-incaption>
     InCaption,
+    /// <https://html.spec.whatwg.org/#parsing-main-incolgroup>
     InColumnGroup,
+    /// <https://html.spec.whatwg.org/#parsing-main-intbody>
     InTableBody,
+    /// <https://html.spec.whatwg.org/#parsing-main-intr>
     InRow,
+    /// <https://html.spec.whatwg.org/#parsing-main-intd>
     InCell,
+    /// <https://html.spec.whatwg.org/#parsing-main-intemplate>
     InTemplate,
+    /// <https://html.spec.whatwg.org/#parsing-main-afterbody>
     AfterBody,
+    /// <https://html.spec.whatwg.org/#parsing-main-inframeset>
     InFrameset,
+    /// <https://html.spec.whatwg.org/#parsing-main-afterframeset>
     AfterFrameset,
+    /// <https://html.spec.whatwg.org/#the-after-after-body-insertion-mode>
     AfterAfterBody,
+    /// <https://html.spec.whatwg.org/#the-after-after-frameset-insertion-mode>
     AfterAfterFrameset,
 }
 
