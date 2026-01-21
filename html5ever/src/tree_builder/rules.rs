@@ -89,9 +89,9 @@ where
     Handle: Clone,
     Sink: TreeSink<Handle = Handle>,
 {
-    /// Process an HTML content token
+    /// Process an HTML token.
     ///
-    /// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml>
     pub(crate) fn step(&self, mode: InsertionMode, token: Token) -> ProcessResult<Handle> {
         self.debug_step(mode, &token);
 
