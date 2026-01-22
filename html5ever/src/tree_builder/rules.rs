@@ -662,7 +662,8 @@ where
                     }
                     ProcessResult::Done
                 },
-
+                // FIXME: This branch does not exist like this in the specification, because it should run for
+                // implicitly closed option tags too. See https://github.com/servo/html5ever/issues/712.
                 Token::Tag(tag @ tag!(</option>)) => {
                     let option_in_stack = self
                         .open_elems
@@ -680,7 +681,8 @@ where
                             .iter()
                             .any(|elem| self.sink.same_node(elem, &option))
                         {
-                            self.maybe_clone_option_into_selectedcontent(&option);
+                            self.sink
+                                .maybe_clone_an_option_into_selectedcontent(&option);
                         }
                     }
 

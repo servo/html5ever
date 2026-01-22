@@ -236,9 +236,6 @@ pub trait TreeSink {
     /// Remove all the children from node and append them to new_parent.
     fn reparent_children(&self, node: &Self::Handle, new_parent: &Self::Handle);
 
-    /// Clone a node and all its descendants, returning the cloned node.
-    fn clone_subtree(&self, node: &Self::Handle) -> Self::Handle;
-
     /// Returns true if the adjusted current node is an HTML integration point
     /// and the token is a start tag.
     fn is_mathml_annotation_xml_integration_point(&self, _handle: &Self::Handle) -> bool {
@@ -262,6 +259,17 @@ pub trait TreeSink {
         _attrs: &[Attribute],
     ) -> bool {
         false
+    }
+
+    /// Implements [`maybe clone an option into selectedcontent`](https://html.spec.whatwg.org/#maybe-clone-an-option-into-selectedcontent).
+    ///
+    /// The provided handle is guaranteed to be an `<option>` element.
+    ///
+    /// Leaving this method unimplemented will not cause panics, but will result in a (slightly) incorrect DOM tree.
+    ///
+    /// This method will never be called from `xml5ever`.
+    fn maybe_clone_an_option_into_selectedcontent(&self, option: &Self::Handle) {
+        _ = option;
     }
 }
 
