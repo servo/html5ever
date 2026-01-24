@@ -22,6 +22,7 @@ alignmentscope
 alink
 allow
 allowfullscreen
+alpha
 alphabetic
 alt
 altGlyph
@@ -192,6 +193,7 @@ codomain
 col
 colgroup
 color
+colorspace
 color-interpolation
 color-interpolation-filters
 color-profile
