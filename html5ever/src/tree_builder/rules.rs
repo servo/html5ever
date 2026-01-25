@@ -967,9 +967,15 @@ where
                     ProcessResult::Done
                 },
 
-                Token::Tag(tag @ tag!(<math>)) => self.enter_foreign(tag, ns!(mathml)),
+                Token::Tag(tag @ tag!(<math>)) => {
+                    self.reconstruct_active_formatting_elements();
+                    self.enter_foreign(tag, ns!(mathml))
+                },
 
-                Token::Tag(tag @ tag!(<svg>)) => self.enter_foreign(tag, ns!(svg)),
+                Token::Tag(tag @ tag!(<svg>)) => {
+                    self.reconstruct_active_formatting_elements();
+                    self.enter_foreign(tag, ns!(svg))
+                },
 
                 Token::Tag(
                     tag!(<caption> | <col> | <colgroup> | <frame> | <head> |
