@@ -795,7 +795,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-state
             states::RawData(Rcdata) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
+                match pop_except_from!(self, input, small_char_set!('\0' '&' '<')) {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -809,7 +809,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rawtext-state
             states::RawData(Rawtext) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
+                match pop_except_from!(self, input, small_char_set!('\0' '<')) {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -822,7 +822,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-state
             states::RawData(ScriptData) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
+                match pop_except_from!(self, input, small_char_set!('\0' '<')) {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -835,7 +835,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-escaped-state
             states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
+                match pop_except_from!(self, input, small_char_set!('\0' '-' '<')) {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -852,7 +852,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
+                match pop_except_from!(self, input, small_char_set!('\0' '-' '<')) {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
