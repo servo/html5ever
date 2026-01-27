@@ -12,6 +12,7 @@
 pub use crate::interface::{create_element, ElemName, ElementFlags, Tracer, TreeSink};
 pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
 pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
+pub use markup5ever::interface::tree_builder::create_element_with_flags;
 
 use self::types::*;
 
@@ -736,6 +737,7 @@ where
                     name: subject,
                     self_closing: false,
                     attrs: vec![],
+                    had_duplicate_attrs: false,
                 });
             };
 
@@ -831,10 +833,11 @@ where
                 };
                 // FIXME: Is there a way to avoid cloning the attributes twice here (once on their
                 // own, once as part of t.clone() above)?
-                let new_element = create_element(
+                let new_element = create_element_with_flags(
                     &self.sink,
                     QualName::new(None, ns!(html), tag.name.clone()),
                     tag.attrs.clone(),
+                    tag.had_duplicate_attrs,
                 );
                 self.open_elems.borrow_mut()[node_index] = new_element.clone();
                 self.active_formatting.borrow_mut()[node_formatting_index] =
@@ -863,10 +866,11 @@ where
             // 15.
             // FIXME: Is there a way to avoid cloning the attributes twice here (once on their own,
             // once as part of t.clone() above)?
-            let new_element = create_element(
+            let new_element = create_element_with_flags(
                 &self.sink,
                 QualName::new(None, ns!(html), fmt_elem_tag.name.clone()),
                 fmt_elem_tag.attrs.clone(),
+                fmt_elem_tag.had_duplicate_attrs,
             );
             let new_entry = FormatEntry::Element(new_element.clone(), fmt_elem_tag);
 
@@ -1014,6 +1018,7 @@ where
                 ns!(html),
                 tag.name.clone(),
                 tag.attrs.clone(),
+                tag.had_duplicate_attrs,
             );
 
             // Step 9. Replace the entry for entry in the list with an entry for new element.
@@ -1358,6 +1363,7 @@ where
         ns: Namespace,
         name: LocalName,
         attrs: Vec<Attribute>,
+        had_duplicate_attrs: bool,
     ) -> Handle {
         declare_tag_set!(form_associatable =
             "button" "fieldset" "input" "object"
@@ -1367,7 +1373,12 @@ where
 
         // Step 7.
         let qname = QualName::new(None, ns, name);
-        let elem = create_element(&self.sink, qname.clone(), attrs.clone());
+        let elem = create_element_with_flags(
+            &self.sink,
+            qname.clone(),
+            attrs.clone(),
+            had_duplicate_attrs,
+        );
 
         let insertion_point = self.appropriate_place_for_insertion(None);
         let (node1, node2) = match insertion_point {
@@ -1405,15 +1416,27 @@ where
     }
 
     fn insert_element_for(&self, tag: Tag) -> Handle {
-        self.insert_element(PushFlag::Push, ns!(html), tag.name, tag.attrs)
+        self.insert_element(
+            PushFlag::Push,
+            ns!(html),
+            tag.name,
+            tag.attrs,
+            tag.had_duplicate_attrs,
+        )
     }
 
     fn insert_and_pop_element_for(&self, tag: Tag) -> Handle {
-        self.insert_element(PushFlag::NoPush, ns!(html), tag.name, tag.attrs)
+        self.insert_element(
+            PushFlag::NoPush,
+            ns!(html),
+            tag.name,
+            tag.attrs,
+            tag.had_duplicate_attrs,
+        )
     }
 
     fn insert_phantom(&self, name: LocalName) -> Handle {
-        self.insert_element(PushFlag::Push, ns!(html), name, vec![])
+        self.insert_element(PushFlag::Push, ns!(html), name, vec![], false)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-element-at-the-adjusted-insertion-location>
@@ -1424,8 +1447,13 @@ where
         only_add_to_element_stack: bool,
     ) -> Handle {
         let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
-        let qname = QualName::new(None, ns, tag.name);
-        let elem = create_element(&self.sink, qname.clone(), tag.attrs.clone());
+        let qname = QualName::new(None, ns, tag.name.clone());
+        let elem = create_element_with_flags(
+            &self.sink,
+            qname.clone(),
+            tag.attrs.clone(),
+            tag.had_duplicate_attrs,
+        );
 
         if !only_add_to_element_stack {
             self.insert_at(adjusted_insertion_location, AppendNode(elem.clone()));
@@ -1515,6 +1543,7 @@ where
             ns!(html),
             tag.name.clone(),
             tag.attrs.clone(),
+            tag.had_duplicate_attrs,
         );
         self.active_formatting
             .borrow_mut()
@@ -1650,10 +1679,22 @@ where
         self.adjust_foreign_attributes(&mut tag);
 
         if tag.self_closing {
-            self.insert_element(PushFlag::NoPush, ns, tag.name, tag.attrs);
+            self.insert_element(
+                PushFlag::NoPush,
+                ns,
+                tag.name,
+                tag.attrs,
+                tag.had_duplicate_attrs,
+            );
             ProcessResult::DoneAckSelfClosing
         } else {
-            self.insert_element(PushFlag::Push, ns, tag.name, tag.attrs);
+            self.insert_element(
+                PushFlag::Push,
+                ns,
+                tag.name,
+                tag.attrs,
+                tag.had_duplicate_attrs,
+            );
             ProcessResult::Done
         }
     }
@@ -1818,10 +1859,22 @@ where
         self.adjust_foreign_attributes(&mut tag);
         if tag.self_closing {
             // FIXME(#118): <script /> in SVG
-            self.insert_element(PushFlag::NoPush, current_ns, tag.name, tag.attrs);
+            self.insert_element(
+                PushFlag::NoPush,
+                current_ns,
+                tag.name,
+                tag.attrs,
+                tag.had_duplicate_attrs,
+            );
             ProcessResult::DoneAckSelfClosing
         } else {
-            self.insert_element(PushFlag::Push, current_ns, tag.name, tag.attrs);
+            self.insert_element(
+                PushFlag::Push,
+                current_ns,
+                tag.name,
+                tag.attrs,
+                tag.had_duplicate_attrs,
+            );
             ProcessResult::Done
         }
     }

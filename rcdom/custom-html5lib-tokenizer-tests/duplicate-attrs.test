@@ -1,0 +1,66 @@
+{"tests": [
+
+{"description": "Duplicate attribute - simple case",
+"input": "<div id='first' id='second'>",
+"output": [
+    ["StartTag", "div", {"id": "first"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"}
+]},
+
+{"description": "Duplicate attribute - three duplicates",
+"input": "<div id='first' id='second' id='third'>",
+"output": [
+    ["StartTag", "div", {"id": "first"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"},
+    {"code": "duplicate-attribute"}
+]},
+
+{"description": "Duplicate attribute - mixed with other attrs",
+"input": "<div class='foo' id='first' title='bar' id='second'>",
+"output": [
+    ["StartTag", "div", {"class": "foo", "id": "first", "title": "bar"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"}
+]},
+
+{"description": "Duplicate nonce attribute",
+"input": "<script nonce='abc123' nonce='xyz789'>",
+"output": [
+    ["StartTag", "script", {"nonce": "abc123"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"}
+]},
+
+{"description": "No duplicate - different attributes",
+"input": "<div id='test' class='foo'>",
+"output": [
+    ["StartTag", "div", {"id": "test", "class": "foo"}]
+],
+"errors": []},
+
+{"description": "Duplicate attribute - case insensitive (ID vs id)",
+"input": "<div ID='first' id='second'>",
+"output": [
+    ["StartTag", "div", {"id": "first"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"}
+]},
+
+{"description": "Multiple different duplicates",
+"input": "<div id='a' id='b' class='x' class='y'>",
+"output": [
+    ["StartTag", "div", {"id": "a", "class": "x"}]
+],
+"errors": [
+    {"code": "duplicate-attribute"},
+    {"code": "duplicate-attribute"}
+]}
+
+]}

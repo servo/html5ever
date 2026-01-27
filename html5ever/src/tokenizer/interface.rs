@@ -49,6 +49,10 @@ pub struct Tag {
     /// An example of a self closing tag is `<foo />`.
     pub self_closing: bool,
     pub attrs: Vec<Attribute>,
+    /// Whether duplicate attributes were encountered during tokenization.
+    /// This is used for CSP nonce validation - elements with duplicate
+    /// attributes are not nonceable per the CSP spec.
+    pub had_duplicate_attrs: bool,
 }
 
 impl Tag {

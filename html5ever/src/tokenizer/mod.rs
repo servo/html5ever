@@ -147,6 +147,9 @@ pub struct Tokenizer<Sink> {
     /// Current tag is self-closing?
     current_tag_self_closing: Cell<bool>,
 
+    /// Current tag had duplicate attributes?
+    current_tag_had_duplicate_attrs: Cell<bool>,
+
     /// Current tag attributes.
     current_tag_attrs: RefCell<Vec<Attribute>>,
 
@@ -200,6 +203,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_tag_kind: Cell::new(StartTag),
             current_tag_name: RefCell::new(StrTendril::new()),
             current_tag_self_closing: Cell::new(false),
+            current_tag_had_duplicate_attrs: Cell::new(false),
             current_tag_attrs: RefCell::new(vec![]),
             current_attr_name: RefCell::new(StrTendril::new()),
             current_attr_value: RefCell::new(StrTendril::new()),
@@ -460,6 +464,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             name,
             self_closing: self.current_tag_self_closing.get(),
             attrs: std::mem::take(&mut self.current_tag_attrs.borrow_mut()),
+            had_duplicate_attrs: self.current_tag_had_duplicate_attrs.get(),
         });
 
         match self.process_token(token) {
@@ -504,6 +509,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn discard_tag(&self) {
         self.current_tag_name.borrow_mut().clear();
         self.current_tag_self_closing.set(false);
+        self.current_tag_had_duplicate_attrs.set(false);
         *self.current_tag_attrs.borrow_mut() = vec![];
     }
 
@@ -546,6 +552,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
+            self.current_tag_had_duplicate_attrs.set(true);
             self.current_attr_name.borrow_mut().clear();
             self.current_attr_value.borrow_mut().clear();
         } else {
@@ -2240,6 +2247,7 @@ mod test {
             name,
             self_closing: false,
             attrs: vec![],
+            had_duplicate_attrs: false,
         })
     }
 
