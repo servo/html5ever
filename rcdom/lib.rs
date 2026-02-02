@@ -259,17 +259,25 @@ impl Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        let mut nodes = mem::take(&mut *self.children.borrow_mut());
-        while let Some(node) = nodes.pop() {
-            let children = mem::take(&mut *node.children.borrow_mut());
-            nodes.extend(children.into_iter());
-            if let NodeData::Element {
-                ref template_contents,
-                ..
-            } = node.data
-            {
-                if let Some(template_contents) = template_contents.borrow_mut().take() {
-                    nodes.push(template_contents);
+        // Iteratively drop nodes, to prevent stack overflows, but take care
+        // to only clear children for doomed nodes.
+
+        let mut droplist = mem::take(self.children.get_mut());
+
+        while let Some(node) = droplist.pop() {
+            // Take all of the nodes out of `node` that we can get _ownership_
+            // of and add them to the droplist. Ownership ensures that there are
+            // no external live handles to that node.
+            if let Some(mut node) = Rc::into_inner(node) {
+                droplist.extend(mem::take(node.children.get_mut()));
+                if let NodeData::Element {
+                    ref mut template_contents,
+                    ..
+                } = node.data
+                {
+                    if let Some(node) = template_contents.get_mut().take() {
+                        droplist.push(node);
+                    }
                 }
             }
         }
@@ -671,5 +679,86 @@ impl Serialize for SerializableHandle {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use html5ever::{parse_document, ParseOpts};
+    use tendril::TendrilSink;
+
+    /// Assert that a node is an element and that it has a certain local name
+    fn assert_node_name(node: &Node, expected: &str) {
+        match node.data {
+            NodeData::Element { ref name, .. } => assert_eq!(&name.local, expected),
+            _ => panic!("node wasn't an element"),
+        }
+    }
+
+    /// Assert that a node is a text node and that it has certain contents
+    fn assert_node_text(node: &Node, expected: &str) {
+        match node.data {
+            NodeData::Text { ref contents } => assert_eq!(contents.borrow().as_ref(), expected),
+            _ => panic!("node isn't a text node"),
+        }
+    }
+
+    // Ensuse that, when a node is dropped, its children that still have handles
+    // in circulation are not unlinked from each other
+    #[test]
+    fn drop_node_preserves_children() {
+        let doc = "
+            <html>\
+                <head>\
+                </head>\
+                <body>\
+                    <header>\
+                        <nav>Nav</nav>\
+                    </header>\
+                    <article>\
+                        <h1>Title</h1>\
+                        <section>\
+                            <p>text 1</p>\
+                            <p>text 2</p>\
+                        </section>\
+                    </article>\
+                    <footer>Footer</footer>\
+                </body>\
+            </html>";
+
+        // Get just the `article` element and drop everything else. Ensure
+        // that the article element still has all its children.
+        let (article, body_weak) = {
+            let dom =
+                parse_document(RcDom::default(), ParseOpts::default()).one(StrTendril::from(doc));
+
+            let document = dom.document;
+            let html = document.children.borrow()[0].clone();
+            let body = html.children.borrow()[1].clone();
+            let article = body.children.borrow()[1].clone();
+            let body_weak = Rc::downgrade(&body);
+
+            assert_node_name(&article, "article");
+
+            (article, body_weak)
+        };
+
+        // Ensure that the body was dropped, as expected
+        assert!(body_weak.upgrade().is_none());
+
+        let children = article.children.borrow();
+        assert_eq!(children.len(), 2);
+
+        let h1 = &children[0];
+        assert_node_name(h1, "h1");
+        assert_node_text(&h1.children.borrow()[0], "Title");
+
+        let section = &children[1];
+        assert_node_name(section, "section");
+        assert_node_name(&section.children.borrow()[0], "p");
+        assert_node_text(&section.children.borrow()[0].children.borrow()[0], "text 1");
+        assert_node_name(&section.children.borrow()[1], "p");
+        assert_node_text(&section.children.borrow()[1].children.borrow()[0], "text 2");
     }
 }
