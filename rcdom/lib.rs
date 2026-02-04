@@ -257,28 +257,31 @@ impl Node {
     }
 }
 
+/// Get all of the recursive nodes out of a node and add them to a droplist.
+/// this helps prevent unbounded recursion during drop.
+fn destructure_node(droplist: &mut Vec<Handle>, node: &mut Node) {
+    droplist.extend(mem::take(node.children.get_mut()));
+    if let NodeData::Element {
+        ref mut template_contents,
+        ..
+    } = node.data
+    {
+        droplist.extend(template_contents.get_mut().take());
+    }
+}
+
 impl Drop for Node {
     fn drop(&mut self) {
         // Iteratively drop nodes, to prevent stack overflows, but take care
         // to only clear children for doomed nodes.
-
-        let mut droplist = mem::take(self.children.get_mut());
+        let mut droplist = Vec::new();
+        destructure_node(&mut droplist, self);
 
         while let Some(node) = droplist.pop() {
-            // Take all of the nodes out of `node` that we can get _ownership_
-            // of and add them to the droplist. Ownership ensures that there are
-            // no external live handles to that node.
+            // Destructure nodes that we can get ownership of. Ownership ensures
+            // that there are no external live handles to that node.
             if let Some(mut node) = Rc::into_inner(node) {
-                droplist.extend(mem::take(node.children.get_mut()));
-                if let NodeData::Element {
-                    ref mut template_contents,
-                    ..
-                } = node.data
-                {
-                    if let Some(node) = template_contents.get_mut().take() {
-                        droplist.push(node);
-                    }
-                }
+                destructure_node(&mut droplist, &mut node);
             }
         }
     }
