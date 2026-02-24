@@ -24,7 +24,7 @@ jobs:
       - name: Run cargo-semver-checks
         id: semver
         run: |
-          (cargo semver-checks --baseline-rev main && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
+          (cargo semver-checks --baseline-rev $(git merge-base main HEAD) && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
       - name: Assign labels
         run: |
           gh pr edit "$NUMBER" --remove-label V-breaking --remove-label V-non-breaking
