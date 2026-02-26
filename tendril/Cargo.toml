@@ -19,7 +19,6 @@ encoding_rs = ["dep:encoding_rs"]
 [dependencies]
 encoding_rs = { workspace = true, optional = true}
 new_debug_unreachable = { workspace = true }
-utf-8 = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }

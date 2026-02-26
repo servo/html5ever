@@ -5,6 +5,7 @@
 // except according to those terms.
 
 use crate::fmt;
+use crate::utf8;
 use crate::{Atomicity, Tendril};
 
 pub struct IncompleteUtf8(utf8::Incomplete);
