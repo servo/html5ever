@@ -6,7 +6,8 @@
 
 //! Streams of tendrils.
 
-use crate::fmt;
+use crate::utf8_decode::{decode_utf8, DecodeError, REPLACEMENT_CHARACTER};
+use crate::{fmt, IncompleteUtf8};
 use crate::{Atomicity, NonAtomic, Tendril};
 
 use std::borrow::Cow;
@@ -15,7 +16,6 @@ use std::io;
 use std::marker::PhantomData;
 use std::path::Path;
 
-use crate::utf8;
 #[cfg(feature = "encoding_rs")]
 use encoding_rs::{self, DecoderResult};
 
@@ -124,7 +124,7 @@ where
     A: Atomicity,
 {
     pub inner_sink: Sink,
-    incomplete: Option<utf8::Incomplete>,
+    incomplete: Option<IncompleteUtf8>,
     marker: PhantomData<A>,
 }
 
@@ -150,64 +150,71 @@ where
     A: Atomicity,
 {
     #[inline]
-    fn process(&mut self, mut t: Tendril<fmt::Bytes, A>) {
+    fn process(&mut self, mut bytes: Tendril<fmt::Bytes, A>) {
         // FIXME: remove take() and map() when non-lexical borrows are stable.
         if let Some(mut incomplete) = self.incomplete.take() {
-            let resume_at = incomplete.try_complete(&t).map(|(result, rest)| {
-                match result {
-                    Ok(s) => self.inner_sink.process(Tendril::from_slice(s)),
-                    Err(_) => {
-                        self.inner_sink.error("invalid byte sequence".into());
-                        self.inner_sink
-                            .process(Tendril::from_slice(utf8::REPLACEMENT_CHARACTER));
-                    },
-                }
-                t.len() - rest.len()
-            });
+            let resume_at = incomplete
+                .try_to_complete_codepoint(&bytes)
+                .map(|(result, rest)| {
+                    match result {
+                        Ok(decoded_string) => {
+                            self.inner_sink.process(Tendril::from_slice(decoded_string))
+                        },
+                        Err(_) => {
+                            self.inner_sink.error("invalid byte sequence".into());
+                            self.inner_sink
+                                .process(Tendril::from_slice(REPLACEMENT_CHARACTER));
+                        },
+                    }
+                    bytes.len() - rest.len()
+                });
             match resume_at {
                 None => {
                     self.incomplete = Some(incomplete);
                     return;
                 },
-                Some(resume_at) => t.pop_front(resume_at as u32),
+                Some(resume_at) => bytes.pop_front(resume_at as u32),
             }
         }
-        while !t.is_empty() {
-            let unborrowed_result = match utf8::decode(&t) {
+        while !bytes.is_empty() {
+            let unborrowed_result = match decode_utf8(&bytes) {
                 Ok(s) => {
-                    debug_assert!(s.as_ptr() == t.as_ptr());
-                    debug_assert!(s.len() == t.len());
+                    debug_assert!(s.as_ptr() == bytes.as_ptr());
+                    debug_assert!(s.len() == bytes.len());
                     Ok(())
                 },
-                Err(utf8::DecodeError::Invalid {
+                Err(DecodeError::Invalid {
                     valid_prefix,
                     invalid_sequence,
                     ..
                 }) => {
-                    debug_assert!(valid_prefix.as_ptr() == t.as_ptr());
-                    debug_assert!(valid_prefix.len() <= t.len());
+                    debug_assert!(valid_prefix.as_ptr() == bytes.as_ptr());
+                    debug_assert!(valid_prefix.len() <= bytes.len());
                     Err((
                         valid_prefix.len(),
                         Err(valid_prefix.len() + invalid_sequence.len()),
                     ))
                 },
-                Err(utf8::DecodeError::Incomplete {
+                Err(DecodeError::Incomplete {
                     valid_prefix,
                     incomplete_suffix,
                 }) => {
-                    debug_assert!(valid_prefix.as_ptr() == t.as_ptr());
-                    debug_assert!(valid_prefix.len() <= t.len());
+                    debug_assert!(valid_prefix.as_ptr() == bytes.as_ptr());
+                    debug_assert!(valid_prefix.len() <= bytes.len());
                     Err((valid_prefix.len(), Ok(incomplete_suffix)))
                 },
             };
             match unborrowed_result {
                 Ok(()) => {
-                    unsafe { self.inner_sink.process(t.reinterpret_without_validating()) }
+                    unsafe {
+                        self.inner_sink
+                            .process(bytes.reinterpret_without_validating())
+                    }
                     return;
                 },
                 Err((valid_len, and_then)) => {
                     if valid_len > 0 {
-                        let subtendril = t.subtendril(0, valid_len as u32);
+                        let subtendril = bytes.subtendril(0, valid_len as u32);
                         unsafe {
                             self.inner_sink
                                 .process(subtendril.reinterpret_without_validating())
@@ -221,8 +228,8 @@ where
                         Err(offset) => {
                             self.inner_sink.error("invalid byte sequence".into());
                             self.inner_sink
-                                .process(Tendril::from_slice(utf8::REPLACEMENT_CHARACTER));
-                            t.pop_front(offset as u32);
+                                .process(Tendril::from_slice(REPLACEMENT_CHARACTER));
+                            bytes.pop_front(offset as u32);
                         },
                     }
                 },
@@ -243,7 +250,7 @@ where
             self.inner_sink
                 .error("incomplete byte sequence at end of stream".into());
             self.inner_sink
-                .process(Tendril::from_slice(utf8::REPLACEMENT_CHARACTER));
+                .process(Tendril::from_slice(REPLACEMENT_CHARACTER));
         }
         self.inner_sink.finish()
     }
@@ -380,7 +387,7 @@ where
 
 #[cfg(feature = "encoding_rs")]
 fn decode_to_sink<Sink, A>(
-    mut t: Tendril<fmt::Bytes, A>,
+    mut input: Tendril<fmt::Bytes, A>,
     decoder: &mut encoding_rs::Decoder,
     sink: &mut Sink,
     last: bool,
@@ -391,13 +398,13 @@ fn decode_to_sink<Sink, A>(
     loop {
         let mut out = <Tendril<fmt::Bytes, A>>::new();
         let max_len = decoder
-            .max_utf8_buffer_length_without_replacement(t.len())
+            .max_utf8_buffer_length_without_replacement(input.len())
             .unwrap_or(8192);
         unsafe {
-            out.push_uninitialized(std::cmp::min(max_len as u32, 8192));
+            out.push_uninitialized(max_len.min(8192) as u32);
         }
         let (result, bytes_read, bytes_written) =
-            decoder.decode_to_utf8_without_replacement(&t, &mut out, last);
+            decoder.decode_to_utf8_without_replacement(&input, &mut out, last);
         if bytes_written > 0 {
             sink.process(unsafe {
                 out.subtendril(0, bytes_written as u32)
@@ -409,11 +416,11 @@ fn decode_to_sink<Sink, A>(
             DecoderResult::OutputFull => {},
             DecoderResult::Malformed(_, _) => {
                 sink.error(Cow::Borrowed("invalid sequence"));
-                sink.process("\u{FFFD}".into());
+                sink.process(Tendril::from_slice(REPLACEMENT_CHARACTER));
             },
         }
-        t.pop_front(bytes_read as u32);
-        if t.is_empty() {
+        input.pop_front(bytes_read as u32);
+        if input.is_empty() {
             return;
         }
     }
