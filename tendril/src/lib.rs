@@ -25,6 +25,7 @@ pub mod stream;
 
 mod buf32;
 mod tendril;
+mod utf8;
 mod utf8_decode;
 mod util;
 

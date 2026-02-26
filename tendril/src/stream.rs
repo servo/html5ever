@@ -15,9 +15,9 @@ use std::io;
 use std::marker::PhantomData;
 use std::path::Path;
 
+use crate::utf8;
 #[cfg(feature = "encoding_rs")]
 use encoding_rs::{self, DecoderResult};
-use utf8;
 
 /// Trait for types that can process a tendril.
 ///

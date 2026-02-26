@@ -33,7 +33,6 @@ phf = "0.13"
 phf_codegen = "0.13"
 string_cache = { version = "0.9.0", default-features = false }
 string_cache_codegen = "0.6.1"
-utf-8 = "0.7"
 
 # Dev dependencies
 criterion = "0.8"
