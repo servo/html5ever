@@ -142,6 +142,7 @@ baseline-shift
 bbox
 bdi
 bdo
+beforeinput
 begin
 bevelled
 bgcolor
