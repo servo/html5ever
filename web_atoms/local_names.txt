@@ -911,6 +911,7 @@ shadowrootclonable
 shadowrootdelegatesfocus
 shadowrootmode
 shadowrootserializable
+shadowrootslotassignment
 shape
 shape-rendering
 show
