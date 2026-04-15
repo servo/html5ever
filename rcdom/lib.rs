@@ -262,7 +262,7 @@ impl Drop for Node {
         let mut nodes = mem::take(&mut *self.children.borrow_mut());
         while let Some(node) = nodes.pop() {
             let children = mem::take(&mut *node.children.borrow_mut());
-            nodes.extend(children.into_iter());
+            nodes.extend(children);
             if let NodeData::Element {
                 ref template_contents,
                 ..
