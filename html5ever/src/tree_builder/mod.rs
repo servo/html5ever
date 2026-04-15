@@ -1279,10 +1279,8 @@ where
                 _ => continue,
             };
             match *name {
-                local_name!("td") | local_name!("th") => {
-                    if !last {
-                        return InsertionMode::InCell;
-                    }
+                local_name!("td") | local_name!("th") if !last => {
+                    return InsertionMode::InCell;
                 },
                 local_name!("tr") => return InsertionMode::InRow,
                 local_name!("tbody") | local_name!("thead") | local_name!("tfoot") => {

@@ -27,6 +27,7 @@ use log::{debug, trace};
 use markup5ever::{ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
+use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::mem;
 
@@ -1774,12 +1775,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             .iter()
             .map(|(s, t)| (*s, *t))
             .collect();
-        results.sort_by(|&(_, x), &(_, y)| y.cmp(&x));
+        results.sort_by_key(|&(_, x)| Reverse(x));
 
-        let total: u64 = results
-            .iter()
-            .map(|&(_, t)| t)
-            .fold(0, ::std::ops::Add::add);
+        let total: u64 = results.iter().map(|&(_, t)| t).sum();
         println!("\nTokenizer profile, in nanoseconds");
         println!(
             "\n{:12}         total in token sink",
