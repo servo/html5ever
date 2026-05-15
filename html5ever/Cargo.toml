@@ -18,6 +18,7 @@ serde = ["markup5ever/serde"]
 
 [dependencies]
 markup5ever = { workspace = true }
+memchr = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]

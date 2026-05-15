@@ -10,6 +10,7 @@
 use log::warn;
 pub use markup5ever::serialize::{AttrRef, Serialize, Serializer, TraversalScope};
 use markup5ever::{local_name, ns};
+use memchr::{memchr2, memchr3};
 use std::io::{self, Write};
 
 use crate::{LocalName, QualName};
@@ -102,16 +103,48 @@ impl<Wr: Write> HtmlSerializer<Wr> {
     }
 
     fn write_escaped(&mut self, text: &str, attr_mode: bool) -> io::Result<()> {
-        for c in text.chars() {
-            match c {
-                '&' => self.writer.write_all(b"&amp;"),
-                '\u{00A0}' => self.writer.write_all(b"&nbsp;"),
-                '"' if attr_mode => self.writer.write_all(b"&quot;"),
-                '<' => self.writer.write_all(b"&lt;"),
-                '>' => self.writer.write_all(b"&gt;"),
-                c => self.writer.write_fmt(format_args!("{c}")),
-            }?;
+        // When in attribute mode quotes are escaped, but otherwise not. In order to reduce
+        // branching below, when not in attribute mode, just look for the another of the
+        // escaped characters.
+        let maybe_quote = if attr_mode { b'"' } else { b'<' };
+        let find_next_escaped_character = |slice: &[u8]| {
+            // Use highly-optimized memchr to find the next character that needs to be escaped.
+            // Doing this twice is *much* faster than walking the string by characters.
+            let result = memchr3(maybe_quote, b'<', b'>', slice).unwrap_or(slice.len());
+            memchr2(b'&', 0xC2, &slice[..result]).unwrap_or(result)
+        };
+
+        let bytes = text.as_bytes();
+        let mut search_start = 0;
+        while search_start < text.len() {
+            let next_special = find_next_escaped_character(&bytes[search_start..]) + search_start;
+
+            // Write all text before the search result unconditionally.
+            self.writer.write_all(&bytes[search_start..next_special])?;
+
+            // If we reached the end of the text we can stop processing.
+            if next_special == bytes.len() {
+                break;
+            }
+
+            search_start = next_special + 1;
+            let replacement = match bytes[next_special] {
+                b'&' => "&amp;",
+                b'"' => "&quot;",
+                b'<' => "&lt;",
+                b'>' => "&gt;",
+                0xC2 if bytes.get(next_special + 1) == Some(&0xA0) => {
+                    search_start += 1;
+                    "&nbsp;"
+                },
+                _ => {
+                    //  0xC2 not followed by 0xA0 (not NBSP), so keep looking.
+                    continue;
+                },
+            };
+            self.writer.write_all(replacement.as_bytes())?;
         }
+
         Ok(())
     }
 }
