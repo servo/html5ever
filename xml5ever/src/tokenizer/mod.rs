@@ -627,13 +627,6 @@ macro_rules! get_char ( ($me:expr, $input:expr) => {{
     character
 }});
 
-macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => {{
-    let Some(popped_element) = $me.pop_except_from($input, $set) else {
-        return ProcessResult::Done;
-    };
-    popped_element
-}});
-
 macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => {{
     let Some(value) = $me.eat($input, $pat) else {
         return ProcessResult::Done;
@@ -664,7 +657,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
         match self.state.get() {
             //§ data-state
             XmlState::Data => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '&' '<')) {
+                let Some(popped_element) =
+                    self.pop_except_from(input, small_char_set!('\r' '&' '<'))
+                else {
+                    return ProcessResult::Done;
+                };
+
+                match popped_element {
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('<') => go!(self: to XmlState::TagState),
                     FromSet(c) => go!(self: emit c),
@@ -925,7 +924,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-double-quoted-state
             XmlState::TagAttrValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\n' '"' '&')) {
+                let Some(popped_element) =
+                    self.pop_except_from(input, small_char_set!('\n' '"' '&'))
+                else {
+                    return ProcessResult::Done;
+                };
+
+                match popped_element {
                     FromSet('"') => go!(self: to XmlState::TagAttrNameBefore),
                     FromSet('&') => go!(self: consume_char_ref '"' ),
                     FromSet(c) => go!(self: push_value c),
@@ -934,7 +939,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-single-quoted-state
             XmlState::TagAttrValue(SingleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\n' '\'' '&')) {
+                let Some(popped_element) =
+                    self.pop_except_from(input, small_char_set!('\n' '\'' '&'))
+                else {
+                    return ProcessResult::Done;
+                };
+
+                match popped_element {
                     FromSet('\'') => go!(self: to XmlState::TagAttrNameBefore),
                     FromSet('&') => go!(self: consume_char_ref '\''),
                     FromSet(c) => go!(self: push_value c),
@@ -943,7 +954,13 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             },
             //§ tag-attribute-value-double-quoted-state
             XmlState::TagAttrValue(Unquoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\n' '\t' ' ' '&' '>')) {
+                let Some(popped_element) =
+                    self.pop_except_from(input, small_char_set!('\n' '\t' ' ' '&' '>'))
+                else {
+                    return ProcessResult::Done;
+                };
+
+                match popped_element {
                     FromSet('\t') | FromSet('\n') | FromSet(' ') => {
                         go!(self: to XmlState::TagAttrNameBefore)
                     },
