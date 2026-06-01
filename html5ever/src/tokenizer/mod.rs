@@ -707,10 +707,6 @@ macro_rules! peek ( ($me:expr, $input:expr) => (
     unwrap_or_return!($me.peek($input), ProcessResult::Suspend)
 ));
 
-macro_rules! pop_except_from ( ($me:expr, $input:expr, $set:expr) => (
-    unwrap_or_return!($me.pop_except_from($input, $set), ProcessResult::Suspend)
-));
-
 macro_rules! eat ( ($me:expr, $input:expr, $pat:expr) => (
     unwrap_or_return!($me.eat($input, $pat, u8::eq_ignore_ascii_case), ProcessResult::Suspend)
 ));
@@ -798,7 +794,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rcdata-state
             states::RawData(Rcdata) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '&' '<' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\0' '&' '<' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -812,7 +814,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ rawtext-state
             states::RawData(Rawtext) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\0' '<' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -825,7 +833,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-state
             states::RawData(ScriptData) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '<' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\0' '<' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -838,7 +852,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-escaped-state
             states::RawData(ScriptDataEscaped(Escaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\0' '-' '<' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -857,7 +877,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ script-data-double-escaped-state
             states::RawData(ScriptDataEscaped(DoubleEscaped)) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '-' '<' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\0' '-' '<' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -877,7 +903,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ plaintext-state
             states::Plaintext => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\0' '\n')) {
+                let Some(set_result) = self.pop_except_from(input, small_char_set!('\r' '\0' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\0') => {
                         self.bad_char_error();
                         self.emit_char('\u{fffd}');
@@ -1239,7 +1270,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(double-quoted)-state
             states::AttributeValue(DoubleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '"' '&' '\0' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '"' '&' '\0' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('"') => go!(self: to State::AfterAttributeValueQuoted),
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('\0') => {
@@ -1253,7 +1290,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(single-quoted)-state
             states::AttributeValue(SingleQuoted) => loop {
-                match pop_except_from!(self, input, small_char_set!('\r' '\'' '&' '\0' '\n')) {
+                let Some(set_result) =
+                    self.pop_except_from(input, small_char_set!('\r' '\'' '&' '\0' '\n'))
+                else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\'') => go!(self: to State::AfterAttributeValueQuoted),
                     FromSet('&') => go!(self: consume_char_ref),
                     FromSet('\0') => {
@@ -1267,11 +1310,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
             //§ attribute-value-(unquoted)-state
             states::AttributeValue(Unquoted) => loop {
-                match pop_except_from!(
-                    self,
+                let Some(set_result) = self.pop_except_from(
                     input,
-                    small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0')
-                ) {
+                    small_char_set!('\r' '\t' '\n' '\x0C' ' ' '&' '>' '\0'),
+                ) else {
+                    return ProcessResult::Suspend;
+                };
+
+                match set_result {
                     FromSet('\t') | FromSet('\n') | FromSet('\x0C') | FromSet(' ') => {
                         go!(self: to State::BeforeAttributeName)
                     },
