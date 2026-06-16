@@ -269,6 +269,18 @@ pub trait TreeSink {
     /// Called whenever the line number changes.
     fn set_current_line(&self, _line_number: u64) {}
 
+    /// Called whenever the source byte offset changes.
+    ///
+    /// Only called when the `source-positions` feature is enabled on the
+    /// `html5ever` crate. The offset is the number of UTF-8 bytes consumed
+    /// from the input up to and including the last character of the token
+    /// that just triggered the current tree-builder callback.
+    ///
+    /// Implement this method to obtain byte-accurate source positions for
+    /// nodes. The default implementation is a no-op.
+    #[cfg(feature = "source-positions")]
+    fn set_current_byte(&self, _byte_offset: u64) {}
+
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
         true
     }
