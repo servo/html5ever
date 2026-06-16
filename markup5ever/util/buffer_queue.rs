@@ -18,6 +18,8 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
+#[cfg(feature = "source-positions")]
+use std::cell::Cell;
 use std::{
     cell::{RefCell, RefMut},
     collections::VecDeque,
@@ -51,6 +53,13 @@ pub enum SetResult {
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: RefCell<VecDeque<StrTendril>>,
+    /// Total number of UTF-8 bytes consumed from this queue so far.
+    ///
+    /// Only present when the `source-positions` feature is enabled. Used by
+    /// the tokenizer to surface byte-accurate source offsets via
+    /// [`TokenSink::set_current_byte`] and [`TreeSink::set_current_byte`].
+    #[cfg(feature = "source-positions")]
+    bytes_consumed: Cell<u64>,
 }
 
 impl Default for BufferQueue {
@@ -59,6 +68,8 @@ impl Default for BufferQueue {
     fn default() -> Self {
         Self {
             buffers: RefCell::new(VecDeque::with_capacity(16)),
+            #[cfg(feature = "source-positions")]
+            bytes_consumed: Cell::new(0),
         }
     }
 }
@@ -68,6 +79,43 @@ impl BufferQueue {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.buffers.borrow().is_empty()
+    }
+
+    /// Returns the total number of UTF-8 bytes consumed from this queue.
+    ///
+    /// Only available when the `source-positions` feature is enabled. The
+    /// value monotonically increases as characters are consumed via
+    /// [`next`], [`pop_except_from`], and [`eat`]. Re-queuing bytes via
+    /// [`push_front`] does **not** decrement the counter — the tokenizer
+    /// uses its own `reconsume` flag for single-character look-back and
+    /// never actually re-pushes bytes that were already counted.
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn bytes_consumed(&self) -> u64 {
+        self.bytes_consumed.get()
+    }
+
+    /// Advance the bytes-consumed counter by `n`.
+    ///
+    /// Only available when the `source-positions` feature is enabled.
+    /// Used by SIMD fast paths that consume bytes directly from a tendril
+    /// without going through [`next`] or [`pop_except_from`].
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn advance_bytes_consumed(&self, n: u64) {
+        self.bytes_consumed.set(self.bytes_consumed.get() + n);
+    }
+
+    /// Retreat the bytes-consumed counter by `n`.
+    ///
+    /// Only available when the `source-positions` feature is enabled. Used by
+    /// tokenizer lookahead paths that consume raw bytes, then push unmatched
+    /// suffix bytes back onto the queue.
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn retreat_bytes_consumed(&self, n: u64) {
+        self.bytes_consumed
+            .set(self.bytes_consumed.get().saturating_sub(n));
     }
 
     /// Get the buffer at the beginning of the queue.
@@ -146,9 +194,15 @@ impl BufferQueue {
                         out = buf.unsafe_subtendril(0, n);
                         buf.unsafe_pop_front(n);
                     }
+                    #[cfg(feature = "source-positions")]
+                    self.bytes_consumed
+                        .set(self.bytes_consumed.get() + out.len() as u64);
                     (Some(NotFromSet(out)), buf.is_empty())
                 } else {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
+                    #[cfg(feature = "source-positions")]
+                    self.bytes_consumed
+                        .set(self.bytes_consumed.get() + c.len_utf8() as u64);
                     (Some(FromSet(c)), buf.is_empty())
                 }
             },
@@ -218,6 +272,10 @@ impl BufferQueue {
             Some(ref mut buf) => buf.pop_front(consumed_from_last as u32),
         }
 
+        #[cfg(feature = "source-positions")]
+        self.bytes_consumed
+            .set(self.bytes_consumed.get() + pat.len() as u64);
+
         Some(true)
     }
 
@@ -229,6 +287,9 @@ impl BufferQueue {
             None => (None, false),
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
+                #[cfg(feature = "source-positions")]
+                self.bytes_consumed
+                    .set(self.bytes_consumed.get() + c.len_utf8() as u64);
                 (Some(c), buf.is_empty())
             },
         };
@@ -329,5 +390,122 @@ mod test {
         assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
+    }
+}
+
+#[cfg(all(test, feature = "source-positions"))]
+mod test_source_positions {
+    use tendril::SliceExt;
+
+    use super::BufferQueue;
+    use super::SetResult::{FromSet, NotFromSet};
+
+    #[test]
+    fn next_advances_counter_by_utf8_width() {
+        let bq = BufferQueue::default();
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        // ASCII: 1 byte each
+        bq.push_back("abc".to_tendril());
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 1);
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 2);
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        // Multibyte: 'é' is 2 bytes (U+00E9, encoded as 0xC3 0xA9)
+        bq.push_back("é".to_tendril());
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 5);
+    }
+
+    #[test]
+    fn pop_except_from_bulk_advances_counter() {
+        let bq = BufferQueue::default();
+        // "abc" are not in the set; '&' is
+        bq.push_back("abc&def".to_tendril());
+        let set = small_char_set!('&');
+
+        // Bulk NotFromSet: 3 bytes consumed
+        assert_eq!(
+            bq.pop_except_from(set),
+            Some(NotFromSet("abc".to_tendril()))
+        );
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        // Single FromSet '&': 1 byte consumed
+        assert_eq!(bq.pop_except_from(set), Some(FromSet('&')));
+        assert_eq!(bq.bytes_consumed(), 4);
+
+        // Bulk NotFromSet: 3 more bytes
+        assert_eq!(
+            bq.pop_except_from(set),
+            Some(NotFromSet("def".to_tendril()))
+        );
+        assert_eq!(bq.bytes_consumed(), 7);
+    }
+
+    #[test]
+    fn pop_except_from_multibyte_bulk_advances_by_byte_len() {
+        // "café" is 5 bytes (c=1, a=1, f=1, é=2). '&' terminates the bulk.
+        // Confirms NotFromSet advances by the byte length of the tendril slice,
+        // not by the character count.
+        let bq = BufferQueue::default();
+        bq.push_back("café&".to_tendril());
+        let set = small_char_set!('&');
+
+        let result = bq.pop_except_from(set);
+        assert!(matches!(result, Some(NotFromSet(_))));
+        // 'c'=1 + 'a'=1 + 'f'=1 + 'é'=2 = 5 bytes
+        assert_eq!(bq.bytes_consumed(), 5);
+    }
+
+    #[test]
+    fn eat_advances_counter_on_match_not_on_no_match() {
+        let bq = BufferQueue::default();
+        bq.push_back("abcdef".to_tendril());
+
+        // No match: counter unchanged
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        // Match "abc": counter advances by 3
+        assert_eq!(bq.eat("abc", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        // Match "def": counter advances by 3 more
+        assert_eq!(bq.eat("def", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.bytes_consumed(), 6);
+    }
+
+    #[test]
+    fn push_front_does_not_decrement_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc".to_tendril());
+        bq.next(); // consume 'a' → 1
+        bq.next(); // consume 'b' → 2
+        assert_eq!(bq.bytes_consumed(), 2);
+
+        // Re-queue something — counter must not decrease
+        bq.push_front("xy".to_tendril());
+        assert_eq!(bq.bytes_consumed(), 2);
+
+        // Consuming the re-queued bytes advances further
+        bq.next(); // 'x' → 3
+        bq.next(); // 'y' → 4
+        assert_eq!(bq.bytes_consumed(), 4);
+    }
+
+    #[test]
+    fn advance_bytes_consumed_adds_exactly() {
+        let bq = BufferQueue::default();
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.advance_bytes_consumed(7);
+        assert_eq!(bq.bytes_consumed(), 7);
+
+        bq.advance_bytes_consumed(3);
+        assert_eq!(bq.bytes_consumed(), 10);
     }
 }
