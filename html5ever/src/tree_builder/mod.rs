@@ -474,6 +474,11 @@ where
 {
     type Handle = Handle;
 
+    #[cfg(feature = "source-positions")]
+    fn set_current_byte(&self, byte_offset: u64) {
+        self.sink.set_current_byte(byte_offset);
+    }
+
     fn process_token(&self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
         if line_number != self.current_line.get() {
             self.sink.set_current_line(line_number);
@@ -673,8 +678,22 @@ where
         ProcessResult::ToRawData(k)
     }
 
-    // The generic raw text / RCDATA parsing algorithm.
+    /// The generic raw text / RCDATA parsing algorithm.
+    /// Insert a RCDATA/RAWTEXT element and switch the tokenizer to raw-text mode.
+    ///
+    /// XHTML allows self-closing syntax (`<title/>`, `<style/>`, …) on these
+    /// elements. The HTML5 spec ignores the `/` and enters the raw-text state,
+    /// which swallows the remainder of the document until a matching end tag.
+    /// When the `xhtml-self-closing` feature is enabled, the self-closing flag
+    /// is honoured instead: an empty element is inserted and the tokenizer stays
+    /// in the current insertion mode.
     fn parse_raw_data(&self, tag: Tag, k: RawKind) -> ProcessResult<Handle> {
+        #[cfg(feature = "xhtml-self-closing")]
+        if tag.self_closing {
+            self.insert_and_pop_element_for(tag);
+            return ProcessResult::DoneAckSelfClosing;
+        }
+
         self.insert_element_for(tag);
         self.to_raw_text_mode(k)
     }

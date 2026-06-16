@@ -5,25 +5,33 @@ documentation = "https://docs.rs/html5ever"
 categories = [ "parser-implementations", "web-programming" ]
 keywords = ["html", "html5", "parser", "parsing"]
 readme = "../README.md"
-version.workspace = true
-license.workspace = true
-authors.workspace = true
-repository.workspace = true
-edition.workspace = true
-rust-version.workspace = true
+version = "0.39.0"
+license = "MIT OR Apache-2.0"
+authors = [ "The html5ever Project Developers" ]
+repository = "https://github.com/servo/html5ever"
+edition = "2021"
+rust-version = "1.71.0"
 
 [features]
 trace_tokenizer = []
 serde = ["markup5ever/serde"]
+# Surfaces byte-accurate source positions; see markup5ever for full description.
+source-positions = ["markup5ever/source-positions"]
+# Honour the XML/XHTML self-closing syntax (`<title/>`, `<style/>`, …) on
+# RCDATA and RAWTEXT elements. Without this, html5ever follows the HTML5
+# spec and treats `<title/>` as opening a RCDATA region that swallows the
+# rest of the document. EPUB content is XHTML and relies on self-closing
+# being honoured.
+xhtml-self-closing = []
 
 [dependencies]
-markup5ever = { workspace = true }
-memchr = { workspace = true }
-log = { workspace = true }
+markup5ever = { version = "0.39", path = "../markup5ever" }
+memchr = "2.8.0"
+log = "0.4"
 
 [dev-dependencies]
-criterion = { workspace = true }
-typed-arena = { workspace = true }
+criterion = "0.8"
+typed-arena = "2.0.2"
 
 [[bench]]
 name = "html5ever"

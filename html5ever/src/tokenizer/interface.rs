@@ -130,6 +130,14 @@ pub trait TokenSink {
     /// Signal that tokenization reached the end of the document.
     fn end(&self) {}
 
+    /// Called just before each token is dispatched to [`process_token`],
+    /// with the number of UTF-8 bytes consumed from the input so far.
+    ///
+    /// Only called when the `source-positions` feature is enabled. The
+    /// default implementation is a no-op.
+    #[cfg(feature = "source-positions")]
+    fn set_current_byte(&self, _byte_offset: u64) {}
+
     /// Used in the [markup declaration open state]. By default, this always
     /// returns false and thus all CDATA sections are tokenized as bogus
     /// comments.
