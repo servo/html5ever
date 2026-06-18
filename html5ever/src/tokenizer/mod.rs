@@ -185,27 +185,24 @@ pub struct Tokenizer<Sink> {
     /// Number of UTF-8 bytes consumed from the input so far.
     ///
     /// Kept in sync with `BufferQueue::bytes_consumed` after every character
-    /// is consumed. Only present when the `source-positions` feature is
-    /// enabled.
+    /// is consumed.
     #[cfg(feature = "source-positions")]
     current_byte: Cell<u64>,
 
     /// Byte offset of the first character of the current token.
     ///
     /// For tag, comment, and doctype tokens this is the byte of the `<` that
-    /// opened them — captured whenever `<` is consumed in
-    /// `get_preprocessed_char`. For character tokens it is the byte right
-    /// after the end of the previous token, which equals the first byte of
-    /// the text content — tracked via `last_token_end_byte`.
-    /// Only present when the `source-positions` feature is enabled.
+    /// opened them, captured whenever `<` is consumed in `get_preprocessed_char`.
+    ///
+    /// For character tokens it is the byte right after the end of the previous token,
+    /// which equals the first byte of the text content, this is tracked via `last_token_end_byte`.
     #[cfg(feature = "source-positions")]
     token_start_byte: Cell<u64>,
 
     /// Byte offset one past the end of the most recently emitted token.
     ///
     /// Updated at the end of each `process_token` call. Used as the start
-    /// byte for the next character token. Only present when the
-    /// `source-positions` feature is enabled.
+    /// byte for the next character token.
     #[cfg(feature = "source-positions")]
     last_token_end_byte: Cell<u64>,
 }
@@ -2487,10 +2484,7 @@ mod test_source_positions {
 
     /// Records (token, byte_offset) pairs via `set_current_byte`.
     struct BytesMatch {
-        /// Byte offset delivered by the most recent `set_current_byte` call.
         current_byte: std::cell::Cell<u64>,
-        /// Byte offset at the start of the current character run.
-        /// Captured on the first `CharacterTokens` chunk; cleared after flush.
         text_start_byte: std::cell::Cell<Option<u64>>,
         current_str: RefCell<StrTendril>,
         entries: RefCell<Vec<(Token, u64)>>,
@@ -2567,13 +2561,8 @@ mod test_source_positions {
                 EOFToken => {
                     self.flush_chars();
                 },
-                TagToken(mut t) => {
+                TagToken(t) => {
                     self.flush_chars();
-                    if let EndTag = t.kind {
-                        t.attrs = vec![];
-                    } else {
-                        t.attrs.sort_by(|a, b| a.name.cmp(&b.name));
-                    }
                     self.entries.borrow_mut().push((TagToken(t), byte));
                 },
                 other => {
@@ -2653,10 +2642,6 @@ mod test_source_positions {
 
     #[test]
     fn check_byte_offsets_simple_tags() {
-        // <a>   = bytes 0-2  → offset 0
-        // <b>   = bytes 3-5  → offset 3
-        // </b>  = bytes 6-9  → offset 6
-        // </a>  = bytes 10-13 → offset 10
         let entries = tokenize_bytes("<a><b></b></a>");
         assert_eq!(
             entries,
@@ -2671,9 +2656,6 @@ mod test_source_positions {
 
     #[test]
     fn check_byte_offsets_text_content() {
-        // <p>     = bytes 0-2   → offset 0
-        // "hello" = bytes 3-7   → offset 3 (right after '>')
-        // </p>    = bytes 8-11  → offset 8
         let entries = tokenize_bytes("<p>hello</p>");
         assert_eq!(
             entries,
@@ -2683,24 +2665,14 @@ mod test_source_positions {
 
     #[test]
     fn check_byte_offsets_multibyte_text() {
-        // <p>   = bytes 0-2  → offset 0
-        // "é"   = bytes 3-4  (é = 2 UTF-8 bytes) → offset 3
-        // </p>  = bytes 5-8  → offset 5
         let entries = tokenize_bytes("<p>é</p>");
         assert_eq!(
             entries,
             vec![(start("p"), 0), (chars("é"), 3), (end("p"), 5),]
         );
     }
-
     #[test]
     fn check_byte_offsets_sequential_siblings() {
-        // <h1>  = bytes 0-3   → offset 0
-        // "X"   = bytes 4     → offset 4
-        // </h1> = bytes 5-9   → offset 5
-        // <p>   = bytes 10-12 → offset 10
-        // "Y"   = bytes 13    → offset 13
-        // </p>  = bytes 14-17 → offset 14
         let entries = tokenize_bytes("<h1>X</h1><p>Y</p>");
         assert_eq!(
             entries,
@@ -2717,10 +2689,6 @@ mod test_source_positions {
 
     #[test]
     fn check_byte_offsets_entity_text_chunks() {
-        // <p>     = bytes 0-2 → offset 0
-        // "a"     = byte 3
-        // "&amp;" = bytes 4-8, decoded to "&"
-        // "b"     = byte 9
         let entries = tokenize_raw_bytes("<p>a&amp;b</p>");
         assert_eq!(
             entries,

@@ -133,8 +133,7 @@ pub trait TokenSink {
     /// Called just before each token is dispatched to [`process_token`],
     /// with the number of UTF-8 bytes consumed from the input so far.
     ///
-    /// Only called when the `source-positions` feature is enabled. The
-    /// default implementation is a no-op.
+    /// The default implementation is a no-op.
     #[cfg(feature = "source-positions")]
     fn set_current_byte(&self, _byte_offset: u64) {}
 

@@ -55,8 +55,7 @@ pub struct BufferQueue {
     buffers: RefCell<VecDeque<StrTendril>>,
     /// Total number of UTF-8 bytes consumed from this queue so far.
     ///
-    /// Only present when the `source-positions` feature is enabled. Used by
-    /// the tokenizer to surface byte-accurate source offsets via
+    /// Used by the tokenizer to surface byte-accurate source offsets via
     /// [`TokenSink::set_current_byte`] and [`TreeSink::set_current_byte`].
     #[cfg(feature = "source-positions")]
     bytes_consumed: Cell<u64>,
@@ -83,12 +82,11 @@ impl BufferQueue {
 
     /// Returns the total number of UTF-8 bytes consumed from this queue.
     ///
-    /// Only available when the `source-positions` feature is enabled. The
-    /// value monotonically increases as characters are consumed via
+    /// The value monotonically increases as characters are consumed via
     /// [`next`], [`pop_except_from`], and [`eat`]. Re-queuing bytes via
-    /// [`push_front`] does **not** decrement the counter — the tokenizer
-    /// uses its own `reconsume` flag for single-character look-back and
-    /// never actually re-pushes bytes that were already counted.
+    /// [`push_front`] does **not** decrement the counter.
+    ///
+    /// To reduce bytes_consumed, use [`retreat_bytes_consumed`].
     #[cfg(feature = "source-positions")]
     #[inline]
     pub fn bytes_consumed(&self) -> u64 {
@@ -97,9 +95,7 @@ impl BufferQueue {
 
     /// Advance the bytes-consumed counter by `n`.
     ///
-    /// Only available when the `source-positions` feature is enabled.
-    /// Used by SIMD fast paths that consume bytes directly from a tendril
-    /// without going through [`next`] or [`pop_except_from`].
+    /// Use this to manually advance the counter when bypassing: [`next`], [`pop_except_from`], and [`eat`]
     #[cfg(feature = "source-positions")]
     #[inline]
     pub fn advance_bytes_consumed(&self, n: u64) {
@@ -108,8 +104,7 @@ impl BufferQueue {
 
     /// Retreat the bytes-consumed counter by `n`.
     ///
-    /// Only available when the `source-positions` feature is enabled. Used by
-    /// tokenizer lookahead paths that consume raw bytes, then push unmatched
+    /// Used by tokenizer lookahead paths that consume raw bytes, then push unmatched
     /// suffix bytes back onto the queue.
     #[cfg(feature = "source-positions")]
     #[inline]
@@ -401,11 +396,10 @@ mod test_source_positions {
     use super::SetResult::{FromSet, NotFromSet};
 
     #[test]
-    fn next_advances_counter_by_utf8_width() {
+    fn next_advances_counter_by_utf8_width_single() {
         let bq = BufferQueue::default();
         assert_eq!(bq.bytes_consumed(), 0);
 
-        // ASCII: 1 byte each
         bq.push_back("abc".to_tendril());
         bq.next();
         assert_eq!(bq.bytes_consumed(), 1);
@@ -413,87 +407,99 @@ mod test_source_positions {
         assert_eq!(bq.bytes_consumed(), 2);
         bq.next();
         assert_eq!(bq.bytes_consumed(), 3);
-
-        // Multibyte: 'é' is 2 bytes (U+00E9, encoded as 0xC3 0xA9)
-        bq.push_back("é".to_tendril());
-        bq.next();
-        assert_eq!(bq.bytes_consumed(), 5);
     }
 
     #[test]
-    fn pop_except_from_bulk_advances_counter() {
+    fn next_advances_counter_by_utf8_width_double() {
         let bq = BufferQueue::default();
-        // "abc" are not in the set; '&' is
-        bq.push_back("abc&def".to_tendril());
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.push_back("é".to_tendril());
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 2);
+    }
+
+    #[test]
+    fn pop_except_from_not_from_set_advances_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc&".to_tendril());
         let set = small_char_set!('&');
 
-        // Bulk NotFromSet: 3 bytes consumed
         assert_eq!(
             bq.pop_except_from(set),
             Some(NotFromSet("abc".to_tendril()))
         );
         assert_eq!(bq.bytes_consumed(), 3);
+    }
 
-        // Single FromSet '&': 1 byte consumed
+    #[test]
+    fn pop_except_from_from_set_advances_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("&def".to_tendril());
+        let set = small_char_set!('&');
+
         assert_eq!(bq.pop_except_from(set), Some(FromSet('&')));
+        assert_eq!(bq.bytes_consumed(), 1);
+    }
+
+    #[test]
+    fn pop_except_from_successive_calls_accumulate_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc&def".to_tendril());
+        let set = small_char_set!('&');
+
+        bq.pop_except_from(set);
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        bq.pop_except_from(set);
         assert_eq!(bq.bytes_consumed(), 4);
 
-        // Bulk NotFromSet: 3 more bytes
-        assert_eq!(
-            bq.pop_except_from(set),
-            Some(NotFromSet("def".to_tendril()))
-        );
+        bq.pop_except_from(set);
         assert_eq!(bq.bytes_consumed(), 7);
     }
 
     #[test]
     fn pop_except_from_multibyte_bulk_advances_by_byte_len() {
-        // "café" is 5 bytes (c=1, a=1, f=1, é=2). '&' terminates the bulk.
-        // Confirms NotFromSet advances by the byte length of the tendril slice,
-        // not by the character count.
         let bq = BufferQueue::default();
         bq.push_back("café&".to_tendril());
         let set = small_char_set!('&');
 
         let result = bq.pop_except_from(set);
         assert!(matches!(result, Some(NotFromSet(_))));
-        // 'c'=1 + 'a'=1 + 'f'=1 + 'é'=2 = 5 bytes
         assert_eq!(bq.bytes_consumed(), 5);
     }
 
     #[test]
-    fn eat_advances_counter_on_match_not_on_no_match() {
+    fn eat_advances_counter_accordingly() {
         let bq = BufferQueue::default();
         bq.push_back("abcdef".to_tendril());
 
-        // No match: counter unchanged
         assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
         assert_eq!(bq.bytes_consumed(), 0);
 
-        // Match "abc": counter advances by 3
         assert_eq!(bq.eat("abc", u8::eq_ignore_ascii_case), Some(true));
         assert_eq!(bq.bytes_consumed(), 3);
 
-        // Match "def": counter advances by 3 more
         assert_eq!(bq.eat("def", u8::eq_ignore_ascii_case), Some(true));
         assert_eq!(bq.bytes_consumed(), 6);
     }
 
     #[test]
+    /// This test is to ensure the behaviour contract of push_front is kept.
+    /// There are use cases where pushing front should technically not retreat the
+    /// bytes counter, so it's up to the caller to decide if pushing front should retreat.
     fn push_front_does_not_decrement_counter() {
         let bq = BufferQueue::default();
         bq.push_back("abc".to_tendril());
-        bq.next(); // consume 'a' → 1
-        bq.next(); // consume 'b' → 2
+        bq.next();
+        bq.next();
         assert_eq!(bq.bytes_consumed(), 2);
 
-        // Re-queue something — counter must not decrease
         bq.push_front("xy".to_tendril());
         assert_eq!(bq.bytes_consumed(), 2);
 
-        // Consuming the re-queued bytes advances further
-        bq.next(); // 'x' → 3
-        bq.next(); // 'y' → 4
+        bq.next();
+        bq.next();
         assert_eq!(bq.bytes_consumed(), 4);
     }
 
@@ -507,5 +513,21 @@ mod test_source_positions {
 
         bq.advance_bytes_consumed(3);
         assert_eq!(bq.bytes_consumed(), 10);
+    }
+
+    #[test]
+    fn retreat_bytes_consumed_subtracts_exactly() {
+        let bq = BufferQueue::default();
+        bq.advance_bytes_consumed(10);
+        assert_eq!(bq.bytes_consumed(), 10);
+
+        bq.retreat_bytes_consumed(3);
+        assert_eq!(bq.bytes_consumed(), 7);
+
+        bq.retreat_bytes_consumed(7);
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.retreat_bytes_consumed(5);
+        assert_eq!(bq.bytes_consumed(), 0);
     }
 }
