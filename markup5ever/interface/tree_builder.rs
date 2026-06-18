@@ -269,15 +269,15 @@ pub trait TreeSink {
     /// Called whenever the line number changes.
     fn set_current_line(&self, _line_number: u64) {}
 
-    /// Called whenever the source byte offset changes.
+    /// Called before a tree-builder callback with the source byte offset for the
+    /// token or text segment that triggered it.
     ///
-    /// Only called when the `source-positions` feature is enabled on the
-    /// `html5ever` crate. The offset is the number of UTF-8 bytes consumed
-    /// from the input up to and including the last character of the token
-    /// that just triggered the current tree-builder callback.
+    /// For start tags, end tags, comments, and doctypes this is the UTF-8 byte
+    /// offset of the token's first byte in the original input. For character
+    /// tokens this is the UTF-8 byte offset of the first byte in the current text
+    /// segment.
     ///
-    /// Implement this method to obtain byte-accurate source positions for
-    /// nodes. The default implementation is a no-op.
+    /// The default implementation is a no-op.
     #[cfg(feature = "source-positions")]
     fn set_current_byte(&self, _byte_offset: u64) {}
 
