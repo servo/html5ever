@@ -681,12 +681,9 @@ where
     /// The generic raw text / RCDATA parsing algorithm.
     /// Insert a RCDATA/RAWTEXT element and switch the tokenizer to raw-text mode.
     ///
-    /// XHTML allows self-closing syntax (`<title/>`, `<style/>`, …) on these
-    /// elements. The HTML5 spec ignores the `/` and enters the raw-text state,
-    /// which swallows the remainder of the document until a matching end tag.
-    /// When the `xhtml-self-closing` feature is enabled, the self-closing flag
-    /// is honoured instead: an empty element is inserted and the tokenizer stays
-    /// in the current insertion mode.
+    /// When the `xhtml-self-closing` feature is enabled, (`<title/>`, `<style/>`, …)
+    /// are treated as empty elements instead of invalid HTML which ends up
+    /// swallowing all the content that comes after it.
     fn parse_raw_data(&self, tag: Tag, k: RawKind) -> ProcessResult<Handle> {
         #[cfg(feature = "xhtml-self-closing")]
         if tag.self_closing {
