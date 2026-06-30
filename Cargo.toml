@@ -10,30 +10,30 @@ members = [
 ]
 
 [workspace.package]
-version = "0.39.0"
+version = "0.40.0"
 license = "MIT OR Apache-2.0"
 authors = [ "The html5ever Project Developers" ]
 repository = "https://github.com/servo/html5ever"
 edition = "2021"
-rust-version = "1.71.0"
+rust-version = "1.85"
 
 [workspace.dependencies]
 # Repo dependencies
 tendril = { version = "0.5", path = "tendril" }
-web_atoms = { version = "0.2.5", path = "web_atoms" }
-markup5ever = { version = "0.39", path = "markup5ever" }
-xml5ever = { version = "0.39", path = "xml5ever" }
-html5ever = { version = "0.39", path = "html5ever" }
+web_atoms = { version = "0.3.0", path = "web_atoms" }
+markup5ever = { version = "0.40", path = "markup5ever" }
+xml5ever = { version = "0.40", path = "xml5ever" }
+html5ever = { version = "0.40", path = "html5ever" }
 
 # External dependencies
 encoding_rs = "0.8.12"
 log = "0.4"
 memchr = "2.8.0"
 new_debug_unreachable = "1.0.2"
-phf = "0.13"
-phf_codegen = "0.13"
-string_cache = { version = "0.9.0", default-features = false }
-string_cache_codegen = "0.6.1"
+phf = "0.14"
+phf_codegen = "0.14"
+string_cache = { version = "0.10.0", default-features = false }
+string_cache_codegen = "0.7.0"
 
 # Dev dependencies
 criterion = "0.8"
