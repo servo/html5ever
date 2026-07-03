@@ -1228,7 +1228,6 @@ where
 ///
 /// A `SendTendril` may be produced by `Tendril.into_send()` or `SendTendril::from(tendril)`,
 /// and may be returned to a `Tendril` by `Tendril::from(self)`.
-#[derive(Clone)]
 pub struct SendTendril<F>
 where
     F: fmt::Format,
