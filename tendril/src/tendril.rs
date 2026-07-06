@@ -1393,13 +1393,7 @@ where
                 if new_write_size < DEFAULT_BUF_SIZE {
                     new_write_size *= 2;
                 }
-                // FIXME: this exposes uninitialized bytes to a generic R type
-                // this is fine for R=File which never reads these bytes,
-                // but user-defined types might.
-                // The standard library pushes zeros to `Vec<u8>` for that reason.
-                unsafe {
-                    buf.push_uninitialized(new_write_size);
-                }
+                buf.extend_with_byte(new_write_size, 0);
             }
 
             match self.read(&mut buf[len..]) {
@@ -1441,6 +1435,24 @@ where
     #[inline(always)]
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+impl<A> Tendril<fmt::Bytes, A>
+where
+    A: Atomicity,
+{
+    /// Extend the tendril with `n` copies of a given byte.
+    ///
+    /// This grows the tendril and initializes the new area with `byte`.
+    #[inline]
+    pub fn extend_with_byte(&mut self, n: u32, byte: u8) {
+        unsafe {
+            let start = self.len32();
+            self.push_uninitialized(n);
+            let ptr = self[start as usize..].as_mut_ptr();
+            std::ptr::write_bytes(ptr, byte, n as usize);
+        }
     }
 }
 
