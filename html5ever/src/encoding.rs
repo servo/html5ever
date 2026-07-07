@@ -36,8 +36,11 @@ pub(crate) fn extract_a_character_encoding_from_a_meta_element(
 
         // Step 4. If the next character is not a U+003D EQUALS SIGN (=), then move position to point just before
         // that next character, and jump back to the step labeled loop.
-        if input.as_bytes()[position] == b'=' {
-            break;
+        match input.as_bytes().get(position) {
+            Some(b'=') => break,
+            Some(_) => {},
+            // The input ends after "charset" (plus optional whitespace), so there is no encoding.
+            None => return None,
         }
     }
     // Skip the "="
@@ -103,6 +106,26 @@ mod tests {
             extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
                 "charset utf8"
             )),
+            None
+        );
+    }
+
+    #[test]
+    fn meta_element_charset_at_end_does_not_panic() {
+        // "charset" with nothing after it: position advances to input.len().
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset"
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice("charset")),
+            None
+        );
+        // Trailing whitespace after "charset" must also be safe.
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice("charset \t")),
             None
         );
     }
