@@ -30,6 +30,18 @@ fn bytes_to_vec_capacity<H>(x: u32) -> usize {
     1 + ((x - 1) / header)
 }
 
+#[inline(always)]
+fn vec_capacity_to_bytes<H>(vec_cap: usize) -> u32 {
+    // The first H element is consumed by the header metadata,
+    // the remaining elements are available for the string payload.
+    let actual_cap_bytes = (vec_cap - 1) * mem::size_of::<H>();
+
+    if actual_cap_bytes > u32::MAX as usize {
+        panic!("{}", OFLOW);
+    }
+    actual_cap_bytes as u32
+}
+
 impl<H> Buf32<H> {
     #[inline]
     pub unsafe fn with_capacity(mut cap: u32, h: H) -> Buf32<H> {
@@ -38,6 +50,8 @@ impl<H> Buf32<H> {
         }
 
         let mut vec = Vec::<H>::with_capacity(bytes_to_vec_capacity::<H>(cap));
+        cap = vec_capacity_to_bytes::<H>(vec.capacity());
+
         let ptr = vec.as_mut_ptr();
         mem::forget(vec);
         ptr::write(ptr, h);
@@ -82,7 +96,8 @@ impl<H> Buf32<H> {
         let mut vec = Vec::from_raw_parts(self.ptr, 0, bytes_to_vec_capacity::<H>(self.cap));
         vec.reserve_exact(bytes_to_vec_capacity::<H>(new_cap));
         self.ptr = vec.as_mut_ptr();
-        self.cap = new_cap;
+        self.cap = vec_capacity_to_bytes::<H>(vec.capacity());
+
         mem::forget(vec);
     }
 }
