@@ -77,20 +77,14 @@ where
     {
         const BUFFER_SIZE: u32 = 4 * 1024;
         loop {
-            let mut tendril = Tendril::<F, A>::new();
-            // FIXME: this exposes uninitialized bytes to a generic R type
-            // this is fine for R=File which never reads these bytes,
-            // but user-defined types might.
-            // The standard library pushes zeros to `Vec<u8>` for that reason.
-            unsafe {
-                tendril.push_uninitialized(BUFFER_SIZE);
-            }
+            let mut tendril = Tendril::<fmt::Bytes, A>::new();
+            tendril.extend_with_byte(BUFFER_SIZE, 0);
             loop {
                 match r.read(&mut tendril) {
                     Ok(0) => return Ok(self.finish()),
                     Ok(n) => {
                         tendril.pop_back(BUFFER_SIZE - n as u32);
-                        self.process(tendril);
+                        self.process(unsafe { tendril.reinterpret_without_validating() });
                         break;
                     },
                     Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {},
