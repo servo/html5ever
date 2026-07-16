@@ -558,7 +558,7 @@ where
         debug!(
             "Close tag: current_node.name {:?} \n Current tag {:?}",
             self.sink.elem_name(&self.current_node()),
-            &tag.name
+            tag.name
         );
 
         if *self.sink.elem_name(&self.current_node()).local_name() != tag.name.local {

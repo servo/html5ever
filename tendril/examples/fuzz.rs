@@ -25,7 +25,7 @@ fn fuzz() {
 
     for _ in 1..100_000 {
         if buf_string.len() > (1 << 30) {
-            buf_string.truncate(0);
+            buf_string.clear();
             buf_tendril.clear();
         }
 
@@ -84,7 +84,7 @@ fn fuzz() {
             },
 
             97 => {
-                buf_string.truncate(0);
+                buf_string.clear();
                 buf_tendril.clear();
                 assert_eq!(&*buf_string, &*buf_tendril);
             },
