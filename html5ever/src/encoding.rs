@@ -36,7 +36,7 @@ pub(crate) fn extract_a_character_encoding_from_a_meta_element(
 
         // Step 4. If the next character is not a U+003D EQUALS SIGN (=), then move position to point just before
         // that next character, and jump back to the step labeled loop.
-        if input.as_bytes()[position] == b'=' {
+        if *input.as_bytes().get(position)? == b'=' {
             break;
         }
     }
@@ -166,6 +166,56 @@ mod tests {
         assert_eq!(
             extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
                 "text/html; charset=utf8"
+            )),
+            Some(StrTendril::from_slice("utf8"))
+        );
+    }
+
+    #[test]
+    fn meta_element_with_truncated_charset() {
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset"
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset"
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset \t"
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset="
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset='"
+            )),
+            None
+        );
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset=\""
+            )),
+            None
+        );
+    }
+
+    #[test]
+    fn meta_element_with_invalid_charset_followed_by_valid_charset() {
+        assert_eq!(
+            extract_a_character_encoding_from_a_meta_element(StrTendril::from_slice(
+                "text/html; charset charset=utf8"
             )),
             Some(StrTendril::from_slice("utf8"))
         );
