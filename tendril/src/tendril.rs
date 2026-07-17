@@ -2279,7 +2279,7 @@ mod test {
         check(b"");
         check(b"abcd");
 
-        let long: Vec<u8> = iter::repeat(b'x').take(1_000_000).collect();
+        let long: Vec<u8> = iter::repeat_n(b'x', 1_000_000).collect();
         check(&long);
     }
 
