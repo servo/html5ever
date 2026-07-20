@@ -474,14 +474,13 @@ where
 {
     type Handle = Handle;
 
-    #[cfg(feature = "source-positions")]
-    fn set_current_byte(&self, byte_offset: u64) {
-        self.sink.set_current_byte(byte_offset);
-    }
-
-    fn process_token(&self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
-        if line_number != self.current_line.get() {
-            self.sink.set_current_line(line_number);
+    fn process_token(
+        &self,
+        token: tokenizer::Token,
+        position: markup5ever::SourcePosition,
+    ) -> TokenSinkResult<Handle> {
+        if position.line != self.current_line.get() || position.byte.is_some() {
+            self.sink.set_current_source_position(position);
         }
         let ignore_lf = self.ignore_lf.take();
 
@@ -678,19 +677,8 @@ where
         ProcessResult::ToRawData(k)
     }
 
-    /// The generic raw text / RCDATA parsing algorithm.
-    /// Insert a RCDATA/RAWTEXT element and switch the tokenizer to raw-text mode.
-    ///
-    /// When the `xhtml-self-closing` feature is enabled, (`<title/>`, `<style/>`, …)
-    /// are treated as empty elements instead of invalid HTML which ends up
-    /// swallowing all the content that comes after it.
+    // The generic raw text / RCDATA parsing algorithm.
     fn parse_raw_data(&self, tag: Tag, k: RawKind) -> ProcessResult<Handle> {
-        #[cfg(feature = "xhtml-self-closing")]
-        if tag.self_closing {
-            self.insert_and_pop_element_for(tag);
-            return ProcessResult::DoneAckSelfClosing;
-        }
-
         self.insert_element_for(tag);
         self.to_raw_text_mode(k)
     }

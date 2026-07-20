@@ -266,20 +266,8 @@ pub trait TreeSink {
         false
     }
 
-    /// Called whenever the line number changes.
-    fn set_current_line(&self, _line_number: u64) {}
-
-    /// Called before a tree-builder callback with the source byte offset for the
-    /// token or text segment that triggered it.
-    ///
-    /// For start tags, end tags, comments, and doctypes this is the UTF-8 byte
-    /// offset of the token's first byte in the original input. For character
-    /// tokens this is the UTF-8 byte offset of the first byte in the current text
-    /// segment.
-    ///
-    /// The default implementation is a no-op.
-    #[cfg(feature = "source-positions")]
-    fn set_current_byte(&self, _byte_offset: u64) {}
+    /// Called whenever the source position changes before a tree-builder callback.
+    fn set_current_source_position(&self, _position: super::SourcePosition) {}
 
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
         true
