@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use markup5ever::SourcePosition;
 use markup5ever::ns;
 
 use crate::interface::Attribute;
@@ -125,7 +126,7 @@ pub trait TokenSink {
     type Handle;
 
     /// Process a token.
-    fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle>;
+    fn process_token(&self, token: Token, position: SourcePosition) -> TokenSinkResult<Self::Handle>;
 
     /// Signal that tokenization reached the end of the document.
     fn end(&self) {}

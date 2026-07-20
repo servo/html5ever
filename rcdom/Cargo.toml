@@ -20,6 +20,9 @@ markup5ever = { workspace = true, features = ["serde"] }
 tendril = { workspace = true }
 xml5ever = { workspace = true }
 
+[features]
+source-positions = ["html5ever/source-positions"]
+
 [dev-dependencies]
 criterion = { workspace = true }
 env_logger = { workspace = true }
@@ -45,3 +48,7 @@ harness = false
 [[test]]
 name = "xml-tokenizer"
 harness = false
+
+[[test]]
+name = "source-positions-integration"
+required-features = ["source-positions"]

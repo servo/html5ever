@@ -18,6 +18,8 @@
 //!
 //! [`BufferQueue`]: struct.BufferQueue.html
 
+#[cfg(feature = "source-positions")]
+use std::cell::Cell;
 use std::{
     cell::{RefCell, RefMut},
     collections::VecDeque,
@@ -51,6 +53,12 @@ pub enum SetResult {
 pub struct BufferQueue {
     /// Buffers to process.
     buffers: RefCell<VecDeque<StrTendril>>,
+    /// Total number of UTF-8 bytes consumed from this queue so far.
+    ///
+    /// Used by the tokenizer to surface byte-accurate source offsets via
+    /// [`SourcePosition`].
+    #[cfg(feature = "source-positions")]
+    bytes_consumed: Cell<usize>,
 }
 
 impl Default for BufferQueue {
@@ -59,6 +67,8 @@ impl Default for BufferQueue {
     fn default() -> Self {
         Self {
             buffers: RefCell::new(VecDeque::with_capacity(16)),
+            #[cfg(feature = "source-positions")]
+            bytes_consumed: Cell::new(0),
         }
     }
 }
@@ -68,6 +78,39 @@ impl BufferQueue {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.buffers.borrow().is_empty()
+    }
+
+    /// Returns the total number of UTF-8 bytes consumed from this queue.
+    ///
+    /// The value monotonically increases as characters are consumed via
+    /// [`next`], [`pop_except_from`], and [`eat`]. Re-queuing bytes via
+    /// [`push_front`] does **not** decrement the counter.
+    ///
+    /// To reduce bytes_consumed, use [`retreat_bytes_consumed`].
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn bytes_consumed(&self) -> usize {
+        self.bytes_consumed.get()
+    }
+
+    /// Advance the bytes-consumed counter by `n`.
+    ///
+    /// Use this to manually advance the counter when bypassing: [`next`], [`pop_except_from`], and [`eat`]
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn advance_bytes_consumed(&self, n: usize) {
+        self.bytes_consumed.set(self.bytes_consumed.get() + n);
+    }
+
+    /// Retreat the bytes-consumed counter by `n`.
+    ///
+    /// Used by tokenizer lookahead paths that consume raw bytes, then push unmatched
+    /// suffix bytes back onto the queue.
+    #[cfg(feature = "source-positions")]
+    #[inline]
+    pub fn retreat_bytes_consumed(&self, n: usize) {
+        self.bytes_consumed
+            .set(self.bytes_consumed.get().saturating_sub(n));
     }
 
     /// Get the buffer at the beginning of the queue.
@@ -146,9 +189,15 @@ impl BufferQueue {
                         out = buf.unsafe_subtendril(0, n);
                         buf.unsafe_pop_front(n);
                     }
+                    #[cfg(feature = "source-positions")]
+                    self.bytes_consumed
+                        .set(self.bytes_consumed.get() + out.len());
                     (Some(NotFromSet(out)), buf.is_empty())
                 } else {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
+                    #[cfg(feature = "source-positions")]
+                    self.bytes_consumed
+                        .set(self.bytes_consumed.get() + c.len_utf8());
                     (Some(FromSet(c)), buf.is_empty())
                 }
             },
@@ -218,6 +267,10 @@ impl BufferQueue {
             Some(ref mut buf) => buf.pop_front(consumed_from_last as u32),
         }
 
+        #[cfg(feature = "source-positions")]
+        self.bytes_consumed
+            .set(self.bytes_consumed.get() + pat.len());
+
         Some(true)
     }
 
@@ -229,6 +282,9 @@ impl BufferQueue {
             None => (None, false),
             Some(buf) => {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
+                #[cfg(feature = "source-positions")]
+                self.bytes_consumed
+                    .set(self.bytes_consumed.get() + c.len_utf8());
                 (Some(c), buf.is_empty())
             },
         };
@@ -329,5 +385,149 @@ mod test {
         assert_eq!(bq.eat("ab", u8::eq_ignore_ascii_case), Some(true));
         assert_eq!(bq.next(), Some('c'));
         assert_eq!(bq.next(), None);
+    }
+}
+
+#[cfg(all(test, feature = "source-positions"))]
+mod test_source_positions {
+    use tendril::SliceExt;
+
+    use super::BufferQueue;
+    use super::SetResult::{FromSet, NotFromSet};
+
+    #[test]
+    fn next_advances_counter_by_utf8_width_single() {
+        let bq = BufferQueue::default();
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.push_back("abc".to_tendril());
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 1);
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 2);
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 3);
+    }
+
+    #[test]
+    fn next_advances_counter_by_utf8_width_double() {
+        let bq = BufferQueue::default();
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.push_back("é".to_tendril());
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 2);
+    }
+
+    #[test]
+    fn pop_except_from_not_from_set_advances_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc&".to_tendril());
+        let set = small_char_set!('&');
+
+        assert_eq!(
+            bq.pop_except_from(set),
+            Some(NotFromSet("abc".to_tendril()))
+        );
+        assert_eq!(bq.bytes_consumed(), 3);
+    }
+
+    #[test]
+    fn pop_except_from_from_set_advances_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("&def".to_tendril());
+        let set = small_char_set!('&');
+
+        assert_eq!(bq.pop_except_from(set), Some(FromSet('&')));
+        assert_eq!(bq.bytes_consumed(), 1);
+    }
+
+    #[test]
+    fn pop_except_from_successive_calls_accumulate_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc&def".to_tendril());
+        let set = small_char_set!('&');
+
+        bq.pop_except_from(set);
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        bq.pop_except_from(set);
+        assert_eq!(bq.bytes_consumed(), 4);
+
+        bq.pop_except_from(set);
+        assert_eq!(bq.bytes_consumed(), 7);
+    }
+
+    #[test]
+    fn pop_except_from_multibyte_bulk_advances_by_byte_len() {
+        let bq = BufferQueue::default();
+        bq.push_back("café&".to_tendril());
+        let set = small_char_set!('&');
+
+        let result = bq.pop_except_from(set);
+        assert!(matches!(result, Some(NotFromSet(_))));
+        assert_eq!(bq.bytes_consumed(), 5);
+    }
+
+    #[test]
+    fn eat_advances_counter_accordingly() {
+        let bq = BufferQueue::default();
+        bq.push_back("abcdef".to_tendril());
+
+        assert_eq!(bq.eat("ax", u8::eq_ignore_ascii_case), Some(false));
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        assert_eq!(bq.eat("abc", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.bytes_consumed(), 3);
+
+        assert_eq!(bq.eat("def", u8::eq_ignore_ascii_case), Some(true));
+        assert_eq!(bq.bytes_consumed(), 6);
+    }
+
+    #[test]
+    /// This test is to ensure the behaviour contract of push_front is kept.
+    /// There are use cases where pushing front should technically not retreat the
+    /// bytes counter, so it's up to the caller to decide if pushing front should retreat.
+    fn push_front_does_not_decrement_counter() {
+        let bq = BufferQueue::default();
+        bq.push_back("abc".to_tendril());
+        bq.next();
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 2);
+
+        bq.push_front("xy".to_tendril());
+        assert_eq!(bq.bytes_consumed(), 2);
+
+        bq.next();
+        bq.next();
+        assert_eq!(bq.bytes_consumed(), 4);
+    }
+
+    #[test]
+    fn advance_bytes_consumed_adds_exactly() {
+        let bq = BufferQueue::default();
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.advance_bytes_consumed(7);
+        assert_eq!(bq.bytes_consumed(), 7);
+
+        bq.advance_bytes_consumed(3);
+        assert_eq!(bq.bytes_consumed(), 10);
+    }
+
+    #[test]
+    fn retreat_bytes_consumed_subtracts_exactly() {
+        let bq = BufferQueue::default();
+        bq.advance_bytes_consumed(10);
+        assert_eq!(bq.bytes_consumed(), 10);
+
+        bq.retreat_bytes_consumed(3);
+        assert_eq!(bq.bytes_consumed(), 7);
+
+        bq.retreat_bytes_consumed(7);
+        assert_eq!(bq.bytes_consumed(), 0);
+
+        bq.retreat_bytes_consumed(5);
+        assert_eq!(bq.bytes_consumed(), 0);
     }
 }

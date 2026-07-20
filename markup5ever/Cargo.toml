@@ -15,6 +15,7 @@ path = "lib.rs"
 
 [features]
 serde = ["web_atoms/serde"]
+source-positions = []
 
 [dependencies]
 web_atoms = { workspace = true }

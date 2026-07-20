@@ -25,7 +25,7 @@ use self::char_ref::{CharRef, CharRefTokenizer};
 use crate::util::str::lower_ascii_letter;
 
 use log::{debug, trace};
-use markup5ever::{ns, small_char_set, TokenizerResult};
+use markup5ever::{ns, small_char_set, SourcePosition, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::cmp::Reverse;
@@ -181,6 +181,30 @@ pub struct Tokenizer<Sink> {
 
     /// Track current line
     current_line: Cell<u64>,
+
+    /// Number of UTF-8 bytes consumed from the input so far.
+    ///
+    /// Kept in sync with `BufferQueue::bytes_consumed` after every character
+    /// is consumed.
+    #[cfg(feature = "source-positions")]
+    current_byte: Cell<usize>,
+
+    /// Byte offset of the first character of the current token.
+    ///
+    /// For tag, comment, and doctype tokens this is the byte of the `<` that
+    /// opened them, captured whenever `<` is consumed in `get_preprocessed_char`.
+    ///
+    /// For character tokens it is the byte right after the end of the previous token,
+    /// which equals the first byte of the text content, this is tracked via `last_token_end_byte`.
+    #[cfg(feature = "source-positions")]
+    token_start_byte: Cell<usize>,
+
+    /// Byte offset one past the end of the most recently emitted token.
+    ///
+    /// Updated at the end of each `process_token` call. Used as the start
+    /// byte for the next character token.
+    #[cfg(feature = "source-positions")]
+    last_token_end_byte: Cell<usize>,
 }
 
 impl<Sink: TokenSink> Tokenizer<Sink> {
@@ -216,6 +240,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             state_profile: RefCell::new(BTreeMap::new()),
             time_in_sink: Cell::new(0),
             current_line: Cell::new(1),
+            #[cfg(feature = "source-positions")]
+            current_byte: Cell::new(0),
+            #[cfg(feature = "source-positions")]
+            token_start_byte: Cell::new(0),
+            #[cfg(feature = "source-positions")]
+            last_token_end_byte: Cell::new(0),
         }
     }
 
@@ -242,14 +272,39 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.state.set(states::Plaintext);
     }
 
+    fn token_byte(&self, token: &Token) -> Option<usize> {
+        #[cfg(feature = "source-positions")]
+        {
+            Some(match token {
+                Token::TagToken(_) | Token::CommentToken(_) | Token::DoctypeToken(_) => {
+                    self.token_start_byte.get()
+                },
+                Token::CharacterTokens(_) => self.last_token_end_byte.get(),
+                _ => self.current_byte.get(),
+            })
+        }
+        #[cfg(not(feature = "source-positions"))]
+        {
+            let _ = token;
+            None
+        }
+    }
+
     fn process_token(&self, token: Token) -> TokenSinkResult<Sink::Handle> {
-        if self.opts.profile {
-            let (ret, dt) = time!(self.sink.process_token(token, self.current_line.get()));
+        let position = SourcePosition {
+            line: self.current_line.get(),
+            byte: self.token_byte(&token),
+        };
+        let result = if self.opts.profile {
+            let (ret, dt) = time!(self.sink.process_token(token, position));
             self.time_in_sink.set(self.time_in_sink.get() + dt);
             ret
         } else {
-            self.sink.process_token(token, self.current_line.get())
-        }
+            self.sink.process_token(token, position)
+        };
+        #[cfg(feature = "source-positions")]
+        self.last_token_end_byte.set(self.current_byte.get());
+        result
     }
 
     fn process_token_and_continue(&self, token: Token) {
@@ -292,6 +347,17 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 
         trace!("got character {c}");
         self.current_char.set(c);
+        #[cfg(feature = "source-positions")]
+        {
+            let pos = input.bytes_consumed();
+            if pos > 0 {
+                self.current_byte.set(pos);
+                if c == '<' {
+                    self.token_start_byte
+                        .set(pos.saturating_sub(c.len_utf8()));
+                }
+            }
+        }
         Some(c)
     }
 
@@ -325,7 +391,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             // NB: We don't set self.current_char for a run of characters not
             // in the set.  It shouldn't matter for the codepaths that use
             // this.
-            _ => d,
+            other => {
+                #[cfg(feature = "source-positions")]
+                if other.is_some() {
+                    self.current_byte.set(input.bytes_consumed());
+                }
+                other
+            },
         }
     }
 
@@ -621,7 +693,20 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         if self.reconsume.get() {
             self.reconsume.set(false);
         } else {
+            #[cfg(not(feature = "source-positions"))]
             input.next();
+            #[cfg(feature = "source-positions")]
+            {
+                let c = input.next();
+                if let Some(c) = c {
+                    let pos = input.bytes_consumed();
+                    self.current_byte.set(pos);
+                    if c == '<' {
+                        self.token_start_byte
+                            .set(pos.saturating_sub(c.len_utf8()));
+                    }
+                }
+            }
         }
     }
 
@@ -755,14 +840,29 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     } else {
                         // SAFETY:
                         // This CPU is guaranteed to support SIMD due to the is_supported_simd_feature_detected check above
-                        let result = unsafe { self.data_state_simd_fast_path(&mut front_buffer) };
+                        let simd_result =
+                            unsafe { self.data_state_simd_fast_path(&mut front_buffer) };
+
+                        #[cfg(feature = "source-positions")]
+                        if let Some(ref result) = simd_result {
+                            let consumed_bytes = match result {
+                                SetResult::NotFromSet(ref text) => text.len(),
+                                SetResult::FromSet(character) => character.len_utf8(),
+                            };
+                            input.advance_bytes_consumed(consumed_bytes);
+                            self.current_byte.set(input.bytes_consumed());
+                            if let SetResult::FromSet('<') = result {
+                                self.token_start_byte
+                                    .set(input.bytes_consumed() - '<'.len_utf8());
+                            }
+                        }
 
                         if front_buffer.is_empty() {
                             drop(front_buffer);
                             input.pop_front();
                         }
 
-                        result
+                        simd_result
                     }
                 } else {
                     self.pop_except_from(input, set)
@@ -1752,6 +1852,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         let mut char_ref_tokenizer = self.char_ref_tokenizer.borrow_mut();
         let progress = match char_ref_tokenizer.as_mut().unwrap().step(self, input) {
             char_ref::Status::Done(char_ref) => {
+                #[cfg(feature = "source-positions")]
+                self.current_byte.set(input.bytes_consumed());
                 self.process_char_ref(char_ref);
                 *char_ref_tokenizer = None;
                 return ProcessResult::Continue;
@@ -2207,6 +2309,7 @@ mod test {
     use super::interface::{TagToken, Token};
 
     use markup5ever::buffer_queue::BufferQueue;
+    use markup5ever::SourcePosition;
     use std::cell::RefCell;
 
     use crate::LocalName;
@@ -2245,7 +2348,7 @@ mod test {
     impl TokenSink for LinesMatch {
         type Handle = ();
 
-        fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle> {
+        fn process_token(&self, token: Token, position: SourcePosition) -> TokenSinkResult<Self::Handle> {
             match token {
                 CharacterTokens(b) => {
                     self.current_str.borrow_mut().push_slice(&b);
@@ -2270,12 +2373,12 @@ mod test {
                         },
                         _ => t.attrs.sort_by(|a1, a2| a1.name.cmp(&a2.name)),
                     }
-                    self.push(TagToken(t), line_number);
+                    self.push(TagToken(t), position.line);
                 },
 
                 EOFToken => (),
 
-                _ => self.push(token, line_number),
+                _ => self.push(token, position.line),
             }
             TokenSinkResult::Continue
         }
@@ -2377,5 +2480,214 @@ mod test {
         ];
         let results = tokenize(vector, opts);
         assert_eq!(results, expected);
+    }
+
+    #[cfg(feature = "source-positions")]
+    mod test_source_positions {
+        use super::super::interface::{CharacterTokens, EOFToken, NullCharacterToken, TagToken};
+        use super::super::interface::{EndTag, StartTag, Tag, Token};
+        use super::super::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
+
+        use crate::tendril::StrTendril;
+        use crate::LocalName;
+        use markup5ever::buffer_queue::BufferQueue;
+        use markup5ever::SourcePosition;
+        use std::cell::RefCell;
+
+        struct BytesMatch {
+            text_start_byte: std::cell::Cell<Option<usize>>,
+            current_str: RefCell<StrTendril>,
+            entries: RefCell<Vec<(Token, usize)>>,
+        }
+
+        impl BytesMatch {
+            fn new() -> Self {
+                BytesMatch {
+                    text_start_byte: std::cell::Cell::new(None),
+                    current_str: RefCell::new(StrTendril::new()),
+                    entries: RefCell::new(vec![]),
+                }
+            }
+
+            fn flush_chars(&self) {
+                let s = self.current_str.take();
+                if !s.is_empty() {
+                    let byte = self.text_start_byte.get().unwrap_or(0);
+                    self.text_start_byte.set(None);
+                    self.entries.borrow_mut().push((CharacterTokens(s), byte));
+                }
+            }
+        }
+
+        struct RawBytesMatch {
+            entries: RefCell<Vec<(Token, usize)>>,
+        }
+
+        impl RawBytesMatch {
+            fn new() -> Self {
+                RawBytesMatch {
+                    entries: RefCell::new(vec![]),
+                }
+            }
+        }
+
+        impl TokenSink for RawBytesMatch {
+            type Handle = ();
+
+            fn process_token(
+                &self,
+                token: Token,
+                position: SourcePosition,
+            ) -> TokenSinkResult<Self::Handle> {
+                if !matches!(token, EOFToken) {
+                    self.entries
+                        .borrow_mut()
+                        .push((token, position.byte.unwrap_or(0)));
+                }
+                TokenSinkResult::Continue
+            }
+        }
+
+        impl TokenSink for BytesMatch {
+            type Handle = ();
+
+            fn process_token(
+                &self,
+                token: Token,
+                position: SourcePosition,
+            ) -> TokenSinkResult<Self::Handle> {
+                let byte = position.byte.unwrap_or(0);
+                match token {
+                    CharacterTokens(b) => {
+                        if self.text_start_byte.get().is_none() {
+                            self.text_start_byte.set(Some(byte));
+                        }
+                        self.current_str.borrow_mut().push_slice(&b);
+                    },
+                    NullCharacterToken => {
+                        self.current_str.borrow_mut().push_char('\0');
+                    },
+                    EOFToken => {
+                        self.flush_chars();
+                    },
+                    TagToken(t) => {
+                        self.flush_chars();
+                        self.entries.borrow_mut().push((TagToken(t), byte));
+                    },
+                    other => {
+                        self.flush_chars();
+                        self.entries.borrow_mut().push((other, byte));
+                    },
+                }
+                TokenSinkResult::Continue
+            }
+        }
+
+        fn tokenize_bytes(input: &str) -> Vec<(Token, usize)> {
+            let sink = BytesMatch::new();
+            let tok = Tokenizer::new(sink, TokenizerOpts::default());
+            let buf = BufferQueue::default();
+            buf.push_back(StrTendril::from(input));
+            let _ = tok.feed(&buf);
+            tok.end();
+            tok.sink.entries.take()
+        }
+
+        fn tokenize_raw_bytes(input: &str) -> Vec<(Token, usize)> {
+            let sink = RawBytesMatch::new();
+            let tok = Tokenizer::new(sink, TokenizerOpts::default());
+            let buf = BufferQueue::default();
+            buf.push_back(StrTendril::from(input));
+            let _ = tok.feed(&buf);
+            tok.end();
+            tok.sink.entries.take()
+        }
+
+        fn start(name: &str) -> Token {
+            TagToken(Tag {
+                kind: StartTag,
+                name: LocalName::from(name),
+                self_closing: false,
+                attrs: vec![],
+                had_duplicate_attributes: false,
+            })
+        }
+
+        fn end(name: &str) -> Token {
+            TagToken(Tag {
+                kind: EndTag,
+                name: LocalName::from(name),
+                self_closing: false,
+                attrs: vec![],
+                had_duplicate_attributes: false,
+            })
+        }
+
+        fn chars(s: &str) -> Token {
+            CharacterTokens(StrTendril::from(s))
+        }
+
+        #[test]
+        fn check_byte_offsets_simple_tags() {
+            let entries = tokenize_bytes("<a><b></b></a>");
+            assert_eq!(
+                entries,
+                vec![
+                    (start("a"), 0),
+                    (start("b"), 3),
+                    (end("b"), 6),
+                    (end("a"), 10),
+                ]
+            );
+        }
+
+        #[test]
+        fn check_byte_offsets_text_content() {
+            let entries = tokenize_bytes("<p>hello</p>");
+            assert_eq!(
+                entries,
+                vec![(start("p"), 0), (chars("hello"), 3), (end("p"), 8),]
+            );
+        }
+
+        #[test]
+        fn check_byte_offsets_multibyte_text() {
+            let entries = tokenize_bytes("<p>é</p>");
+            assert_eq!(
+                entries,
+                vec![(start("p"), 0), (chars("é"), 3), (end("p"), 5),]
+            );
+        }
+
+        #[test]
+        fn check_byte_offsets_sequential_siblings() {
+            let entries = tokenize_bytes("<h1>X</h1><p>Y</p>");
+            assert_eq!(
+                entries,
+                vec![
+                    (start("h1"), 0),
+                    (chars("X"), 4),
+                    (end("h1"), 5),
+                    (start("p"), 10),
+                    (chars("Y"), 13),
+                    (end("p"), 14),
+                ]
+            );
+        }
+
+        #[test]
+        fn check_byte_offsets_entity_text_chunks() {
+            let entries = tokenize_raw_bytes("<p>a&amp;b</p>");
+            assert_eq!(
+                entries,
+                vec![
+                    (start("p"), 0),
+                    (chars("a"), 3),
+                    (chars("&"), 4),
+                    (chars("b"), 9),
+                    (end("p"), 10),
+                ]
+            );
+        }
     }
 }

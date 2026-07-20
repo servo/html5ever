@@ -212,7 +212,11 @@ impl CharRefTokenizer {
             unconsume.push_char(c)
         }
 
+        #[cfg(feature = "source-positions")]
+        let unconsume_len = unconsume.len();
         input.push_front(unconsume);
+        #[cfg(feature = "source-positions")]
+        input.retreat_bytes_consumed(unconsume_len);
         tokenizer.emit_error(Borrowed("Numeric character reference without digits"));
         Status::Done(CharRef::EMPTY)
     }
@@ -292,7 +296,12 @@ impl CharRefTokenizer {
     }
 
     fn unconsume_name(&mut self, input: &BufferQueue) {
-        input.push_front(self.name_buf_opt.take().unwrap());
+        let name_buf = self.name_buf_opt.take().unwrap();
+        #[cfg(feature = "source-positions")]
+        let name_buf_len = name_buf.len();
+        input.push_front(name_buf);
+        #[cfg(feature = "source-positions")]
+        input.retreat_bytes_consumed(name_buf_len);
     }
 
     fn finish_named<Sink: TokenSink>(
@@ -367,7 +376,12 @@ impl CharRefTokenizer {
                     self.unconsume_name(input);
                     Status::Done(CharRef::EMPTY)
                 } else {
-                    input.push_front(StrTendril::from_slice(&self.name_buf()[name_len..]));
+                    let unconsumed = StrTendril::from_slice(&self.name_buf()[name_len..]);
+                    #[cfg(feature = "source-positions")]
+                    let unconsumed_len = unconsumed.len();
+                    input.push_front(unconsumed);
+                    #[cfg(feature = "source-positions")]
+                    input.retreat_bytes_consumed(unconsumed_len);
                     tokenizer.ignore_lf.set(false);
                     Status::Done(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
@@ -419,6 +433,8 @@ impl CharRefTokenizer {
                 },
                 State::Octothorpe => {
                     input.push_front(StrTendril::from_slice("#"));
+                    #[cfg(feature = "source-positions")]
+                    input.retreat_bytes_consumed(1);
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     Status::Done(CharRef::EMPTY)
                 },
