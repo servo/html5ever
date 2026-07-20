@@ -22,7 +22,6 @@ xml5ever = { workspace = true }
 
 [features]
 source-positions = ["html5ever/source-positions"]
-xhtml-self-closing = ["html5ever/xhtml-self-closing"]
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -53,7 +52,3 @@ harness = false
 [[test]]
 name = "source-positions-integration"
 required-features = ["source-positions"]
-
-[[test]]
-name = "xhtml-self-closing-integration"
-required-features = ["xhtml-self-closing"]

@@ -213,7 +213,7 @@ impl CharRefTokenizer {
         }
 
         #[cfg(feature = "source-positions")]
-        let unconsume_len = unconsume.len() as u64;
+        let unconsume_len = unconsume.len();
         input.push_front(unconsume);
         #[cfg(feature = "source-positions")]
         input.retreat_bytes_consumed(unconsume_len);
@@ -298,7 +298,7 @@ impl CharRefTokenizer {
     fn unconsume_name(&mut self, input: &BufferQueue) {
         let name_buf = self.name_buf_opt.take().unwrap();
         #[cfg(feature = "source-positions")]
-        let name_buf_len = name_buf.len() as u64;
+        let name_buf_len = name_buf.len();
         input.push_front(name_buf);
         #[cfg(feature = "source-positions")]
         input.retreat_bytes_consumed(name_buf_len);
@@ -378,7 +378,7 @@ impl CharRefTokenizer {
                 } else {
                     let unconsumed = StrTendril::from_slice(&self.name_buf()[name_len..]);
                     #[cfg(feature = "source-positions")]
-                    let unconsumed_len = unconsumed.len() as u64;
+                    let unconsumed_len = unconsumed.len();
                     input.push_front(unconsumed);
                     #[cfg(feature = "source-positions")]
                     input.retreat_bytes_consumed(unconsumed_len);

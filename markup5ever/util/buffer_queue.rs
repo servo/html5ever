@@ -56,9 +56,9 @@ pub struct BufferQueue {
     /// Total number of UTF-8 bytes consumed from this queue so far.
     ///
     /// Used by the tokenizer to surface byte-accurate source offsets via
-    /// [`TokenSink::set_current_byte`] and [`TreeSink::set_current_byte`].
+    /// [`SourcePosition`].
     #[cfg(feature = "source-positions")]
-    bytes_consumed: Cell<u64>,
+    bytes_consumed: Cell<usize>,
 }
 
 impl Default for BufferQueue {
@@ -89,7 +89,7 @@ impl BufferQueue {
     /// To reduce bytes_consumed, use [`retreat_bytes_consumed`].
     #[cfg(feature = "source-positions")]
     #[inline]
-    pub fn bytes_consumed(&self) -> u64 {
+    pub fn bytes_consumed(&self) -> usize {
         self.bytes_consumed.get()
     }
 
@@ -98,7 +98,7 @@ impl BufferQueue {
     /// Use this to manually advance the counter when bypassing: [`next`], [`pop_except_from`], and [`eat`]
     #[cfg(feature = "source-positions")]
     #[inline]
-    pub fn advance_bytes_consumed(&self, n: u64) {
+    pub fn advance_bytes_consumed(&self, n: usize) {
         self.bytes_consumed.set(self.bytes_consumed.get() + n);
     }
 
@@ -108,7 +108,7 @@ impl BufferQueue {
     /// suffix bytes back onto the queue.
     #[cfg(feature = "source-positions")]
     #[inline]
-    pub fn retreat_bytes_consumed(&self, n: u64) {
+    pub fn retreat_bytes_consumed(&self, n: usize) {
         self.bytes_consumed
             .set(self.bytes_consumed.get().saturating_sub(n));
     }
@@ -191,13 +191,13 @@ impl BufferQueue {
                     }
                     #[cfg(feature = "source-positions")]
                     self.bytes_consumed
-                        .set(self.bytes_consumed.get() + out.len() as u64);
+                        .set(self.bytes_consumed.get() + out.len());
                     (Some(NotFromSet(out)), buf.is_empty())
                 } else {
                     let c = buf.pop_front_char().expect("empty buffer in queue");
                     #[cfg(feature = "source-positions")]
                     self.bytes_consumed
-                        .set(self.bytes_consumed.get() + c.len_utf8() as u64);
+                        .set(self.bytes_consumed.get() + c.len_utf8());
                     (Some(FromSet(c)), buf.is_empty())
                 }
             },
@@ -269,7 +269,7 @@ impl BufferQueue {
 
         #[cfg(feature = "source-positions")]
         self.bytes_consumed
-            .set(self.bytes_consumed.get() + pat.len() as u64);
+            .set(self.bytes_consumed.get() + pat.len());
 
         Some(true)
     }
@@ -284,7 +284,7 @@ impl BufferQueue {
                 let c = buf.pop_front_char().expect("empty buffer in queue");
                 #[cfg(feature = "source-positions")]
                 self.bytes_consumed
-                    .set(self.bytes_consumed.get() + c.len_utf8() as u64);
+                    .set(self.bytes_consumed.get() + c.len_utf8());
                 (Some(c), buf.is_empty())
             },
         };

@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use markup5ever::SourcePosition;
 use markup5ever::ns;
 
 use crate::interface::Attribute;
@@ -125,17 +126,10 @@ pub trait TokenSink {
     type Handle;
 
     /// Process a token.
-    fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<Self::Handle>;
+    fn process_token(&self, token: Token, position: SourcePosition) -> TokenSinkResult<Self::Handle>;
 
     /// Signal that tokenization reached the end of the document.
     fn end(&self) {}
-
-    /// Called just before each token is dispatched to [`process_token`],
-    /// with the number of UTF-8 bytes consumed from the input so far.
-    ///
-    /// The default implementation is a no-op.
-    #[cfg(feature = "source-positions")]
-    fn set_current_byte(&self, _byte_offset: u64) {}
 
     /// Used in the [markup declaration open state]. By default, this always
     /// returns false and thus all CDATA sections are tokenized as bogus

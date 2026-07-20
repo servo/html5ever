@@ -18,6 +18,7 @@ use html5ever::tokenizer::{CharacterTokens, EndTag, NullCharacterToken, StartTag
 use html5ever::tokenizer::{
     ParseError, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
 };
+use html5ever::SourcePosition;
 
 #[derive(Clone)]
 struct TokenPrinter {
@@ -43,7 +44,7 @@ impl TokenPrinter {
 impl TokenSink for TokenPrinter {
     type Handle = ();
 
-    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _position: SourcePosition) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 for c in b.chars() {
