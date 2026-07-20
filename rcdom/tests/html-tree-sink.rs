@@ -3,7 +3,7 @@ use html5ever::tendril::stream::TendrilSink;
 use html5ever::tendril::StrTendril;
 use html5ever::ExpandedName;
 use html5ever::QualName;
-use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
+use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, SourcePosition, TreeSink};
 use markup5ever::{local_name, ns, Attribute};
 use markup5ever_rcdom::{Handle, RcDom};
 use std::borrow::Cow;
@@ -108,8 +108,8 @@ impl TreeSink for LineCountingDOM {
         self.rcdom.mark_script_already_started(target);
     }
 
-    fn set_current_line(&self, line_number: u64) {
-        self.current_line.set(line_number);
+    fn set_current_source_position(&self, position: SourcePosition) {
+        self.current_line.set(position.line);
     }
 }
 

@@ -11,7 +11,7 @@ use html5ever::driver::ParseOpts;
 use html5ever::serialize::{Serialize, SerializeOpts, Serializer, TraversalScope};
 use html5ever::tendril::{SliceExt, StrTendril, TendrilSink};
 use html5ever::tokenizer::{TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
-use html5ever::{parse_document, parse_fragment, serialize, QualName};
+use html5ever::{parse_document, parse_fragment, serialize, QualName, SourcePosition};
 use markup5ever::{local_name, ns};
 use markup5ever_rcdom::{RcDom, SerializableHandle};
 
@@ -23,7 +23,7 @@ struct Tokens(RefCell<Vec<Token>>);
 impl TokenSink for Tokens {
     type Handle = ();
 
-    fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _: SourcePosition) -> TokenSinkResult<()> {
         self.0.borrow_mut().push(token);
         TokenSinkResult::Continue
     }

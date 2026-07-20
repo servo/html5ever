@@ -212,11 +212,7 @@ impl CharRefTokenizer {
             unconsume.push_char(c)
         }
 
-        #[cfg(feature = "source-positions")]
-        let unconsume_len = unconsume.len() as u64;
-        input.push_front(unconsume);
-        #[cfg(feature = "source-positions")]
-        input.retreat_bytes_consumed(unconsume_len);
+        tokenizer.unconsume_input(input, unconsume);
         tokenizer.emit_error(Borrowed("Numeric character reference without digits"));
         Status::Done(CharRef::EMPTY)
     }
@@ -295,13 +291,9 @@ impl CharRefTokenizer {
         tokenizer.emit_error(msg);
     }
 
-    fn unconsume_name(&mut self, input: &BufferQueue) {
+    fn unconsume_name<Sink: TokenSink>(&mut self, tokenizer: &Tokenizer<Sink>, input: &BufferQueue) {
         let name_buf = self.name_buf_opt.take().unwrap();
-        #[cfg(feature = "source-positions")]
-        let name_buf_len = name_buf.len() as u64;
-        input.push_front(name_buf);
-        #[cfg(feature = "source-positions")]
-        input.retreat_bytes_consumed(name_buf_len);
+        tokenizer.unconsume_input(input, name_buf);
     }
 
     fn finish_named<Sink: TokenSink>(
@@ -325,7 +317,7 @@ impl CharRefTokenizer {
 
                     _ => (),
                 }
-                self.unconsume_name(input);
+                self.unconsume_name(tokenizer, input);
                 Status::Done(CharRef::EMPTY)
             },
 
@@ -373,15 +365,11 @@ impl CharRefTokenizer {
                 };
 
                 if unconsume_all {
-                    self.unconsume_name(input);
+                    self.unconsume_name(tokenizer, input);
                     Status::Done(CharRef::EMPTY)
                 } else {
                     let unconsumed = StrTendril::from_slice(&self.name_buf()[name_len..]);
-                    #[cfg(feature = "source-positions")]
-                    let unconsumed_len = unconsumed.len() as u64;
-                    input.push_front(unconsumed);
-                    #[cfg(feature = "source-positions")]
-                    input.retreat_bytes_consumed(unconsumed_len);
+                    tokenizer.unconsume_input(input, unconsumed);
                     tokenizer.ignore_lf.set(false);
                     Status::Done(CharRef {
                         chars: [from_u32(c1).unwrap(), from_u32(c2).unwrap()],
@@ -409,7 +397,7 @@ impl CharRefTokenizer {
             ';' => self.emit_name_error(tokenizer),
             _ => (),
         }
-        self.unconsume_name(input);
+        self.unconsume_name(tokenizer, input);
         Status::Done(CharRef::EMPTY)
     }
 
@@ -428,13 +416,11 @@ impl CharRefTokenizer {
                 },
                 State::Named => self.finish_named(tokenizer, input, None),
                 State::BogusName => {
-                    self.unconsume_name(input);
+                    self.unconsume_name(tokenizer, input);
                     Status::Done(CharRef::EMPTY)
                 },
                 State::Octothorpe => {
-                    input.push_front(StrTendril::from_slice("#"));
-                    #[cfg(feature = "source-positions")]
-                    input.retreat_bytes_consumed(1);
+                    tokenizer.unconsume_input(input, StrTendril::from_slice("#"));
                     tokenizer.emit_error(Borrowed("EOF after '#' in character reference"));
                     Status::Done(CharRef::EMPTY)
                 },

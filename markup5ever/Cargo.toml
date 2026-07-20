@@ -3,25 +3,21 @@ name = "markup5ever"
 description = "Common code for xml5ever and html5ever"
 documentation = "https://docs.rs/markup5ever"
 categories = [ "parser-implementations", "web-programming" ]
-version = "0.39.0"
-license = "MIT OR Apache-2.0"
-authors = [ "The html5ever Project Developers" ]
-repository = "https://github.com/servo/html5ever"
-edition = "2021"
-rust-version = "1.71.0"
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 path = "lib.rs"
 
 [features]
 serde = ["web_atoms/serde"]
-# Surfaces byte-accurate source positions through the `TreeSink` interface.
-# When enabled, `TreeSink::set_current_byte` is called before each tree
-# mutation with the UTF-8 byte offset of the current token in the input.
-# Use this to assign stable, parser-independent offsets to DOM nodes.
 source-positions = []
 
 [dependencies]
-web_atoms = "0.2.4"
-tendril = "0.5"
-log = "0.4"
+web_atoms = { workspace = true }
+tendril = { workspace = true }
+log = { workspace = true }

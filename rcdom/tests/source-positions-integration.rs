@@ -1,7 +1,7 @@
 //! Integration tests for the `source-positions` feature.
 //!
 //! Verifies that byte offsets flow correctly from `BufferQueue` through the
-//! tokenizer and tree builder all the way into `TreeSink::set_current_byte`,
+//! tokenizer and tree builder all the way into `TreeSink::set_current_source_position`,
 //! and that the offsets correspond to the actual positions of element opening
 //! tags in the source string.
 //!
@@ -19,19 +19,15 @@ mod source_positions {
     use html5ever::tendril::StrTendril;
     use html5ever::ExpandedName;
     use html5ever::QualName;
-    use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
+    use markup5ever::interface::{ElementFlags, NodeOrText, QuirksMode, SourcePosition, TreeSink};
     use markup5ever::Attribute;
     use markup5ever_rcdom::{Handle, RcDom};
     use std::borrow::Cow;
     use std::cell::{Cell, RefCell};
 
-    /// Wraps `RcDom` and records `(local_name, byte_offset)` for every
-    /// element created.
-    ///
-    /// These are then later used for assertions.
     struct ByteCapturingDOM {
-        current_byte: Cell<u64>,
-        elements: RefCell<Vec<(String, u64)>>,
+        current_byte: Cell<usize>,
+        elements: RefCell<Vec<(String, usize)>>,
         rcdom: RcDom,
     }
 
@@ -44,7 +40,7 @@ mod source_positions {
             }
         }
 
-        fn content_elements(&self) -> Vec<(String, u64)> {
+        fn content_elements(&self) -> Vec<(String, usize)> {
             self.elements.borrow().clone()
         }
     }
@@ -143,8 +139,10 @@ mod source_positions {
             self.rcdom.reparent_children(node, new_parent);
         }
 
-        fn set_current_byte(&self, byte_offset: u64) {
-            self.current_byte.set(byte_offset);
+        fn set_current_source_position(&self, position: SourcePosition) {
+            if let Some(byte) = position.byte {
+                self.current_byte.set(byte);
+            }
         }
     }
 
@@ -207,7 +205,6 @@ mod source_positions {
     }
 
     #[test]
-    /// <span> should start at byte 12, and not 13 due to é being 2 bytes.
     fn multibyte_content_does_not_shift_subsequent_offsets() {
         let result = parse("<p>café</p><span>next</span>");
         let elems = result.content_elements();
