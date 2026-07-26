@@ -541,25 +541,22 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         if self.current_attr_name.borrow().is_empty() {
             return;
         }
-
+        let name = LocalName::from(&**self.current_attr_name.borrow());
+        self.current_attr_name.borrow_mut().clear();
         // Check for a duplicate attribute.
         // FIXME: the spec says we should error as soon as the name is finished.
         let dup = {
-            let name = &*self.current_attr_name.borrow();
             self.current_tag_attrs
                 .borrow()
                 .iter()
-                .any(|a| *a.name.local == **name)
+                .any(|a| a.name.local == name)
         };
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
             self.current_tag_had_duplicate_attributes.set(true);
-            self.current_attr_name.borrow_mut().clear();
             self.current_attr_value.borrow_mut().clear();
         } else {
-            let name = LocalName::from(&**self.current_attr_name.borrow());
-            self.current_attr_name.borrow_mut().clear();
             self.current_tag_attrs.borrow_mut().push(Attribute {
                 // The tree builder will adjust the namespace if necessary.
                 // This only happens in foreign elements.
