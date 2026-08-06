@@ -1380,6 +1380,7 @@ where
                 ref prev_element,
             } => (element.clone(), Some(prev_element.clone())),
         };
+
         // Step 12.
         let qname = QualName::new(None, ns, name);
         let form_is_associatable = form_associatable(qname.expanded())
@@ -1390,7 +1391,8 @@ where
                     .iter()
                     .any(|a| a.name.expanded() == expanded_name!("", "form")));
 
-        // check the form is associatable, then create element, and we are avoiding of cloning attributes.
+        // By checking whether the form is associatable first, then creating the element
+        // we can avoid cloning the attributes.
         let elem = create_element_with_flags(&self.sink, qname, attrs, had_duplicate_attributes);
 
         if form_is_associatable {
