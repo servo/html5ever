@@ -1,0 +1,41 @@
+name: Semver Check Helper
+
+on:
+  workflow_call:
+    inputs:
+      pull_request_number:
+        description: Pull request whose code should be checked
+        required: true
+        type: number
+    outputs:
+      label:
+        description: SemVer label calculated for the pull request
+        value: ${{ jobs.semver_check.outputs.label }}
+
+permissions:
+  # By specifying at least one permission, any non-specified permissions will default to `none`.
+  contents: read
+
+jobs:
+  semver_check:
+    name: Calculate SemVer label
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.semver.outputs.label }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # This job has no secrets and only a read-only token.
+          allow-unsafe-pr-checkout: true
+          ref: refs/pull/${{ inputs.pull_request_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch main branch for reference
+        run: git fetch origin main:main
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+      - name: Run cargo-semver-checks
+        id: semver
+        run: |
+          (cargo semver-checks --baseline-rev $(git merge-base main HEAD) && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
