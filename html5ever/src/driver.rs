@@ -20,6 +20,8 @@ use crate::tendril;
 use crate::tendril::stream::{TendrilSink, Utf8LossyDecoder};
 use crate::tendril::StrTendril;
 
+// This is not a breaking change!
+
 /// All-encompassing options struct for the parser.
 #[derive(Clone, Default)]
 pub struct ParseOpts {
