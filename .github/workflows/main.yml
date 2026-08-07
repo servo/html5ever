@@ -15,7 +15,7 @@ jobs:
       matrix:
         version: [stable, beta]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set toolchain
         run: |
@@ -38,7 +38,7 @@ jobs:
     name: Cargo doc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set toolchain
         run: |
           rustup set profile minimal
@@ -51,7 +51,7 @@ jobs:
     name: Bench html5ever
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo bench -p html5ever
         env:
           RUSTFLAGS: --cfg bench
@@ -60,7 +60,7 @@ jobs:
     name: Bench tendril
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo bench -p tendril --bench tendril -- --quick --significance-level 0.01
         env:
           RUSTFLAGS: --cfg bench
@@ -72,7 +72,7 @@ jobs:
     name: MSRV
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install stable toolchain
         run: |
@@ -85,7 +85,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install stable toolchain
         run: |

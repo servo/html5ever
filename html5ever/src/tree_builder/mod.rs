@@ -1444,12 +1444,8 @@ where
     ) -> Handle {
         let adjusted_insertion_location = self.appropriate_place_for_insertion(None);
         let qname = QualName::new(None, ns, tag.name.clone());
-        let elem = create_element_with_flags(
-            &self.sink,
-            qname.clone(),
-            tag.attrs.clone(),
-            tag.had_duplicate_attributes,
-        );
+        let elem =
+            create_element_with_flags(&self.sink, qname, tag.attrs, tag.had_duplicate_attributes);
 
         if !only_add_to_element_stack {
             self.insert_at(adjusted_insertion_location, AppendNode(elem.clone()));
