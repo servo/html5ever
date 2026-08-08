@@ -1370,14 +1370,6 @@ where
         declare_tag_set!(listed = [form_associatable] - "img");
 
         // Step 7.
-        let qname = QualName::new(None, ns, name);
-        let elem = create_element_with_flags(
-            &self.sink,
-            qname.clone(),
-            attrs.clone(),
-            had_duplicate_attributes,
-        );
-
         let insertion_point = self.appropriate_place_for_insertion(None);
         let (node1, node2) = match insertion_point {
             InsertionPoint::LastChild(ref p) | InsertionPoint::BeforeSibling(ref p) => {
@@ -1390,14 +1382,20 @@ where
         };
 
         // Step 12.
-        if form_associatable(qname.expanded())
+        let qname = QualName::new(None, ns, name);
+        let form_is_associatable = form_associatable(qname.expanded())
             && self.form_elem.borrow().is_some()
             && !self.in_html_elem_named(local_name!("template"))
             && !(listed(qname.expanded())
                 && attrs
                     .iter()
-                    .any(|a| a.name.expanded() == expanded_name!("", "form")))
-        {
+                    .any(|a| a.name.expanded() == expanded_name!("", "form")));
+
+        // By checking whether the form is associatable first, then creating the element
+        // we can avoid cloning the attributes.
+        let elem = create_element_with_flags(&self.sink, qname, attrs, had_duplicate_attributes);
+
+        if form_is_associatable {
             let form = self.form_elem.borrow().as_ref().unwrap().clone();
             self.sink
                 .associate_with_form(&elem, &form, (&node1, node2.as_ref()));
