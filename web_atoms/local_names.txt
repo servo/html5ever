@@ -437,6 +437,8 @@ ideographic
 iframe
 image
 image-rendering
+imagesizes
+imagesrcset
 imaginary
 imaginaryi
 img
