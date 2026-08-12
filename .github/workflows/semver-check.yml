@@ -3,35 +3,42 @@ name: Semver Check
 on:
   pull_request_target:
 
+# Remove all default permissions first
+permissions: {}
+
 jobs:
   semver_check:
-    name: SemVer compatiblity check
+    name: SemVer compatibility check
+    uses: ./.github/workflows/semver-check-helper.yml
+    with:
+      pull_request_number: ${{ github.event.pull_request.number }}
+    # Read content permission is required to checkout the PR
+    permissions:
+      contents: read
+
+  assign_labels:
+    name: Assign SemVer label
+    needs: semver_check
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write # To add labels to PR
+      pull-requests: write
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v7
-        with:
-          allow-unsafe-pr-checkout: true
-          ref: refs/pull/${{ github.event.pull_request.number }}/head
-          fetch-depth: 0
-      - name: Fetch main branch for reference
+      # We can't trust the output of the semver_check job, so we need
+      # to first validate that the labels are the expected labels.
+      - name: Validate label
         run: |
-          git fetch origin main:main
-      - name: Install cargo-semver-checks
-        run: |
-          cargo install cargo-semver-checks --locked
-      - name: Run cargo-semver-checks
-        id: semver
-        run: |
-          (cargo semver-checks --baseline-rev $(git merge-base main HEAD) && echo "label=V-non-breaking" >> $GITHUB_OUTPUT) || echo "label=V-breaking" >> $GITHUB_OUTPUT
+          case "$LABEL" in
+            V-breaking|V-non-breaking) ;;
+            *) echo "FATAL: Unexpected label: $LABEL"; exit 1 ;;
+          esac
+        env:
+          LABEL: ${{ needs.semver_check.outputs.label }}
       - name: Assign labels
         run: |
           gh pr edit "$NUMBER" --remove-label V-breaking --remove-label V-non-breaking
-          gh pr edit "$NUMBER" --add-label "$LABELS"
+          gh pr edit "$NUMBER" --add-label "${LABEL}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number }}
-          LABELS: ${{ steps.semver.outputs.label }}
+          LABEL: ${{ needs.semver_check.outputs.label }}
