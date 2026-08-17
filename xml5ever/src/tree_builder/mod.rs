@@ -14,7 +14,6 @@ use markup5ever::{local_name, namespace_prefix, ns};
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 use std::cell::{Cell, Ref, RefCell};
-use std::collections::btree_map::Iter;
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
@@ -94,16 +93,6 @@ impl NamespaceMap {
 
     pub(crate) fn get(&self, prefix: &Option<Prefix>) -> Option<&Option<Namespace>> {
         self.scope.get(prefix)
-    }
-
-    pub(crate) fn get_scope_iter(&self) -> Iter<'_, Option<Prefix>, Option<Namespace>> {
-        self.scope.iter()
-    }
-
-    pub(crate) fn insert(&mut self, name: &QualName) {
-        let prefix = name.prefix.as_ref().cloned();
-        let namespace = Some(Namespace::from(&*name.ns));
-        self.scope.insert(prefix, namespace);
     }
 
     fn insert_ns(&mut self, attr: &Attribute) -> InsResult {
@@ -326,8 +315,6 @@ where
         // List of already present namespace local name attribute pairs.
         let mut present_attrs: HashSet<(Namespace, LocalName)> = Default::default();
 
-        let mut new_attr = vec![];
-        // First we extract all namespace declarations
         for attr in tag.attrs.iter_mut().filter(|attr| {
             attr.name.prefix == Some(namespace_prefix!("xmlns"))
                 || attr.name.local == local_name!("xmlns")
@@ -335,18 +322,18 @@ where
             self.declare_ns(attr);
         }
 
-        // Then we bind those namespace declarations to attributes
-        for attr in tag.attrs.iter_mut().filter(|attr| {
-            attr.name.prefix != Some(namespace_prefix!("xmlns"))
-                && attr.name.local != local_name!("xmlns")
-        }) {
-            if self.bind_attr_qname(&mut present_attrs, &mut attr.name) {
-                new_attr.push(attr.clone());
-            }
-        }
-        tag.attrs = new_attr;
+        // Deduplicate any attributes with the same namespace and local name, keeping the first one.
+        // Note that attributes with different prefixes that map to the same namespace are also
+        // removed. All attributes without a prefix are kept.
+        tag.attrs.retain_mut(|attr| {
+            // Update `attr.name.ns` based on the current stack of namespaces. If the
+            // combination of local name and namespace already exists in `present_attrs`,
+            // drop the current attribute.
+            self.bind_attr_qname(&mut present_attrs, &mut attr.name)
+        });
 
-        // Then we bind the tags namespace.
+        // Then we bind the tags namespace. Note that the prefix of the tag can be declared in the
+        // attributes of the tag itself, so attributes need to be processed first.
         self.bind_qname(&mut tag.name);
 
         // Finally, we dump current namespace if its unneeded.
@@ -355,9 +342,8 @@ where
             NamespaceMap::empty(),
         );
 
-        // Only start tag doesn't dump current namespace. However, <script /> is treated
-        // differently than every other empty tag, so it needs to retain the current
-        // namespace as well.
+        // If this was a start tag (or an empty script tag), push the namespace map for this tag
+        // onto the stack.
         if tag.kind == StartTag || (tag.kind == EmptyTag && tag.name.local == local_name!("script"))
         {
             self.namespace_stack.borrow_mut().push(x);
