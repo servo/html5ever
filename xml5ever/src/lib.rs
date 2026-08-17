@@ -33,6 +33,9 @@
 #![allow(unexpected_cfgs)]
 #![deny(missing_docs)]
 
+#[macro_use]
+extern crate markup5ever;
+
 pub use markup5ever::*;
 
 pub(crate) mod macros;

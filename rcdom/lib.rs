@@ -44,7 +44,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashSet, VecDeque};
 use std::default::Default;
 use std::fmt;
-use std::io;
+use std::io::{self, Write};
 use std::mem;
 use std::rc::{Rc, Weak};
 
@@ -52,14 +52,14 @@ use tendril::StrTendril;
 
 use markup5ever::interface::tree_builder;
 use markup5ever::interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink};
-use markup5ever::serialize::TraversalScope;
-use markup5ever::serialize::TraversalScope::{ChildrenOnly, IncludeNode};
-use markup5ever::serialize::{Serialize, Serializer};
+use markup5ever::interface::ElemName;
+use markup5ever::serialize::TraversalScope::{self, ChildrenOnly, IncludeNode};
+use markup5ever::serialize::{AttrRef, Serialize, Serializer};
 use markup5ever::Attribute;
 use markup5ever::ExpandedName;
 use markup5ever::QualName;
-use xml5ever::interface::ElemName;
-use xml5ever::local_name;
+use markup5ever::{local_name, ns, Namespace};
+use xml5ever::serialize::{NamespacePrefixMap, XmlSerializer};
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug, Clone)]
@@ -672,4 +672,95 @@ impl Serialize for SerializableHandle {
 
         Ok(())
     }
+}
+
+pub fn serialize_xml<Wr: Write>(writer: &mut Wr, node: &Node) -> io::Result<()> {
+    let mut ser = XmlSerializer::new(writer);
+    serialize_xml_fragment(&mut ser, node)
+}
+
+fn serialize_xml_fragment<Wr: Write>(
+    serializer: &mut XmlSerializer<Wr>,
+    node: &Node,
+) -> io::Result<()> {
+    let namespace = ns!();
+    let prefix_map = NamespacePrefixMap::new();
+    do_serialize_xml_fragment(serializer, node, &namespace, prefix_map)
+}
+
+fn do_serialize_xml_fragment<Wr: Write>(
+    serializer: &mut XmlSerializer<Wr>,
+    node: &Node,
+    namespace: &Namespace,
+    prefix_map: NamespacePrefixMap,
+) -> io::Result<()> {
+    match node.data {
+        NodeData::Element {
+            ref name,
+            ref attrs,
+            ref template_contents,
+            ..
+        } => {
+            let has_children =
+                !node.children.borrow().is_empty() || template_contents.borrow().is_some();
+            let attributes: Vec<_> = attrs
+                .borrow()
+                .iter()
+                .map(|attr| {
+                    let qname = attr.name.clone();
+                    let value = attr.value.clone();
+                    (qname, value)
+                })
+                .collect();
+            let attr_refs = attributes.iter().map(|(qname, value)| {
+                let ar: AttrRef = (qname, &**value);
+                ar
+            });
+            if has_children {
+                let (qualified_name, inherit_ns, inherit_prefix_map) =
+                    serializer.start_elem(name, attr_refs, namespace.clone(), &prefix_map)?;
+                match &*template_contents.borrow() {
+                    Some(template_contents) => {
+                        do_serialize_xml_fragment(
+                            serializer,
+                            &template_contents,
+                            &inherit_ns,
+                            inherit_prefix_map,
+                        )?;
+                    },
+                    None => {
+                        for child in node.children.borrow().iter() {
+                            do_serialize_xml_fragment(
+                                serializer,
+                                child,
+                                &inherit_ns,
+                                inherit_prefix_map.clone(),
+                            )?;
+                        }
+                    },
+                }
+                serializer.end_elem(qualified_name)?;
+            } else {
+                serializer.write_empty_elem(name, attr_refs, namespace.clone(), &prefix_map)?;
+            }
+        },
+
+        NodeData::Doctype { ref name, .. } => serializer.write_doctype(name)?,
+
+        NodeData::Text { ref contents } => serializer.write_text(&contents.borrow())?,
+
+        NodeData::Comment { ref contents } => serializer.write_comment(contents)?,
+
+        NodeData::ProcessingInstruction {
+            ref target,
+            ref contents,
+        } => serializer.write_processing_instruction(target, contents)?,
+
+        NodeData::Document => {
+            for child in node.children.borrow().iter() {
+                do_serialize_xml_fragment(serializer, child, &namespace, prefix_map.clone())?;
+            }
+        },
+    }
+    Ok(())
 }
