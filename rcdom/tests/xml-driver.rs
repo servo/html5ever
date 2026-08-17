@@ -1,6 +1,6 @@
-use markup5ever_rcdom::{RcDom, SerializableHandle};
+use markup5ever::{expanded_name, local_name, ns};
+use markup5ever_rcdom::{serialize_xml, NodeData, RcDom};
 use xml5ever::driver;
-use xml5ever::serialize;
 use xml5ever::tendril::TendrilSink;
 
 #[test]
@@ -76,16 +76,14 @@ fn from_utf8() {
 
 fn assert_eq_serialization(text: &'static str, dom: RcDom) {
     let mut serialized = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
-    serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
+    serialize_xml(&mut serialized, &dom.document).unwrap();
 
     let dom_from_text = driver::parse_document(RcDom::default(), Default::default())
         .from_utf8()
         .one(text.as_bytes());
 
     let mut reserialized = Vec::new();
-    let document: SerializableHandle = dom_from_text.document.clone().into();
-    serialize::serialize(&mut reserialized, &document, Default::default()).unwrap();
+    serialize_xml(&mut reserialized, &dom_from_text.document).unwrap();
 
     assert_eq!(
         String::from_utf8(serialized).unwrap(),
@@ -95,7 +93,76 @@ fn assert_eq_serialization(text: &'static str, dom: RcDom) {
 
 fn assert_serialization(text: &'static str, dom: RcDom) {
     let mut serialized = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
-    serialize::serialize(&mut serialized, &document, Default::default()).unwrap();
+    serialize_xml(&mut serialized, &dom.document).unwrap();
     assert_eq!(String::from_utf8(serialized).unwrap(), text);
+}
+
+#[test]
+fn xmlns_on_root() {
+    assert_serialization(
+       r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
+    <sodipodi:namedview>
+        ...
+    </sodipodi:namedview>
+
+    <path d="..." sodipodi:nodetypes="cccc"/>
+</svg>"##,
+        driver::parse_document(RcDom::default(), Default::default())
+            .from_utf8()
+            .one(r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
+    <sodipodi:namedview>
+        ...
+    </sodipodi:namedview>
+
+    <path d="..." sodipodi:nodetypes="cccc"/>
+</svg>"##.as_bytes()),
+    );
+}
+
+#[test]
+fn xmlns_applies_to_attr() {
+    assert_serialization(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
+    <path d="..." sodipodi:nodetypes="cccc"/>
+</svg>"##,
+        driver::parse_document(RcDom::default(), Default::default())
+            .from_utf8()
+            .one(r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd">
+    <path d="..." sodipodi:nodetypes="cccc"/>
+</svg>"##.as_bytes()),
+    );
+}
+
+#[test]
+fn template() {
+    let dom = driver::parse_document(RcDom::default(), Default::default())
+        .from_utf8()
+        .one(r##"<template xmlns="http://www.w3.org/1999/xhtml"/>"##.as_bytes());
+    let contents = driver::parse_document(RcDom::default(), Default::default())
+        .from_utf8()
+        .one(r##"<div xmlns="http://www.w3.org/1999/xhtml">Pass</div>"##.as_bytes());
+    match &dom.document.children.borrow()[0].data {
+        NodeData::Element {
+            name,
+            template_contents,
+            ..
+        } => {
+            match name.expanded() {
+                expanded_name!(html "template") => {},
+                name => panic!("Root element should be template, was {:?}", name),
+            }
+            template_contents
+                .borrow()
+                .as_ref()
+                .expect("Should have template contents")
+                .children
+                .borrow_mut()
+                .push(contents.document.children.borrow()[0].clone());
+        },
+        _ => {},
+    }
+    assert_serialization(
+        r##"<template xmlns="http://www.w3.org/1999/xhtml"><div>Pass</div></template>"##,
+        dom,
+    );
 }
