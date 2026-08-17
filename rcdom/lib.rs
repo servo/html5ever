@@ -684,7 +684,7 @@ fn serialize_xml_fragment<Wr: Write>(
     node: &Node,
 ) -> io::Result<()> {
     let namespace = ns!();
-    let prefix_map = NamespacePrefixMap::new();
+    let prefix_map = NamespacePrefixMap::default();
     do_serialize_xml_fragment(serializer, node, &namespace, prefix_map)
 }
 
@@ -723,7 +723,7 @@ fn do_serialize_xml_fragment<Wr: Write>(
                     Some(template_contents) => {
                         do_serialize_xml_fragment(
                             serializer,
-                            &template_contents,
+                            template_contents,
                             &inherit_ns,
                             inherit_prefix_map,
                         )?;
@@ -758,7 +758,7 @@ fn do_serialize_xml_fragment<Wr: Write>(
 
         NodeData::Document => {
             for child in node.children.borrow().iter() {
-                do_serialize_xml_fragment(serializer, child, &namespace, prefix_map.clone())?;
+                do_serialize_xml_fragment(serializer, child, namespace, prefix_map.clone())?;
             }
         },
     }

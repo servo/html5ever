@@ -47,13 +47,16 @@ pub struct NamespacePrefixMap {
     scope: BTreeMap<Namespace, Vec<Prefix>>,
 }
 
-impl NamespacePrefixMap {
+impl Default for NamespacePrefixMap {
     /// Create a new `NamespacePrefixMap`, containing only the "xml" prefix for the XML namespace.
-    pub fn new() -> NamespacePrefixMap {
+    fn default() -> Self {
         let mut scope = BTreeMap::new();
         scope.insert(ns!(xml), vec![namespace_prefix!(xml)]);
         NamespacePrefixMap { scope }
     }
+}
+
+impl NamespacePrefixMap {
     fn find(&self, ns: &Namespace, prefix: &Prefix) -> bool {
         let Some(list) = self.scope.get(ns) else {
             return false;
@@ -62,13 +65,11 @@ impl NamespacePrefixMap {
     }
 
     fn add(&mut self, ns: Namespace, prefix: Prefix) {
-        self.scope.entry(ns).or_insert_with(Vec::new).push(prefix);
+        self.scope.entry(ns).or_default().push(prefix);
     }
 
     fn retrieve(&self, ns: &Namespace, preferred: &Option<Prefix>) -> Option<Prefix> {
-        let Some(candidates) = self.scope.get(&ns) else {
-            return None;
-        };
+        let candidates = self.scope.get(ns)?;
         if let Some(preferred) = preferred {
             if candidates.contains(preferred) {
                 return Some(preferred.clone());
@@ -206,10 +207,8 @@ impl<Wr: Write> XmlSerializer<Wr> {
                         continue;
                     }
                     // `xmlns="ns"`
-                    if prefix.is_none() {
-                        if ignore_namespace_definition_attribute {
-                            continue;
-                        }
+                    if prefix.is_none() && ignore_namespace_definition_attribute {
+                        continue;
                     }
                     // `xmlns:foo="ns"`
                     if prefix.is_some() {
@@ -241,7 +240,7 @@ impl<Wr: Write> XmlSerializer<Wr> {
                     self.serialize_attribute(
                         &Some(namespace_prefix!(xmlns)),
                         &LocalName::from(&*new_prefix),
-                        &*attribute_namespace,
+                        attribute_namespace,
                     )?;
                 }
             }
@@ -298,7 +297,7 @@ impl<Wr: Write> XmlSerializer<Wr> {
                 qualified_name = format!("xml:{}", name.local);
             // Step 11.3.
             } else {
-                qualified_name = (&*name.local).to_owned();
+                qualified_name = (*name.local).to_owned();
             }
             // Step 11.4. (see below)
         } else {
@@ -341,7 +340,7 @@ impl<Wr: Write> XmlSerializer<Wr> {
                                     ns!(xmlns),
                                     LocalName::from(&*prefix),
                                 ),
-                                (&**ns).to_owned(),
+                                (**ns).to_owned(),
                             ));
 
                             match local_default_namespace {
@@ -355,18 +354,18 @@ impl<Wr: Write> XmlSerializer<Wr> {
                             match local_default_namespace {
                                 // Step 12.7
                                 Some(ldn) if ldn == *ns => {
-                                    qualified_name = (&*name.local).to_owned();
+                                    qualified_name = (*name.local).to_owned();
                                     inherited_ns = ns.clone();
                                 },
                                 // Step 12.6
                                 _ => {
                                     ignore_namespace_definition_attribute = true;
-                                    qualified_name = (&*name.local).to_owned();
+                                    qualified_name = (*name.local).to_owned();
                                     inherited_ns = ns.clone();
                                     debug_assert!(extra_attr.is_none());
                                     extra_attr = Some((
                                         QualName::new(None, ns!(xmlns), local_name!(xmlns)),
-                                        (&**ns).to_owned(),
+                                        (**ns).to_owned(),
                                     ));
                                 },
                             }
