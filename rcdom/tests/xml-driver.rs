@@ -159,7 +159,7 @@ fn template() {
                 .borrow_mut()
                 .push(contents.document.children.borrow()[0].clone());
         },
-        _ => {},
+        _ => panic!("Unexpected child of document")
     }
     assert_serialization(
         r##"<template xmlns="http://www.w3.org/1999/xhtml"><div>Pass</div></template>"##,

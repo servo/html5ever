@@ -137,7 +137,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                 }
 
                 if let Some(ref attr_prefix) = attr.name.prefix {
-                    buf.push_str(&attr_prefix);
+                    buf.push_str(attr_prefix);
                     buf.push(':');
                 }
 
