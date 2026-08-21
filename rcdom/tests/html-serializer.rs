@@ -41,7 +41,7 @@ impl Serialize for Tokens {
                     let name = QualName::new(
                         None,
                         "http://www.w3.org/1999/xhtml".into(),
-                        tag.name.as_ref().into(),
+                        tag.name.as_str().into(),
                     );
                     match tag.kind {
                         TagKind::StartTag => serializer.start_elem(
