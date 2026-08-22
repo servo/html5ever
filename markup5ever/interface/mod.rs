@@ -17,6 +17,17 @@ pub use self::tree_builder::{create_element, AppendNode, AppendText, ElementFlag
 pub use self::tree_builder::{ElemName, Tracer, TreeSink};
 pub use self::tree_builder::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 
+/// A position in the input stream passed alongside each token.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+pub struct SourcePosition {
+    /// 1-based line number in the input.
+    pub line: u64,
+    /// UTF-8 byte offset of the token start in the original input.
+    ///
+    /// `None` when the `source-positions` feature is disabled.
+    pub byte: Option<usize>,
+}
+
 /// An [expanded name], containing the tag and the namespace.
 ///
 /// [expanded name]: https://www.w3.org/TR/REC-xml-names/#dt-expname

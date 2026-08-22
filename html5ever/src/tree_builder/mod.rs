@@ -474,9 +474,13 @@ where
 {
     type Handle = Handle;
 
-    fn process_token(&self, token: tokenizer::Token, line_number: u64) -> TokenSinkResult<Handle> {
-        if line_number != self.current_line.get() {
-            self.sink.set_current_line(line_number);
+    fn process_token(
+        &self,
+        token: tokenizer::Token,
+        position: markup5ever::SourcePosition,
+    ) -> TokenSinkResult<Handle> {
+        if position.line != self.current_line.get() || position.byte.is_some() {
+            self.sink.set_current_source_position(position);
         }
         let ignore_lf = self.ignore_lf.take();
 
