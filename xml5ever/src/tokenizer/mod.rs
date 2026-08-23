@@ -1278,27 +1278,26 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             return;
         }
 
-        // Check for a duplicate attribute.
+        let qname = process_qname(replace(
+            &mut self.current_attr_name.borrow_mut(),
+            StrTendril::new(),
+        ));
+
+        // Check for a duplicate attribute. Two attributes are the same only if
+        // both their prefix and their local name match, so xml:lang and lang
+        // are distinct names and may sit on the same element.
         // FIXME: the spec says we should error as soon as the name is finished.
         // FIXME: linear time search, do we care?
-        let dup = {
-            let current_attr_name = self.current_attr_name.borrow();
-            let name = &current_attr_name[..];
-            self.current_tag_attrs
-                .borrow()
-                .iter()
-                .any(|a| &*a.name.local == name)
-        };
+        let dup = self
+            .current_tag_attrs
+            .borrow()
+            .iter()
+            .any(|a| a.name.prefix == qname.prefix && a.name.local == qname.local);
 
         if dup {
             self.emit_error(Borrowed("Duplicate attribute"));
-            self.current_attr_name.borrow_mut().clear();
             self.current_attr_value.borrow_mut().clear();
         } else {
-            let qname = process_qname(replace(
-                &mut self.current_attr_name.borrow_mut(),
-                StrTendril::new(),
-            ));
             let attr = Attribute {
                 name: qname.clone(),
                 value: replace(&mut self.current_attr_value.borrow_mut(), StrTendril::new()),
@@ -1347,6 +1346,21 @@ mod test {
         }
     }
 
+    struct ErrorCollector {
+        errors: RefCell<Vec<String>>,
+    }
+
+    impl TokenSink for ErrorCollector {
+        type Handle = ();
+
+        fn process_token(&self, token: Token) -> ProcessResult<()> {
+            if let Token::ParseError(error) = token {
+                self.errors.borrow_mut().push(error.to_string());
+            }
+            ProcessResult::Continue
+        }
+    }
+
     fn tokenize_pis(input: &str) -> Vec<(String, String)> {
         let sink = PiCollector {
             pis: RefCell::new(Vec::new()),
@@ -1357,6 +1371,18 @@ mod test {
         let _ = tokenizer.feed(&queue);
         tokenizer.end();
         tokenizer.sink.pis.into_inner()
+    }
+
+    fn tokenize_errors(input: &str) -> Vec<String> {
+        let sink = ErrorCollector {
+            errors: RefCell::new(Vec::new()),
+        };
+        let queue = BufferQueue::default();
+        queue.push_back(StrTendril::from(input));
+        let tokenizer = XmlTokenizer::new(sink, Default::default());
+        let _ = tokenizer.feed(&queue);
+        tokenizer.end();
+        tokenizer.sink.errors.into_inner()
     }
 
     #[test]
@@ -1409,6 +1435,38 @@ mod test {
         assert_eq!(
             tokenize_pis("<?target a?"),
             vec![("target".to_owned(), "a?".to_owned())]
+        );
+    }
+
+    #[test]
+    fn qualified_and_unqualified_names_are_distinct() {
+        // The xml prefix is bound to http://www.w3.org/XML/1998/namespace by
+        // definition, so xml:lang and lang have different expanded names and
+        // both orderings are fine. This is the second of the two legal cases
+        // in https://www.w3.org/TR/REC-xml-names/#uniqAttrs
+        assert!(tokenize_errors(r#"<root xml:lang="en" lang="en"/>"#).is_empty());
+        assert!(tokenize_errors(r#"<root lang="en" xml:lang="en"/>"#).is_empty());
+    }
+
+    #[test]
+    fn different_prefixes_are_left_to_the_tree_builder() {
+        // Whether these two are duplicates depends on what a and b are bound
+        // to, and the tokenizer has no bindings, so it says nothing either way.
+        // XmlTreeBuilder::bind_attr_qname resolves the prefixes and compares
+        // expanded names, which is where a real duplicate gets caught.
+        assert!(tokenize_errors(r#"<root a:name="1" b:name="2"/>"#).is_empty());
+    }
+
+    #[test]
+    fn real_duplicates_are_still_reported() {
+        assert_eq!(
+            tokenize_errors(r#"<root lang="en" lang="fr"/>"#),
+            vec!["Duplicate attribute".to_owned()]
+        );
+
+        assert_eq!(
+            tokenize_errors(r#"<root xml:lang="en" xml:lang="fr"/>"#),
+            vec!["Duplicate attribute".to_owned()]
         );
     }
 
