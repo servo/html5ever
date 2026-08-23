@@ -742,8 +742,11 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
             XmlState::PiAfter => loop {
                 match get_char!(self, input) {
                     '>' => go!(self: emit_pi Data),
-                    '?' => go!(self: to XmlState::PiAfter),
-                    cl => go!(self: push_pi_data cl),
+                    // The '?' that got us here is not part of a '?>', so it is
+                    // ordinary data. The one we just read may still close the
+                    // processing instruction, so stay in this state.
+                    '?' => go!(self: push_pi_data '?'; to XmlState::PiAfter),
+                    cl => go!(self: push_pi_data '?'; push_pi_data cl; to XmlState::PiData),
                 }
             },
             //§ markup-declaration-state
@@ -1196,7 +1199,9 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
                 go!(self: error_eof; to XmlState::Data)
             },
             XmlState::Pi => go!(self: error_eof; to XmlState::BogusComment),
-            XmlState::PiTargetAfter | XmlState::PiAfter => go!(self: reconsume XmlState::PiData),
+            XmlState::PiTargetAfter => go!(self: reconsume XmlState::PiData),
+            // The '?' we consumed to get here never became a '?>', so keep it.
+            XmlState::PiAfter => go!(self: push_pi_data '?'; reconsume XmlState::PiData),
             XmlState::MarkupDecl => go!(self: error_eof; to XmlState::BogusComment),
             XmlState::TagName
             | XmlState::TagAttrNameBefore
@@ -1319,9 +1324,93 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
 #[cfg(test)]
 mod test {
 
-    use super::process_qname;
-    use crate::tendril::SliceExt;
+    use super::{process_qname, ProcessResult, Token, TokenSink, XmlTokenizer};
+    use crate::tendril::{SliceExt, StrTendril};
     use crate::{LocalName, Prefix};
+    use markup5ever::buffer_queue::BufferQueue;
+    use std::cell::RefCell;
+
+    struct PiCollector {
+        pis: RefCell<Vec<(String, String)>>,
+    }
+
+    impl TokenSink for PiCollector {
+        type Handle = ();
+
+        fn process_token(&self, token: Token) -> ProcessResult<()> {
+            if let Token::ProcessingInstruction(pi) = token {
+                self.pis
+                    .borrow_mut()
+                    .push((pi.target.to_string(), pi.data.to_string()));
+            }
+            ProcessResult::Continue
+        }
+    }
+
+    fn tokenize_pis(input: &str) -> Vec<(String, String)> {
+        let sink = PiCollector {
+            pis: RefCell::new(Vec::new()),
+        };
+        let queue = BufferQueue::default();
+        queue.push_back(StrTendril::from(input));
+        let tokenizer = XmlTokenizer::new(sink, Default::default());
+        let _ = tokenizer.feed(&queue);
+        tokenizer.end();
+        tokenizer.sink.pis.into_inner()
+    }
+
+    #[test]
+    fn pi_data_keeps_question_marks() {
+        assert_eq!(
+            tokenize_pis(r#"<?xml-stylesheet href="style.xsl?v=2"?>"#),
+            vec![(
+                "xml-stylesheet".to_owned(),
+                r#"href="style.xsl?v=2""#.to_owned()
+            )]
+        );
+
+        assert_eq!(
+            tokenize_pis("<?target a?b?c?>"),
+            vec![("target".to_owned(), "a?b?c".to_owned())]
+        );
+
+        // A run of question marks only ends the instruction when one of them
+        // is followed by '>'.
+        assert_eq!(
+            tokenize_pis("<?target a???>"),
+            vec![("target".to_owned(), "a??".to_owned())]
+        );
+    }
+
+    #[test]
+    fn pi_only_ends_on_question_mark_gt() {
+        // The '>' here is data, because the character before it is not a '?'.
+        assert_eq!(
+            tokenize_pis("<?target a?b>c?>"),
+            vec![("target".to_owned(), "a?b>c".to_owned())]
+        );
+    }
+
+    #[test]
+    fn pi_without_data_is_empty() {
+        assert_eq!(
+            tokenize_pis("<?target?>"),
+            vec![("target".to_owned(), String::new())]
+        );
+
+        assert_eq!(
+            tokenize_pis("<?target ?>"),
+            vec![("target".to_owned(), String::new())]
+        );
+    }
+
+    #[test]
+    fn unterminated_pi_keeps_trailing_question_mark() {
+        assert_eq!(
+            tokenize_pis("<?target a?"),
+            vec![("target".to_owned(), "a?".to_owned())]
+        );
+    }
 
     #[test]
     fn simple_namespace() {

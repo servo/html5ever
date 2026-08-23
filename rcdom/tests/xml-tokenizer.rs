@@ -283,10 +283,26 @@ fn json_to_tokens(js: &Value, exact_errors: bool) -> Vec<Token> {
     sink.get_tokens()
 }
 
-fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpts) -> Test {
+/// Descriptions of xml5lib tests that we do not run.
+///
+/// The XML5 draft's "PI after state" throws away a '?' that turns out not to be
+/// the start of a '?>', instead of treating it as ordinary data. XML 1.0 §2.6
+/// says a processing instruction runs up to the first '?>', so such a '?'
+/// belongs in the data, and that is what libxml2 and other parsers produce.
+/// This test bakes in the draft's behaviour, so it disagrees with us now that
+/// we keep the character. See https://github.com/servo/html5ever/issues/774
+const IGNORED_TESTS: &[&str] = &["PI tag with char in PiAfter state"];
+
+fn mk_xml_test(
+    name: String,
+    skip: bool,
+    input: String,
+    expect: Value,
+    opts: XmlTokenizerOpts,
+) -> Test {
     Test {
         name,
-        skip: false,
+        skip,
         test: Box::new(move || {
             // Split up the input at different points to test incremental tokenization.
             let insplits = splits(&input, 3);
@@ -308,7 +324,9 @@ fn mk_xml_test(name: String, input: String, expect: Value, opts: XmlTokenizerOpt
 fn mk_xml_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
     let input: &str = &js.find("input").get_str();
     let expect = js.find("output");
-    let desc = format!("tok: {}: {}", filename, js.find("description").get_str());
+    let description = js.find("description").get_str();
+    let skip = IGNORED_TESTS.contains(&&*description);
+    let desc = format!("tok: {filename}: {description}");
 
     // Some tests want to start in a state other than Data.
     let state_overrides = vec![None];
@@ -326,6 +344,7 @@ fn mk_xml_tests(tests: &mut Vec<Test>, filename: &str, js: &Value) {
 
             tests.push(mk_xml_test(
                 newdesc,
+                skip,
                 String::from(input),
                 expect.clone(),
                 XmlTokenizerOpts {
