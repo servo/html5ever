@@ -68,6 +68,31 @@ jobs:
         env:
           RUSTFLAGS: --cfg bench
 
+  miri:
+    name: Tests with Miri
+    runs-on: ubuntu-latest
+    env:
+      # Miri is much slower than native, so running the entire test suite takes too much time
+      WHICH_TESTS: -p markup5ever -p tendril --features encoding_rs
+    steps:
+      - name: Which tests to run
+        run: echo "$WHICH_TESTS"
+      - uses: actions/checkout@v7
+      - name: Setup Miri
+        run: |
+          rustup set profile minimal
+          rustup override set nightly
+          rustup component add miri
+          cargo miri setup
+          cargo miri setup --target i686-unknown-linux-gnu
+          cargo miri setup --target s390x-unknown-linux-gnu
+      - name: Run some tests with Miri
+        run: cargo miri test $WHICH_TESTS
+      - name: Run some tests with Miri 32-bit
+        run: cargo miri test $WHICH_TESTS --target i686-unknown-linux-gnu
+      - name: Run some tests with Miri big-endian
+        run: cargo miri test $WHICH_TESTS --target s390x-unknown-linux-gnu
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest
@@ -115,6 +140,7 @@ jobs:
       - msrv
       - bench-html5ever
       - bench-tendril
+      - miri
 
     steps:
       - name: Success
