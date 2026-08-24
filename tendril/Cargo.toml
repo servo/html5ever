@@ -22,12 +22,3 @@ new_debug_unreachable = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
-criterion = { workspace = true }
-
-[[bench]]
-name = "futf"
-harness = false
-
-[[bench]]
-name = "tendril"
-harness = false

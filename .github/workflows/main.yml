@@ -61,10 +61,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: cargo bench -p tendril --bench tendril -- --quick --significance-level 0.01
+      - run: cargo bench -p tendril-bench --bench tendril -- --quick --significance-level 0.01
         env:
           RUSTFLAGS: --cfg bench
-      - run: cargo bench -p tendril --bench futf -- --quick --significance-level 0.01
+      - run: cargo bench -p tendril-bench --bench futf -- --quick --significance-level 0.01
         env:
           RUSTFLAGS: --cfg bench
 

@@ -1,0 +1,24 @@
+[package]
+name = "tendril-bench"
+publish = false
+edition.workspace = true
+
+[dependencies]
+tendril = {path = "../tendril"}
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[lib]
+test = false
+doctest = false
+bench = false
+doc = false
+
+[[bench]]
+name = "futf"
+harness = false
+
+[[bench]]
+name = "tendril"
+harness = false
