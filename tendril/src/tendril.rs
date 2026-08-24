@@ -2315,18 +2315,24 @@ mod test {
         assert_send::<Tendril<fmt::UTF8, Atomic>>();
         let s: Tendril<fmt::UTF8, Atomic> = Tendril::from_slice("this is a string");
         assert!(!s.is_shared());
-        let mut t = s.clone();
-        assert!(s.is_shared());
-        let sp = s.as_ptr() as usize;
-        thread::spawn(move || {
-            assert!(t.is_shared());
-            t.push_slice(" extended");
-            assert_eq!("this is a string extended", &*t);
-            assert!(t.as_ptr() as usize != sp);
-            assert!(!t.is_shared());
-        })
-        .join()
-        .unwrap();
+        let threads: Vec<_> = (0..32)
+            .map(|_| {
+                let t = s.clone();
+                assert!(s.is_shared());
+                let sp = s.as_ptr() as usize;
+                thread::spawn(move || {
+                    let mut t = t.clone(); // atomic refcount from multiple threads
+                    assert!(t.is_shared());
+                    t.push_slice(" extended");
+                    assert_eq!("this is a string extended", &*t);
+                    assert!(t.as_ptr() as usize != sp);
+                    assert!(!t.is_shared());
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
         assert!(s.is_shared());
         assert_eq!("this is a string", &*s);
     }
