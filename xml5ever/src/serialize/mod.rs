@@ -9,7 +9,7 @@
 
 use crate::QualName;
 pub use markup5ever::serialize::{AttrRef, TraversalScope};
-use markup5ever::{LocalName, Namespace, Prefix, local_name, namespace_prefix, ns};
+use markup5ever::{local_name, namespace_prefix, ns, LocalName, Namespace, Prefix};
 use std::{
     collections::BTreeMap,
     io::{self, Write},
