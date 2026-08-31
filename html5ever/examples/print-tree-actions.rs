@@ -20,7 +20,7 @@ use html5ever::tendril::*;
 use html5ever::tree_builder::{
     AppendNode, AppendText, ElementFlags, NodeOrText, QuirksMode, TreeSink,
 };
-use html5ever::{Attribute, QualName};
+use html5ever::{Attribute, QualName, SourcePosition};
 
 struct Sink {
     next_id: Cell<usize>,
@@ -160,8 +160,8 @@ impl TreeSink for Sink {
         println!("Mark script {node} as already started");
     }
 
-    fn set_current_line(&self, line_number: u64) {
-        println!("Set current line to {line_number}");
+    fn set_current_source_position(&self, position: SourcePosition) {
+        println!("Set current line to {}", position.line);
     }
 
     fn pop(&self, elem: &usize) {

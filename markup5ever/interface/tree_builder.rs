@@ -266,8 +266,8 @@ pub trait TreeSink {
         false
     }
 
-    /// Called whenever the line number changes.
-    fn set_current_line(&self, _line_number: u64) {}
+    /// Called whenever the source position changes before a tree-builder callback.
+    fn set_current_source_position(&self, _position: super::SourcePosition) {}
 
     fn allow_declarative_shadow_roots(&self, _intended_parent: &Self::Handle) -> bool {
         true

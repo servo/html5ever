@@ -20,7 +20,7 @@ use html5ever::tokenizer::{CommentToken, DoctypeToken, TagToken, Token};
 use html5ever::tokenizer::{Doctype, EndTag, StartTag, Tag};
 use html5ever::tokenizer::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 use html5ever::TokenizerResult;
-use html5ever::{ns, Attribute, LocalName, QualName};
+use html5ever::{ns, Attribute, LocalName, QualName, SourcePosition};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::char;
@@ -108,7 +108,7 @@ impl TokenLogger {
 impl TokenSink for TokenLogger {
     type Handle = ();
 
-    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _position: SourcePosition) -> TokenSinkResult<()> {
         match token {
             CharacterTokens(b) => {
                 self.current_str.borrow_mut().push_slice(&b);
@@ -283,14 +283,14 @@ fn json_to_tokens(
     let sink = TokenLogger::new(exact_errors);
     for tok in js_tokens.get_list().iter() {
         assert_eq!(
-            sink.process_token(json_to_token(tok), 0),
+            sink.process_token(json_to_token(tok), SourcePosition::default()),
             TokenSinkResult::Continue
         );
     }
 
     for err in js_errors {
         assert_eq!(
-            sink.process_token(ParseError(err.find("code").get_str().into()), 0),
+            sink.process_token(ParseError(err.find("code").get_str().into()), SourcePosition::default()),
             TokenSinkResult::Continue
         );
     }
