@@ -139,6 +139,7 @@ impl<Wr: Write> HtmlSerializer<Wr> {
                 },
                 _ => {
                     //  0xC2 not followed by 0xA0 (not NBSP), so keep looking.
+                    self.writer.write_all(&bytes[next_special..search_start])?;
                     continue;
                 },
             };
