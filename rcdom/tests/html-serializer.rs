@@ -147,6 +147,10 @@ test!(
 );
 test!(attr_escape_amp, r#"<base foo="&amp;">"#);
 test!(
+    attr_literal_non_nbsp_c2,
+    r#"<p title="©®&nbsp;«&amp;»"></p>"#
+);
+test!(
     attr_escape_amp_2,
     r#"<base foo=&amp>"#,
     r#"<base foo="&amp;">"#
@@ -168,6 +172,7 @@ test!(
 );
 
 test!(text_literal, r#"<p>"'"</p>"#);
+test!(text_literal_non_nbsp_c2, "<p>©®&nbsp;«&amp;»</p>");
 test!(text_escape_amp, r#"<p>&amp;</p>"#);
 test!(text_escape_amp_2, r#"<p>&amp</p>"#, r#"<p>&amp;</p>"#);
 test!(text_escape_nbsp, "<p>x\u{a0}y</p>", r#"<p>x&nbsp;y</p>"#);
