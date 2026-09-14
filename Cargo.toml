@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.40.0"
+version = "0.40.1"
 license = "MIT OR Apache-2.0"
 authors = [ "The html5ever Project Developers" ]
 repository = "https://github.com/servo/html5ever"
