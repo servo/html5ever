@@ -99,10 +99,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install stable toolchain
+      - name: Install MSRV toolchain
         run: |
           rustup set profile minimal
           rustup override set 1.85.0
+
+      - name: Downgrade some crates that have newer MSRV
+        # encoding_rs 0.8.40 requires Rust 1.88
+        run: |
+          cargo update encoding_rs --precise 0.8.35
 
       - run: cargo check --lib --all-features
 
