@@ -126,11 +126,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             buf.push_str(&name.local);
             buf.push_str(">\n");
 
-            let mut attrs = attrs.borrow().clone();
-            attrs.sort_by(|x, y| x.name.local.cmp(&y.name.local));
-            // FIXME: sort by UTF-16 code unit
-
-            for attr in attrs.into_iter() {
+            for attr in &*attrs.borrow() {
                 buf.push('|');
                 buf.extend(iter::repeat_n(" ", indent + 2));
 
@@ -140,8 +136,8 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
                     buf.push('}');
                 }
 
-                if let Some(attr_prefix) = attr.name.prefix {
-                    buf.push_str(&attr_prefix);
+                if let Some(ref attr_prefix) = attr.name.prefix {
+                    buf.push_str(attr_prefix);
                     buf.push(':');
                 }
 
