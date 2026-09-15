@@ -202,7 +202,7 @@ impl Node {
         while let Some(node) = remaining.pop_front() {
             remaining.extend(node.children.borrow().iter().cloned());
 
-            let NodeData::Element { name, .. } = &self.data else {
+            let NodeData::Element { name, .. } = &node.data else {
                 continue;
             };
             if name.local_name() == &local_name!("selectedcontent") {
