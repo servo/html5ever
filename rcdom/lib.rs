@@ -673,3 +673,47 @@ impl Serialize for SerializableHandle {
         Ok(())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use markup5ever::{local_name, namespace_url, ns, QualName};
+
+    #[test]
+    fn test_get_a_selects_enabled_selectedcontent_descendant() {
+        let select = Node::new(NodeData::Element {
+            name: QualName::new(None, ns!(html), local_name!("select")),
+            attrs: RefCell::new(Vec::new()),
+            template_contents: RefCell::new(None),
+            mathml_annotation_xml_integration_point: false,
+        });
+
+        let div = Node::new(NodeData::Element {
+            name: QualName::new(None, ns!(html), local_name!("div")),
+            attrs: RefCell::new(Vec::new()),
+            template_contents: RefCell::new(None),
+            mathml_annotation_xml_integration_point: false,
+        });
+
+        let selectedcontent = Node::new(NodeData::Element {
+            name: QualName::new(None, ns!(html), local_name!("selectedcontent")),
+            attrs: RefCell::new(Vec::new()),
+            template_contents: RefCell::new(None),
+            mathml_annotation_xml_integration_point: false,
+        });
+
+        // Hierarchy: <select> -> <div> -> <selectedcontent>
+        div.children.borrow_mut().push(selectedcontent.clone());
+        select.children.borrow_mut().push(div);
+
+        let found = select.get_a_selects_enabled_selectedcontent();
+        assert!(found.is_some(), "Expected to find descendant <selectedcontent>");
+        let found_node = found.unwrap();
+        if let NodeData::Element { ref name, .. } = found_node.data {
+            assert_eq!(name.local_name(), &local_name!("selectedcontent"));
+        } else {
+            panic!("Expected Element node data");
+        }
+    }
+}
