@@ -16,7 +16,7 @@ use crate::LocalName;
 use std::borrow::Cow;
 
 pub use self::TagKind::{EndTag, StartTag};
-pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken};
+pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken, ProcessingInstructionToken};
 pub use self::Token::{EOFToken, NullCharacterToken, ParseError};
 
 /// A `DOCTYPE` token.
@@ -79,6 +79,13 @@ impl Tag {
     }
 }
 
+/// A processing instruction token
+#[derive(PartialEq, Eq, Clone, Debug, Default)]
+pub struct ProcessingInstruction {
+    pub target: StrTendril,
+    pub data: StrTendril
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum Token {
     /// A DOCTYPE declaration like `<!DOCTYPE html>`
@@ -87,6 +94,8 @@ pub enum Token {
     TagToken(Tag),
     /// A comment like `<!-- foo -->`.
     CommentToken(StrTendril),
+    /// A processing instruction like `<?target data ?>`
+    ProcessingInstructionToken(ProcessingInstruction),
     /// A sequence of characters.
     CharacterTokens(StrTendril),
     /// A `U+0000 NULL` character in the input.

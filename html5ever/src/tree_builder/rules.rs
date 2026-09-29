@@ -424,6 +424,8 @@ where
 
                 Token::Comment(text) => self.append_comment(text),
 
+                Token::ProcessingInstruction(target, data) => self.append_pi(target, data),
+
                 Token::Tag(tag @ tag!(<html>)) => {
                     self.unexpected(&tag);
                     if !self.in_html_elem_named(local_name!("template")) {
@@ -1631,6 +1633,8 @@ where
             },
 
             Token::Comment(text) => self.append_comment(text),
+
+            Token::ProcessingInstruction(target, data) => self.append_pi(target, data),
 
             Token::Tag(
                 tag @

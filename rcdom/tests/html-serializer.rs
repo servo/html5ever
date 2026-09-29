@@ -57,6 +57,7 @@ impl Serialize for Tokens {
                     }
                 },
                 Token::CommentToken(chars) => serializer.write_comment(chars)?,
+                Token::ProcessingInstructionToken(pi) => serializer.write_processing_instruction(&pi.target, &pi.data)?,
                 Token::CharacterTokens(chars) => serializer.write_text(chars)?,
                 Token::NullCharacterToken | &Token::EOFToken => {},
                 Token::ParseError(e) => println!("parse error: {e:#?}"),

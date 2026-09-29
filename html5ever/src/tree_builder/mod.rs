@@ -526,6 +526,7 @@ where
 
             tokenizer::TagToken(x) => Token::Tag(x),
             tokenizer::CommentToken(x) => Token::Comment(x),
+            tokenizer::ProcessingInstructionToken(x) => Token::ProcessingInstruction(x.target, x.data),
             tokenizer::NullCharacterToken => Token::NullCharacter,
             tokenizer::EOFToken => Token::Eof,
 
@@ -1339,6 +1340,12 @@ where
         let target = html_elem(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
+        ProcessResult::Done
+    }
+
+    fn append_pi(&self, target: StrTendril, data: StrTendril) -> ProcessResult<Handle> {
+        let pi = self.sink.create_pi(target, data);
+        self.insert_appropriately(AppendNode(pi), None);
         ProcessResult::Done
     }
 

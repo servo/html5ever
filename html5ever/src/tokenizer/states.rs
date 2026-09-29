@@ -128,4 +128,14 @@ pub enum State {
     CdataSectionBracket,
     /// <https://html.spec.whatwg.org/#cdata-section-end-state>
     CdataSectionEnd,
+    /// <https://html.spec.whatwg.org/#processing-instruction-open-state>
+    ProcessingInstructionOpen,
+    /// <https://html.spec.whatwg.org/#processing-instruction-open-state>
+    ProcessingInstructionTarget,
+    /// <https://html.spec.whatwg.org/#processing-instruction-open-state>
+    AfterProcessingInstructionTarget,
+    /// <https://html.spec.whatwg.org/#processing-instruction-open-state>
+    ProcessingInstructionData,
+    /// <https://html.spec.whatwg.org/#processing-instruction-open-state>
+    ProcessingInstructionQuestionable,
 }
