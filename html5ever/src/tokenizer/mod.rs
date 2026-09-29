@@ -963,8 +963,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '?' => {
                         // Set the temporary buffer to the empty string.
                         // Switch to the processing instruction open state.
-                        // self.bad_char_error();
-                        // go!(self: clear_comment; reconsume BogusComment)
                         go!(self: clear_temp; to State::ProcessingInstructionOpen);
                     },
                     // ↪ Anything else
