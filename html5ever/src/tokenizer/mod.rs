@@ -2726,7 +2726,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ ASCII alphanumeric
                     // ↪ U+002D HYPHEN-MINUS (-)
                     // ↪ U+005F LOW LINE (_)
-                    character if character.is_ascii_alphabetic() || character == '-' || character == '_' => {
+                    character if character.is_ascii_alphanumeric() || character == '-' || character == '_' => {
                          go!(self: push_temp character);
                     }
                     // ↪ Anything else
