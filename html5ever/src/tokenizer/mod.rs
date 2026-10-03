@@ -10,8 +10,10 @@
 //! The HTML5 tokenizer.
 
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
-pub use self::interface::{CommentToken, DoctypeToken, TagToken, ProcessingInstructionToken, Token};
-pub use self::interface::{Doctype, EndTag, StartTag, Tag, TagKind, ProcessingInstruction};
+pub use self::interface::{
+    CommentToken, DoctypeToken, ProcessingInstructionToken, TagToken, Token,
+};
+pub use self::interface::{Doctype, EndTag, ProcessingInstruction, StartTag, Tag, TagKind};
 pub use self::interface::{TokenSink, TokenSinkResult};
 
 use self::states::AttrValueKind::*;
@@ -2679,7 +2681,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ ASCII alpha
                     // ↪ u+005F LOW LINE (_)
                     character if character.is_ascii_alphabetic() || character == '_' => {
-                        // Reconsume in the processing instruction target state. 
+                        // Reconsume in the processing instruction target state.
                         go!(self: reconsume State::ProcessingInstructionTarget);
                     },
                     // ↪ Anything else
@@ -2689,9 +2691,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         self.bad_char_error();
                         self.convert_to_comment();
                         go!(self: reconsume BogusComment);
-                    }
+                    },
                 }
-            }
+            },
 
             // https://html.spec.whatwg.org/#processing-instruction-target-state
             states::ProcessingInstructionTarget => loop {
@@ -2706,7 +2708,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         // Let target be the concatenation of the code points in the temporary buffer, in the order they were added to the buffer.
                         let target = self.temp_buf.borrow();
                         // If target is an ASCII case-insensitive match for "xml" or "xml-stylesheet":
-                        if target.to_lowercase() == "xml" || target.to_lowercase() == "xml-stylesheet" {
+                        if target.to_lowercase() == "xml"
+                            || target.to_lowercase() == "xml-stylesheet"
+                        {
                             // This is a disallowed-processing-instruction-target parse error.
                             // Convert the temporary buffer to a comment.
                             // Reconsume in the bogus comment state.
@@ -2718,17 +2722,25 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             let target = self.temp_buf.take();
                             // Create a processing instruction token whose target is target and data is the empty string.
                             // Reconsume in the after processing instruction target state.
-                            *self.current_processing_instruction.borrow_mut() = ProcessingInstruction { target, data: Default::default() };
+                            *self.current_processing_instruction.borrow_mut() =
+                                ProcessingInstruction {
+                                    target,
+                                    data: Default::default(),
+                                };
                             go!(self: reconsume AfterProcessingInstructionTarget);
                         }
                     },
                     // ↪ ASCII alphanumeric
                     // ↪ U+002D HYPHEN-MINUS (-)
                     // ↪ U+005F LOW LINE (_)
-                    character if character.is_ascii_alphanumeric() || character == '-' || character == '_' => {
+                    character
+                        if character.is_ascii_alphanumeric()
+                            || character == '-'
+                            || character == '_' =>
+                    {
                         // Append the current input character to the temporary buffer.
                         go!(self: push_temp character);
-                    }
+                    },
                     // ↪ Anything else
                     _ => {
                         // This is an invalid-first-character-of-processing-instruction-target parse error.
@@ -2736,9 +2748,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         self.bad_char_error();
                         self.convert_to_comment();
                         go!(self: reconsume BogusComment);
-                    }
+                    },
                 }
-            }
+            },
 
             // https://html.spec.whatwg.org/#after-processing-instruction-target-state
             states::AfterProcessingInstructionTarget => loop {
@@ -2749,15 +2761,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ U+0020 SPACE
                     '\t' | '\n' | '\x0C' | ' ' => {
                         // Ignore the character.
-                    }
+                    },
                     // ↪ Anything else
                     _ => {
                         // Reconsume in the processing instruction data state.
                         go!(self: reconsume ProcessingInstructionData);
-                    }
-
+                    },
                 }
-            }
+            },
 
             // https://html.spec.whatwg.org/#processing-instruction-data-state
             states::ProcessingInstructionData => loop {
@@ -2766,20 +2777,23 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '?' => {
                         // Switch to the processing instruction questionable state.
                         go!(self: to State::ProcessingInstructionQuestionable)
-                    }
+                    },
                     // ↪ U+003E GREATER-THAN SIGN (>)
                     '>' => {
                         // Switch to the data state. Emit the current processing instruction token.
                         self.emit_current_processing_instruction();
                         go!(self: to State::Data)
-                    }
+                    },
                     // ↪ Anything else
                     character => {
                         // Append the current input character to the current processing instruction token's data.
-                        self.current_processing_instruction.borrow_mut().data.push_char(character);
-                    }
+                        self.current_processing_instruction
+                            .borrow_mut()
+                            .data
+                            .push_char(character);
+                    },
                 }
-            }
+            },
 
             // https://html.spec.whatwg.org/#processing-instruction-questionable-state
             states::ProcessingInstructionQuestionable => loop {
@@ -2789,17 +2803,18 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         // Switch to the data state. Emit the current processing instruction token.
                         self.emit_current_processing_instruction();
                         go!(self: to State::Data)
-                    }
+                    },
                     // ↪ Anything else
                     _ => {
                         // Append U+003F (?) to the current processing instruction token's data. Reconsume in the processing instruction data state.
-                        self.current_processing_instruction.borrow_mut().data.push_char('?');
+                        self.current_processing_instruction
+                            .borrow_mut()
+                            .data
+                            .push_char('?');
                         go!(self: reconsume ProcessingInstructionData);
-                    }
+                    },
                 }
-            }
-
-            //§ END
+            }, //§ END
         }
     }
 
@@ -2924,8 +2939,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             | states::ProcessingInstructionTarget
             | states::AfterProcessingInstructionTarget
             | states::ProcessingInstructionData
-            | states::ProcessingInstructionQuestionable
-            => {
+            | states::ProcessingInstructionQuestionable => {
                 self.bad_eof_error();
                 go!(self: to State::Data)
             },

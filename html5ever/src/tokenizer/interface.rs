@@ -16,7 +16,9 @@ use crate::LocalName;
 use std::borrow::Cow;
 
 pub use self::TagKind::{EndTag, StartTag};
-pub use self::Token::{CharacterTokens, CommentToken, DoctypeToken, TagToken, ProcessingInstructionToken};
+pub use self::Token::{
+    CharacterTokens, CommentToken, DoctypeToken, ProcessingInstructionToken, TagToken,
+};
 pub use self::Token::{EOFToken, NullCharacterToken, ParseError};
 
 /// A `DOCTYPE` token.
@@ -83,7 +85,7 @@ impl Tag {
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct ProcessingInstruction {
     pub target: StrTendril,
-    pub data: StrTendril
+    pub data: StrTendril,
 }
 
 #[derive(PartialEq, Eq, Debug)]
