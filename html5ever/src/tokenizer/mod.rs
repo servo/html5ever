@@ -2710,7 +2710,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             // This is a disallowed-processing-instruction-target parse error.
                             // Convert the temporary buffer to a comment.
                             // Reconsume in the bogus comment state.
-                            self.bad_char_error();
+                            self.emit_error(Borrowed("Disallowed processing instruction target"));
                             self.convert_to_comment();
                             go!(self: reconsume BogusComment);
                         } else {
