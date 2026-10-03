@@ -104,6 +104,7 @@ where
                 },
                 Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                 Token::Comment(text) => self.append_comment_to_doc(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
                 token => {
                     if !self.opts.iframe_srcdoc {
                         self.unexpected(&token);
@@ -123,6 +124,8 @@ where
 
                 match token {
                     Token::Comment(text) => self.append_comment_to_doc(text),
+
+                    Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                     Token::Characters(SplitStatus::NotSplit, text) => {
                         ProcessResult::SplitWhitespace(text)
@@ -155,6 +158,7 @@ where
                     },
                     Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                     Token::Comment(text) => self.append_comment(text),
+                    Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -186,6 +190,7 @@ where
                     },
                     Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                     Token::Comment(text) => self.append_comment(text),
+                    Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -338,6 +343,7 @@ where
                     },
 
                     Token::Comment(_) => self.step(InsertionMode::InHead, token),
+                    Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                     Token::Tag(
                         tag!(<basefont> | <bgsound> | <link> | <meta> | <noframes> | <style>),
@@ -365,6 +371,7 @@ where
                     },
                     Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                     Token::Comment(text) => self.append_comment(text),
+                    Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1040,6 +1047,8 @@ where
                 Token::NullCharacter | Token::Characters(..) => self.process_chars_in_table(token),
 
                 Token::Comment(text) => self.append_comment(text),
+                
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction(target, data),
 
                 Token::Tag(tag @ tag!(<caption>)) => {
                     self.pop_until_current(table_scope);
@@ -1214,6 +1223,7 @@ where
                 },
                 Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                 Token::Comment(text) => self.append_comment(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1416,6 +1426,7 @@ where
             InsertionMode::InTemplate => match token {
                 Token::Characters(_, _) => self.step(InsertionMode::InBody, token),
                 Token::Comment(_) => self.step(InsertionMode::InBody, token),
+                Token::ProcessingInstruction(_, _) => self.step(InsertionMode::InBody, token),
 
                 Token::Tag(
                     tag!(<base> | <basefont> | <bgsound> | <link> | <meta> | <noframes> | <script> |
@@ -1484,6 +1495,7 @@ where
                     self.step(InsertionMode::InBody, token)
                 },
                 Token::Comment(text) => self.append_comment_to_html(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_html(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1512,6 +1524,7 @@ where
                 },
                 Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                 Token::Comment(text) => self.append_comment(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1558,6 +1571,7 @@ where
                 },
                 Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                 Token::Comment(text) => self.append_comment(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1583,6 +1597,7 @@ where
                     self.step(InsertionMode::InBody, token)
                 },
                 Token::Comment(text) => self.append_comment_to_doc(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
@@ -1604,6 +1619,7 @@ where
                     self.step(InsertionMode::InBody, token)
                 },
                 Token::Comment(text) => self.append_comment_to_doc(text),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction_to_doc(target, data),
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
 
