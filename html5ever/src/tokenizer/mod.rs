@@ -2707,7 +2707,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ U+003E GREATER-THAN SIGN (>)
                     '\t' | '\n' | '\x0C' | ' ' | '?' | '>' => {
                         // Let target be the concatenation of the code points in the temporary buffer, in the order they were added to the buffer.
-                        let target = self.temp_buf.take();
+                        let target = self.temp_buf.borrow();
                         // If target is an ASCII case-insensitive match for "xml" or "xml-stylesheet":
                         if target.to_lowercase() == "xml" || target.to_lowercase() == "xml-stylesheet" {
                             // This is a disallowed-processing-instruction-target parse error.
@@ -2716,6 +2716,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             self.bad_char_error();
                             go!(self: convert_to_comment; reconsume BogusComment);
                         } else {
+                            drop(target);
+                            let target = self.temp_buf.take();
                             // Create a processing instruction token whose target is target and data is the empty string.
                             // Reconsume in the after processing instruction target state.
                             go!(self: create_pi target;  reconsume AfterProcessingInstructionTarget);
