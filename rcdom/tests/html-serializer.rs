@@ -246,7 +246,38 @@ test!(attr_ns_2, r#"<svg xmlns:foo="bleh"></svg>"#);
 test!(attr_ns_3, r#"<svg xmlns:xlink="bleh"></svg>"#);
 test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
 
+test!(
+    processing_instruction_1,
+    r#"<?target>"#,
+    r#"<?target ?>"#
+);
+
+test!(
+    processing_instruction_2,
+    r#"<?target?>"#,
+    r#"<?target ?>"#
+);
+
+test!(
+    processing_instruction_3,
+    r#"<?target >"#,
+    r#"<?target ?>"#
+);
+
+test!(
+    processing_instruction_4,
+    r#"<?target ??>"#,
+    r#"<?target ??>"#
+);
+
+test!(
+    processing_instruction_5,
+    r#"<?target  ?>"#,
+    r#"<?target ?>"#
+);
+
 test_no_parse!(malformed_tokens, r#"foo</div><div>"#);
+
 
 #[test]
 fn doctype() {
