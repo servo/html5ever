@@ -1343,7 +1343,7 @@ where
         ProcessResult::Done
     }
 
-    fn append_pi(&self, target: StrTendril, data: StrTendril) -> ProcessResult<Handle> {
+    fn append_processing_instruction(&self, target: StrTendril, data: StrTendril) -> ProcessResult<Handle> {
         let pi = self.sink.create_pi(target, data);
         self.insert_appropriately(AppendNode(pi), None);
         ProcessResult::Done

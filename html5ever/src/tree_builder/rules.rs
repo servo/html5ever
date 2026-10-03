@@ -424,7 +424,7 @@ where
 
                 Token::Comment(text) => self.append_comment(text),
 
-                Token::ProcessingInstruction(target, data) => self.append_pi(target, data),
+                Token::ProcessingInstruction(target, data) => self.append_processing_instruction(target, data),
 
                 Token::Tag(tag @ tag!(<html>)) => {
                     self.unexpected(&tag);
@@ -1634,7 +1634,7 @@ where
 
             Token::Comment(text) => self.append_comment(text),
 
-            Token::ProcessingInstruction(target, data) => self.append_pi(target, data),
+            Token::ProcessingInstruction(target, data) => self.append_processing_instruction(target, data),
 
             Token::Tag(
                 tag @

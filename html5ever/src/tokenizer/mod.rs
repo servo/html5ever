@@ -168,7 +168,7 @@ pub struct Tokenizer<Sink> {
     current_doctype: RefCell<Doctype>,
 
     /// Current processing instruction token
-    current_pi: RefCell<ProcessingInstruction>,
+    current_processing_instruction: RefCell<ProcessingInstruction>,
 
     /// Last start tag name, for use in checking "appropriate end tag".
     last_start_tag_name: RefCell<Option<LocalName>>,
@@ -214,7 +214,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_attr_value: RefCell::new(StrTendril::new()),
             current_comment: RefCell::new(StrTendril::new()),
             current_doctype: RefCell::new(Doctype::default()),
-            current_pi: RefCell::new(ProcessingInstruction::default()),
+            current_processing_instruction: RefCell::new(ProcessingInstruction::default()),
             last_start_tag_name: RefCell::new(start_tag_name),
             temp_buf: RefCell::new(StrTendril::new()),
             state_profile: RefCell::new(BTreeMap::new()),
@@ -640,8 +640,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         comment.push_tendril(&buf);
     }
 
-    fn emit_current_pi(&self) {
-        let pi = self.current_pi.take();
+    fn emit_current_processing_instruction(&self) {
+        let pi = self.current_processing_instruction.take();
         self.process_token_and_continue(ProcessingInstructionToken(pi));
     }
 }
@@ -669,10 +669,6 @@ macro_rules! shorthand (
     ( $me:ident : clear_doctype_id $k:ident        ) => ( $me.clear_doctype_id($k)                            );
     ( $me:ident : force_quirks                     ) => ( $me.current_doctype.borrow_mut().force_quirks = true);
     ( $me:ident : emit_doctype                     ) => ( $me.emit_current_doctype()                          );
-    ( $me:ident : convert_to_comment               ) => ( $me.convert_to_comment()                            );
-    ( $me:ident : create_pi $target:expr           ) => ( *$me.current_pi.borrow_mut() = ProcessingInstruction { target: $target, data: Default::default() } );
-    ( $me:ident : push_pi_data $c:expr             ) => ( $me.current_pi.borrow_mut().data.push_char($c)      );
-    ( $me:ident : emit_pi                          ) => ( $me.emit_current_pi()                               );
 );
 
 // Tracing of tokenizer actions.  This adds significant bloat and compile time,
@@ -2691,7 +2687,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         // This is an invalid-first-character-of-processing-instruction-target parse error.
                         // Convert the temporary buffer to a comment. Reconsume in the bogus comment state.
                         self.bad_char_error();
-                        go!(self: convert_to_comment; reconsume BogusComment);
+                        self.convert_to_comment();
+                        go!(self: reconsume BogusComment);
                     }
                 }
             }
@@ -2714,13 +2711,15 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             // Convert the temporary buffer to a comment.
                             // Reconsume in the bogus comment state.
                             self.bad_char_error();
-                            go!(self: convert_to_comment; reconsume BogusComment);
+                            self.convert_to_comment();
+                            go!(self: reconsume BogusComment);
                         } else {
                             drop(target);
                             let target = self.temp_buf.take();
                             // Create a processing instruction token whose target is target and data is the empty string.
                             // Reconsume in the after processing instruction target state.
-                            go!(self: create_pi target;  reconsume AfterProcessingInstructionTarget);
+                            *self.current_processing_instruction.borrow_mut() = ProcessingInstruction { target, data: Default::default() };
+                            go!(self: reconsume AfterProcessingInstructionTarget);
                         }
                     },
                     // ↪ ASCII alphanumeric
@@ -2735,7 +2734,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         // This is an invalid-first-character-of-processing-instruction-target parse error.
                         // Convert the temporary buffer to a comment. Reconsume in the bogus comment state.
                         self.bad_char_error();
-                        go!(self: convert_to_comment; reconsume BogusComment);
+                        self.convert_to_comment();
+                        go!(self: reconsume BogusComment);
                     }
                 }
             }
@@ -2770,12 +2770,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ U+003E GREATER-THAN SIGN (>)
                     '>' => {
                         // Switch to the data state. Emit the current processing instruction token.
-                        go!(self: emit_pi; to State::Data)
+                        self.emit_current_processing_instruction();
+                        go!(self: to State::Data)
                     }
                     // ↪ Anything else
                     character => {
                         // Append the current input character to the current processing instruction token's data.
-                        go!(self: push_pi_data character);
+                        self.current_processing_instruction.borrow_mut().data.push_char(character);
                     }
                 }
             }
@@ -2786,12 +2787,14 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ U+003E GREATER-THAN SIGN (>)
                     '>' => {
                         // Switch to the data state. Emit the current processing instruction token.
-                        go!(self: emit_pi; to State::Data)
+                        self.emit_current_processing_instruction();
+                        go!(self: to State::Data)
                     }
                     // ↪ Anything else
                     _ => {
                         // Append U+003F (?) to the current processing instruction token's data. Reconsume in the processing instruction data state.
-                        go!(self: push_pi_data '?'; reconsume ProcessingInstructionData);
+                        self.current_processing_instruction.borrow_mut().data.push_char('?');
+                        go!(self: reconsume ProcessingInstructionData);
                     }
                 }
             }
