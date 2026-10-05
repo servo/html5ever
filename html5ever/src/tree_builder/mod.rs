@@ -1361,7 +1361,8 @@ where
         data: StrTendril,
     ) -> ProcessResult<Handle> {
         let processing_instruction = self.sink.create_pi(target, data);
-        self.sink.append(&self.doc_handle, AppendNode(processing_instruction));
+        self.sink
+            .append(&self.doc_handle, AppendNode(processing_instruction));
         ProcessResult::Done
     }
 
@@ -1373,7 +1374,8 @@ where
         let open_elements = self.open_elems.borrow();
         let element_target = html_elem(&open_elements);
         let processing_instruction = self.sink.create_pi(target, data);
-        self.sink.append(element_target, AppendNode(processing_instruction));
+        self.sink
+            .append(element_target, AppendNode(processing_instruction));
         ProcessResult::Done
     }
 

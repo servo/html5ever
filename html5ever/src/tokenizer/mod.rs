@@ -642,9 +642,9 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     }
 
     fn emit_current_processing_instruction(&self) {
-        self.process_token_and_continue(
-            ProcessingInstructionToken(self.current_processing_instruction.take())
-        );
+        self.process_token_and_continue(ProcessingInstructionToken(
+            self.current_processing_instruction.take(),
+        ));
     }
 }
 //§ END
