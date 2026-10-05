@@ -1350,8 +1350,8 @@ where
         target: StrTendril,
         data: StrTendril,
     ) -> ProcessResult<Handle> {
-        let pi = self.sink.create_pi(target, data);
-        self.insert_appropriately(AppendNode(pi), None);
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.insert_appropriately(AppendNode(processing_instruction), None);
         ProcessResult::Done
     }
 
@@ -1360,8 +1360,8 @@ where
         target: StrTendril,
         data: StrTendril,
     ) -> ProcessResult<Handle> {
-        let pi = self.sink.create_pi(target, data);
-        self.sink.append(&self.doc_handle, AppendNode(pi));
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.sink.append(&self.doc_handle, AppendNode(processing_instruction));
         ProcessResult::Done
     }
 
@@ -1372,8 +1372,8 @@ where
     ) -> ProcessResult<Handle> {
         let open_elements = self.open_elems.borrow();
         let element_target = html_elem(&open_elements);
-        let pi = self.sink.create_pi(target, data);
-        self.sink.append(element_target, AppendNode(pi));
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.sink.append(element_target, AppendNode(processing_instruction));
         ProcessResult::Done
     }
 
