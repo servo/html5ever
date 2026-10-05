@@ -1370,10 +1370,10 @@ where
         target: StrTendril,
         data: StrTendril,
     ) -> ProcessResult<Handle> {
-        let open_elems = self.open_elems.borrow();
-        let el_target = html_elem(&open_elems);
+        let open_elements = self.open_elems.borrow();
+        let element_target = html_elem(&open_elements);
         let pi = self.sink.create_pi(target, data);
-        self.sink.append(el_target, AppendNode(pi));
+        self.sink.append(element_target, AppendNode(pi));
         ProcessResult::Done
     }
 

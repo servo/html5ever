@@ -638,13 +638,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         comment.push_char('?');
         // The spec doesn't specify what should happen to the temporary buffer after conversion, but
         // nothing uses it afterwards so it should be fine to clear it
-        let buf = mem::take(&mut *self.temp_buf.borrow_mut());
-        comment.push_tendril(&buf);
+        comment.push_tendril(&mem::take(&mut *self.temp_buf.borrow_mut()));
     }
 
     fn emit_current_processing_instruction(&self) {
-        let pi = self.current_processing_instruction.take();
-        self.process_token_and_continue(ProcessingInstructionToken(pi));
+        self.process_token_and_continue(
+            ProcessingInstructionToken(self.current_processing_instruction.take())
+        );
     }
 }
 //§ END
