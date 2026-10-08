@@ -138,7 +138,16 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             }
         },
 
-        NodeData::ProcessingInstruction { .. } => unreachable!(),
+        NodeData::ProcessingInstruction {
+            ref target,
+            ref contents,
+        } => {
+            buf.push_str("<?");
+            buf.push_str(target);
+            buf.push_str(" ");
+            buf.push_str(contents);
+            buf.push_str("?>\n");
+        },
     }
 
     for child in node.children.borrow().iter() {
