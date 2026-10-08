@@ -2679,7 +2679,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             states::ProcessingInstructionOpen => loop {
                 match get_char!(self, input) {
                     // ↪ ASCII alpha
-                    // ↪ u+005F LOW LINE (_)
+                    // ↪ U+005F LOW LINE (_)
                     character if character.is_ascii_alphabetic() || character == '_' => {
                         // Reconsume in the processing instruction target state.
                         go!(self: reconsume State::ProcessingInstructionTarget);
@@ -2706,11 +2706,13 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     // ↪ U+003E GREATER-THAN SIGN (>)
                     '\t' | '\n' | '\x0C' | ' ' | '?' | '>' => {
                         // Let target be the concatenation of the code points in the temporary buffer, in the order they were added to the buffer.
-                        let target = self.temp_buf.borrow();
+                        let is_xml_or_xml_stylesheet = {
+                            let target = self.temp_buf.borrow();
+                            target.eq_ignore_ascii_case("xml")
+                                || target.eq_ignore_ascii_case("xml-stylesheet")
+                        };
                         // If target is an ASCII case-insensitive match for "xml" or "xml-stylesheet":
-                        if target.to_lowercase() == "xml"
-                            || target.to_lowercase() == "xml-stylesheet"
-                        {
+                        if is_xml_or_xml_stylesheet {
                             // This is a disallowed-processing-instruction-target parse error.
                             // Convert the temporary buffer to a comment.
                             // Reconsume in the bogus comment state.
@@ -2718,7 +2720,6 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                             self.convert_to_comment();
                             go!(self: reconsume BogusComment);
                         } else {
-                            drop(target);
                             let target = self.temp_buf.take();
                             // Create a processing instruction token whose target is target and data is the empty string.
                             // Reconsume in the after processing instruction target state.
@@ -2743,7 +2744,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     },
                     // ↪ Anything else
                     _ => {
-                        // This is an invalid-first-character-of-processing-instruction-target parse error.
+                        // This is an invalid-processing-instruction-target parse error.
                         // Convert the temporary buffer to a comment. Reconsume in the bogus comment state.
                         self.bad_char_error();
                         self.convert_to_comment();
@@ -2814,7 +2815,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                         go!(self: reconsume ProcessingInstructionData);
                     },
                 }
-            }, //§ END
+            },
+            //§ END
         }
     }
 

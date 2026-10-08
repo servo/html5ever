@@ -81,7 +81,7 @@ impl Tag {
     }
 }
 
-/// A processing instruction token
+/// A processing instruction token.
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct ProcessingInstruction {
     pub target: StrTendril,
@@ -96,7 +96,7 @@ pub enum Token {
     TagToken(Tag),
     /// A comment like `<!-- foo -->`.
     CommentToken(StrTendril),
-    /// A processing instruction like `<?target data ?>`
+    /// A processing instruction like `<?target data ?>`.
     ProcessingInstructionToken(ProcessingInstruction),
     /// A sequence of characters.
     CharacterTokens(StrTendril),

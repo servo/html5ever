@@ -163,7 +163,7 @@ where
                     Token::Characters(SplitStatus::Whitespace, _) => ProcessResult::Done,
                     Token::Comment(text) => self.append_comment(text),
                     Token::ProcessingInstruction(target, data) => {
-                        self.append_processing_instruction_to_doc(target, data)
+                        self.append_processing_instruction(target, data)
                     },
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
@@ -197,7 +197,7 @@ where
                     Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                     Token::Comment(text) => self.append_comment(text),
                     Token::ProcessingInstruction(target, data) => {
-                        self.append_processing_instruction_to_doc(target, data)
+                        self.append_processing_instruction(target, data)
                     },
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
@@ -351,9 +351,7 @@ where
                     },
 
                     Token::Comment(_) => self.step(InsertionMode::InHead, token),
-                    Token::ProcessingInstruction(target, data) => {
-                        self.append_processing_instruction_to_doc(target, data)
-                    },
+                    Token::ProcessingInstruction(_, _) => self.step(InsertionMode::InHead, token),
 
                     Token::Tag(
                         tag!(<basefont> | <bgsound> | <link> | <meta> | <noframes> | <style>),
@@ -382,7 +380,7 @@ where
                     Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                     Token::Comment(text) => self.append_comment(text),
                     Token::ProcessingInstruction(target, data) => {
-                        self.append_processing_instruction_to_doc(target, data)
+                        self.append_processing_instruction(target, data)
                     },
 
                     Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
@@ -1240,7 +1238,7 @@ where
                 Token::Characters(SplitStatus::Whitespace, text) => self.append_text(text),
                 Token::Comment(text) => self.append_comment(text),
                 Token::ProcessingInstruction(target, data) => {
-                    self.append_processing_instruction_to_doc(target, data)
+                    self.append_processing_instruction(target, data)
                 },
 
                 Token::Tag(tag!(<html>)) => self.step(InsertionMode::InBody, token),
