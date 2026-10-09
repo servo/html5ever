@@ -413,6 +413,41 @@ where
         self.context_elem.borrow().is_some()
     }
 
+    /// Call `f` with the [stack of open elements].
+    ///
+    /// The first element is the topmost node of the stack, the root `html` element, and the last
+    /// one is the bottommost node, the [current node]. The stack is empty before the root element
+    /// has been inserted and after [`end`](TokenSink::end) has been called. When parsing a
+    /// fragment, the context element is not on the stack.
+    ///
+    /// # Panics
+    ///
+    /// The stack is borrowed while `f` runs, so processing a token with this tree builder from
+    /// within `f` may panic.
+    ///
+    /// [stack of open elements]: https://html.spec.whatwg.org/#stack-of-open-elements
+    /// [current node]: https://html.spec.whatwg.org/#current-node
+    pub fn with_open_elements<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[Handle]) -> R,
+    {
+        f(&self.open_elems.borrow())
+    }
+
+    /// Is the [insertion mode] ["text"]?
+    ///
+    /// The tree builder switches to this insertion mode after inserting an element whose contents
+    /// are parsed as raw text or RCDATA, such as `script`, `style`, `title` or `textarea`, and
+    /// switches back at the element's end tag or at the end of the input. In this insertion mode,
+    /// character tokens are inserted into the [current node], which is that element.
+    ///
+    /// [insertion mode]: https://html.spec.whatwg.org/#insertion-mode
+    /// ["text"]: https://html.spec.whatwg.org/#parsing-main-incdata
+    /// [current node]: https://html.spec.whatwg.org/#current-node
+    pub fn is_in_text_insertion_mode(&self) -> bool {
+        self.mode.get() == InsertionMode::Text
+    }
+
     /// https://html.spec.whatwg.org/multipage/#appropriate-place-for-inserting-a-node
     fn appropriate_place_for_insertion(
         &self,
