@@ -544,9 +544,9 @@ where
     }
 
     fn end(&self) {
-        for elem in self.open_elems.borrow_mut().drain(..).rev() {
-            self.sink.pop(&elem);
-        }
+        // <https://html.spec.whatwg.org/#stop-parsing>
+        // Step 4. Pop all the nodes off the stack of open elements.
+        self.pop_to_len(0);
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
@@ -778,7 +778,7 @@ where
 
             let Some((furthest_block_index, furthest_block)) = maybe_furthest_block else {
                 // 10.
-                self.open_elems.borrow_mut().truncate(fmt_elem_stack_index);
+                self.pop_to_len(fmt_elem_stack_index);
                 self.active_formatting.borrow_mut().remove(fmt_elem_index);
                 return;
             };
@@ -813,13 +813,13 @@ where
                 if inner_counter > 3 {
                     self.position_in_active_formatting(&node)
                         .map(|position| self.active_formatting.borrow_mut().remove(position));
-                    self.open_elems.borrow_mut().remove(node_index);
+                    self.remove_from_stack_at(node_index);
                     continue;
                 }
 
                 let Some(node_formatting_index) = self.position_in_active_formatting(&node) else {
                     // 13.6.
-                    self.open_elems.borrow_mut().remove(node_index);
+                    self.remove_from_stack_at(node_index);
                     continue;
                 };
 
@@ -839,6 +839,7 @@ where
                     tag.attrs.clone(),
                     tag.had_duplicate_attributes,
                 );
+                // Replacing the entry for node in the stack of open elements does not pop node.
                 self.open_elems.borrow_mut()[node_index] = new_element.clone();
                 self.active_formatting.borrow_mut()[node_formatting_index] =
                     FormatEntry::Element(new_element.clone(), tag);
@@ -924,15 +925,22 @@ where
         self.open_elems.borrow_mut().push(elem.clone());
     }
 
+    /// Pop the current node off the stack of open elements.
     fn pop(&self) -> Handle {
-        let elem = self
+        let current_node_index = self
             .open_elems
-            .borrow_mut()
-            .pop()
+            .borrow()
+            .len()
+            .checked_sub(1)
             .expect("no current element");
+        self.remove_from_stack_at(current_node_index)
+    }
 
-        self.sink.pop(&elem);
-        elem
+    /// Pop elements off the stack of open elements until only `len` of them are left.
+    fn pop_to_len(&self, len: usize) {
+        while self.open_elems.borrow().len() > len {
+            self.pop();
+        }
     }
 
     fn remove_from_stack(&self, elem: &Handle) {
@@ -942,9 +950,26 @@ where
             .iter()
             .rposition(|x| self.sink.same_node(elem, x));
         if let Some(position) = position {
-            self.open_elems.borrow_mut().remove(position);
-            self.sink.pop(elem);
+            self.remove_from_stack_at(position);
         }
+    }
+
+    /// Remove the element at `index` from the stack of open elements.
+    ///
+    /// Every element leaves the stack of open elements through here, whether it is the current
+    /// node or not, so that the sink is always told about it and the steps that run when an
+    /// element is popped are never skipped.
+    fn remove_from_stack_at(&self, index: usize) -> Handle {
+        let elem = self.open_elems.borrow_mut().remove(index);
+        self.sink.pop(&elem);
+
+        // Popping an option element, however it was closed, may update the selectedcontent of
+        // its select: <https://html.spec.whatwg.org/#the-option-element:stack-of-open-elements>
+        if self.html_elem_named(&elem, local_name!("option")) {
+            self.sink.maybe_clone_an_option_into_selectedcontent(&elem);
+        }
+
+        elem
     }
 
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
@@ -1167,7 +1192,7 @@ where
         TagSet: Fn(ExpandedName) -> bool,
     {
         while !self.current_node_in(&tag_set) {
-            self.open_elems.borrow_mut().pop();
+            self.pop();
         }
     }
 
@@ -1178,15 +1203,11 @@ where
         P: Fn(ExpandedName) -> bool,
     {
         let mut n = 0;
-        loop {
+        while !self.open_elems.borrow().is_empty() {
             n += 1;
-            match self.open_elems.borrow_mut().pop() {
-                None => break,
-                Some(elem) => {
-                    if pred(self.sink.elem_name(&elem).expanded()) {
-                        break;
-                    }
-                },
+            let elem = self.pop();
+            if pred(self.sink.elem_name(&elem).expanded()) {
+                break;
             }
         }
         n
@@ -1581,7 +1602,7 @@ where
             // mis-nested tags
             self.unexpected(&tag);
         }
-        self.open_elems.borrow_mut().truncate(match_idx);
+        self.pop_to_len(match_idx);
     }
 
     fn handle_misnested_a_tags(&self, tag: &Tag) {

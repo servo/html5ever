@@ -202,7 +202,7 @@ impl Node {
         while let Some(node) = remaining.pop_front() {
             remaining.extend(node.children.borrow().iter().cloned());
 
-            let NodeData::Element { name, .. } = &self.data else {
+            let NodeData::Element { name, .. } = &node.data else {
                 continue;
             };
             if name.local_name() == &local_name!("selectedcontent") {
@@ -235,25 +235,39 @@ impl Node {
         }
 
         // Step 3. Replace all with documentFragment within selectedcontent.
-        *selectedcontent.children.borrow_mut() = document_fragment;
+        for child in selectedcontent.children.take() {
+            child.parent.set(None);
+        }
+        for child_clone in document_fragment {
+            append(&selectedcontent, child_clone);
+        }
     }
 
     /// Clones the node and all of its descendants, returning a handle to the new subtree.
-    ///
-    /// This function will run into infinite recursion when the DOM tree contains cycles and it makes
-    /// no attempts to guard against that.
     fn clone_with_subtree(&self) -> Rc<Self> {
-        let children = self
+        let clone = Node::new(self.data.clone());
+
+        // Like dropping, cloning doesn't recurse, so that deep trees can't overflow the stack.
+        let mut to_clone: Vec<(Handle, Handle)> = self
             .children
             .borrow()
             .iter()
-            .map(|child| child.clone_with_subtree())
+            .rev()
+            .map(|child| (child.clone(), clone.clone()))
             .collect();
-        Rc::new(Self {
-            parent: Cell::new(self.parent()),
-            data: self.data.clone(),
-            children: RefCell::new(children),
-        })
+        while let Some((node, parent_clone)) = to_clone.pop() {
+            let node_clone = Node::new(node.data.clone());
+            append(&parent_clone, node_clone.clone());
+            to_clone.extend(
+                node.children
+                    .borrow()
+                    .iter()
+                    .rev()
+                    .map(|child| (child.clone(), node_clone.clone())),
+            );
+        }
+
+        clone
     }
 }
 
@@ -261,6 +275,16 @@ impl Drop for Node {
     fn drop(&mut self) {
         let mut nodes = mem::take(&mut *self.children.borrow_mut());
         while let Some(node) = nodes.pop() {
+            // The parent of this node is going away.
+            node.parent.set(None);
+
+            // A node can outlive its parent, for example an element on the stack of open
+            // elements that a selectedcontent update removed from the tree. Leave such nodes
+            // intact.
+            if Rc::strong_count(&node) > 1 {
+                continue;
+            }
+
             let children = mem::take(&mut *node.children.borrow_mut());
             nodes.extend(children);
             if let NodeData::Element {

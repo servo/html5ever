@@ -1,0 +1,255 @@
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X</option></select>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<option>Y</select>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+|       <option>
+|         "Y"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<optgroup><option>Y</select>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+|       <optgroup>
+|         <option>
+|           "Y"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<hr></select>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+|       <hr>
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X</select>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<span>Y</select>
+#errors
+1:101: ERROR: End tag 'select' isn't allowed here. Currently open tags: html, body, select, option, span.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|           <span>
+|             "Y"
+|       <option>
+|         selected=""
+|         "X"
+|         <span>
+|           "Y"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X
+#errors
+1:94: ERROR: Premature end of file. Currently open tags: html, body, select, option.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>x<i>i<b>ib</i>b
+#errors
+1:103: ERROR: End tag 'i' isn't allowed here. Currently open tags: html, body, select, option, i, b.
+1:108: ERROR: Premature end of file. Currently open tags: html, body, select, option, b.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "x"
+|           <i>
+|             "i"
+|             <b>
+|               "ib"
+|           <b>
+|             "b"
+|       <option>
+|         selected=""
+|         "x"
+|         <i>
+|           "i"
+|           <b>
+|             "ib"
+|         <b>
+|           "b"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><b><option selected>X</b></select>
+#errors
+1:97: ERROR: End tag 'b' isn't allowed here. Currently open tags: html, body, select, b, option.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <b>
+|         <option>
+|           selected=""
+|           "X"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><span><option selected>X<i>Y</span></select>
+#errors
+1:104: ERROR: End tag 'span' isn't allowed here. Currently open tags: html, body, select, span, option, i.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|           <i>
+|             "Y"
+|       <span>
+|         <option>
+|           selected=""
+|           "X"
+|           <i>
+|             "Y"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<select>
+#errors
+1:94: ERROR: Start tag 'select' isn't allowed here. Currently open tags: html, body, select, option.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+
+#data
+<!DOCTYPE html><select><button><selectedcontent></selectedcontent></button><option selected>X<input>
+#errors
+1:94: ERROR: Start tag 'input' isn't allowed here. Currently open tags: html, body, select, option.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+|     <input>
+
+#data
+<!DOCTYPE html><table><tr><select><button><selectedcontent></selectedcontent></button><option selected>X<td></td></tr></table>
+#errors
+1:27: ERROR: Start tag 'select' isn't allowed here. Currently open tags: html, body, table, tbody, tr.
+1:35: ERROR: Start tag 'button' isn't allowed here. Currently open tags: html, body, table, tbody, tr, select.
+1:43: ERROR: Start tag 'selectedcontent' isn't allowed here. Currently open tags: html, body, table, tbody, tr, select, button.
+1:60: ERROR: End tag 'selectedcontent' isn't allowed here. Currently open tags: html, body, table, tbody, tr, select, button, selectedcontent.
+1:78: ERROR: End tag 'button' isn't allowed here. Currently open tags: html, body, table, tbody, tr, select, button.
+1:87: ERROR: Start tag 'option' isn't allowed here. Currently open tags: html, body, table, tbody, tr, select.
+1:104: ERROR: Character tokens aren't legal here
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <button>
+|         <selectedcontent>
+|           "X"
+|       <option>
+|         selected=""
+|         "X"
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>

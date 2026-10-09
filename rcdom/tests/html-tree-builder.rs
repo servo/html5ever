@@ -261,25 +261,34 @@ fn context_name(context: &str) -> QualName {
 fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
     let mut tests = vec![];
 
+    let mut add_tests = |path: &Path, file: fs::File| {
+        let buf = io::BufReader::new(file);
+        let lines = buf.lines().map(|res| res.expect("couldn't read"));
+        let data = parse_tests(lines);
+
+        for (i, test) in data.into_iter().enumerate() {
+            make_test(
+                &mut tests,
+                ignores,
+                path.file_name().unwrap().to_str().unwrap(),
+                i,
+                test,
+            );
+        }
+    };
+
     foreach_html5lib_test(
         src_dir,
         "html5lib-tests/tree-construction",
         OsStr::new("dat"),
-        |path, file| {
-            let buf = io::BufReader::new(file);
-            let lines = buf.lines().map(|res| res.expect("couldn't read"));
-            let data = parse_tests(lines);
+        &mut add_tests,
+    );
 
-            for (i, test) in data.into_iter().enumerate() {
-                make_test(
-                    &mut tests,
-                    ignores,
-                    path.file_name().unwrap().to_str().unwrap(),
-                    i,
-                    test,
-                );
-            }
-        },
+    foreach_html5lib_test(
+        src_dir,
+        "custom-html5lib-tree-construction-tests",
+        OsStr::new("dat"),
+        &mut add_tests,
     );
 
     tests

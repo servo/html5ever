@@ -287,6 +287,10 @@ pub trait TreeSink {
 
     /// Implements [`maybe clone an option into selectedcontent`](https://html.spec.whatwg.org/#maybe-clone-an-option-into-selectedcontent).
     ///
+    /// The tree builder calls this, right after [`TreeSink::pop`], every time an `<option>` element
+    /// is popped off the stack of open elements, however it was closed: by an `</option>` end tag,
+    /// by another `<option>`, by `</select>`, at the end of the input, and so on.
+    ///
     /// The provided handle is guaranteed to be an `<option>` element.
     ///
     /// Leaving this method unimplemented will not cause panics, but will result in a (slightly) incorrect DOM tree.
