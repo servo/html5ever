@@ -13,6 +13,10 @@ use crate::encoding::extract_a_character_encoding_from_a_meta_element;
 use crate::interface::Quirks;
 use crate::tokenizer::states::{Rawtext, Rcdata, ScriptData};
 use crate::tokenizer::TagKind::{EndTag, StartTag};
+use crate::tree_builder::open_elems::Positions;
+use crate::tree_builder::open_elems::TrackedSet::{
+    self, ButtonScope, DefaultScope, ListItemScope, TableScope,
+};
 use crate::tree_builder::tag_sets::*;
 use crate::tree_builder::types::*;
 use crate::tree_builder::{
@@ -242,7 +246,7 @@ where
                             self.sink.mark_script_already_started(&elem);
                         }
                         self.insert_appropriately(AppendNode(elem.clone()), None);
-                        self.open_elems.borrow_mut().push(elem);
+                        self.push(&elem);
                         self.to_raw_text_mode(ScriptData)
                     },
 
@@ -484,7 +488,7 @@ where
                 },
 
                 Token::Tag(tag!(</body>)) => {
-                    if self.in_scope_named(default_scope, local_name!("body")) {
+                    if self.in_scope_named(DefaultScope, local_name!("body")) {
                         self.check_body_end();
                         self.mode.set(InsertionMode::AfterBody);
                     } else {
@@ -495,7 +499,7 @@ where
                 },
 
                 Token::Tag(tag!(</html>)) => {
-                    if self.in_scope_named(default_scope, local_name!("body")) {
+                    if self.in_scope_named(DefaultScope, local_name!("body")) {
                         self.check_body_end();
                         ProcessResult::Reprocess(InsertionMode::AfterBody, token)
                     } else {
@@ -556,34 +560,32 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<li> | <dd> | <dt>)) => {
-                    declare_tag_set!(close_list = "li");
-                    declare_tag_set!(close_defn = "dd" "dt");
-                    declare_tag_set!(extra_special = [special_tag] - "address" "div" "p");
-                    let list = match tag.name {
-                        local_name!("li") => true,
-                        local_name!("dd") | local_name!("dt") => false,
+                    let can_close: &[_] = match tag.name {
+                        local_name!("li") => &[local_name!("li")],
+                        local_name!("dd") | local_name!("dt") => {
+                            &[local_name!("dd"), local_name!("dt")]
+                        },
                         _ => unreachable!(),
                     };
 
                     self.frameset_ok.set(false);
 
-                    let mut to_close = None;
-                    for node in self.open_elems.borrow().iter().rev() {
-                        let elem_name = self.sink.elem_name(node);
-                        let name = elem_name.expanded();
-                        let can_close = if list {
-                            close_list(name)
-                        } else {
-                            close_defn(name)
-                        };
-                        if can_close {
-                            to_close = Some(name.local.clone());
-                            break;
-                        }
-                        if extra_special(name) {
-                            break;
-                        }
-                    }
+                    // The topmost element we can close, unless a special element other than
+                    // address, div or p is above it.
+                    let to_close = {
+                        let open_elems = self.open_elems.borrow();
+                        can_close
+                            .iter()
+                            .filter_map(|name| {
+                                let position = open_elems.positions_named(name).last()?;
+                                Some((position, name))
+                            })
+                            .max_by_key(|&(position, _)| position)
+                            .filter(|&(position, _)| {
+                                open_elems.in_scope(TrackedSet::SpecialExceptAddressDivP, position)
+                            })
+                            .map(|(_, name)| name.clone())
+                    };
 
                     if let Some(name) = to_close {
                         self.generate_implied_end_except(name.clone());
@@ -602,7 +604,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<button>)) => {
-                    if self.in_scope_named(default_scope, local_name!("button")) {
+                    if self.in_scope_named(DefaultScope, local_name!("button")) {
                         self.sink.parse_error(Borrowed("nested buttons"));
                         self.generate_implied_end_tags(cursory_implied_end);
                         self.pop_until_named(local_name!("button"));
@@ -620,7 +622,7 @@ where
                               </figure> | </footer> | </header> | </hgroup> | </listing> | </main> | </menu> |
                               </nav> | </ol> | </pre> | </search> | </section> | </select> | </summary> | </ul>),
                 ) => {
-                    if !self.in_scope_named(default_scope, tag.name.clone()) {
+                    if !self.in_scope_named(DefaultScope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end_tags(cursory_implied_end);
@@ -636,7 +638,10 @@ where
                                 .parse_error(Borrowed("Null form element pointer on </form>"));
                             return ProcessResult::Done;
                         };
-                        if !self.in_scope(default_scope, |n| self.sink.same_node(&node, &n)) {
+                        let in_scope = self.position_in_open_elems(&node).is_some_and(|position| {
+                            self.open_elems.borrow().in_scope(DefaultScope, position)
+                        });
+                        if !in_scope {
                             self.sink
                                 .parse_error(Borrowed("Form element not in scope on </form>"));
                             return ProcessResult::Done;
@@ -649,7 +654,7 @@ where
                                 .parse_error(Borrowed("Bad open element on </form>"));
                         }
                     } else {
-                        if !self.in_scope_named(default_scope, local_name!("form")) {
+                        if !self.in_scope_named(DefaultScope, local_name!("form")) {
                             self.sink
                                 .parse_error(Borrowed("Form element not in scope on </form>"));
                             return ProcessResult::Done;
@@ -666,22 +671,20 @@ where
                 // FIXME: This branch does not exist like this in the specification, because it should run for
                 // implicitly closed option tags too. See https://github.com/servo/html5ever/issues/712.
                 Token::Tag(tag @ tag!(</option>)) => {
-                    let option_in_stack = self
-                        .open_elems
-                        .borrow()
-                        .iter()
-                        .find(|elem| self.html_elem_named(elem, local_name!("option")))
-                        .cloned();
+                    let option_in_stack = {
+                        let open_elems = self.open_elems.borrow();
+                        open_elems
+                            .positions_named(&local_name!("option"))
+                            .first()
+                            .map(|position| (position, open_elems[position].clone()))
+                    };
 
                     self.process_end_tag_in_body(tag);
 
-                    if let Some(option) = option_in_stack {
-                        if !self
-                            .open_elems
-                            .borrow()
-                            .iter()
-                            .any(|elem| self.sink.same_node(elem, &option))
-                        {
+                    // Processing the end tag only pops elements, so the option is still open if
+                    // the stack still reaches its position.
+                    if let Some((position, option)) = option_in_stack {
+                        if position >= self.open_elems.borrow().len() {
                             self.sink
                                 .maybe_clone_an_option_into_selectedcontent(&option);
                         }
@@ -691,7 +694,7 @@ where
                 },
 
                 Token::Tag(tag!(</p>)) => {
-                    if !self.in_scope_named(button_scope, local_name!("p")) {
+                    if !self.in_scope_named(ButtonScope, local_name!("p")) {
                         self.sink.parse_error(Borrowed("No <p> tag to close"));
                         self.insert_phantom(local_name!("p"));
                     }
@@ -701,9 +704,9 @@ where
 
                 Token::Tag(tag @ tag!(</li> | </dd> | </dt>)) => {
                     let in_scope = if tag.name == local_name!("li") {
-                        self.in_scope_named(list_item_scope, tag.name.clone())
+                        self.in_scope_named(ListItemScope, tag.name.clone())
                     } else {
-                        self.in_scope_named(default_scope, tag.name.clone())
+                        self.in_scope_named(DefaultScope, tag.name.clone())
                     };
                     if in_scope {
                         self.generate_implied_end_except(tag.name.clone());
@@ -715,7 +718,15 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</h1> | </h2> | </h3> | </h4> | </h5> | </h6>)) => {
-                    if self.in_scope(default_scope, |n| self.elem_in(&n, heading_tag)) {
+                    let headings = [
+                        local_name!("h1"),
+                        local_name!("h2"),
+                        local_name!("h3"),
+                        local_name!("h4"),
+                        local_name!("h5"),
+                        local_name!("h6"),
+                    ];
+                    if self.in_scope_any_named(DefaultScope, &headings) {
                         self.generate_implied_end_tags(cursory_implied_end);
                         if !self.current_node_named(tag.name) {
                             self.sink.parse_error(Borrowed("Closing wrong heading tag"));
@@ -745,7 +756,7 @@ where
 
                 Token::Tag(tag @ tag!(<nobr>)) => {
                     self.reconstruct_active_formatting_elements();
-                    if self.in_scope_named(default_scope, local_name!("nobr")) {
+                    if self.in_scope_named(DefaultScope, local_name!("nobr")) {
                         self.sink.parse_error(Borrowed("Nested <nobr>"));
                         self.adoption_agency(local_name!("nobr"));
                         self.reconstruct_active_formatting_elements();
@@ -773,7 +784,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</applet> | </marquee> | </object>)) => {
-                    if !self.in_scope_named(default_scope, tag.name.clone()) {
+                    if !self.in_scope_named(DefaultScope, tag.name.clone()) {
                         self.unexpected(&tag);
                     } else {
                         self.generate_implied_end_tags(cursory_implied_end);
@@ -822,7 +833,7 @@ where
                         self.unexpected(&tag);
                     }
 
-                    if self.in_scope_named(default_scope, local_name!("select")) {
+                    if self.in_scope_named(DefaultScope, local_name!("select")) {
                         self.unexpected(&tag);
                         self.pop_until_named(local_name!("select"));
                     }
@@ -846,10 +857,10 @@ where
 
                 Token::Tag(tag @ tag!(<hr>)) => {
                     self.close_p_element_in_button_scope();
-                    if self.in_scope_named(default_scope, local_name!("select")) {
+                    if self.in_scope_named(DefaultScope, local_name!("select")) {
                         self.generate_implied_end_tags(cursory_implied_end);
-                        if self.in_scope_named(default_scope, local_name!("option"))
-                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        if self.in_scope_named(DefaultScope, local_name!("option"))
+                            || self.in_scope_named(DefaultScope, local_name!("optgroup"))
                         {
                             self.sink.parse_error(Borrowed("hr in option"));
                         }
@@ -900,7 +911,7 @@ where
                         )
                     {
                         self.unexpected(&tag);
-                    } else if self.in_scope_named(default_scope, local_name!("select")) {
+                    } else if self.in_scope_named(DefaultScope, local_name!("select")) {
                         self.unexpected(&tag);
                         self.pop_until_named(local_name!("select"));
                     } else {
@@ -913,9 +924,9 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<option>)) => {
-                    if self.in_scope_named(default_scope, local_name!("select")) {
+                    if self.in_scope_named(DefaultScope, local_name!("select")) {
                         self.generate_implied_end_except(local_name!("optgroup"));
-                        if self.in_scope_named(default_scope, local_name!("option")) {
+                        if self.in_scope_named(DefaultScope, local_name!("option")) {
                             self.sink.parse_error(Borrowed("nested options"));
                         }
                     } else if self.current_node_named(local_name!("option")) {
@@ -928,10 +939,10 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<optgroup>)) => {
-                    if self.in_scope_named(default_scope, local_name!("select")) {
+                    if self.in_scope_named(DefaultScope, local_name!("select")) {
                         self.generate_implied_end_tags(cursory_implied_end);
-                        if self.in_scope_named(default_scope, local_name!("option"))
-                            || self.in_scope_named(default_scope, local_name!("optgroup"))
+                        if self.in_scope_named(DefaultScope, local_name!("option"))
+                            || self.in_scope_named(DefaultScope, local_name!("optgroup"))
                         {
                             self.sink.parse_error(Borrowed("nested options"));
                         }
@@ -945,7 +956,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<rb> | <rtc>)) => {
-                    if self.in_scope_named(default_scope, local_name!("ruby")) {
+                    if self.in_scope_named(DefaultScope, local_name!("ruby")) {
                         self.generate_implied_end_tags(cursory_implied_end);
                     }
                     if !self.current_node_named(local_name!("ruby")) {
@@ -956,7 +967,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(<rp> | <rt>)) => {
-                    if self.in_scope_named(default_scope, local_name!("ruby")) {
+                    if self.in_scope_named(DefaultScope, local_name!("ruby")) {
                         self.generate_implied_end_except(local_name!("rtc"));
                     }
                     if !self.current_node_named(local_name!("rtc"))
@@ -1077,7 +1088,7 @@ where
 
                 Token::Tag(tag!(<table>)) => {
                     self.unexpected(&token);
-                    if self.in_scope_named(table_scope, local_name!("table")) {
+                    if self.in_scope_named(TableScope, local_name!("table")) {
                         self.pop_until_named(local_name!("table"));
                         ProcessResult::Reprocess(self.reset_insertion_mode(), token)
                     } else {
@@ -1086,7 +1097,7 @@ where
                 },
 
                 Token::Tag(tag!(</table>)) => {
-                    if self.in_scope_named(table_scope, local_name!("table")) {
+                    if self.in_scope_named(TableScope, local_name!("table")) {
                         self.pop_until_named(local_name!("table"));
                         self.mode.set(self.reset_insertion_mode());
                     } else {
@@ -1175,7 +1186,7 @@ where
                     tag @ tag!(<caption> | <col> | <colgroup> | <tbody> | <td> | <tfoot> |
                                 <th> | <thead> | <tr> | </table> | </caption>),
                 ) => {
-                    if self.in_scope_named(table_scope, local_name!("caption")) {
+                    if self.in_scope_named(TableScope, local_name!("caption")) {
                         self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(local_name!("caption"));
                         self.clear_active_formatting_to_marker();
@@ -1266,7 +1277,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</tbody> | </tfoot> | </thead>)) => {
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                    if self.in_scope_named(TableScope, tag.name.clone()) {
                         self.pop_until_current(table_body_context);
                         self.pop();
                         self.mode.set(InsertionMode::InTable);
@@ -1279,8 +1290,12 @@ where
                 Token::Tag(
                     tag!(<caption> | <col> | <colgroup> | <tbody> | <tfoot> | <thead> | </table>),
                 ) => {
-                    declare_tag_set!(table_outer = "table" "tbody" "tfoot");
-                    if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
+                    let table_outer = [
+                        local_name!("table"),
+                        local_name!("tbody"),
+                        local_name!("tfoot"),
+                    ];
+                    if self.in_scope_any_named(TableScope, &table_outer) {
                         self.pop_until_current(table_body_context);
                         self.pop();
                         ProcessResult::Reprocess(InsertionMode::InTable, token)
@@ -1310,7 +1325,7 @@ where
                 },
 
                 Token::Tag(tag!(</tr>)) => {
-                    if self.in_scope_named(table_scope, local_name!("tr")) {
+                    if self.in_scope_named(TableScope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
                         self.assert_named(&node, local_name!("tr"));
@@ -1324,7 +1339,7 @@ where
                 Token::Tag(
                     tag!(<caption> | <col> | <colgroup> | <tbody> | <tfoot> | <thead> | <tr> | </table>),
                 ) => {
-                    if self.in_scope_named(table_scope, local_name!("tr")) {
+                    if self.in_scope_named(TableScope, local_name!("tr")) {
                         self.pop_until_current(table_row_context);
                         let node = self.pop();
                         self.assert_named(&node, local_name!("tr"));
@@ -1335,8 +1350,8 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</tbody> | </tfoot> | </thead>)) => {
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
-                        if self.in_scope_named(table_scope, local_name!("tr")) {
+                    if self.in_scope_named(TableScope, tag.name.clone()) {
+                        if self.in_scope_named(TableScope, local_name!("tr")) {
                             self.pop_until_current(table_row_context);
                             let node = self.pop();
                             self.assert_named(&node, local_name!("tr"));
@@ -1360,7 +1375,7 @@ where
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intd
             InsertionMode::InCell => match token {
                 Token::Tag(tag @ tag!(</td> | </th>)) => {
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                    if self.in_scope_named(TableScope, tag.name.clone()) {
                         self.generate_implied_end_tags(cursory_implied_end);
                         self.expect_to_close(tag.name);
                         self.clear_active_formatting_to_marker();
@@ -1374,7 +1389,8 @@ where
                 Token::Tag(
                     tag!(<caption> | <col> | <colgroup> | <tbody> | <td> | <tfoot> | <th> | <thead> | <tr>),
                 ) => {
-                    if self.in_scope(table_scope, |n| self.elem_in(&n, td_th)) {
+                    if self.in_scope_any_named(TableScope, &[local_name!("td"), local_name!("th")])
+                    {
                         self.close_the_cell();
                         ProcessResult::Reprocess(InsertionMode::InRow, token)
                     } else {
@@ -1387,7 +1403,7 @@ where
                 },
 
                 Token::Tag(tag @ tag!(</table> | </tbody> | </tfoot> | </thead> | </tr>)) => {
-                    if self.in_scope_named(table_scope, tag.name.clone()) {
+                    if self.in_scope_named(TableScope, tag.name.clone()) {
                         self.close_the_cell();
                         ProcessResult::Reprocess(InsertionMode::InRow, Token::Tag(tag))
                     } else {
@@ -1650,36 +1666,43 @@ where
 
             // FIXME(#118): </script> in SVG
             Token::Tag(tag @ tag!(</>)) => {
-                let mut first = true;
-                let mut stack_idx = self.open_elems.borrow().len() - 1;
-                loop {
-                    if stack_idx == 0 {
-                        return ProcessResult::Done;
-                    }
+                let current_idx = self.open_elems.borrow().len() - 1;
+                if current_idx == 0 {
+                    return ProcessResult::Done;
+                }
 
-                    let html;
-                    let eq;
-                    {
-                        let open_elems = self.open_elems.borrow();
-                        let node_name = self.sink.elem_name(&open_elems[stack_idx]);
-                        html = *node_name.ns() == ns!(html);
-                        eq = node_name.local_name().eq_ignore_ascii_case(&tag.name);
-                    }
-                    if !first && html {
+                let eq = self
+                    .sink
+                    .elem_name(&self.current_node())
+                    .local_name()
+                    .eq_ignore_ascii_case(&tag.name);
+                if eq {
+                    self.open_elems.borrow_mut().truncate(current_idx);
+                    return ProcessResult::Done;
+                }
+                self.unexpected(&tag);
+
+                // Below the current node, look for a foreign element with the tag's name, as far
+                // as the topmost HTML element, and never at the first element of the stack.
+                let (html_idx, eq_idx) = {
+                    let open_elems = self.open_elems.borrow();
+                    let below_current =
+                        |positions: Positions| positions.iter().rev().find(|&i| i < current_idx);
+                    (
+                        below_current(open_elems.positions_in(TrackedSet::Html)),
+                        below_current(open_elems.positions_foreign_named(&tag.name)),
+                    )
+                };
+                match eq_idx {
+                    Some(eq_idx) if eq_idx > 0 && html_idx.is_none_or(|i| eq_idx > i) => {
+                        self.open_elems.borrow_mut().truncate(eq_idx);
+                        ProcessResult::Done
+                    },
+                    _ if html_idx.is_some_and(|i| i > 0) => {
                         let mode = self.mode.get();
-                        return self.step(mode, Token::Tag(tag));
-                    }
-
-                    if eq {
-                        self.open_elems.borrow_mut().truncate(stack_idx);
-                        return ProcessResult::Done;
-                    }
-
-                    if first {
-                        self.unexpected(&tag);
-                        first = false;
-                    }
-                    stack_idx -= 1;
+                        self.step(mode, Token::Tag(tag))
+                    },
+                    _ => ProcessResult::Done,
                 }
             },
 
