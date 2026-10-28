@@ -1,0 +1,46 @@
+# web-platform-tests/wpt is too large to reasonably include as a
+# submodule, so we vendor just a small part of it and keep it updated
+# here.
+
+name: Update web-platform-tests
+
+on:
+  schedule:
+    - cron: 5 3 * * *
+  workflow_dispatch:
+
+jobs:
+  update-wpt:
+    runs-on: ubuntu-slim
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - id: update
+        run: |
+          sha="$(gh api 'repos/web-platform-tests/wpt/commits?path=html/syntax/parsing/resources&per_page=1' | jq -r .[0].sha)"
+          echo "sha=$sha" >>"$GITHUB_OUTPUT"
+          if ! grep -Fxq "$sha" rcdom/data/test/wpt-commit.txt; then
+            git fetch --depth=1 https://github.com/web-platform-tests/wpt.git "$sha"
+            rm -r rcdom/wpt-tree-construction-tests
+            mkdir rcdom/wpt-tree-construction-tests
+            git cat-file blob FETCH_HEAD:LICENSE.md >rcdom/wpt-tree-construction-tests/LICENSE.md
+            git archive FETCH_HEAD:html/syntax/parsing/resources | tar -C rcdom/wpt-tree-construction-tests -x
+            echo "$sha" >rcdom/data/test/wpt-commit.txt
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            Update tree construction tests from web-platform-tests/wpt
+
+            https://github.com/web-platform-tests/wpt/commits/${{ steps.update.outputs.sha }}/html/syntax/parsing/resources
+          branch: update-wpt
+          title: Update tree construction tests from web-platform-tests/wpt
+          body: |
+            https://github.com/web-platform-tests/wpt/commits/${{ steps.update.outputs.sha }}/html/syntax/parsing/resources

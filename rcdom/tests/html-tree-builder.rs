@@ -263,9 +263,17 @@ fn tests(src_dir: &Path, ignores: &HashSet<String>) -> Vec<Test> {
 
     foreach_html5lib_test(
         src_dir,
-        "html5lib-tests/tree-construction",
+        "wpt-tree-construction-tests",
         OsStr::new("dat"),
         |path, file| {
+            if path
+                .file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with("scripted_"))
+            {
+                // Skip tests that require running JavaScript.
+                return;
+            }
+
             let buf = io::BufReader::new(file);
             let lines = buf.lines().map(|res| res.expect("couldn't read"));
             let data = parse_tests(lines);
