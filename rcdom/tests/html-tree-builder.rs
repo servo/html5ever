@@ -144,7 +144,7 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
         } => {
             buf.push_str("<?");
             buf.push_str(target);
-            buf.push_str(" ");
+            buf.push(' ');
             buf.push_str(contents);
             buf.push_str("?>\n");
         },
