@@ -1,0 +1,16 @@
+#data
+<template><thead><tbody><tr><td>x
+#errors
+(1,10): expected-doctype-but-got-start-tag
+(1,34): eof-in-template
+#document
+| <html>
+|   <head>
+|     <template>
+|       content
+|         <thead>
+|         <tbody>
+|           <tr>
+|             <td>
+|               "x"
+|   <body>
