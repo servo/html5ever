@@ -1276,16 +1276,27 @@ where
                     ProcessResult::Done
                 },
 
+                // > ↪ A start tag whose tag name is one of: "caption", "col",
+                //     "colgroup", "tbody", "tfoot", "thead"
+                // > ↪ An end tag whose tag name is "table"
                 Token::Tag(
                     tag!(<caption> | <col> | <colgroup> | <tbody> | <tfoot> | <thead> | </table>),
                 ) => {
-                    declare_tag_set!(table_outer = "table" "tbody" "tfoot");
-                    if self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
-                        self.pop_until_current(table_body_context);
-                        self.pop();
-                        ProcessResult::Reprocess(InsertionMode::InTable, token)
-                    } else {
+                    // > If the stack of open elements does not have a tbody,
+                    // > thead, or tfoot element in table scope, this is a parse
+                    // > error; ignore the token.
+                    declare_tag_set!(table_outer = "tbody" "thead" "tfoot");
+                    if !self.in_scope(table_scope, |e| self.elem_in(&e, table_outer)) {
                         self.unexpected(&token)
+                    } else {
+                        // > Otherwise:
+                        // > Clear the stack back to a table body context. (See below.)
+                        self.pop_until_current(table_body_context);
+                        // > Pop the current node from the stack of open
+                        // > elements. Switch the insertion mode to "in table".
+                        self.pop();
+                        // > Reprocess the token.
+                        ProcessResult::Reprocess(InsertionMode::InTable, token)
                     }
                 },
 
