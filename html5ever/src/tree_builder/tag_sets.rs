@@ -86,6 +86,16 @@ declare_tag_set!(pub special_tag =
     "ul" "wbr" "xmp");
 //§ END
 
+declare_tag_set!(pub special_except_address_div_p = [special_tag] - "address" "div" "p");
+
+declare_tag_set!(pub reset_insertion_mode_stop =
+    "td" "th" "tr" "tbody" "thead" "tfoot" "caption" "colgroup" "table" "template" "head" "body"
+    "frameset" "html");
+
+declare_tag_set!(pub body_end_ok =
+    "dd" "dt" "li" "optgroup" "option" "p" "rp" "rt" "tbody" "td" "tfoot" "th"
+    "thead" "tr" "body" "html");
+
 pub(crate) fn mathml_text_integration_point(p: ExpandedName) -> bool {
     matches!(
         p,

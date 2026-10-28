@@ -14,6 +14,7 @@ pub use crate::interface::{AppendNode, AppendText, Attribute, NodeOrText};
 pub use crate::interface::{LimitedQuirks, NoQuirks, Quirks, QuirksMode};
 pub use markup5ever::interface::tree_builder::create_element_with_flags;
 
+use self::open_elems::{OpenElems, TrackedSet};
 use self::types::*;
 
 use crate::tendril::StrTendril;
@@ -39,6 +40,7 @@ use markup5ever::{expanded_name, local_name, namespace_prefix, ns};
 mod tag_sets;
 
 mod data;
+mod open_elems;
 mod rules;
 mod types;
 
@@ -108,7 +110,7 @@ pub struct TreeBuilder<Handle, Sink> {
     doc_handle: Handle,
 
     /// Stack of open elements, most recently added at end.
-    open_elems: RefCell<Vec<Handle>>,
+    open_elems: RefCell<OpenElems<Handle>>,
 
     /// List of active formatting elements.
     active_formatting: RefCell<Vec<FormatEntry<Handle>>>,
@@ -268,7 +270,7 @@ where
     /// internal state. This is intended to support garbage-collected DOMs.
     pub fn trace_handles(&self, tracer: &dyn Tracer<Handle = Handle>) {
         tracer.trace_handle(&self.doc_handle);
-        for e in &*self.open_elems.borrow() {
+        for e in self.open_elems.borrow().iter() {
             tracer.trace_handle(e);
         }
 
@@ -544,7 +546,8 @@ where
     }
 
     fn end(&self) {
-        for elem in self.open_elems.borrow_mut().drain(..).rev() {
+        let mut open_elems = self.open_elems.borrow_mut();
+        while let Some(elem) = open_elems.pop() {
             self.sink.pop(&elem);
         }
     }
@@ -741,12 +744,7 @@ where
                 });
             };
 
-            let Some(fmt_elem_stack_index) = self
-                .open_elems
-                .borrow()
-                .iter()
-                .rposition(|n| self.sink.same_node(n, &fmt_elem))
-            else {
+            let Some(fmt_elem_stack_index) = self.position_in_open_elems(&fmt_elem) else {
                 self.sink
                     .parse_error(Borrowed("Formatting element not open"));
                 self.active_formatting.borrow_mut().remove(fmt_elem_index);
@@ -754,7 +752,11 @@ where
             };
 
             // 7.
-            if !self.in_scope(default_scope, |n| self.sink.same_node(&n, &fmt_elem)) {
+            if !self
+                .open_elems
+                .borrow()
+                .in_scope(TrackedSet::DefaultScope, fmt_elem_stack_index)
+            {
                 self.sink
                     .parse_error(Borrowed("Formatting element not in scope"));
                 return;
@@ -776,7 +778,7 @@ where
                 .find(|&(_, open_element)| self.elem_in(open_element, special_tag))
                 .map(|(i, h)| (i, h.clone()));
 
-            let Some((furthest_block_index, furthest_block)) = maybe_furthest_block else {
+            let Some((mut furthest_block_index, furthest_block)) = maybe_furthest_block else {
                 // 10.
                 self.open_elems.borrow_mut().truncate(fmt_elem_stack_index);
                 self.active_formatting.borrow_mut().remove(fmt_elem_index);
@@ -814,12 +816,14 @@ where
                     self.position_in_active_formatting(&node)
                         .map(|position| self.active_formatting.borrow_mut().remove(position));
                     self.open_elems.borrow_mut().remove(node_index);
+                    furthest_block_index -= 1;
                     continue;
                 }
 
                 let Some(node_formatting_index) = self.position_in_active_formatting(&node) else {
                     // 13.6.
                     self.open_elems.borrow_mut().remove(node_index);
+                    furthest_block_index -= 1;
                     continue;
                 };
 
@@ -839,7 +843,11 @@ where
                     tag.attrs.clone(),
                     tag.had_duplicate_attributes,
                 );
-                self.open_elems.borrow_mut()[node_index] = new_element.clone();
+                self.open_elems.borrow_mut().replace(
+                    node_index,
+                    new_element.clone(),
+                    self.sink.elem_name(&new_element).expanded(),
+                );
                 self.active_formatting.borrow_mut()[node_formatting_index] =
                     FormatEntry::Element(new_element.clone(), tag);
                 node = new_element;
@@ -905,23 +913,28 @@ where
             }
 
             // 19.
-            self.remove_from_stack(&fmt_elem);
-            let new_furthest_block_index = self
-                .open_elems
-                .borrow()
-                .iter()
-                .position(|n| self.sink.same_node(n, &furthest_block))
-                .expect("furthest block missing from open element stack");
-            self.open_elems
-                .borrow_mut()
-                .insert(new_furthest_block_index + 1, new_element);
+            // Move the formatting element up to just above the furthest block, which moves the
+            // elements in between down by one, and put the new element in its place.
+            {
+                let mut open_elems = self.open_elems.borrow_mut();
+                open_elems.move_up(fmt_elem_stack_index, furthest_block_index);
+                open_elems.replace(
+                    furthest_block_index,
+                    new_element.clone(),
+                    self.sink.elem_name(&new_element).expanded(),
+                );
+            }
+            self.sink.pop(&fmt_elem);
 
             // 20.
         }
     }
 
     fn push(&self, elem: &Handle) {
-        self.open_elems.borrow_mut().push(elem.clone());
+        let name = self.sink.elem_name(elem);
+        self.open_elems
+            .borrow_mut()
+            .push(elem.clone(), name.expanded());
     }
 
     fn pop(&self) -> Handle {
@@ -935,12 +948,24 @@ where
         elem
     }
 
-    fn remove_from_stack(&self, elem: &Handle) {
-        let position = self
-            .open_elems
-            .borrow()
+    /// The position of `elem` in the stack of open elements, if it is open.
+    fn position_in_open_elems(&self, elem: &Handle) -> Option<usize> {
+        let name = self.sink.elem_name(elem);
+        let open_elems = self.open_elems.borrow();
+        let positions = if *name.ns() == ns!(html) {
+            open_elems.positions_named(name.local_name())
+        } else {
+            open_elems.positions_foreign_named(name.local_name())
+        };
+        let position = positions
             .iter()
-            .rposition(|x| self.sink.same_node(elem, x));
+            .rev()
+            .find(|&position| self.sink.same_node(&open_elems[position], elem));
+        position
+    }
+
+    fn remove_from_stack(&self, elem: &Handle) {
+        let position = self.position_in_open_elems(elem);
         if let Some(position) = position {
             self.open_elems.borrow_mut().remove(position);
             self.sink.pop(elem);
@@ -950,12 +975,7 @@ where
     fn is_marker_or_open(&self, entry: &FormatEntry<Handle>) -> bool {
         match *entry {
             FormatEntry::Marker => true,
-            FormatEntry::Element(ref node, _) => self
-                .open_elems
-                .borrow()
-                .iter()
-                .rev()
-                .any(|n| self.sink.same_node(n, node)),
+            FormatEntry::Element(ref node, _) => self.position_in_open_elems(node).is_some(),
         }
     }
 
@@ -1056,48 +1076,22 @@ where
     /// Signal an error depending on the state of the stack of open elements at
     /// the end of the body.
     fn check_body_end(&self) {
-        declare_tag_set!(body_end_ok =
-            "dd" "dt" "li" "optgroup" "option" "p" "rp" "rt" "tbody" "td" "tfoot" "th"
-            "thead" "tr" "body" "html");
-
-        for elem in self.open_elems.borrow().iter() {
-            let error = {
-                let elem_name = self.sink.elem_name(elem);
-                let name = elem_name.expanded();
-                if body_end_ok(name) {
-                    continue;
-                }
-
-                if self.opts.exact_errors {
-                    Cow::from(format!("Unexpected open tag {name:?} at end of body"))
-                } else {
-                    Cow::from("Unexpected open tag at end of body")
-                }
-            };
-            self.sink.parse_error(error);
-            // FIXME: Do we keep checking after finding one bad tag?
-            // The spec suggests not.
+        let open_elems = self.open_elems.borrow();
+        // FIXME: Do we keep checking after finding one bad tag?
+        // The spec suggests not.
+        let Some(position) = open_elems.positions_in(TrackedSet::NotBodyEndOk).first() else {
             return;
-        }
-    }
-
-    fn in_scope<TagSet, Pred>(&self, scope: TagSet, pred: Pred) -> bool
-    where
-        TagSet: Fn(ExpandedName) -> bool,
-        Pred: Fn(Handle) -> bool,
-    {
-        for node in self.open_elems.borrow().iter().rev() {
-            if pred(node.clone()) {
-                return true;
+        };
+        let error = {
+            let elem_name = self.sink.elem_name(&open_elems[position]);
+            let name = elem_name.expanded();
+            if self.opts.exact_errors {
+                Cow::from(format!("Unexpected open tag {name:?} at end of body"))
+            } else {
+                Cow::from("Unexpected open tag at end of body")
             }
-            if scope(self.sink.elem_name(node).expanded()) {
-                return false;
-            }
-        }
-
-        // supposed to be impossible, because <html> is always in scope
-
-        false
+        };
+        self.sink.parse_error(error);
     }
 
     fn elem_in<TagSet>(&self, elem: &Handle, set: TagSet) -> bool
@@ -1113,21 +1107,22 @@ where
     }
 
     fn in_html_elem_named(&self, name: LocalName) -> bool {
-        self.open_elems
-            .borrow()
-            .iter()
-            .any(|elem| self.html_elem_named(elem, name.clone()))
+        !self.open_elems.borrow().positions_named(&name).is_empty()
     }
 
     fn current_node_named(&self, name: LocalName) -> bool {
         self.html_elem_named(&self.current_node(), name)
     }
 
-    fn in_scope_named<TagSet>(&self, scope: TagSet, name: LocalName) -> bool
-    where
-        TagSet: Fn(ExpandedName) -> bool,
-    {
-        self.in_scope(scope, |elem| self.html_elem_named(&elem, name.clone()))
+    fn in_scope_named(&self, scope: TrackedSet, name: LocalName) -> bool {
+        self.open_elems.borrow().named_in_scope(scope, &name)
+    }
+
+    fn in_scope_any_named(&self, scope: TrackedSet, names: &[LocalName]) -> bool {
+        let open_elems = self.open_elems.borrow();
+        names
+            .iter()
+            .any(|name| open_elems.named_in_scope(scope, name))
     }
 
     /// <https://html.spec.whatwg.org/#generate-implied-end-tags>
@@ -1216,7 +1211,7 @@ where
     }
 
     fn close_p_element_in_button_scope(&self) {
-        if self.in_scope_named(button_scope, local_name!("p")) {
+        if self.in_scope_named(TrackedSet::ButtonScope, local_name!("p")) {
             self.close_p_element();
         }
     }
@@ -1264,7 +1259,15 @@ where
     // https://html.spec.whatwg.org/multipage/#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&self) -> InsertionMode {
         let open_elems = self.open_elems.borrow();
-        for (i, mut node) in open_elems.iter().enumerate().rev() {
+        // The steps below stop at the topmost element in this set, unless it is the first one,
+        // which they look at with the context element in its place.
+        let topmost = open_elems
+            .positions_in(TrackedSet::ResetInsertionMode)
+            .last()
+            .filter(|&i| i > 0);
+        let first = (!open_elems.is_empty()).then_some(0);
+        for i in topmost.into_iter().chain(first) {
+            let mut node = &open_elems[i];
             let last = i == 0usize;
             let context_elem = self.context_elem.borrow();
             if let (true, Some(ctx)) = (last, context_elem.as_ref()) {
@@ -1553,20 +1556,20 @@ where
     }
 
     fn process_end_tag_in_body(&self, tag: Tag) {
-        // Look back for a matching open element.
-        let mut match_idx = None;
-        for (i, elem) in self.open_elems.borrow().iter().enumerate().rev() {
-            if self.html_elem_named(elem, tag.name.clone()) {
-                match_idx = Some(i);
-                break;
-            }
-
-            if self.elem_in(elem, special_tag) {
+        // Look back for a matching open element, as far as the topmost special element.
+        let match_idx = {
+            let open_elems = self.open_elems.borrow();
+            let topmost_match = open_elems.positions_named(&tag.name).last();
+            if topmost_match.is_some_and(|i| open_elems.in_scope(TrackedSet::Special, i)) {
+                topmost_match
+            } else if !open_elems.positions_in(TrackedSet::Special).is_empty() {
                 self.sink
                     .parse_error(Borrowed("Found special tag while closing generic tag"));
                 return;
+            } else {
+                None
             }
-        }
+        };
 
         let Some(match_idx) = match_idx else {
             // I believe this is impossible, because the root
