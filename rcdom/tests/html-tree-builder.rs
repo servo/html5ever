@@ -215,12 +215,11 @@ fn make_test_desc_with_scripting_flag(
     let skip = ignores.contains(name);
     let mut name = name.to_owned();
 
-    let description = fields
-        .get("description");
+    let description = fields.get("description");
 
     if let Some(description) = description {
         name.push_str(": ");
-        name.push_str(&description.trim_end_matches('\n'));
+        name.push_str(description.trim_end_matches('\n'));
     }
 
     let mut data = expect_field("data");
