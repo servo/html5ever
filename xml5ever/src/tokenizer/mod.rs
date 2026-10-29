@@ -514,8 +514,16 @@ impl<Sink: TokenSink> XmlTokenizer<Sink> {
     }
 
     fn discard_char(&self, input: &BufferQueue) {
-        let c = self.get_char(input);
-        assert!(c.is_some());
+        // peek() deals in un-processed characters (no newline normalization), while get_char()
+        // does.
+        //
+        // since discard_char is supposed to be used in combination with peek(), discard_char must
+        // discard a single raw input character, not a normalized newline.
+        if self.reconsume.get() {
+            self.reconsume.set(false);
+        } else {
+            input.next();
+        }
     }
 
     fn unconsume(&self, input: &BufferQueue, buf: StrTendril) {
@@ -1361,6 +1369,21 @@ mod test {
         }
     }
 
+    struct TextCollector {
+        text: RefCell<String>,
+    }
+
+    impl TokenSink for TextCollector {
+        type Handle = ();
+
+        fn process_token(&self, token: Token) -> ProcessResult<()> {
+            if let Token::Characters(chars) = token {
+                self.text.borrow_mut().push_str(&chars);
+            }
+            ProcessResult::Continue
+        }
+    }
+
     fn tokenize_pis(input: &str) -> Vec<(String, String)> {
         let sink = PiCollector {
             pis: RefCell::new(Vec::new()),
@@ -1383,6 +1406,29 @@ mod test {
         let _ = tokenizer.feed(&queue);
         tokenizer.end();
         tokenizer.sink.errors.into_inner()
+    }
+
+    fn tokenize_text(input: &str) -> String {
+        let sink = TextCollector {
+            text: RefCell::new(String::new()),
+        };
+        let queue = BufferQueue::default();
+        queue.push_back(StrTendril::from(input));
+        let tokenizer = XmlTokenizer::new(sink, Default::default());
+        let _ = tokenizer.feed(&queue);
+        tokenizer.end();
+        tokenizer.sink.text.into_inner()
+    }
+
+    #[test]
+    fn carriage_return_after_char_ref() {
+        // A CR right after a character reference must still be normalized
+        // to a newline, not dropped.
+        assert_eq!(tokenize_text("<a>&lt;\ry</a>"), "<\ny");
+        assert_eq!(tokenize_text("<a>&amp;\ry</a>"), "&\ny");
+        assert_eq!(tokenize_text("<a>&lt;\r\ny</a>"), "<\ny");
+        assert_eq!(tokenize_text("<a>&lt;\r\ry</a>"), "<\n\ny");
+        assert_eq!(tokenize_text("<a>&#60;\ry</a>"), "<\ny");
     }
 
     #[test]

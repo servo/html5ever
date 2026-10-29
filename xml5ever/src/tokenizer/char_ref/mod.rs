@@ -277,9 +277,12 @@ impl CharRefTokenizer {
         tokenizer: &XmlTokenizer<Sink>,
         input: &BufferQueue,
     ) -> Status {
-        let Some(c) = tokenizer.get_char(input) else {
+        // peek + discard skips over newline normalization, therefore making it easier to
+        // un-consume
+        let Some(c) = tokenizer.peek(input) else {
             return Stuck;
         };
+        tokenizer.discard_char(input);
         self.name_buf_mut().push_char(c);
         match data::NAMED_ENTITIES.get(&self.name_buf()[..]) {
             // We have either a full match or a prefix of one.
