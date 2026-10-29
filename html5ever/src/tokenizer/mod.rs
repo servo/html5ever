@@ -268,6 +268,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             if c == '\n' {
                 c = input.next()?;
             }
+            self.discard_bom.set(false);
         }
 
         if c == '\r' {
