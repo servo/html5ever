@@ -230,6 +230,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 if c == '\u{feff}' {
                     input.next();
                 }
+                self.discard_bom.set(false);
             } else {
                 return TokenizerResult::Done;
             }
@@ -2377,5 +2378,37 @@ mod test {
         ];
         let results = tokenize(vector, opts);
         assert_eq!(results, expected);
+    }
+
+    #[test]
+    fn discard_bom_only_once_across_feeds() {
+        let run = |chunks: Vec<&str>| -> Vec<Token> {
+            let opts = TokenizerOpts {
+                exact_errors: false,
+                discard_bom: true,
+                profile: false,
+                initial_state: None,
+                last_start_tag_name: None,
+            };
+            let sink = LinesMatch::new();
+            let tok = Tokenizer::new(sink, opts);
+            let buffer = BufferQueue::default();
+            for chunk in chunks {
+                buffer.push_back(StrTendril::from(chunk));
+                let _ = tok.feed(&buffer);
+            }
+            tok.end();
+            tok.sink.finish_str();
+            tok.sink.tokens.take()
+        };
+
+        assert_eq!(
+            run(vec!["\u{feff}\u{feff}a"]),
+            vec![CharacterTokens(StrTendril::from("\u{feff}a"))]
+        );
+        assert_eq!(
+            run(vec!["", "\u{feff}a", "\u{feff}b"]),
+            vec![CharacterTokens(StrTendril::from("a\u{feff}b"))]
+        );
     }
 }
