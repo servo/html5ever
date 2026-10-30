@@ -455,6 +455,7 @@ ins
 int
 integers
 integrity
+intent
 intercept
 intersect
 interval
@@ -1071,6 +1072,7 @@ viewTarget
 visibility
 vkern
 vlink
+voffset
 vspace
 wbr
 when
