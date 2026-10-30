@@ -35,6 +35,7 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
     let mut test = HashMap::new();
     let mut key: Option<String> = None;
     let mut val = String::new();
+    let mut started_with_description = false;
 
     macro_rules! finish_val ( () => (
         match key.take() {
@@ -58,7 +59,13 @@ fn parse_tests<It: Iterator<Item = String>>(mut lines: It) -> Vec<HashMap<String
                 if let Some(rest) = line.strip_prefix('#') {
                     finish_val!();
                     if line == "#data" {
+                        if !started_with_description {
+                            finish_test!();
+                        }
+                        started_with_description = false;
+                    } else if line == "#description" {
                         finish_test!();
+                        started_with_description = true;
                     }
                     key = Some(rest.to_owned());
                 } else {
@@ -138,7 +145,16 @@ fn serialize(buf: &mut String, indent: usize, handle: Handle) {
             }
         },
 
-        NodeData::ProcessingInstruction { .. } => unreachable!(),
+        NodeData::ProcessingInstruction {
+            ref target,
+            ref contents,
+        } => {
+            buf.push_str("<?");
+            buf.push_str(target);
+            buf.push(' ');
+            buf.push_str(contents);
+            buf.push_str("?>\n");
+        },
     }
 
     for child in node.children.borrow().iter() {
@@ -196,14 +212,22 @@ fn make_test_desc_with_scripting_flag(
             .to_string()
     };
 
+    let skip = ignores.contains(name);
+    let mut name = name.to_owned();
+
+    let description = fields.get("description");
+
+    if let Some(description) = description {
+        name.push_str(": ");
+        name.push_str(description.trim_end_matches('\n'));
+    }
+
     let mut data = expect_field("data");
     data.pop();
     let expected = expect_field("document").trim_end_matches('\n').to_string();
     let context = fields
         .get("document-fragment")
         .map(|field| context_name(field.trim_end_matches('\n')));
-    let skip = ignores.contains(name);
-    let mut name = name.to_owned();
     if scripting_enabled {
         name.push_str(" (scripting enabled)");
     } else {

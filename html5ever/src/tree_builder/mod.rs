@@ -526,6 +526,9 @@ where
 
             tokenizer::TagToken(x) => Token::Tag(x),
             tokenizer::CommentToken(x) => Token::Comment(x),
+            tokenizer::ProcessingInstructionToken(x) => {
+                Token::ProcessingInstruction(x.target, x.data)
+            },
             tokenizer::NullCharacterToken => Token::NullCharacter,
             tokenizer::EOFToken => Token::Eof,
 
@@ -1339,6 +1342,40 @@ where
         let target = html_elem(&open_elems);
         let comment = self.sink.create_comment(text);
         self.sink.append(target, AppendNode(comment));
+        ProcessResult::Done
+    }
+
+    fn append_processing_instruction(
+        &self,
+        target: StrTendril,
+        data: StrTendril,
+    ) -> ProcessResult<Handle> {
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.insert_appropriately(AppendNode(processing_instruction), None);
+        ProcessResult::Done
+    }
+
+    fn append_processing_instruction_to_doc(
+        &self,
+        target: StrTendril,
+        data: StrTendril,
+    ) -> ProcessResult<Handle> {
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.sink
+            .append(&self.doc_handle, AppendNode(processing_instruction));
+        ProcessResult::Done
+    }
+
+    fn append_processing_instruction_to_html(
+        &self,
+        target: StrTendril,
+        data: StrTendril,
+    ) -> ProcessResult<Handle> {
+        let open_elements = self.open_elems.borrow();
+        let element_target = html_elem(&open_elements);
+        let processing_instruction = self.sink.create_pi(target, data);
+        self.sink
+            .append(element_target, AppendNode(processing_instruction));
         ProcessResult::Done
     }
 

@@ -10,8 +10,10 @@
 //! The HTML5 tokenizer.
 
 pub use self::interface::{CharacterTokens, EOFToken, NullCharacterToken, ParseError};
-pub use self::interface::{CommentToken, DoctypeToken, TagToken, Token};
-pub use self::interface::{Doctype, EndTag, StartTag, Tag, TagKind};
+pub use self::interface::{
+    CommentToken, DoctypeToken, ProcessingInstructionToken, TagToken, Token,
+};
+pub use self::interface::{Doctype, EndTag, ProcessingInstruction, StartTag, Tag, TagKind};
 pub use self::interface::{TokenSink, TokenSinkResult};
 
 use self::states::AttrValueKind::*;
@@ -167,6 +169,9 @@ pub struct Tokenizer<Sink> {
     /// Current doctype token.
     current_doctype: RefCell<Doctype>,
 
+    /// Current processing instruction token
+    current_processing_instruction: RefCell<ProcessingInstruction>,
+
     /// Last start tag name, for use in checking "appropriate end tag".
     last_start_tag_name: RefCell<Option<LocalName>>,
 
@@ -211,6 +216,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_attr_value: RefCell::new(StrTendril::new()),
             current_comment: RefCell::new(StrTendril::new()),
             current_doctype: RefCell::new(Doctype::default()),
+            current_processing_instruction: RefCell::new(ProcessingInstruction::default()),
             last_start_tag_name: RefCell::new(start_tag_name),
             temp_buf: RefCell::new(StrTendril::new()),
             state_profile: RefCell::new(BTreeMap::new()),
@@ -625,6 +631,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
     fn emit_error(&self, error: Cow<'static, str>) {
         self.process_token_and_continue(ParseError(error));
     }
+
+    fn convert_to_comment(&self) {
+        let mut comment = self.current_comment.borrow_mut();
+        comment.clear();
+        comment.push_char('?');
+        // The spec doesn't specify what should happen to the temporary buffer after conversion, but
+        // nothing uses it afterwards so it should be fine to clear it
+        comment.push_tendril(&mem::take(&mut *self.temp_buf.borrow_mut()));
+    }
+
+    fn emit_current_processing_instruction(&self) {
+        self.process_token_and_continue(ProcessingInstructionToken(
+            self.current_processing_instruction.take(),
+        ));
+    }
 }
 //§ END
 
@@ -940,8 +961,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     '?' => {
                         // Set the temporary buffer to the empty string.
                         // Switch to the processing instruction open state.
-                        self.bad_char_error();
-                        go!(self: clear_comment; reconsume BogusComment)
+                        go!(self: clear_temp; to State::ProcessingInstructionOpen);
                     },
                     // ↪ Anything else
                     _ => {
@@ -2654,7 +2674,148 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                     },
                 }
             },
-            // TODO: What about the processing-instruction related states?
+
+            // https://html.spec.whatwg.org/#processing-instruction-open-state
+            states::ProcessingInstructionOpen => loop {
+                match get_char!(self, input) {
+                    // ↪ ASCII alpha
+                    // ↪ U+005F LOW LINE (_)
+                    character if character.is_ascii_alphabetic() || character == '_' => {
+                        // Reconsume in the processing instruction target state.
+                        go!(self: reconsume State::ProcessingInstructionTarget);
+                    },
+                    // ↪ Anything else
+                    _ => {
+                        // This is an invalid-first-character-of-processing-instruction-target parse error.
+                        // Convert the temporary buffer to a comment. Reconsume in the bogus comment state.
+                        self.bad_char_error();
+                        self.convert_to_comment();
+                        go!(self: reconsume BogusComment);
+                    },
+                }
+            },
+
+            // https://html.spec.whatwg.org/#processing-instruction-target-state
+            states::ProcessingInstructionTarget => loop {
+                match get_char!(self, input) {
+                    // ↪ U+0009 CHARACTER TABULATION (tab)
+                    // ↪ U+000A LINE FEED (LF)
+                    // ↪ U+000C FORM FEED (FF)
+                    // ↪ U+0020 SPACE
+                    // ↪ U+003F QUESTION MARK (?)
+                    // ↪ U+003E GREATER-THAN SIGN (>)
+                    '\t' | '\n' | '\x0C' | ' ' | '?' | '>' => {
+                        // Let target be the concatenation of the code points in the temporary buffer, in the order they were added to the buffer.
+                        let is_xml_or_xml_stylesheet = {
+                            let target = self.temp_buf.borrow();
+                            target.eq_ignore_ascii_case("xml")
+                                || target.eq_ignore_ascii_case("xml-stylesheet")
+                        };
+                        // If target is an ASCII case-insensitive match for "xml" or "xml-stylesheet":
+                        if is_xml_or_xml_stylesheet {
+                            // This is a disallowed-processing-instruction-target parse error.
+                            // Convert the temporary buffer to a comment.
+                            // Reconsume in the bogus comment state.
+                            self.emit_error(Borrowed("Disallowed processing instruction target"));
+                            self.convert_to_comment();
+                            go!(self: reconsume BogusComment);
+                        } else {
+                            let target = self.temp_buf.take();
+                            // Create a processing instruction token whose target is target and data is the empty string.
+                            // Reconsume in the after processing instruction target state.
+                            *self.current_processing_instruction.borrow_mut() =
+                                ProcessingInstruction {
+                                    target,
+                                    data: Default::default(),
+                                };
+                            go!(self: reconsume AfterProcessingInstructionTarget);
+                        }
+                    },
+                    // ↪ ASCII alphanumeric
+                    // ↪ U+002D HYPHEN-MINUS (-)
+                    // ↪ U+005F LOW LINE (_)
+                    character
+                        if character.is_ascii_alphanumeric()
+                            || character == '-'
+                            || character == '_' =>
+                    {
+                        // Append the current input character to the temporary buffer.
+                        go!(self: push_temp character);
+                    },
+                    // ↪ Anything else
+                    _ => {
+                        // This is an invalid-processing-instruction-target parse error.
+                        // Convert the temporary buffer to a comment. Reconsume in the bogus comment state.
+                        self.bad_char_error();
+                        self.convert_to_comment();
+                        go!(self: reconsume BogusComment);
+                    },
+                }
+            },
+
+            // https://html.spec.whatwg.org/#after-processing-instruction-target-state
+            states::AfterProcessingInstructionTarget => loop {
+                match get_char!(self, input) {
+                    // ↪ U+0009 CHARACTER TABULATION (tab)
+                    // ↪ U+000A LINE FEED (LF)
+                    // ↪ U+000C FORM FEED (FF)
+                    // ↪ U+0020 SPACE
+                    '\t' | '\n' | '\x0C' | ' ' => {
+                        // Ignore the character.
+                    },
+                    // ↪ Anything else
+                    _ => {
+                        // Reconsume in the processing instruction data state.
+                        go!(self: reconsume ProcessingInstructionData);
+                    },
+                }
+            },
+
+            // https://html.spec.whatwg.org/#processing-instruction-data-state
+            states::ProcessingInstructionData => loop {
+                match get_char!(self, input) {
+                    // ↪ U+003F QUESTION MARK (?)
+                    '?' => {
+                        // Switch to the processing instruction questionable state.
+                        go!(self: to State::ProcessingInstructionQuestionable)
+                    },
+                    // ↪ U+003E GREATER-THAN SIGN (>)
+                    '>' => {
+                        // Switch to the data state. Emit the current processing instruction token.
+                        self.emit_current_processing_instruction();
+                        go!(self: to State::Data)
+                    },
+                    // ↪ Anything else
+                    character => {
+                        // Append the current input character to the current processing instruction token's data.
+                        self.current_processing_instruction
+                            .borrow_mut()
+                            .data
+                            .push_char(character);
+                    },
+                }
+            },
+
+            // https://html.spec.whatwg.org/#processing-instruction-questionable-state
+            states::ProcessingInstructionQuestionable => loop {
+                match get_char!(self, input) {
+                    // ↪ U+003E GREATER-THAN SIGN (>)
+                    '>' => {
+                        // Switch to the data state. Emit the current processing instruction token.
+                        self.emit_current_processing_instruction();
+                        go!(self: to State::Data)
+                    },
+                    // ↪ Anything else
+                    _ => {
+                        // Append U+003F (?) to the current processing instruction token's data. Reconsume in the processing instruction data state.
+                        self.current_processing_instruction
+                            .borrow_mut()
+                            .data
+                            .push_char('?');
+                        go!(self: reconsume ProcessingInstructionData);
+                    },
+                }
+            },
             //§ END
         }
     }
@@ -2775,7 +2936,12 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             | states::AfterAttributeValueQuoted
             | states::SelfClosingStartTag
             | states::ScriptDataEscapedDash(_)
-            | states::ScriptDataEscapedDashDash(_) => {
+            | states::ScriptDataEscapedDashDash(_)
+            | states::ProcessingInstructionOpen
+            | states::ProcessingInstructionTarget
+            | states::AfterProcessingInstructionTarget
+            | states::ProcessingInstructionData
+            | states::ProcessingInstructionQuestionable => {
                 self.bad_eof_error();
                 go!(self: to State::Data)
             },
