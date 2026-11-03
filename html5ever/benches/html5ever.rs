@@ -80,6 +80,8 @@ fn html5ever_benchmark(c: &mut Criterion) {
     run_bench(c, "small-fragment.html");
     run_bench(c, "tiny-fragment.html");
     run_bench(c, "strong.html");
+    run_bench(c, "servo.org.html");
+    run_bench(c, "servo.org-custom.html");
 }
 
 criterion_group!(benches, html5ever_benchmark);

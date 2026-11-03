@@ -1,0 +1,676 @@
+<!-- https://servo.org/ modified to exercise string-cache dynamic atoms -->
+<!DOCTYPE html>
+<custom-html data-lang="en">
+  <custom-head>
+  <custom-meta data-charset="utf-8">
+  <custom-meta data-name="viewport" data-content="width=device-width, data-initial-scale=1.0">
+
+  <custom-title>Servo aims to empower developers with a lightweight, high-performance alternative for embedding web technologies in applications.</custom-title>
+  <custom-meta data-property="og:title" data-content="Servo aims to empower developers with a lightweight, high-performance alternative for embedding web technologies in applications.">
+
+
+
+  <custom-meta data-name="description" data-content="Servo is a web rendering engine written in Rust, with WebGL and WebGPU support, and adaptable to desktop, mobile, and embedded applications.">
+  <custom-meta data-property="og:description" data-content="Servo is a web rendering engine written in Rust, with WebGL and WebGPU support, and adaptable to desktop, mobile, and embedded applications.">
+
+  <custom-meta data-name="keywords" data-content="servo, servo engine, servo rendering engine, web engine, web rendering engine, web browser, web browser engine, rust">
+  <custom-meta data-name="author" data-content="The Servo Project Developers">
+
+  <custom-meta data-property="og:site_name" data-content="Servo">
+  <custom-meta data-property="og:type" data-content="website">
+  <custom-meta data-property="og:image" data-content="/svg/servo-color-positive.svg">
+  <custom-meta data-property="og:image:alt" data-content="Servo logo">
+  <custom-meta data-property="og:logo" data-content="/svg/servo-symbol-color-no-container.svg">
+  <custom-meta data-property="og:url" data-content="/">
+
+  <custom-link data-rel="stylesheet" data-href="/css/style.css">
+  <custom-link data-rel="shortcut icon" data-href="/svg/servo-symbol-color-no-container.svg">
+  <custom-link data-href="https://unpkg.com/prismjs@1.20.0/themes/prism-okaidia.css" data-rel="stylesheet">
+  <custom-link data-rel="alternate" data-href="/blog/feed.xml" data-title="Servo Blog" data-type="application/atom+xml">
+</custom-head>
+
+  <custom-body data-class="is-page">
+    <custom-nav data-class="navbar" data-role="navigation" data-aria-label="main navigation">
+  <custom-div data-class="container">
+    <custom-div data-class="inner-container">
+      <custom-div data-class="navbar-brand">
+        <custom-a data-href="/">
+          <custom-img data-src="/svg/servo-color.svg" data-alt="Home">
+        </custom-a>
+
+        <custom-button data-id="hamburgerMenu" data-class="navbar-burger" data-data-target="navbar-menu" data-aria-label="menu" data-aria-expanded="false" data-type="button">
+          <custom-span data-aria-hidden="true"></custom-span>
+          <custom-span data-aria-hidden="true"></custom-span>
+          <custom-span data-aria-hidden="true"></custom-span>
+        </custom-button>
+      </custom-div>
+
+      <custom-div data-class="navbar-menu" data-id="navbar-menu">
+
+
+
+
+            <custom-div data-class="navbar-item has-dropdown is-hoverable">
+              <custom-a
+                data-class="navbar-link
+
+
+
+
+
+
+
+
+
+            "
+                data-href="#"
+
+              >
+                Get Involved
+              </custom-a>
+              <custom-div data-class="navbar-dropdown">
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/contributing/"
+
+                  >
+                    Contributing
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="https://book.servo.org"
+                     data-target="_blank"
+                  >
+                    Servo Book<custom-span data-style="font-size: 0.8em;display:inline-block;margin-left: 4px"><custom-i data-class="fa-solid fa-up-right-from-square"></custom-i></custom-span>
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/wpt/"
+
+                  >
+                    WPT pass rates
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/coc/"
+
+                  >
+                    Code of Conduct
+                  </custom-a>
+
+              </custom-div>
+            </custom-div>
+
+
+
+
+            <custom-a
+              data-class="navbar-item"
+              data-href="/download/"
+
+            >
+              Download
+            </custom-a>
+
+
+
+
+            <custom-a
+              data-class="navbar-item"
+              data-href="/blog/"
+
+            >
+              Blog
+            </custom-a>
+
+
+
+
+            <custom-a
+              data-class="navbar-item"
+              data-href="https://demo.servo.org/"
+               data-target="_blank"
+            >
+              Demos<custom-span data-style="font-size: 0.8em;display:inline-block;margin-left: 4px"><custom-i data-class="fa-solid fa-up-right-from-square"></custom-i></custom-span>
+            </custom-a>
+
+
+
+
+
+            <custom-div data-class="navbar-item has-dropdown is-hoverable">
+              <custom-a
+                data-class="navbar-link
+
+
+
+
+
+
+
+
+
+            "
+                data-href="#"
+
+              >
+                About
+              </custom-a>
+              <custom-div data-class="navbar-dropdown">
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/about/"
+
+                  >
+                    About Servo
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/made-with/"
+
+                  >
+                    Made with Servo
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="https://github.com/servo/project/blob/main/governance/README.md"
+                     data-target="_blank"
+                  >
+                    Governance<custom-span data-style="font-size: 0.8em;display:inline-block;margin-left: 4px"><custom-i data-class="fa-solid fa-up-right-from-square"></custom-i></custom-span>
+                  </custom-a>
+
+                  <custom-a
+                    data-class="navbar-item"
+                    data-href="/sponsorship/"
+
+                  >
+                    Sponsorship
+                  </custom-a>
+
+              </custom-div>
+            </custom-div>
+
+
+        <custom-div data-class="navbar-end">
+
+      <custom-a data-class="social-link is-github-color" data-title="GitHub" data-href="https://github.com/servo/servo">
+        <custom-span data-class="icon"><custom-i data-class="fab fa-github"></custom-i></custom-span>
+      </custom-a>
+
+      <custom-a data-class="social-link is-mastodon-color" data-title="Mastodon" data-href="https://floss.social/@servo" data-rel="me">
+        <custom-span data-class="icon"><custom-i data-class="fab fa-mastodon"></custom-i></custom-span>
+      </custom-a>
+
+      <custom-a data-class="social-link is-bluesky-color" data-title="Bluesky" data-href="https://bsky.app/profile/servo.org">
+        <custom-span data-class="icon"><custom-i data-class="fab fa-bluesky"></custom-i></custom-span>
+      </custom-a>
+
+      <custom-a data-class="social-link is-linkedin-color" data-title="LinkedIn" data-href="https://www.linkedin.com/company/servo-project/">
+        <custom-span data-class="icon"><custom-i data-class="fab fa-linkedin"></custom-i></custom-span>
+      </custom-a>
+
+</custom-div>
+
+      </custom-div>
+    </custom-div>
+  </custom-div>
+</custom-nav>
+
+<custom-script>
+  const hamburger = document.getElementById('hamburgerMenu');
+  const menu = document.getElementById('navbar-menu');
+
+  const toggleMenu = () => {
+    const isExpanded = hamburger.getAttribute('aria-expanded') === 'true';
+    hamburger.setAttribute('aria-expanded', !isExpanded);
+    menu.classList.toggle('is-active', isExpanded);
+  };
+
+  // Toggle on click
+  hamburger.addEventListener('click', toggleMenu);
+
+
+</custom-script>
+    <custom-main>
+      <custom-section data-class="section" data-id="homeHero" data-aria-label="What is Servo">
+  <custom-div data-class="hero-body">
+    <custom-div data-class="container">
+      <custom-img data-class="hero-img" data-src="/svg/servo-color-positive-no-container.svg" data-alt="Home">
+      <custom-h1 data-class="title center-text">
+        Servo aims to empower developers with a lightweight, high-performance alternative for embedding web technologies in applications.
+      </custom-h1>
+      <custom-div data-class="center-text cta-container">
+        <custom-a data-class="button--hero" data-href="/contributing/">Get Involved</custom-a>
+        <custom-a data-class="button--hero" data-target="_blank" data-href="https://opencollective.com/servo">Donate</custom-a>
+      </custom-div>
+    </custom-div>
+    <custom-div data-class="gradient-back">
+      <custom-img data-src="/img/home-servo-hero.png" data-alt="" />
+    </custom-div>
+  </custom-div>
+  <custom-div data-class="container">
+    <custom-p data-class="subtitle center-text cta-text">
+      Servo is a web browser rendering engine written in Rust, with WebGL and WebGPU support, and adaptable to desktop, mobile, and embedded applications.
+    </custom-p>
+    <custom-div data-class="features">
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-embeddable.png" data-alt="" />
+        <custom-p data-class="subtitle green">Embeddable</custom-p>
+        <custom-p>Servo provides a <custom-strong>WebView API</custom-strong> so other applications can use it to embed web content.</custom-p>
+      </custom-div>
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-memory-safe.png" data-alt="" />
+        <custom-p data-class="subtitle pink">Memory-safe</custom-p>
+        <custom-p>Servo takes advantage of the memory safety features of the <custom-strong>Rust programming language</custom-strong>, resulting in fewer vulnerabilities related to memory and concurrency.</custom-p>
+      </custom-div>
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-modular.png" data-alt="" />
+        <custom-p data-class="subtitle orange">Modular</custom-p>
+        <custom-p>Built with a modular architecture and powered by widely-used Rust crates, Servo makes it <custom-strong>easier to customize and adapt</custom-strong> a high-performance browser engine to your needs.</custom-p>
+      </custom-div>
+    </custom-div>
+    <custom-div data-class="features">
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-parallel.png" data-alt="" />
+        <custom-p data-class="subtitle yellow">Parallel</custom-p>
+        <custom-p>Servo uses concurrency and parallelism for <custom-strong>faster and more energy-efficient rendering of web content</custom-strong> on multi-core devices.</custom-p>
+      </custom-div>
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-multi-platform.png" data-alt="" />
+        <custom-p data-class="subtitle purple">Cross platform</custom-p>
+        <custom-p>Servo has <custom-strong>multi-platform support</custom-strong>, including Windows, macOS, Linux, Android, and OpenHarmony. In addition, Servo can be ported and adapted to <custom-strong>embedded devices</custom-strong>.</custom-p>
+      </custom-div>
+      <custom-div data-class="section-feature center-text">
+        <custom-img data-src="/img/home-independent.png" data-alt="" />
+        <custom-p data-class="subtitle mid-turquoise">Independent</custom-p>
+        <custom-p>Servo is a project managed with <custom-strong>open governance under Linux Foundation Europe</custom-strong> through our Technical Steering Committee.</custom-p>
+      </custom-div>
+    </custom-div>
+  </custom-div>
+</custom-section>
+<custom-section data-class="section container" data-aria-label="Latest posts from the Servo blog">
+  <custom-div data-class="blog">
+    <custom-div data-class="inner-container">
+    <custom-h2>Latest on the blog</custom-h2>
+    <custom-div data-class="blog-grid">
+            <custom-div data-class="card">
+              <custom-div data-class="card-content">
+                <custom-span data-class="tag">2026-10-09</custom-span>
+                <custom-p data-class="post-title"><custom-a data-href="/blog/2026/10/09/august-in-servo/">August in Servo: CSS Grid, text selection, and more!</custom-a></custom-p>
+                <custom-p data-class="post-summary">Plus accessibility and navigation improvements.</custom-p>
+              </custom-div>
+            </custom-div>
+            <custom-div data-class="card">
+              <custom-div data-class="card-content">
+                <custom-span data-class="tag">2026-09-15</custom-span>
+                <custom-p data-class="post-title"><custom-a data-href="/blog/2026/09/15/one-year-of-sponsorship/">Your Donations at Work: One Year of Sponsored Servo Development</custom-a></custom-p>
+                <custom-p data-class="post-summary">Looking back on Servo's first donation-funded role.</custom-p>
+              </custom-div>
+            </custom-div>
+            <custom-div data-class="card">
+              <custom-div data-class="card-content">
+                <custom-span data-class="tag">2026-08-31</custom-span>
+                <custom-p data-class="post-title"><custom-a data-href="/blog/2026/08/31/july-in-servo/">July in Servo: more platforms, faster canvas, web fonts in SVG, and more!</custom-a></custom-p>
+                <custom-p data-class="post-summary">Plus real world compat improvements on the DuckDuckGo and Gumroad websites.</custom-p>
+              </custom-div>
+            </custom-div>
+            <custom-div data-class="card">
+              <custom-div data-class="card-content">
+                <custom-span data-class="tag">2026-07-31</custom-span>
+                <custom-p data-class="post-title"><custom-a data-href="/blog/2026/07/31/june-in-servo/">June in Servo: real world compat, media queries, SharedWorker, and more!</custom-a></custom-p>
+                <custom-p data-class="post-summary">We now have a new way for you to help us write the monthly updates :)</custom-p>
+              </custom-div>
+            </custom-div>
+        <custom-a data-class="archive-nav" data-href="/blog/">View older posts</custom-a>
+      </custom-div>
+    </custom-div>
+  </custom-div>
+</custom-section>
+<custom-section data-id="acknowledgements" data-class="section container" data-aria-label="Partners and sponsors">
+  <custom-div data-class="inner-container acknowledgements">
+    <custom-h2>Acknowledgements</custom-h2>
+    <custom-div data-class="acknowledgements__container">
+      <custom-p>The Servo project is dependent on outside funding. We would like to thank our <custom-a data-href="/#partners">partnering organizations</custom-a> that have recently invested in Servo and our <custom-a data-href="/#sponsors">sponsors</custom-a> who have made donations to Servo through one of the <custom-a data-href="/sponsorship/">sponsorship tiers</custom-a>.</custom-p>
+      <custom-p>We are very grateful to all our patrons who contribute monetarily to support the project via <custom-a data-href="https://opencollective.com/servo">Open Collective</custom-a>, <custom-a data-href="https://github.com/sponsors/servo">GitHub</custom-a>, <custom-a data-href="https://thanks.dev/">thanks.dev</custom-a>, and <custom-a data-href="https://benevity.com/">Benevity</custom-a>.
+      </custom-p>
+    </custom-div>
+  </custom-div>
+  <custom-div data-class="sponsorship">
+  <custom-div data-class="inner-container">
+    <custom-div data-class="inner-container__logos">
+      <custom-h3 data-class="center-text">Partners</custom-h3>
+
+
+
+      <custom-ul data-id="partners" data-class="logos-home">
+
+        <custom-li>
+          <custom-a data-href="https://www.futurewei.com/open-source">
+
+            <custom-img data-src="/img/logos/futurewei.png" data-alt="Futurewei logo" data-class="partner-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li>
+          <custom-a data-href="https://www.igalia.com">
+
+            <custom-img data-src="/img/logos/igalia.png" data-alt="Igalia logo" data-class="partner-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li>
+          <custom-a data-href="https://nlnet.nl/project/Servo/">
+
+            <custom-img data-src="/img/logos/nlnet.png" data-alt="NLnet Foundation logo" data-class="partner-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li>
+          <custom-a data-href="https://www.sovereign.tech/tech/servo">
+
+            <custom-img data-src="/img/logos/sta.png" data-alt="Sovereign Tech Agency logo" data-class="partner-img" />
+
+          </custom-a>
+        </custom-li>
+
+      </custom-ul>
+
+    </custom-div>
+
+
+
+
+
+
+    <custom-div data-id="sponsors">
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <custom-div data-class="inner-container__logos">
+      <custom-h3 data-class="center-text">Bronze Sponsors</custom-h3>
+
+      <custom-ul data-class="logos-home">
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://mastodon.derg.nz/@Anthropy">
+
+            <custom-img data-src="/img/logos/anthropy.png" data-alt="Anthropy logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://byteful.com/?utm_source=servo&utm_medium=github-sponsor&utm_campaign=servo_sponsorship">
+
+            <custom-img data-src="/img/logos/byteful.svg" data-alt="Byteful logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://certs-r-us.com/servo">
+
+            <custom-img data-src="/img/logos/jenny-phil-porada.png" data-alt="Jenny & Phil Porada logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+
+
+            Josh Aas
+
+
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+
+
+            Julius Tens
+
+
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+
+
+            Niclas Overby
+
+
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://rxdb.info/?utm_source=spons&utm_medium=spons_servo&utm_campaign=servo">
+
+            <custom-img data-src="/img/logos/rxdb.svg" data-alt="RxDB logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://sandwich.net/servo">
+
+            <custom-img data-src="/img/logos/sandwich.png" data-alt="Sandwich logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://str4d.xyz/">
+
+            str4d
+
+          </custom-a>
+        </custom-li>
+
+        <custom-li data-class="sponsor-bronze">
+          <custom-a data-href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=servo">
+
+            <custom-img data-src="/img/logos/testmu.png" data-alt="TestMu AI logo" data-class="sponsor-img" />
+
+          </custom-a>
+        </custom-li>
+
+      </custom-ul>
+    </custom-div>
+
+    </custom-div>
+
+<custom-div data-class="acknowledgements">
+    <custom-div data-class="acknowledgements__container">
+        <custom-p>We would like to thank <custom-a data-href="https://github.com/">GitHub</custom-a>, <custom-a data-href="https://zulip.com/">Zulip</custom-a>, and <custom-a data-href="https://aws.amazon.com/opensource/">AWS Open Source</custom-a> for providing <custom-a data-href="/sponsorship/#infrastructure-sponsors">their services</custom-a> free of charge for use in the Servo project.</custom-p>
+        <custom-p>For information about how to sponsor the project, visit <custom-a data-href="/sponsorship/">the sponsorship page</custom-a>.</custom-p>
+      </custom-div>
+</custom-div>
+
+
+  </custom-div>
+</custom-div>
+
+<custom-style>
+
+.logos-home {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+  max-width: 64rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.partner-img, .sponsor-img {
+  max-height: 15rem;
+  margin-inline: auto;
+  padding: 3.25rem 2rem;
+}
+.sponsor-gold .sponsor-img {
+  max-height: 11rem;
+  padding: 2.25rem 1.5rem;
+}
+.sponsor-silver .sponsor-img {
+  max-height: 7rem;
+  padding: 1.75rem 1rem;
+}
+.sponsor-bronze .sponsor-img {
+  max-height: 5rem;
+  padding: 1.25rem 0.5rem;
+}
+
+.logos-home > li {
+  flex: 0 0 50%;
+  text-align: center;
+  font-size: var(--step-3);
+  font-weight: bold;
+}
+.logos-home > li.sponsor-gold {
+  flex: 0 0 33%;
+  font-size: var(--step-2);
+}
+.logos-home > li.sponsor-silver {
+  flex: 0 0 25%;
+  font-size: var(--step-1);
+}
+.logos-home > li.sponsor-bronze {
+  flex: 0 0 25%;
+  font-size: var(--step-0);
+}
+
+@media (max-width: 720px) {
+  .partner-img, .sponsor-img {
+    max-height: 9rem;
+    padding: 2rem 1rem;
+  }
+  .sponsor-gold .sponsor-img {
+    max-height: 7rem;
+    padding: 1.5rem 0.75rem;
+  }
+  .sponsor-silver .sponsor-img {
+    max-height: 5rem;
+    padding: 1rem 0.5rem;
+  }
+  .sponsor-bronze .sponsor-img {
+    max-height: 3rem;
+    padding: 0.5rem 0.25rem;
+  }
+
+  .logos-home > li {
+    flex: 0 0 90%;
+  }
+  .logos-home > li.sponsor-gold {
+    flex: 0 0 50%;
+  }
+
+  .logos-home > li:first-child {
+    padding-top: 1.25rem;
+  }
+}
+
+.inner-container__logos {
+  border: 1px solid var(--midturquoise);
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.25rem;
+  border-radius: 32px;
+}
+
+.inner-container__logos h3 {
+  border-bottom: 1px solid var(--midturquoise);
+  padding-top: var(--12px);
+  padding-bottom: var(--12px);
+  font-size: var(--step-1);
+}
+
+</custom-style>
+
+</custom-section>
+
+<custom-style>
+
+.acknowledgements {
+  text-align: center;
+}
+
+.acknowledgements__container {
+  width: 100%;
+}
+
+.acknowledgements__container p {
+  margin: 0 auto;
+  padding-bottom: 1.25rem;
+}
+
+
+</custom-style>
+    </custom-main>
+    <custom-div data-class="contact" data-aria-label="Contact information">
+    <custom-div data-class="container">
+        <custom-div data-class="inner-container two-column">
+            <custom-div data-class="column">
+                <custom-h2>Contact</custom-h2>
+            </custom-div>
+            <custom-div data-class="column">
+                <custom-ul>
+                    <custom-li><custom-a data-class="footer-link" data-href="https://servo.zulipchat.com/">Zulip chat</custom-a></custom-li>
+                    <custom-li><custom-a data-class="footer-link" data-href="https://github.com/servo/servo/discussions">GitHub discussions</custom-a></custom-li>
+                    <custom-li><custom-a data-class="footer-link" data-href="/cdn-cgi/l/email-protection#375e59515877445245415819584550">Email: <custom-span data-class="__cf_email__" data-data-cfemail="1c75727a735c6f796e6a7332736e7b">[email&#160;protected]</custom-span></custom-a></custom-li>
+                    <custom-li><custom-a data-class="footer-link" data-href="https://floss.social/@servo">Mastodon</custom-a></custom-li>
+                    <custom-li><custom-a data-class="footer-link" data-href="https://bsky.app/profile/servo.org">Bluesky</custom-a></custom-li>
+                </custom-ul>
+            </custom-div>
+        </custom-div>
+    </custom-div>
+</custom-div>
+    <custom-footer>
+     <custom-div data-class="footer">
+  <custom-div data-class="container">
+    <custom-div data-class="two-column inner-container">
+      <custom-div data-class="column">
+        <custom-div data-class="logo"><custom-a data-href="https://linuxfoundation.eu"><custom-img data-src="/img/lf-europe-logo.png" data-alt="Linux Foundation Europe logo" data-width="250"></custom-a></custom-div>
+        <custom-p>&copy; 2026 The Servo Project Developers</custom-p>
+        <custom-p>Copyright &copy; Servo is a project of <custom-a data-class="footer-link" data-href="https://linuxfoundation.eu/">Linux Foundation Europe</custom-a>.</custom-p>
+        <custom-p>For website terms of use, trademark policy and other project policies please see <custom-a data-class="footer-link" data-href="https://lfprojects.org">https://lfprojects.org</custom-a>.</custom-p>
+        <custom-p>The source code for this website can be found at <custom-a data-class="footer-link" data-href="https://github.com/servo/servo.org">https://github.com/servo/servo.org</custom-a>.</custom-p>
+      </custom-div>
+      <custom-div data-class="column code-of-conduct">
+        <custom-a data-class="footer-link" data-href="/coc/">Code of Conduct</custom-a>
+      </custom-div>
+    </custom-div>
+  </custom-div>
+</custom-div>
+
+<custom-script data-data-cfasync="false" data-src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></custom-script><custom-script>
+  (() => {
+    const burger = document.querySelector(".navbar-burger");
+    const menu = document.querySelector(".navbar-menu");
+    burger.onclick = () => {
+      burger.classList.toggle('is-active');
+      menu.classList.toggle('is-active');
+    };
+  })();
+</custom-script>
+
+    </custom-footer>
+  </custom-body>
+</custom-html>
