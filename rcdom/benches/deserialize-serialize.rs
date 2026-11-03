@@ -73,6 +73,8 @@ fn paths() -> Vec<PathBuf> {
         make_path("small-fragment.html"),
         make_path("tiny-fragment.html"),
         make_path("strong.html"),
+        make_path("servo.org.html"),
+        make_path("servo.org-custom.html"),
     ]
 }
 
