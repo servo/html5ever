@@ -42,6 +42,9 @@ mod data;
 mod rules;
 mod types;
 
+/// This is the same limit used in Gecko and Blink.
+const NESTING_LIMIT: usize = 512;
+
 /// Tree builder options, with an impl for Default.
 #[derive(Copy, Clone)]
 pub struct TreeBuilderOpts {
@@ -434,7 +437,7 @@ where
         }
 
         // Foster parenting
-        let open_elems = self.open_elems.borrow();
+        let open_elems = self.open_elems_with_limit();
         let mut iter = open_elems.iter().rev().peekable();
         while let Some(elem) = iter.next() {
             if self.html_elem_named(elem, local_name!("template")) {
@@ -681,7 +684,7 @@ where
     //§ END
 
     fn current_node(&self) -> Ref<'_, Handle> {
-        Ref::map(self.open_elems.borrow(), |elems| {
+        Ref::map(self.open_elems_with_limit(), |elems| {
             elems.last().expect("no current element")
         })
     }
@@ -742,8 +745,7 @@ where
             };
 
             let Some(fmt_elem_stack_index) = self
-                .open_elems
-                .borrow()
+                .open_elems_with_limit()
                 .iter()
                 .rposition(|n| self.sink.same_node(n, &fmt_elem))
             else {
@@ -768,8 +770,7 @@ where
 
             // 9.
             let maybe_furthest_block = self
-                .open_elems
-                .borrow()
+                .open_elems_with_limit()
                 .iter()
                 .enumerate()
                 .skip(fmt_elem_stack_index)
@@ -907,8 +908,7 @@ where
             // 19.
             self.remove_from_stack(&fmt_elem);
             let new_furthest_block_index = self
-                .open_elems
-                .borrow()
+                .open_elems_with_limit()
                 .iter()
                 .position(|n| self.sink.same_node(n, &furthest_block))
                 .expect("furthest block missing from open element stack");
@@ -935,10 +935,28 @@ where
         elem
     }
 
+    /// Several algorithms implemented in this parser have quadratic complexity,
+    /// including the adoption agency, which generates an O(n**2) DOM.
+    ///
+    /// Following the example set by Gecko and Blink,
+    /// html5ever uses a limit of 512, but its implementation works by
+    /// popping the stack until it has at most 512 elements before pushing
+    /// another element onto it. Gecko implements this limit at every spot
+    /// where the open_elems stack is accessed, so this should be compatible.
+    /// <https://hg-edge.mozilla.org/mozreview/gecko/rev/8fdccc218ebcef56f49f9e5eb0904190ab72a478#index_header>
+    fn open_elems_with_limit(&self) -> Ref<'_, [Handle]> {
+        Ref::map(self.open_elems.borrow(), |open_elems| {
+            if open_elems.len() > NESTING_LIMIT {
+                &open_elems[..NESTING_LIMIT]
+            } else {
+                &open_elems[..]
+            }
+        })
+    }
+
     fn remove_from_stack(&self, elem: &Handle) {
         let position = self
-            .open_elems
-            .borrow()
+            .open_elems_with_limit()
             .iter()
             .rposition(|x| self.sink.same_node(elem, x));
         if let Some(position) = position {
@@ -1086,7 +1104,7 @@ where
         TagSet: Fn(ExpandedName) -> bool,
         Pred: Fn(Handle) -> bool,
     {
-        for node in self.open_elems.borrow().iter().rev() {
+        for node in self.open_elems_with_limit().iter().rev() {
             if pred(node.clone()) {
                 return true;
             }
@@ -1263,7 +1281,7 @@ where
 
     // https://html.spec.whatwg.org/multipage/#reset-the-insertion-mode-appropriately
     fn reset_insertion_mode(&self) -> InsertionMode {
-        let open_elems = self.open_elems.borrow();
+        let open_elems = self.open_elems_with_limit();
         for (i, mut node) in open_elems.iter().enumerate().rev() {
             let last = i == 0usize;
             let context_elem = self.context_elem.borrow();
