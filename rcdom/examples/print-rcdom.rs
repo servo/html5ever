@@ -53,7 +53,16 @@ fn walk(indent: usize, handle: &Handle) {
             println!(">");
         },
 
-        NodeData::ProcessingInstruction { .. } => unreachable!(),
+        NodeData::ProcessingInstruction {
+            ref target,
+            ref contents,
+        } => {
+            println!(
+                "<?{} {}?>",
+                target.escape_default(),
+                contents.escape_default()
+            )
+        },
     }
 
     for child in node.children.borrow().iter() {
