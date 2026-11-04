@@ -29,13 +29,18 @@ use markup5ever::{ns, small_char_set, TokenizerResult};
 use std::borrow::Cow::{self, Borrowed};
 use std::cell::{Cell, RefCell, RefMut};
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::mem;
 
 pub use crate::buffer_queue::{BufferQueue, FromSet, NotFromSet, SetResult};
 use crate::macros::{time, unwrap_or_return};
 use crate::tendril::StrTendril;
 use crate::{Attribute, LocalName, QualName, SmallCharSet};
+
+/// Tags with at least this many attributes are checked for duplicate attributes with a hash
+/// set instead of a linear scan. Blink uses the same value
+/// (`kMinimumNumAttributesToDedupWithHash`).
+const MIN_ATTRS_TO_DEDUP_WITH_HASH: usize = 10;
 
 mod char_ref;
 mod interface;
@@ -155,6 +160,10 @@ pub struct Tokenizer<Sink> {
     /// Current tag attributes.
     current_tag_attrs: RefCell<Vec<Attribute>>,
 
+    /// Names of the current tag's attributes, kept once it has enough of
+    /// them for hashing to pay off; empty before.
+    current_tag_attr_names: RefCell<HashSet<LocalName>>,
+
     /// Current attribute name.
     current_attr_name: RefCell<StrTendril>,
 
@@ -207,6 +216,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
             current_tag_self_closing: Cell::new(false),
             current_tag_had_duplicate_attributes: Cell::new(false),
             current_tag_attrs: RefCell::new(vec![]),
+            current_tag_attr_names: RefCell::new(HashSet::new()),
             current_attr_name: RefCell::new(StrTendril::new()),
             current_attr_value: RefCell::new(StrTendril::new()),
             current_comment: RefCell::new(StrTendril::new()),
@@ -513,6 +523,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         self.current_tag_self_closing.set(false);
         self.current_tag_had_duplicate_attributes.set(false);
         *self.current_tag_attrs.borrow_mut() = vec![];
+        self.current_tag_attr_names.borrow_mut().clear();
     }
 
     fn create_tag(&self, kind: TagKind, c: char) {
@@ -543,16 +554,8 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
         }
         let name = LocalName::from(&**self.current_attr_name.borrow());
         self.current_attr_name.borrow_mut().clear();
-        // Check for a duplicate attribute.
         // FIXME: the spec says we should error as soon as the name is finished.
-        let dup = {
-            self.current_tag_attrs
-                .borrow()
-                .iter()
-                .any(|a| a.name.local == name)
-        };
-
-        if dup {
+        if self.is_duplicate_attribute(&name) {
             self.emit_error(Borrowed("Duplicate attribute"));
             self.current_tag_had_duplicate_attributes.set(true);
             self.current_attr_value.borrow_mut().clear();
@@ -564,6 +567,21 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
                 value: mem::take(&mut self.current_attr_value.borrow_mut()),
             });
         }
+    }
+
+    /// Returns whether the current tag already has an attribute called `name`.
+    ///
+    /// Tags with many attributes keep their names in a set, which this adds `name` to.
+    fn is_duplicate_attribute(&self, name: &LocalName) -> bool {
+        let attrs = self.current_tag_attrs.borrow();
+        if attrs.len() < MIN_ATTRS_TO_DEDUP_WITH_HASH {
+            return attrs.iter().any(|a| a.name.local == *name);
+        }
+        let mut names = self.current_tag_attr_names.borrow_mut();
+        if names.is_empty() {
+            names.extend(attrs.iter().map(|a| a.name.local.clone()));
+        }
+        !names.insert(name.clone())
     }
 
     fn emit_current_doctype(&self) {
@@ -3108,7 +3126,7 @@ impl<Sink: TokenSink> Tokenizer<Sink> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod test {
-    use super::option_push; // private items
+    use super::{option_push, MIN_ATTRS_TO_DEDUP_WITH_HASH}; // private items
     use crate::tendril::{SliceExt, StrTendril};
 
     use super::{TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
@@ -3288,5 +3306,114 @@ mod test {
         ];
         let results = tokenize(vector, opts);
         assert_eq!(results, expected);
+    }
+
+    // TagsAndErrors implements the TokenSink trait. It is used for testing the
+    // duplicate attribute check, which needs the parse errors that LinesMatch
+    // panics on. The tags and errors vectors collect the start tags and the
+    // parse errors.
+    #[derive(Default)]
+    struct TagsAndErrors {
+        tags: RefCell<Vec<Tag>>,
+        errors: RefCell<Vec<String>>,
+    }
+
+    impl TokenSink for TagsAndErrors {
+        type Handle = ();
+
+        fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+            match token {
+                TagToken(tag) if tag.kind == StartTag => self.tags.borrow_mut().push(tag),
+                ParseError(error) => self.errors.borrow_mut().push(error.into_owned()),
+                _ => {},
+            }
+            TokenSinkResult::Continue
+        }
+    }
+
+    fn tokenize_tags(input: &str) -> TagsAndErrors {
+        let tok = Tokenizer::new(TagsAndErrors::default(), TokenizerOpts::default());
+        let buffer = BufferQueue::default();
+        buffer.push_back(StrTendril::from(input));
+        let _ = tok.feed(&buffer);
+        tok.end();
+        tok.sink
+    }
+
+    // Returns " a0=0 a1=1 ..." with `n` attributes.
+    fn numbered_attrs(prefix: &str, n: usize) -> String {
+        (0..n).map(|i| format!(" {prefix}{i}={i}")).collect()
+    }
+
+    fn attr(tag: &Tag, index: usize) -> (&str, &str) {
+        let attr = &tag.attrs[index];
+        (&attr.name.local, &attr.value)
+    }
+
+    // Enough attributes for the tokenizer to look their names up in a set.
+    const MANY_ATTRS: usize = MIN_ATTRS_TO_DEDUP_WITH_HASH + 2;
+
+    #[test]
+    fn duplicate_of_an_attribute_before_the_threshold() {
+        // a0 comes before the threshold, so once a tag reaches it, the
+        // duplicate is found among the names put into the set when it is
+        // filled. Checked with one attribute below, at and above the threshold.
+        for n in MIN_ATTRS_TO_DEDUP_WITH_HASH - 1..=MIN_ATTRS_TO_DEDUP_WITH_HASH + 1 {
+            let input = format!("<p{} a0=dup>", numbered_attrs("a", n));
+            let result = tokenize_tags(&input);
+
+            let tags = result.tags.borrow();
+            assert_eq!(tags[0].attrs.len(), n);
+            assert_eq!(attr(&tags[0], 0), ("a0", "0"));
+            assert!(tags[0].had_duplicate_attributes);
+            assert_eq!(*result.errors.borrow(), vec!["Duplicate attribute"]);
+        }
+    }
+
+    #[test]
+    fn duplicate_of_an_attribute_after_the_threshold() {
+        // id comes after the threshold, so its duplicate is found among the
+        // names added to the set one by one.
+        let input = format!("<p{} id=first id=second>", numbered_attrs("a", MANY_ATTRS));
+        let result = tokenize_tags(&input);
+
+        let tags = result.tags.borrow();
+        assert_eq!(tags[0].attrs.len(), MANY_ATTRS + 1);
+        assert_eq!(attr(&tags[0], MANY_ATTRS), ("id", "first"));
+        assert!(tags[0].had_duplicate_attributes);
+        assert_eq!(*result.errors.borrow(), vec!["Duplicate attribute"]);
+    }
+
+    #[test]
+    fn no_duplicates_on_a_next_tag_with_the_same_attributes() {
+        // The set is cleared for each tag, so the second tag doesn't find the
+        // first tag's names.
+        let attrs = numbered_attrs("a", MANY_ATTRS);
+        let input = format!("<p{attrs}><p{attrs}>");
+        let result = tokenize_tags(&input);
+
+        let tags = result.tags.borrow();
+        assert_eq!(tags.len(), 2);
+        assert_eq!(tags[1].attrs.len(), MANY_ATTRS);
+        assert!(!tags[1].had_duplicate_attributes);
+        assert!(result.errors.borrow().is_empty());
+    }
+
+    #[test]
+    fn duplicate_on_a_next_tag_with_other_attributes() {
+        let input = format!(
+            "<p{}><p{} b0=dup>",
+            numbered_attrs("a", MANY_ATTRS),
+            numbered_attrs("b", MANY_ATTRS)
+        );
+        let result = tokenize_tags(&input);
+
+        let tags = result.tags.borrow();
+        assert!(!tags[0].had_duplicate_attributes);
+        // The set is filled again for each tag, so the second tag finds its own
+        // duplicate.
+        assert_eq!(tags[1].attrs.len(), MANY_ATTRS);
+        assert!(tags[1].had_duplicate_attributes);
+        assert_eq!(*result.errors.borrow(), vec!["Duplicate attribute"]);
     }
 }
