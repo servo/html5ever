@@ -8,14 +8,14 @@ use std::path::PathBuf;
 use criterion::{BatchSize, Criterion};
 
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
-use html5ever::{tendril::*, TokenizerResult};
+use html5ever::{tendril::*, SourcePosition, TokenizerResult};
 
 struct Sink;
 
 impl TokenSink for Sink {
     type Handle = ();
 
-    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _position: SourcePosition) -> TokenSinkResult<()> {
         // Don't use the token, but make sure we don't get
         // optimized out entirely.
         std::hint::black_box(token);

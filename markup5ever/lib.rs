@@ -50,6 +50,6 @@ mod util {
     pub mod smallcharset;
 }
 
-pub use interface::{Attribute, ExpandedName, QualName, TokenizerResult};
+pub use interface::{Attribute, ExpandedName, QualName, SourcePosition, TokenizerResult};
 pub use util::smallcharset::SmallCharSet;
 pub use util::*;

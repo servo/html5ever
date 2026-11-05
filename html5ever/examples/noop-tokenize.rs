@@ -16,6 +16,7 @@ use std::io;
 
 use html5ever::tendril::*;
 use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Tokenizer};
+use html5ever::SourcePosition;
 
 /// In our case, our sink only contains a tokens vector
 struct Sink(RefCell<Vec<Token>>);
@@ -24,7 +25,7 @@ impl TokenSink for Sink {
     type Handle = ();
 
     /// Each processed token will be handled by this method
-    fn process_token(&self, token: Token, _line_number: u64) -> TokenSinkResult<()> {
+    fn process_token(&self, token: Token, _position: SourcePosition) -> TokenSinkResult<()> {
         self.0.borrow_mut().push(token);
         TokenSinkResult::Continue
     }
