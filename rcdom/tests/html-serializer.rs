@@ -57,6 +57,9 @@ impl Serialize for Tokens {
                     }
                 },
                 Token::CommentToken(chars) => serializer.write_comment(chars)?,
+                Token::ProcessingInstructionToken(pi) => {
+                    serializer.write_processing_instruction(&pi.target, &pi.data)?
+                },
                 Token::CharacterTokens(chars) => serializer.write_text(chars)?,
                 Token::NullCharacterToken | &Token::EOFToken => {},
                 Token::ParseError(e) => println!("parse error: {e:#?}"),
@@ -242,6 +245,24 @@ test!(attr_ns_1, r#"<svg xmlns="bleh"></svg>"#);
 test!(attr_ns_2, r#"<svg xmlns:foo="bleh"></svg>"#);
 test!(attr_ns_3, r#"<svg xmlns:xlink="bleh"></svg>"#);
 test!(attr_ns_4, r#"<svg xlink:href="bleh"></svg>"#);
+
+test!(processing_instruction_1, r#"<?target>"#, r#"<?target ?>"#);
+
+test!(processing_instruction_2, r#"<?target?>"#, r#"<?target ?>"#);
+
+test!(processing_instruction_3, r#"<?target >"#, r#"<?target ?>"#);
+
+test!(
+    processing_instruction_4,
+    r#"<?target ??>"#,
+    r#"<?target ??>"#
+);
+
+test!(
+    processing_instruction_5,
+    r#"<?target  ?>"#,
+    r#"<?target ?>"#
+);
 
 test_no_parse!(malformed_tokens, r#"foo</div><div>"#);
 

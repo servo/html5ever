@@ -284,6 +284,6 @@ impl<Wr: Write> Serializer for HtmlSerializer<Wr> {
         self.writer.write_all(target.as_bytes())?;
         self.writer.write_all(b" ")?;
         self.writer.write_all(data.as_bytes())?;
-        self.writer.write_all(b">")
+        self.writer.write_all(b"?>")
     }
 }
